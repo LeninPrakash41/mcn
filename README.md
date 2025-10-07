@@ -1,6 +1,12 @@
-# MCN (Macincode [aka] Micro Scripting Language)
+# MCN Programming Language
 
-🚀 **The Future of AI-Powered Development** - A revolutionary scripting language that bridges the gap between natural language and code, designed for the AI era.
+🚀 **The Industry Standard for AI-Powered Business Automation** - A modern scripting language designed for the AI era, combining simplicity with powerful integration capabilities.
+
+[![GitHub Stars](https://img.shields.io/github/stars/zeroappz/mcn?style=social)](https://github.com/zeroappz/mcn)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MCN Version](https://img.shields.io/badge/MCN-v2.0-blue.svg)](https://github.com/zeroappz/mcn/releases)
+[![Package Registry](https://img.shields.io/badge/Registry-registry.mcnlang.org-green.svg)](https://registry.mcnlang.org)
+[![Discord](https://img.shields.io/discord/123456789?label=Discord&logo=discord)](https://discord.gg/mcn-lang)
 
 ## 🌟 Vision
 
