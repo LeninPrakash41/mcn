@@ -1,0 +1,24 @@
+// Test comments and functions
+/* This is a 
+   block comment */
+
+function greet()
+    log "Hello from function!"
+
+function add(x, y)
+    var result = x + y
+    return result
+
+// Test the functions
+log "Testing functions with comments"
+greet()
+
+var sum = add(10, 5)
+log "Sum: " + sum
+
+// Test if-else
+var score = 85
+if score >= 80
+    log "Good score!"
+else
+    log "Need improvement"

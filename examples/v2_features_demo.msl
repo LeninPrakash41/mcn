@@ -1,0 +1,73 @@
+// MSL Version 2.0 Features Demo
+
+log "=== MSL 2.0 Features Demo ==="
+
+// 1. Package System
+log "1. Testing Package System"
+use "db"
+use "ai"
+
+// 2. Type Hints (Optional)
+log "2. Setting up typed variables"
+type "user_name" "string"
+type "user_age" "number"
+type "is_active" "boolean"
+
+var user_name = "Alice Johnson"
+var user_age = 28
+var is_active = true
+
+log "User: " + user_name + ", Age: " + user_age
+
+// 3. Enhanced AI with Context
+log "3. Enhanced AI with Context"
+var department = "Engineering"
+var project = "MSL Development"
+
+var ai_analysis = ai("Analyze the user profile and suggest role assignments")
+log "AI Analysis: " + ai_analysis
+
+// 4. Package Functions
+log "4. Using Package Functions"
+var sentiment_result = analyze_sentiment("I love working with MSL!")
+log "Sentiment Analysis: " + sentiment_result
+
+var summary = summarize("MSL is a powerful scripting language designed for Gen-Z developers. It provides AI integration, database operations, and workflow automation in a simple, human-readable syntax.")
+log "AI Summary: " + summary
+
+// 5. Parallel Tasks (Async)
+log "5. Creating Parallel Tasks"
+task "email_task" "trigger" "https://api.example.com/send-email" {"to": user_name}
+task "log_task" "query" "INSERT INTO activity_log (user, action) VALUES (?, ?)" (user_name, "profile_updated")
+
+log "Tasks created, waiting for completion..."
+var task_results = await "email_task" "log_task"
+log "Task Results: " + task_results
+
+// 6. Advanced Database Operations
+log "6. Advanced Database Operations"
+var user_records = [
+    {"name": "Bob Smith", "age": 25, "dept": "Marketing"},
+    {"name": "Carol White", "age": 30, "dept": "Sales"}
+]
+
+var batch_result = batch_insert("users", user_records)
+log "Batch Insert Result: " + batch_result
+
+// 7. HTTP Package Functions
+log "7. HTTP Package Functions"
+use "http"
+var api_data = get_json("https://jsonplaceholder.typicode.com/posts/1")
+log "API Data: " + api_data
+
+// 8. Error Handling with Context
+log "8. Error Handling with Enhanced Context"
+try
+    var invalid_age = "not_a_number"
+    type "test_var" "number"
+    var test_var = invalid_age
+catch
+    log "Type Error Caught: " + error
+    log "Continuing with default values..."
+
+log "=== MSL 2.0 Demo Complete ==="

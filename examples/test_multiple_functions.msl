@@ -1,0 +1,15 @@
+function first()
+    log "First function"
+
+function second()
+    log "Second function"
+
+log "Between functions"
+
+function third()
+    log "Third function"
+
+log "After all functions"
+first()
+second()
+third()

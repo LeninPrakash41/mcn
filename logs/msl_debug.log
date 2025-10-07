@@ -1,0 +1,2052 @@
+2025-10-06 15:20:36,516 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 15:20:36,516 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 15:20:36,518 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 15:20:36,518 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:27:25,935 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:27:25.934182",
+  "error_type": "SYNTAX_ERROR",
+  "message": "Unexpected token: /",
+  "context": {
+    "code_snippet": "// User-Defined Functions in MSL\n\n// Simple function with no parameters\nfunction greet()\n    log \"Hello from MSL function!\"\n\n// Function with parameters\nfunction add(x, y)\n    var result = x + y\n    l...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.0008656978607177734,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 675, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 223, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 248, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 326, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 346, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 349, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 357, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 365, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 373, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 381, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 389, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 401, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 404, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 472, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: /\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 675, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 223, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 248, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 326, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 346, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 349, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 357, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 365, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 373, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 381, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 389, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 401, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 404, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 472, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: /\n"
+}
+2025-10-06 20:30:57,124 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:30:57.122564",
+  "error_type": "SYNTAX_ERROR",
+  "message": "Unexpected token: else",
+  "context": {
+    "code_snippet": "// User-Defined Functions in MSL\n\n// Simple function with no parameters\nfunction greet()\n    log \"Hello from MSL function!\"\n\n// Function with parameters\nfunction add(x, y)\n    var result = x + y\n    l...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.0014815330505371094,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 680, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 228, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 253, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 331, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 351, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 354, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 362, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 370, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 378, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 386, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 394, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 406, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 409, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 477, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: else\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 680, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 228, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 253, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 331, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 351, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 354, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 362, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 370, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 378, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 386, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 394, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 406, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 409, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 477, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: else\n"
+}
+2025-10-06 20:41:38,699 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:41:38.698049",
+  "error_type": "SYNTAX_ERROR",
+  "message": "Unexpected token: /",
+  "context": {
+    "code_snippet": "#!/usr/bin/env python3\n\nimport sys\nimport os\nsys.path.append(os.path.dirname(os.path.abspath(__file__)))\n\nfrom msl_interpreter import MSLInterpreter\n\n# Test basic functionality\ninterpreter = MSLInterp...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.0005393028259277344,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 710, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 357, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 381, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 384, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 392, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 400, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 408, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 416, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 424, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 434, in _unary\n    right = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 436, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 439, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 507, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: /\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\test_debug.py",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 710, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 357, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 381, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 384, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 392, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 400, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 408, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 416, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 424, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 434, in _unary\n    right = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 436, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 439, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 507, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: /\n"
+}
+2025-10-06 20:44:09,100 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:44:09,100 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:44:09,101 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:44:09,101 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:44:09,101 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:44:09,101 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:44:09,102 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:44:09,102 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.0716190338134766, "details": {"statements": 1, "variables": 1, "functions": 15}}
+2025-10-06 20:44:09,102 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.0716190338134766, "details": {"statements": 1, "variables": 1, "functions": 15}}
+2025-10-06 20:44:09,103 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:44:09,103 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:44:09,103 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:44:09,103 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:44:09,104 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:44:09,105 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 1.7724037170410156, "details": {"statements": 1, "variables": 1, "functions": 15}}
+2025-10-06 20:44:09,105 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 1.7724037170410156, "details": {"statements": 1, "variables": 1, "functions": 15}}
+2025-10-06 20:46:30,162 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:46:30,162 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:46:30,162 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:46:30,162 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:46:30,163 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:46:30,163 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:46:30,163 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:46:30,163 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:46:30,164 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:46:30,164 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:46:30,164 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 1.9741058349609375, "details": {"statements": 1, "variables": 1, "functions": 16}}
+2025-10-06 20:46:30,164 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 1.9741058349609375, "details": {"statements": 1, "variables": 1, "functions": 16}}
+2025-10-06 20:47:39,915 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:47:39,915 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:47:39,915 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:47:39,915 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:47:39,916 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:47:39,916 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:47:39,916 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:47:39,916 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Function 'test' defined
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Function 'test' defined
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:47:39,917 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:47:39,918 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 3.0150413513183594, "details": {"statements": 2, "variables": 1, "functions": 16}}
+2025-10-06 20:47:39,918 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 3.0150413513183594, "details": {"statements": 2, "variables": 1, "functions": 16}}
+2025-10-06 20:49:25,675 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:49:25,675 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:49:25,676 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:49:25,676 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:49:25,676 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:49:25,676 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:49:25,677 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Function 'test' defined
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Function 'test' defined
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,678 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,679 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Calling function: test
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Calling function: test
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Function test completed successfully
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Function test completed successfully
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 20:49:25,680 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 20:49:25,681 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,681 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:49:25,681 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,681 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:49:25,682 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 20:49:25,682 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 20:49:25,682 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.697177886962891, "details": {"statements": 6, "variables": 1, "functions": 16}}
+2025-10-06 20:49:25,682 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.697177886962891, "details": {"statements": 6, "variables": 1, "functions": 16}}
+2025-10-06 20:49:46,693 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:49:46,693 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:49:46,694 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:49:46,694 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:49:46,694 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:49:46,694 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:49:46,695 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:49:46,696 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:49:46,697 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:49:46.697079",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'x' is not defined",
+  "context": {
+    "variable_name": "x",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": []
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 20:49:46,702 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:49:46.700371",
+  "error_type": "VARIABLE_DECLARATION_ERROR",
+  "message": "Failed to declare variable 'result'",
+  "context": {
+    "variable_name": "result",
+    "expression": {
+      "type": "binary",
+      "left": {
+        "type": "variable",
+        "name": "x"
+      },
+      "operator": "+",
+      "right": {
+        "type": "variable",
+        "name": "y"
+      }
+    },
+    "error": "Undefined variable: x."
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1111, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1108, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:49:46,708 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:49:46.707384",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: x.",
+  "context": {
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1111, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1108, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:49:46,717 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:49:46.716820",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 4: Undefined variable: x.",
+  "context": {
+    "statement_index": 4,
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1111, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1108, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:49:46,729 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:49:46.728358",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: x.",
+  "context": {
+    "code_snippet": "function greet()\n    echo \"Hello from MSL function!\"\n\nfunction add(x, y)\n    var result = x + y\n    log \"Adding \" + x + \" + \" + y + \" = \" + result\n    return result\n\nlog \"Testing user functions\"\n\ngree...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.03416776657104492,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1111, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1108, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1111, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1108, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:50:59,268 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:50:59,268 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:50:59,269 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:50:59,269 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:50:59,270 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:50:59,271 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:50:59,271 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:50:59,272 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.271311",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: ",
+  "context": {
+    "statement_type": "return_statement",
+    "statement": {
+      "type": "return_statement",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1036, in _execute_statement\n    raise ReturnValue(value)\nmsl_interpreter.ReturnValue\n"
+}
+2025-10-06 20:50:59,276 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:50:59,276 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:50:59,277 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:50:59,277 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:50:59,277 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:50:59,277 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:50:59,278 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.277559",
+  "error_type": "EXPRESSION_EVALUATION_ERROR",
+  "message": "Error evaluating expression: can only concatenate str (not \"int\") to str",
+  "context": {
+    "expression_type": "binary",
+    "expression": {
+      "type": "binary",
+      "left": {
+        "type": "literal",
+        "value": "Result: "
+      },
+      "operator": "+",
+      "right": {
+        "type": "variable",
+        "name": "result"
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:50:59,286 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.285515",
+  "error_type": "EXPRESSION_EVALUATION_ERROR",
+  "message": "Error evaluating expression: can only concatenate str (not \"int\") to str",
+  "context": {
+    "expression_type": "call",
+    "expression": {
+      "type": "call",
+      "callee": {
+        "type": "variable",
+        "name": "log"
+      },
+      "arguments": [
+        {
+          "type": "binary",
+          "left": {
+            "type": "literal",
+            "value": "Result: "
+          },
+          "operator": "+",
+          "right": {
+            "type": "variable",
+            "name": "result"
+          }
+        }
+      ]
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:50:59,293 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.292291",
+  "error_type": "EXPRESSION_ERROR",
+  "message": "Error evaluating expression: can only concatenate str (not \"int\") to str",
+  "context": {
+    "expression": {
+      "type": "call",
+      "callee": {
+        "type": "variable",
+        "name": "log"
+      },
+      "arguments": [
+        {
+          "type": "binary",
+          "left": {
+            "type": "literal",
+            "value": "Result: "
+          },
+          "operator": "+",
+          "right": {
+            "type": "variable",
+            "name": "result"
+          }
+        }
+      ]
+    },
+    "available_variables": [
+      "request_data",
+      "result"
+    ]
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1049, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:50:59,302 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.299857",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: can only concatenate str (not \"int\") to str",
+  "context": {
+    "statement_type": "expression_statement",
+    "statement": {
+      "type": "expression_statement",
+      "expression": {
+        "type": "call",
+        "callee": {
+          "type": "variable",
+          "name": "log"
+        },
+        "arguments": [
+          {
+            "type": "binary",
+            "left": {
+              "type": "literal",
+              "value": "Result: "
+            },
+            "operator": "+",
+            "right": {
+              "type": "variable",
+              "name": "result"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1049, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:50:59,310 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.309127",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 3: can only concatenate str (not \"int\") to str",
+  "context": {
+    "statement_index": 3,
+    "statement_type": "expression_statement",
+    "statement": {
+      "type": "expression_statement",
+      "expression": {
+        "type": "call",
+        "callee": {
+          "type": "variable",
+          "name": "log"
+        },
+        "arguments": [
+          {
+            "type": "binary",
+            "left": {
+              "type": "literal",
+              "value": "Result: "
+            },
+            "operator": "+",
+            "right": {
+              "type": "variable",
+              "name": "result"
+            }
+          }
+        ]
+      }
+    },
+    "variables": [
+      "request_data",
+      "result"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_add.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1049, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:50:59,320 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:50:59.319530",
+  "error_type": "RUNTIME_ERROR",
+  "message": "can only concatenate str (not \"int\") to str",
+  "context": {
+    "code_snippet": "function add(x, y)\n    return x + y\n\nvar result = add(5, 3)\nlog \"Result: \" + result",
+    "variables": [
+      "request_data",
+      "result"
+    ],
+    "execution_time": 0.04935860633850098,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1049, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_add.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1049, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1182, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1118, in _evaluate_expression\n    return left + right\n           ~~~~~^~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n"
+}
+2025-10-06 20:51:21,401 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:51:21,401 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:51:21,402 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:51:21,402 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:51:21,403 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:51:21,405 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:51:21.404139",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: ",
+  "context": {
+    "statement_type": "return_statement",
+    "statement": {
+      "type": "return_statement",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1036, in _execute_statement\n    raise ReturnValue(value)\nmsl_interpreter.ReturnValue\n"
+}
+2025-10-06 20:51:21,409 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:51:21,409 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:51:21,410 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:51:21,411 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:51:21,411 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:51:21,411 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:51:21,411 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:51:21,412 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 10.238409042358398, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:51:21,412 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 10.238409042358398, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:52:22,955 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:52:22,955 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:52:22,956 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:52:22,956 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:52:22,956 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:52:22,956 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:52:22,957 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:52:22,958 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 20:52:22,959 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:52:22,959 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 20:52:22,959 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:52:22,959 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:52:22,960 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 4.45246696472168, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:52:22,960 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 4.45246696472168, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:52:48,299 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:52:48,299 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:52:48,300 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:52:48,301 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:52:48,302 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:52:48,303 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:52:48,303 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:52:48,303 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 3.847837448120117, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:52:48,303 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 3.847837448120117, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:53:06,490 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:53:06,490 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:53:06,491 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:53:06,491 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:53:06,491 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:53:06,491 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:53:06,492 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:53:06,493 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:53:06,494 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:53:06.494149",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'x' is not defined",
+  "context": {
+    "variable_name": "x",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": []
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 20:53:06,498 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:53:06.497284",
+  "error_type": "VARIABLE_DECLARATION_ERROR",
+  "message": "Failed to declare variable 'result'",
+  "context": {
+    "variable_name": "result",
+    "expression": {
+      "type": "binary",
+      "left": {
+        "type": "variable",
+        "name": "x"
+      },
+      "operator": "+",
+      "right": {
+        "type": "variable",
+        "name": "y"
+      }
+    },
+    "error": "Undefined variable: x."
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:53:06,504 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:53:06.503522",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: x.",
+  "context": {
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:53:06,511 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:53:06.510120",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 4: Undefined variable: x.",
+  "context": {
+    "statement_index": 4,
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:53:06,516 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:53:06.515902",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: x.",
+  "context": {
+    "code_snippet": "function greet()\n    echo \"Hello from MSL function!\"\n\nfunction add(x, y)\n    var result = x + y\n    echo \"Adding \" + x + \" + \" + y + \" = \" + result\n    return result\n\necho \"Testing user functions\"\n\ngr...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.024669408798217773,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:54:43,688 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:54:43,688 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:54:43,689 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:54:43,689 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:54:43,689 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:54:43,689 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:54:43,690 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:54:43,691 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:54:43,692 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:54:43.692086",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'x' is not defined",
+  "context": {
+    "variable_name": "x",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": []
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 20:54:43,696 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:54:43.695200",
+  "error_type": "VARIABLE_DECLARATION_ERROR",
+  "message": "Failed to declare variable 'result'",
+  "context": {
+    "variable_name": "result",
+    "expression": {
+      "type": "binary",
+      "left": {
+        "type": "variable",
+        "name": "x"
+      },
+      "operator": "+",
+      "right": {
+        "type": "variable",
+        "name": "y"
+      }
+    },
+    "error": "Undefined variable: x."
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:54:43,703 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:54:43.702494",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: x.",
+  "context": {
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:54:43,710 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:54:43.708995",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 4: Undefined variable: x.",
+  "context": {
+    "statement_index": 4,
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "result",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "x"
+        },
+        "operator": "+",
+        "right": {
+          "type": "variable",
+          "name": "y"
+        }
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:54:43,719 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:54:43.718868",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: x.",
+  "context": {
+    "code_snippet": "function greet()\n    echo \"Hello from MSL function!\"\n\nfunction add(x, y)\n    var result = x + y\n    echo \"Testing user functions\"\n    return result\n\ngreet()\n\nvar sum = add(10, 5)\necho \"Sum result: \" +...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.02915334701538086,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 741, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 798, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1115, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1112, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: x.\n"
+}
+2025-10-06 20:56:15,766 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:56:15,766 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:56:15,767 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:56:15,767 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:56:15,767 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:56:15,767 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:56:15,768 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:56:15,769 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:56:15,770 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:56:15,771 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:15.771118",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'result' is not defined",
+  "context": {
+    "variable_name": "result",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 20:56:15,776 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:15.774484",
+  "error_type": "RETURN_ERROR",
+  "message": "Error in return statement: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "return_expression": {
+      "type": "variable",
+      "name": "result"
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1044, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:15,780 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:15.779950",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "statement_type": "return_statement",
+    "statement": {
+      "type": "return_statement",
+      "value": {
+        "type": "variable",
+        "name": "result"
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1044, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:15,788 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:15.786906",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 5: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "statement_index": 5,
+    "statement_type": "return_statement",
+    "statement": {
+      "type": "return_statement",
+      "value": {
+        "type": "variable",
+        "name": "result"
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1044, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:15,795 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:15.794780",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "code_snippet": "function greet()\n    echo \"Hello from MSL function!\"\n\nfunction add(x, y)\n    var result = x + y\n    echo \"Testing user functions\"\n    return result\n\ngreet()\n\nvar sum = add(10, 5)\necho \"Sum result: \" +...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.027301311492919922,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1044, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\simple_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1044, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:34,413 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:56:34,413 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:56:34,413 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:56:34,413 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Function 'test_vars' defined
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Function 'test_vars' defined
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:56:34,414 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:56:34,415 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:34.415054",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'result' is not defined",
+  "context": {
+    "variable_name": "result",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 20:56:34,419 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:34.417772",
+  "error_type": "EXPRESSION_ERROR",
+  "message": "Error evaluating expression: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "expression": {
+      "type": "call",
+      "callee": {
+        "type": "variable",
+        "name": "echo"
+      },
+      "arguments": [
+        {
+          "type": "binary",
+          "left": {
+            "type": "literal",
+            "value": "Inside function: "
+          },
+          "operator": "+",
+          "right": {
+            "type": "variable",
+            "name": "result"
+          }
+        }
+      ]
+    },
+    "available_variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1058, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1196, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1125, in _evaluate_expression\n    right = self._evaluate_expression(expr[\"right\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:34,426 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:34.425343",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "statement_type": "expression_statement",
+    "statement": {
+      "type": "expression_statement",
+      "expression": {
+        "type": "call",
+        "callee": {
+          "type": "variable",
+          "name": "echo"
+        },
+        "arguments": [
+          {
+            "type": "binary",
+            "left": {
+              "type": "literal",
+              "value": "Inside function: "
+            },
+            "operator": "+",
+            "right": {
+              "type": "variable",
+              "name": "result"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1058, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1196, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1125, in _evaluate_expression\n    right = self._evaluate_expression(expr[\"right\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:34,436 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:34.434908",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 2: Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "statement_index": 2,
+    "statement_type": "expression_statement",
+    "statement": {
+      "type": "expression_statement",
+      "expression": {
+        "type": "call",
+        "callee": {
+          "type": "variable",
+          "name": "echo"
+        },
+        "arguments": [
+          {
+            "type": "binary",
+            "left": {
+              "type": "literal",
+              "value": "Inside function: "
+            },
+            "operator": "+",
+            "right": {
+              "type": "variable",
+              "name": "result"
+            }
+          }
+        ]
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\test_var_in_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1058, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1196, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1125, in _evaluate_expression\n    right = self._evaluate_expression(expr[\"right\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:56:34,447 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:56:34.445099",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: result. Did you mean: request_data?",
+  "context": {
+    "code_snippet": "function test_vars(x, y)\n    var result = x + y\n    echo \"Inside function: \" + result\n    return result\n\nvar answer = test_vars(10, 5)\necho \"Final answer: \" + answer",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.030492067337036133,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1058, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1196, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1125, in _evaluate_expression\n    right = self._evaluate_expression(expr[\"right\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\test_var_in_function.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 750, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1058, in _execute_statement\n    return self._evaluate_expression(stmt[\"expression\"], quiet)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1196, in _evaluate_expression\n    args = [self._evaluate_expression(arg, quiet) for arg in expr[\"arguments\"]]\n            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1125, in _evaluate_expression\n    right = self._evaluate_expression(expr[\"right\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1121, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: result. Did you mean: request_data?\n"
+}
+2025-10-06 20:58:44,411 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:58:44,411 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:58:44,411 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:58:44,411 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:58:44,412 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:58:44,412 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:58:44,412 - INFO - log_execution_step - STEP: Function 'test_vars' defined
+2025-10-06 20:58:44,412 - INFO - log_execution_step - STEP: Function 'test_vars' defined
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Calling function: test_vars
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Calling function: test_vars
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:58:44,413 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Function test_vars completed successfully
+2025-10-06 20:58:44,414 - INFO - log_execution_step - STEP: Function test_vars completed successfully
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Variable declared: answer
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Variable declared: answer
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:44,415 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:44,416 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:58:44,416 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:58:44,416 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.248069763183594, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:58:44,416 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.248069763183594, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 20:58:52,018 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:58:52,018 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:58:52,018 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:58:52,018 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:58:52,019 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:58:52,020 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:58:52,021 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:52,022 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-06 20:58:52,023 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:58:52,023 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 20:58:52,023 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.237817764282227, "details": {"statements": 4, "variables": 2, "functions": 17}}
+2025-10-06 20:58:52,023 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.237817764282227, "details": {"statements": 4, "variables": 2, "functions": 17}}
+2025-10-06 20:59:14,199 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:59:14,199 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 20:59:14,200 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:59:14,200 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 20:59:14,207 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T20:59:14.204872",
+  "error_type": "SYNTAX_ERROR",
+  "message": "Expected ')' after expression. Got: ,",
+  "context": {
+    "code_snippet": "// User-Defined Functions in MSL\n\n// Simple function with no parameters\nfunction greet()\n    log \"Hello from MSL function!\"\n\n// Function with parameters\nfunction add(x, y)\n    var result = x + y\n    l...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.002643585205078125,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 752, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 269, in _statement\n    return self._function_declaration()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 371, in _function_declaration\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 255, in _statement\n    return self._if_statement()\n           ~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 286, in _if_statement\n    else_branch = self._block()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 408, in _block\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 395, in _expression_statement\n    args.append(self._expression())\n                ~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 423, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 426, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 434, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 442, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 450, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 458, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 466, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 478, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 481, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 522, in _primary\n    self._consume(TokenType.RPAREN, \"Expected ')' after expression\")\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 580, in _consume\n    raise Exception(f\"{message}. Got: {self._current().value}\")\nException: Expected ')' after expression. Got: ,\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 752, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 269, in _statement\n    return self._function_declaration()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 371, in _function_declaration\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 255, in _statement\n    return self._if_statement()\n           ~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 286, in _if_statement\n    else_branch = self._block()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 408, in _block\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 395, in _expression_statement\n    args.append(self._expression())\n                ~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 423, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 426, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 434, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 442, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 450, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 458, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 466, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 478, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 481, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 522, in _primary\n    self._consume(TokenType.RPAREN, \"Expected ')' after expression\")\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 580, in _consume\n    raise Exception(f\"{message}. Got: {self._current().value}\")\nException: Expected ')' after expression. Got: ,\n"
+}
+2025-10-06 21:00:51,237 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:00:51,237 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:00:51,238 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:00:51,238 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:00:51,240 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:00:51,241 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:00:51,242 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:00:51,242 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:00:51,242 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:00:51.242300",
+  "error_type": "UNDEFINED_VARIABLE",
+  "message": "Variable 'price' is not defined",
+  "context": {
+    "variable_name": "price",
+    "available_variables": [
+      "request_data"
+    ],
+    "suggestions": []
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": null
+}
+2025-10-06 21:00:51,247 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:00:51.246130",
+  "error_type": "VARIABLE_DECLARATION_ERROR",
+  "message": "Failed to declare variable 'discount'",
+  "context": {
+    "variable_name": "discount",
+    "expression": {
+      "type": "binary",
+      "left": {
+        "type": "variable",
+        "name": "price"
+      },
+      "operator": "*",
+      "right": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "discount_percent"
+        },
+        "operator": "/",
+        "right": {
+          "type": "literal",
+          "value": 100
+        }
+      }
+    },
+    "error": "Undefined variable: price."
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 828, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1145, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1142, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: price.\n"
+}
+2025-10-06 21:00:51,256 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:00:51.255757",
+  "error_type": "STATEMENT_ERROR",
+  "message": "Unexpected error in statement execution: Undefined variable: price.",
+  "context": {
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "discount",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "price"
+        },
+        "operator": "*",
+        "right": {
+          "type": "binary",
+          "left": {
+            "type": "variable",
+            "name": "discount_percent"
+          },
+          "operator": "/",
+          "right": {
+            "type": "literal",
+            "value": 100
+          }
+        }
+      }
+    }
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 828, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1145, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1142, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: price.\n"
+}
+2025-10-06 21:00:51,264 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:00:51.263163",
+  "error_type": "STATEMENT_EXECUTION_ERROR",
+  "message": "Error in statement 4: Undefined variable: price.",
+  "context": {
+    "statement_index": 4,
+    "statement_type": "var_declaration",
+    "statement": {
+      "type": "var_declaration",
+      "name": "discount",
+      "value": {
+        "type": "binary",
+        "left": {
+          "type": "variable",
+          "name": "price"
+        },
+        "operator": "*",
+        "right": {
+          "type": "binary",
+          "left": {
+            "type": "variable",
+            "name": "discount_percent"
+          },
+          "operator": "/",
+          "right": {
+            "type": "literal",
+            "value": 100
+          }
+        }
+      }
+    },
+    "variables": [
+      "request_data"
+    ]
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 771, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 828, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1145, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1142, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: price.\n"
+}
+2025-10-06 21:00:51,274 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:00:51.273324",
+  "error_type": "REFERENCE_ERROR",
+  "message": "Undefined variable: price.",
+  "context": {
+    "code_snippet": "// User-Defined Functions in MSL\n\n// Simple function with no parameters\nfunction greet()\n    log \"Hello from MSL function!\"\n\n// Function with parameters\nfunction add(x, y)\n    var result = x + y\n    l...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.03492021560668945,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 771, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 828, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1145, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1142, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: price.\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 771, in execute\n    result = self._execute_statement(stmt, quiet=quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 828, in _execute_statement\n    value = self._evaluate_expression(stmt[\"value\"])\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1145, in _evaluate_expression\n    left = self._evaluate_expression(expr[\"left\"], quiet)\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 1142, in _evaluate_expression\n    raise Exception(f\"Undefined variable: {name}.{suggestion}\")\nException: Undefined variable: price.\n"
+}
+2025-10-06 21:02:59,802 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:02:59,802 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:02:59,802 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:02:59,802 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:02:59,803 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-06 21:02:59,804 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:02:59,805 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:02:59,806 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:02:59,806 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:02:59,806 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:02:59,806 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:02:59,806 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 4.5166015625, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 21:02:59,806 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 4.5166015625, "details": {"statements": 3, "variables": 2, "functions": 16}}
+2025-10-06 21:03:06,545 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:03:06,545 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:03:06,546 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:03:06,546 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:03:06,552 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-06T21:03:06.551365",
+  "error_type": "RUNTIME_ERROR",
+  "message": "'MSLParser' object has no attribute '_peek'",
+  "context": {
+    "code_snippet": "// User-Defined Functions in MSL\n\n// Simple function with no parameters\nfunction greet()\n    log \"Hello from MSL function!\"\n\n// Function with parameters\nfunction add(x, y)\n    var result = x + y\n    l...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.0016474723815917969,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 772, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 269, in _statement\n    return self._function_declaration()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 356, in _function_declaration\n    self._peek() == '(' and\n    ^^^^^^^^^^\nAttributeError: 'MSLParser' object has no attribute '_peek'\n"
+  },
+  "line_number": null,
+  "file_path": "d:\\msl\\msl\\examples\\user_functions.msl",
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 772, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 269, in _statement\n    return self._function_declaration()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\msl_interpreter.py\", line 356, in _function_declaration\n    self._peek() == '(' and\n    ^^^^^^^^^^\nAttributeError: 'MSLParser' object has no attribute '_peek'\n"
+}
+2025-10-06 21:04:09,362 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:04:09,362 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:04:09,363 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:04:09,363 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:04:09,365 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:04:09,365 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:04:09,365 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:04:09,365 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:04:09,366 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:04:09,367 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:04:09,368 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:04:09,368 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:04:09,368 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.405830383300781, "details": {"statements": 4, "variables": 1, "functions": 19}}
+2025-10-06 21:04:09,368 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.405830383300781, "details": {"statements": 4, "variables": 1, "functions": 19}}
+2025-10-06 21:04:55,534 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:04:55,534 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:04:55,535 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:04:55,535 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:04:55,537 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:04:55,538 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:04:55,539 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:04:55,539 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:04:55,539 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:04:55,539 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:04:55,539 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.557537078857422, "details": {"statements": 4, "variables": 1, "functions": 19}}
+2025-10-06 21:04:55,539 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 5.557537078857422, "details": {"statements": 4, "variables": 1, "functions": 19}}
+2025-10-06 21:07:45,657 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:07:45,657 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Function 'first' defined
+2025-10-06 21:07:45,658 - INFO - log_execution_step - STEP: Function 'first' defined
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Function 'second' defined
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Function 'second' defined
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Function 'third' defined
+2025-10-06 21:07:45,659 - INFO - log_execution_step - STEP: Function 'third' defined
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Calling function: first
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Calling function: first
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,660 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Function first completed successfully
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Function first completed successfully
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Calling function: second
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Calling function: second
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,661 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function second completed successfully
+2025-10-06 21:07:45,662 - INFO - log_execution_step - STEP: Function second completed successfully
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Calling function: third
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Calling function: third
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,663 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,664 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:07:45,665 - INFO - log_execution_step - STEP: Function third completed successfully
+2025-10-06 21:07:45,665 - INFO - log_execution_step - STEP: Function third completed successfully
+2025-10-06 21:07:45,665 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 21:07:45,665 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 21:07:45,665 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 8.153915405273438, "details": {"statements": 6, "variables": 1, "functions": 18}}
+2025-10-06 21:07:45,665 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 8.153915405273438, "details": {"statements": 6, "variables": 1, "functions": 18}}
+2025-10-06 21:08:38,507 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:08:38,507 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:08:38,508 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:08:38,508 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:08:38,509 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:08:38,509 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:08:38,509 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:08:38,509 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:08:38,510 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:08:38,510 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:08:38,510 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.4514198303222656, "details": {"statements": 1, "variables": 1, "functions": 16}}
+2025-10-06 21:08:38,510 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.4514198303222656, "details": {"statements": 1, "variables": 1, "functions": 16}}
+2025-10-06 21:09:19,233 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:09:19,233 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:09:19,233 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:09:19,233 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:09:19,234 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:09:19,234 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:09:19,234 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:09:19,234 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Function 'next_function' defined
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Function 'next_function' defined
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:09:19,235 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-06 21:09:19,236 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-06 21:09:19,237 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:09:19,238 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:09:19,239 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:09:19,240 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.898403167724609, "details": {"statements": 4, "variables": 2, "functions": 17}}
+2025-10-06 21:09:19,240 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.898403167724609, "details": {"statements": 4, "variables": 2, "functions": 17}}
+2025-10-06 21:09:46,017 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:09:46,017 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-06 21:09:46,018 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:09:46,018 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:09:46,020 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:09:46,021 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Function 'analyze_sentiment' defined
+2025-10-06 21:09:46,022 - INFO - log_execution_step - STEP: Function 'analyze_sentiment' defined
+2025-10-06 21:09:46,023 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 21:09:46,023 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-06 21:09:46,023 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,023 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Calling function: greet
+2025-10-06 21:09:46,024 - INFO - log_execution_step - STEP: Calling function: greet
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Function greet completed successfully
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Function greet completed successfully
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Statement 7 executed
+2025-10-06 21:09:46,025 - INFO - log_execution_step - STEP: Statement 7 executed
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,026 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Statement 8 executed
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Statement 8 executed
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,027 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Statement 9 executed
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Statement 9 executed
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-06 21:09:46,028 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,029 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Variable declared: discounted_price
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Variable declared: discounted_price
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Statement 10 executed
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Statement 10 executed
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,030 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Statement 11 executed
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Statement 11 executed
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,031 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,032 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Variable declared: user_status
+2025-10-06 21:09:46,033 - INFO - log_execution_step - STEP: Variable declared: user_status
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Statement 12 executed
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Statement 12 executed
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Statement 13 executed
+2025-10-06 21:09:46,034 - INFO - log_execution_step - STEP: Statement 13 executed
+2025-10-06 21:09:46,035 - INFO - log_execution_step - STEP: Calling function: analyze_sentiment
+2025-10-06 21:09:46,035 - INFO - log_execution_step - STEP: Calling function: analyze_sentiment
+2025-10-06 21:09:46,035 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,035 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,036 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,036 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Calling function: ai
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Calling function: ai
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Function ai completed successfully
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Function ai completed successfully
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Variable declared: analysis
+2025-10-06 21:09:46,037 - INFO - log_execution_step - STEP: Variable declared: analysis
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Function analyze_sentiment completed successfully
+2025-10-06 21:09:46,038 - INFO - log_execution_step - STEP: Function analyze_sentiment completed successfully
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Variable declared: sentiment
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Variable declared: sentiment
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Statement 14 executed
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Statement 14 executed
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,039 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-06 21:09:46,040 - INFO - log_execution_step - STEP: Statement 15 executed
+2025-10-06 21:09:46,040 - INFO - log_execution_step - STEP: Statement 15 executed
+2025-10-06 21:09:46,040 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 22.668838500976562, "details": {"statements": 15, "variables": 5, "functions": 20}}
+2025-10-06 21:09:46,040 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 22.668838500976562, "details": {"statements": 15, "variables": 5, "functions": 20}}
+2025-10-07 11:56:56,320 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:56:56,320 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:56:56,320 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:56:56,320 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:57:14,643 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:57:14,643 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:57:14,643 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:57:14,643 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:57:14,645 - INFO - log_execution_step - STEP: Calling function: test_func
+2025-10-07 11:57:14,645 - INFO - log_execution_step - STEP: Calling function: test_func
+2025-10-07 11:57:14,645 - INFO - log_execution_step - STEP: Function test_func completed successfully
+2025-10-07 11:57:14,645 - INFO - log_execution_step - STEP: Function test_func completed successfully
+2025-10-07 11:59:26,569 - ERROR - log_msl_error - {
+  "timestamp": "2025-10-07T11:59:26.567965",
+  "error_type": "SYNTAX_ERROR",
+  "message": "Unexpected token: =",
+  "context": {
+    "code_snippet": "\n    var name = \"MSL Developer\"\n    var version = \"2.0\"\n    \n    echo(\"Welcome to MSL \" + version + \"!\")\n    echo(\"Hello, \" + name)\n    \n    var numbers = [1, 2, 3, 4, 5]\n    var sum = 0\n    \n    for ...",
+    "variables": [
+      "request_data"
+    ],
+    "execution_time": 0.0004894733428955078,
+    "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 813, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 257, in _statement\n    return self._for_statement()\n           ~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 293, in _for_statement\n    body = self._block()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 458, in _block\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 427, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 473, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 476, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 484, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 492, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 500, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 508, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 516, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 528, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 531, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 610, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: =\n"
+  },
+  "line_number": null,
+  "file_path": null,
+  "traceback": "Traceback (most recent call last):\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 813, in execute\n    statements = parser.parse()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 246, in parse\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 257, in _statement\n    return self._for_statement()\n           ~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 293, in _for_statement\n    body = self._block()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 458, in _block\n    stmt = self._statement()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 273, in _statement\n    return self._expression_statement()\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 427, in _expression_statement\n    expr = self._expression()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 473, in _expression\n    return self._or()\n           ~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 476, in _or\n    expr = self._and()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 484, in _and\n    expr = self._equality()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 492, in _equality\n    expr = self._comparison()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 500, in _comparison\n    expr = self._term()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 508, in _term\n    expr = self._factor()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 516, in _factor\n    expr = self._unary()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 528, in _unary\n    return self._call()\n           ~~~~~~~~~~^^\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 531, in _call\n    expr = self._primary()\n  File \"d:\\msl\\msl\\core_engine\\msl_interpreter.py\", line 610, in _primary\n    raise Exception(f\"Unexpected token: {self._current().value}\")\nException: Unexpected token: =\n"
+}
+2025-10-07 11:59:53,711 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,711 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,712 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: calculate_tax
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: calculate_tax
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function calculate_tax completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function calculate_tax completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: format_currency
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: format_currency
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function format_currency completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function format_currency completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,715 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 11:59:53,716 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 11:59:53,716 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:00:43,765 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:00:43,765 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:00:43,765 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:00:43,765 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:00:43,766 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:00:43,767 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:00:43,768 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.6330947875976562, "details": {"statements": 6, "variables": 4, "functions": 15}}
+2025-10-07 13:00:43,768 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 2.6330947875976562, "details": {"statements": 6, "variables": 4, "functions": 15}}
+2025-10-07 13:26:35,009 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:26:35,009 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:26:35,010 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:26:35,011 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:35,012 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:26:35,013 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:35,014 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:35,015 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:35,015 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:35,015 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:26:35,015 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:26:35,015 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.201505661010742, "details": {"statements": 6, "variables": 4, "functions": 15}}
+2025-10-07 13:26:35,015 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.201505661010742, "details": {"statements": 6, "variables": 4, "functions": 15}}
+2025-10-07 13:26:55,906 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:26:55,906 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:26:55,907 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:26:55,907 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:26:55,907 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:26:55,907 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Variable declared: name
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:26:55,908 - INFO - log_execution_step - STEP: Variable declared: out
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:55,909 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:55,910 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:26:55,910 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:26:55,910 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:26:55,910 - INFO - log_execution_step - STEP: Variable declared: age
+2025-10-07 13:26:55,911 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:26:55,911 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:26:55,911 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:26:55,911 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Calling function: echo
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Function echo completed successfully
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:26:55,912 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:26:55,913 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.650209426879883, "details": {"statements": 5, "variables": 4, "functions": 15}}
+2025-10-07 13:26:55,913 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 6.650209426879883, "details": {"statements": 5, "variables": 4, "functions": 15}}
+2025-10-07 13:45:22,116 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:45:22,116 - INFO - log_execution_step - STEP: Starting MSL execution
+2025-10-07 13:45:22,117 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:45:22,117 - INFO - log_execution_step - STEP: Tokenization completed
+2025-10-07 13:45:22,118 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:45:22,118 - INFO - log_execution_step - STEP: Parsing completed
+2025-10-07 13:45:22,118 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-07 13:45:22,118 - INFO - log_execution_step - STEP: Function 'greet' defined
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Statement 1 executed
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Function 'add' defined
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:45:22,119 - INFO - log_execution_step - STEP: Statement 2 executed
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Function 'calculate_discount' defined
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Statement 3 executed
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Function 'process_user_data' defined
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:45:22,120 - INFO - log_execution_step - STEP: Statement 4 executed
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Function 'analyze_sentiment' defined
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Function 'analyze_sentiment' defined
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Statement 5 executed
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,121 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,122 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,122 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,122 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:45:22,122 - INFO - log_execution_step - STEP: Statement 6 executed
+2025-10-07 13:45:22,123 - INFO - log_execution_step - STEP: Calling function: greet
+2025-10-07 13:45:22,123 - INFO - log_execution_step - STEP: Calling function: greet
+2025-10-07 13:45:22,123 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,123 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Function greet completed successfully
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Function greet completed successfully
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Statement 7 executed
+2025-10-07 13:45:22,124 - INFO - log_execution_step - STEP: Statement 7 executed
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Calling function: add
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Variable declared: result
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,125 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Function add completed successfully
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-07 13:45:22,126 - INFO - log_execution_step - STEP: Variable declared: sum
+2025-10-07 13:45:22,127 - INFO - log_execution_step - STEP: Statement 8 executed
+2025-10-07 13:45:22,127 - INFO - log_execution_step - STEP: Statement 8 executed
+2025-10-07 13:45:22,127 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,127 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Statement 9 executed
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Statement 9 executed
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-07 13:45:22,128 - INFO - log_execution_step - STEP: Calling function: calculate_discount
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Variable declared: discount
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Variable declared: final_price
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,129 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,130 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,130 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,130 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-07 13:45:22,130 - INFO - log_execution_step - STEP: Function calculate_discount completed successfully
+2025-10-07 13:45:22,131 - INFO - log_execution_step - STEP: Variable declared: discounted_price
+2025-10-07 13:45:22,131 - INFO - log_execution_step - STEP: Variable declared: discounted_price
+2025-10-07 13:45:22,132 - INFO - log_execution_step - STEP: Statement 10 executed
+2025-10-07 13:45:22,132 - INFO - log_execution_step - STEP: Statement 10 executed
+2025-10-07 13:45:22,132 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,132 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,133 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,133 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,133 - INFO - log_execution_step - STEP: Statement 11 executed
+2025-10-07 13:45:22,133 - INFO - log_execution_step - STEP: Statement 11 executed
+2025-10-07 13:45:22,134 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-07 13:45:22,134 - INFO - log_execution_step - STEP: Calling function: process_user_data
+2025-10-07 13:45:22,134 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,134 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,135 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,135 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,135 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:45:22,135 - INFO - log_execution_step - STEP: If condition evaluated
+2025-10-07 13:45:22,136 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,136 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Variable declared: status
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-07 13:45:22,137 - INFO - log_execution_step - STEP: Function process_user_data completed successfully
+2025-10-07 13:45:22,138 - INFO - log_execution_step - STEP: Variable declared: user_status
+2025-10-07 13:45:22,138 - INFO - log_execution_step - STEP: Variable declared: user_status
+2025-10-07 13:45:22,139 - INFO - log_execution_step - STEP: Statement 12 executed
+2025-10-07 13:45:22,139 - INFO - log_execution_step - STEP: Statement 12 executed
+2025-10-07 13:45:22,140 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,140 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,141 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,141 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,141 - INFO - log_execution_step - STEP: Statement 13 executed
+2025-10-07 13:45:22,141 - INFO - log_execution_step - STEP: Statement 13 executed
+2025-10-07 13:45:22,142 - INFO - log_execution_step - STEP: Calling function: analyze_sentiment
+2025-10-07 13:45:22,142 - INFO - log_execution_step - STEP: Calling function: analyze_sentiment
+2025-10-07 13:45:22,142 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,142 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,144 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,144 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,144 - INFO - log_execution_step - STEP: Calling function: ai
+2025-10-07 13:45:22,144 - INFO - log_execution_step - STEP: Calling function: ai
+2025-10-07 13:45:22,145 - INFO - log_execution_step - STEP: Function ai completed successfully
+2025-10-07 13:45:22,145 - INFO - log_execution_step - STEP: Function ai completed successfully
+2025-10-07 13:45:22,145 - INFO - log_execution_step - STEP: Variable declared: analysis
+2025-10-07 13:45:22,145 - INFO - log_execution_step - STEP: Variable declared: analysis
+2025-10-07 13:45:22,146 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,146 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,149 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,149 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,150 - INFO - log_execution_step - STEP: Function analyze_sentiment completed successfully
+2025-10-07 13:45:22,150 - INFO - log_execution_step - STEP: Function analyze_sentiment completed successfully
+2025-10-07 13:45:22,151 - INFO - log_execution_step - STEP: Variable declared: sentiment
+2025-10-07 13:45:22,151 - INFO - log_execution_step - STEP: Variable declared: sentiment
+2025-10-07 13:45:22,153 - INFO - log_execution_step - STEP: Statement 14 executed
+2025-10-07 13:45:22,153 - INFO - log_execution_step - STEP: Statement 14 executed
+2025-10-07 13:45:22,153 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,153 - INFO - log_execution_step - STEP: Calling function: log
+2025-10-07 13:45:22,154 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,154 - INFO - log_execution_step - STEP: Function log completed successfully
+2025-10-07 13:45:22,156 - INFO - log_execution_step - STEP: Statement 15 executed
+2025-10-07 13:45:22,156 - INFO - log_execution_step - STEP: Statement 15 executed
+2025-10-07 13:45:22,156 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 40.73643684387207, "details": {"statements": 15, "variables": 5, "functions": 20}}
+2025-10-07 13:45:22,156 - INFO - log_performance - PERFORMANCE: {"operation": "MSL execution", "duration_ms": 40.73643684387207, "details": {"statements": 15, "variables": 5, "functions": 20}}

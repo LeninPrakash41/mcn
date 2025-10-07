@@ -1,0 +1,38 @@
+// MSL Database CRUD Example
+
+log "=== MSL Database CRUD Demo ==="
+
+// Create a new user
+var user_name = "John Doe"
+var user_email = "john@example.com"
+var user_age = 28
+
+log "Creating user: " + user_name
+
+query("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", (user_name, user_email, user_age))
+
+// Read users
+log "Fetching all users:"
+var users = query("SELECT * FROM users")
+log users
+
+// Update user
+log "Updating user age to 30"
+query("UPDATE users SET age = 30 WHERE email = ?", (user_email,))
+
+// Read updated user
+var updated_user = query("SELECT * FROM users WHERE email = ?", (user_email,))
+log "Updated user: " + updated_user
+
+// Create a task for the user
+var task_title = "Complete MSL documentation"
+var task_desc = "Write comprehensive documentation for MSL language"
+
+log "Creating task: " + task_title
+query("INSERT INTO tasks (title, description, user_id) VALUES (?, ?, 1)", (task_title, task_desc))
+
+// Read tasks with user info
+var tasks_with_users = query("SELECT t.title, t.description, t.status, u.name as user_name FROM tasks t JOIN users u ON t.user_id = u.id")
+log "Tasks with users: " + tasks_with_users
+
+log "=== Database CRUD Demo Complete ==="

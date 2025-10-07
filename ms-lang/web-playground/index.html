@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSL Playground</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e1e; color: #fff; }
+        
+        .header { background: #2d2d30; padding: 1rem; border-bottom: 1px solid #3e3e42; }
+        .header h1 { color: #fff; font-size: 1.5rem; }
+        
+        .container { display: flex; height: calc(100vh - 70px); }
+        .editor-panel { flex: 1; display: flex; flex-direction: column; }
+        .output-panel { width: 400px; background: #252526; border-left: 1px solid #3e3e42; display: flex; flex-direction: column; }
+        
+        .toolbar { background: #2d2d30; padding: 0.5rem; border-bottom: 1px solid #3e3e42; }
+        .btn { background: #0e639c; color: white; border: none; padding: 0.5rem 1rem; border-radius: 3px; cursor: pointer; margin-right: 0.5rem; }
+        .btn:hover { background: #1177bb; }
+        
+        #editor { flex: 1; }
+        .output { flex: 1; padding: 1rem; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; }
+        .output .log { color: #4fc1ff; margin-bottom: 0.5rem; }
+        .output .error { color: #f48771; margin-bottom: 0.5rem; }
+        .output .success { color: #89d185; margin-bottom: 0.5rem; }
+        
+        .status-bar { background: #007acc; color: white; padding: 0.3rem 1rem; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MSL Playground</h1>
+    </div>
+    
+    <div class="container">
+        <div class="editor-panel">
+            <div class="toolbar">
+                <button class="btn" onclick="runCode()">▶ Run</button>
+                <button class="btn" onclick="clearOutput()">Clear</button>
+                <button class="btn" onclick="loadExample('hello')">Hello</button>
+                <button class="btn" onclick="loadExample('api')">API</button>
+                <button class="btn" onclick="loadExample('ai')">AI</button>
+            </div>
+            <div id="editor"></div>
+            <div class="status-bar">
+                <span id="status">Ready</span>
+            </div>
+        </div>
+        
+        <div class="output-panel">
+            <div class="toolbar">
+                <h3 style="color: #fff; margin: 0;">Output</h3>
+            </div>
+            <div class="output" id="output">
+                <div class="log">MSL Playground Ready</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editor;
+
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function () {
+            monaco.languages.register({ id: 'msl' });
+            monaco.languages.setMonarchTokensProvider('msl', {
+                tokenizer: {
+                    root: [
+                        [/\b(var|if|else|for|while|function|try|catch|task|await|use|type)\b/, 'keyword'],
+                        [/\b(log|echo|trigger|query|ai|workflow)\b/, 'keyword.function'],
+                        [/".*?"/, 'string'],
+                        [/\d+/, 'number'],
+                        [/\/\/.*$/, 'comment'],
+                    ]
+                }
+            });
+
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: `// MSL Playground
+log "Hello MSL!"
+var name = "World"
+log "Hello " + name`,
+                language: 'msl',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false }
+            });
+        });
+
+        async function runCode() {
+            const code = editor.getValue();
+            clearOutput();
+            addOutput('Executing MSL code...', 'log');
+            
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    result.output?.forEach(line => addOutput(line, 'log'));
+                    updateStatus('Success');
+                } else {
+                    addOutput(`Error: ${result.error}`, 'error');
+                    updateStatus('Error');
+                }
+            } catch (error) {
+                mockExecute(code);
+            }
+        }
+
+        function mockExecute(code) {
+            const lines = code.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('log ')) {
+                    const message = line.substring(4).replace(/"/g, '');
+                    addOutput(message, 'success');
+                } else if (line.startsWith('var ')) {
+                    const varName = line.split('=')[0].replace('var ', '').trim();
+                    addOutput(`${varName} declared`, 'log');
+                }
+            });
+            updateStatus('Mock execution complete');
+        }
+
+        function addOutput(message, type = 'log') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function loadExample(type) {
+            const examples = {
+                hello: `log "Hello MSL!"
+var greeting = "Welcome"
+log greeting + " to MSL Playground"`,
+                api: `var response = trigger("https://api.github.com/users/octocat")
+log "User: " + response.data.name`,
+                ai: `var data = "Sales increased 25%"
+var analysis = ai("Analyze: " + data)
+log analysis`
+            };
+            editor.setValue(examples[type] || examples.hello);
+        }
+    </script>
+</body>
+</html>

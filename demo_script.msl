@@ -1,0 +1,14 @@
+
+echo("=== MSL CLI Demo ===")
+
+var greeting = "Hello from MSL CLI!"
+echo(greeting)
+
+var data = {
+    "message": greeting,
+    "timestamp": "2024-01-01",
+    "version": "2.0"
+}
+
+echo("Data object created with message: " + data.message)
+    

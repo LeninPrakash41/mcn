@@ -1,0 +1,3 @@
+log "Hello MSL!"
+var x = 10
+log "Value: " + x

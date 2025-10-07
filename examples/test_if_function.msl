@@ -1,0 +1,18 @@
+function process_user_data(name, age)
+    log "Processing user: " + name
+    
+    if age >= 18
+        log name + " is an adult"
+        var status = "adult"
+    else
+        log name + " is a minor"
+        var status = "minor"
+    
+    return status
+
+function next_function()
+    log "Next function"
+
+log "After functions"
+var result = process_user_data("John", 25)
+log "Result: " + result

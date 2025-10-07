@@ -1,0 +1,213 @@
+// MSL Frontend Integration Demo
+// This script demonstrates how MSL integrates with frontend applications
+
+use "ai"
+use "db"
+use "http"
+
+// Initialize demo database
+query("CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2),
+    category TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)")
+
+query("CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id),
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    sentiment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)")
+
+// Seed some demo data
+query("INSERT INTO products (name, description, price, category) VALUES 
+    ('Smart Watch', 'Advanced fitness tracking smartwatch', 299.99, 'Electronics'),
+    ('Wireless Headphones', 'Noise-cancelling wireless headphones', 199.99, 'Electronics'),
+    ('Coffee Maker', 'Programmable coffee maker with timer', 89.99, 'Appliances')
+ON CONFLICT DO NOTHING")
+
+// API Endpoint: Get all products
+function get_products() {
+    var products = query("SELECT * FROM products ORDER BY created_at DESC")
+    
+    return {
+        "status": "success",
+        "data": products,
+        "count": products.length
+    }
+}
+
+// API Endpoint: Get product by ID with AI-generated recommendations
+function get_product(product_id) {
+    var product = query("SELECT * FROM products WHERE id = ?", (product_id))
+    
+    if (!product || product.length == 0) {
+        return {
+            "status": "error",
+            "message": "Product not found"
+        }
+    }
+    
+    // Get reviews for this product
+    var reviews = query("SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC", (product_id))
+    
+    // Generate AI recommendations based on product and reviews
+    var recommendations = ai(
+        "Based on this product: " + product[0].name + " - " + product[0].description + 
+        " and customer reviews, suggest 3 similar products that customers might like.",
+        "gpt-3.5-turbo"
+    )
+    
+    return {
+        "status": "success",
+        "data": {
+            "product": product[0],
+            "reviews": reviews,
+            "ai_recommendations": recommendations
+        }
+    }
+}
+
+// API Endpoint: Add product review with AI sentiment analysis
+function add_review(product_id, rating, comment) {
+    // Validate input
+    if (!product_id || !rating || !comment) {
+        return {
+            "status": "error",
+            "message": "Missing required fields: product_id, rating, comment"
+        }
+    }
+    
+    if (rating < 1 || rating > 5) {
+        return {
+            "status": "error",
+            "message": "Rating must be between 1 and 5"
+        }
+    }
+    
+    // AI sentiment analysis
+    var sentiment = ai(
+        "Analyze the sentiment of this product review and classify as 'positive', 'negative', or 'neutral': " + comment,
+        "gpt-3.5-turbo"
+    )
+    
+    // Clean up AI response to get just the sentiment
+    var clean_sentiment = sentiment.toLowerCase()
+    if (clean_sentiment.contains("positive")) {
+        clean_sentiment = "positive"
+    } else if (clean_sentiment.contains("negative")) {
+        clean_sentiment = "negative"
+    } else {
+        clean_sentiment = "neutral"
+    }
+    
+    // Insert review
+    query("INSERT INTO reviews (product_id, rating, comment, sentiment) VALUES (?, ?, ?, ?)",
+          (product_id, rating, comment, clean_sentiment))
+    
+    // Get the newly created review
+    var new_review = query("SELECT * FROM reviews WHERE product_id = ? AND comment = ? ORDER BY created_at DESC LIMIT 1",
+                          (product_id, comment))
+    
+    return {
+        "status": "success",
+        "message": "Review added successfully",
+        "data": {
+            "review": new_review[0],
+            "sentiment_analysis": sentiment
+        }
+    }
+}
+
+// API Endpoint: Get analytics dashboard data
+function get_analytics() {
+    // Parallel data fetching
+    task "product_count" "query" "SELECT COUNT(*) as count FROM products"
+    task "review_count" "query" "SELECT COUNT(*) as count FROM reviews"
+    task "avg_rating" "query" "SELECT AVG(rating) as avg_rating FROM reviews"
+    task "sentiment_breakdown" "query" "SELECT sentiment, COUNT(*) as count FROM reviews GROUP BY sentiment"
+    task "top_products" "query" "SELECT p.name, AVG(r.rating) as avg_rating, COUNT(r.id) as review_count FROM products p LEFT JOIN reviews r ON p.id = r.product_id GROUP BY p.id, p.name ORDER BY avg_rating DESC LIMIT 5"
+    
+    var results = await "product_count" "review_count" "avg_rating" "sentiment_breakdown" "top_products"
+    
+    // Generate AI insights
+    var insights = ai(
+        "Analyze this e-commerce data and provide 3 key business insights: " +
+        "Products: " + results.product_count[0].count +
+        ", Reviews: " + results.review_count[0].count +
+        ", Average Rating: " + results.avg_rating[0].avg_rating +
+        ", Sentiment: " + JSON.stringify(results.sentiment_breakdown),
+        "gpt-4"
+    )
+    
+    return {
+        "status": "success",
+        "data": {
+            "metrics": {
+                "total_products": results.product_count[0].count,
+                "total_reviews": results.review_count[0].count,
+                "average_rating": results.avg_rating[0].avg_rating,
+                "sentiment_breakdown": results.sentiment_breakdown,
+                "top_products": results.top_products
+            },
+            "ai_insights": insights,
+            "generated_at": now()
+        }
+    }
+}
+
+// API Endpoint: Search products with AI-enhanced results
+function search_products(query_text) {
+    if (!query_text) {
+        return get_products()
+    }
+    
+    // Basic text search
+    var products = query("SELECT * FROM products WHERE name ILIKE ? OR description ILIKE ?",
+                        ("%" + query_text + "%", "%" + query_text + "%"))
+    
+    // AI-enhanced search suggestions
+    var suggestions = ai(
+        "Based on the search query '" + query_text + "', suggest 3 alternative search terms for an e-commerce product search.",
+        "gpt-3.5-turbo"
+    )
+    
+    return {
+        "status": "success",
+        "data": {
+            "products": products,
+            "search_query": query_text,
+            "ai_suggestions": suggestions,
+            "result_count": products.length
+        }
+    }
+}
+
+// API Endpoint: Health check
+function health_check() {
+    return {
+        "status": "healthy",
+        "service": "MSL E-commerce API",
+        "version": "2.0",
+        "timestamp": now(),
+        "features": [
+            "AI-powered product recommendations",
+            "Sentiment analysis for reviews",
+            "Real-time analytics dashboard",
+            "Enhanced search with AI suggestions"
+        ]
+    }
+}
+
+// Export all functions for API access
+export get_products
+export get_product
+export add_review
+export get_analytics
+export search_products
+export health_check

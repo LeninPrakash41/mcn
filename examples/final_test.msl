@@ -1,0 +1,6 @@
+echo "MSL Enhanced Features Working!"
+var path_var = env("PATH")
+echo "Environment variable retrieved"
+write_file("hello.txt", "Hello from MSL!")
+var file_content = read_file("hello.txt")
+echo file_content

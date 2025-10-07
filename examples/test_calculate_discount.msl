@@ -1,0 +1,7 @@
+function calculate_discount(price, discount_percent)
+    var discount = price * (discount_percent / 100)
+    var final_price = price - discount
+    return final_price
+
+var result = calculate_discount(100, 20)
+log "Result: " + result

@@ -1,0 +1,7 @@
+echo "Processing API request"
+var user_id = request_data.user_id
+if user_id == null
+    var response = {"status": "error", "message": "user_id required"}
+else
+    var response = {"status": "success", "user_id": user_id, "message": "User processed"}
+response

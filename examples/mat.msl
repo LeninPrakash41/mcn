@@ -1,0 +1,13 @@
+var numbers = [1, 2, 3, 4, 5]
+var names = ["Alice", "Bob", "Charlie"]
+echo numbers[0]
+echo names[1]
+
+var user = {"name": "John", "age": 30}
+log user.name
+echo user.age
+
+var items = ["apple", "banana", "orange"]
+
+for item in items
+    echo "Fruit: " + item

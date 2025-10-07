@@ -1,0 +1,7 @@
+task "email" "trigger" "https://mail.api.com/send" {"to": "user@example.com"}
+task "database" "query" "INSERT INTO logs VALUES (?)" "Email sent"
+task "ai" "ai" "Generate follow-up message"
+
+var results = await "email" "database" "ai"
+log "All tasks completed"
+echo results

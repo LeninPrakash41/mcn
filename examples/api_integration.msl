@@ -1,0 +1,99 @@
+// MSL API Integration Example
+
+log "=== MSL API Integration Demo ==="
+
+// Weather API integration example
+var city = "New York"
+var api_key = "your_api_key_here"
+
+log "Fetching weather data for: " + city
+
+// Mock weather API call
+var weather_url = "https://api.openweathermap.org/data/2.5/weather"
+var weather_params = {
+    "q": city,
+    "appid": api_key,
+    "units": "metric"
+}
+
+var weather_response = trigger(weather_url, weather_params, "GET")
+
+if weather_response.success
+    log "Weather data received successfully"
+    var temp = weather_response.data.main.temp
+    var description = weather_response.data.weather[0].description
+    log "Temperature: " + temp + "°C"
+    log "Condition: " + description
+    
+    // Store weather data in database
+    query("INSERT INTO weather_logs (city, temperature, description, timestamp) VALUES (?, ?, ?, datetime('now'))", (city, temp, description))
+    log "Weather data saved to database"
+else
+    log "Failed to fetch weather data: " + weather_response.data
+
+// Slack notification integration
+log "Sending notification to Slack"
+var slack_webhook = "https://hooks.slack.com/services/YOUR_WORKSPACE/YOUR_CHANNEL/YOUR_WEBHOOK_TOKEN"
+var slack_message = {
+    "text": "Weather Update",
+    "attachments": [
+        {
+            "color": "good",
+            "fields": [
+                {
+                    "title": "City",
+                    "value": city,
+                    "short": true
+                },
+                {
+                    "title": "Temperature", 
+                    "value": temp + "°C",
+                    "short": true
+                }
+            ]
+        }
+    ]
+}
+
+var slack_result = trigger(slack_webhook, slack_message)
+
+if slack_result.success
+    log "✓ Slack notification sent"
+else
+    log "✗ Slack notification failed"
+
+// Email notification via API
+log "Sending email notification"
+var email_api = "https://api.sendgrid.com/v3/mail/send"
+var email_payload = {
+    "personalizations": [
+        {
+            "to": [{"email": "admin@company.com"}],
+            "subject": "Weather Alert for " + city
+        }
+    ],
+    "from": {"email": "noreply@company.com"},
+    "content": [
+        {
+            "type": "text/plain",
+            "value": "Current weather in " + city + ": " + temp + "°C, " + description
+        }
+    ]
+}
+
+var email_result = trigger(email_api, email_payload)
+
+if email_result.success
+    log "✓ Email notification sent"
+else
+    log "✗ Email notification failed"
+
+// Error handling example
+try
+    var invalid_api = trigger("https://invalid-api-endpoint.com/data")
+    log "This won't execute due to error"
+catch
+    log "Caught API error: " + error
+    log "Continuing with fallback logic..."
+
+log "=== API Integration Demo Complete ==="
