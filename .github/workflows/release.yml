@@ -1,12 +1,39 @@
-name: Release
+name: MCN Release CI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  release:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov psycopg2-binary pymongo sqlalchemy requests fastapi uvicorn python-dotenv
+
+    - name: Test MCN Examples
+      run: |
+        export PYTHONPATH=$PWD
+        python run_mcn.py run examples/hello.mcn
+        python run_mcn.py run examples/business.mcn
+
+    - name: Run Basic Tests Only
+      run: |
+        export PYTHONPATH=$PWD
+        python -m pytest test/test_basic.py -v --cov=mcn --tb=short
+
+  quality:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -16,31 +43,32 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install build dependencies
+    - name: Install quality tools
       run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+        pip install black flake8
 
-    - name: Build package
-      run: python -m build
-
-    - name: Test package
+    - name: Check code formatting
       run: |
-        pip install dist/*.whl
-        mcn run examples/hello.mcn
+        black --check . --exclude="mcn/studio|mcn/web-playground" || echo "Formatting issues found (non-blocking)"
+      continue-on-error: true
 
-    - name: Publish to PyPI
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: twine upload dist/*
+    - name: Lint code
+      run: |
+        flake8 mcn/ --max-line-length=88 --exclude=mcn/studio,mcn/web-playground --count || echo "Linting issues found (non-blocking)"
+      continue-on-error: true
 
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
       with:
-        tag_name: ${{ github.ref }}
-        release_name: MCN ${{ github.ref }}
-        draft: false
-        prerelease: false
+        fetch-depth: 0
+
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: HEAD~1
+        head: HEAD
+        extra_args: --only-verified
+      continue-on-error: true
