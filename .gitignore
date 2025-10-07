@@ -1,3 +1,5 @@
+# MCN Project .gitignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -156,3 +158,5 @@ yarn-error.log*
 # Internal
 internal/
 *.db
+
+# Development documentation (develop branch only)

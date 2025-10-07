@@ -16,7 +16,7 @@ The MCN Package Registry is the official repository for MCN packages, similar to
   "version": "1.0.0",
   "description": "An awesome MCN package",
   "main": "index.mcn",
-  "author": "Developer Name <email@example.com>",
+  "author": "Developer Name <dev@mslang.org>",
   "license": "MIT",
   "keywords": ["ai", "automation", "business"],
   "dependencies": {

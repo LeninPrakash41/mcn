@@ -1,0 +1,18 @@
+# MCN Git Attributes
+
+# Prevent develop-docs from merging to main
+develop-docs/** merge=ours
+
+# MCN language files
+*.mcn linguist-language=MCN
+*.mcn text
+
+# Documentation
+*.md text
+*.txt text
+
+# Configuration files
+*.json text
+*.yml text
+*.yaml text
+*.toml text

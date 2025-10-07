@@ -1,0 +1,15 @@
+#!/bin/bash
+# MCN Pre-commit Hook
+
+CURRENT_BRANCH=$(git branch --show-current)
+
+# Prevent develop-docs from being committed to main
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    if git diff --cached --name-only | grep -q "develop-docs/"; then
+        echo "❌ Error: develop-docs/ files cannot be committed to main branch"
+        echo "💡 Switch to develop branch to work with development documentation"
+        exit 1
+    fi
+fi
+
+exit 0
