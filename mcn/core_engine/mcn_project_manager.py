@@ -10,15 +10,19 @@ from typing import Dict, List, Any, Optional
 from .mcn_logger import log_step, log_error
 from .mcn_frontend import mcn_frontend
 
+
 class MCNProjectManager:
     """Manages MCN project structure and scaffolding"""
 
     def __init__(self, project_path: str = "."):
         self.project_path = Path(project_path)
 
-    def create_project_structure(self, project_name: str,
-                               include_frontend: bool = True,
-                               frontend_framework: str = None) -> Dict[str, Any]:
+    def create_project_structure(
+        self,
+        project_name: str,
+        include_frontend: bool = True,
+        frontend_framework: str = None,
+    ) -> Dict[str, Any]:
         """Create complete MCN project structure"""
 
         log_step(f"Creating MCN project: {project_name}")
@@ -28,14 +32,14 @@ class MCNProjectManager:
 
         # Core MCN structure
         structure = {
-            'mcn': ['scripts/', 'config/', 'data/', 'logs/'],
-            'tests': ['unit/', 'integration/', 'e2e/'],
-            'docs': ['api/', 'guides/', 'examples/'],
-            'deployment': ['docker/', 'kubernetes/', 'terraform/']
+            "mcn": ["scripts/", "config/", "data/", "logs/"],
+            "tests": ["unit/", "integration/", "e2e/"],
+            "docs": ["api/", "guides/", "examples/"],
+            "deployment": ["docker/", "kubernetes/", "terraform/"],
         }
 
         if include_frontend:
-            structure['frontend'] = ['src/', 'public/', 'assets/']
+            structure["frontend"] = ["src/", "public/", "assets/"]
 
         # Create directories
         for main_dir, subdirs in structure.items():
@@ -46,23 +50,30 @@ class MCNProjectManager:
                 (main_path / subdir).mkdir(exist_ok=True)
 
         # Create essential files
-        self._create_essential_files(project_dir, project_name, include_frontend, frontend_framework)
+        self._create_essential_files(
+            project_dir, project_name, include_frontend, frontend_framework
+        )
 
         log_step(f"Project {project_name} created successfully")
 
         return {
-            'project_path': str(project_dir),
-            'structure': structure,
-            'frontend_included': include_frontend,
-            'frontend_framework': frontend_framework
+            "project_path": str(project_dir),
+            "structure": structure,
+            "frontend_included": include_frontend,
+            "frontend_framework": frontend_framework,
         }
 
-    def _create_essential_files(self, project_dir: Path, project_name: str,
-                              include_frontend: bool, frontend_framework: str):
+    def _create_essential_files(
+        self,
+        project_dir: Path,
+        project_name: str,
+        include_frontend: bool,
+        frontend_framework: str,
+    ):
         """Create essential project files"""
 
         # MCN main script
-        main_mcn = f'''// {project_name} - Main MCN Application
+        main_mcn = f"""// {project_name} - Main MCN Application
 use "db"
 use "ai"
 use "http"
@@ -101,45 +112,34 @@ function main() {{
 
 // Export for API access
 export main
-'''
+"""
 
-        with open(project_dir / 'mcn' / 'main.mcn', 'w') as f:
+        with open(project_dir / "mcn" / "main.mcn", "w") as f:
             f.write(main_mcn)
 
         # Configuration file
         config = {
-            'project': {
-                'name': project_name,
-                'version': '1.0.0',
-                'description': f'MCN application: {project_name}'
+            "project": {
+                "name": project_name,
+                "version": "1.0.0",
+                "description": f"MCN application: {project_name}",
             },
-            'database': {
-                'type': 'postgresql',
-                'host': 'localhost',
-                'port': 5432,
-                'name': f'{project_name}_db'
+            "database": {
+                "type": "postgresql",
+                "host": "localhost",
+                "port": 5432,
+                "name": f"{project_name}_db",
             },
-            'api': {
-                'port': 8080,
-                'cors': True,
-                'rate_limit': 100
-            },
-            'ai': {
-                'provider': 'openai',
-                'model': 'gpt-4',
-                'max_tokens': 1000
-            },
-            'logging': {
-                'level': 'INFO',
-                'file': 'logs/app.log'
-            }
+            "api": {"port": 8080, "cors": True, "rate_limit": 100},
+            "ai": {"provider": "openai", "model": "gpt-4", "max_tokens": 1000},
+            "logging": {"level": "INFO", "file": "logs/app.log"},
         }
 
-        with open(project_dir / 'mcn' / 'config' / 'app.json', 'w') as f:
+        with open(project_dir / "mcn" / "config" / "app.json", "w") as f:
             json.dump(config, f, indent=2)
 
         # Docker configuration
-        dockerfile = f'''FROM python:3.9-slim
+        dockerfile = f"""FROM python:3.9-slim
 
 WORKDIR /app
 
@@ -156,13 +156,13 @@ EXPOSE 8080
 
 # Run MCN application
 CMD ["python", "-m", "mcn.mcn_cli", "mcn/main.mcn", "--serve", "--port", "8080"]
-'''
+"""
 
-        with open(project_dir / 'deployment' / 'docker' / 'Dockerfile', 'w') as f:
+        with open(project_dir / "deployment" / "docker" / "Dockerfile", "w") as f:
             f.write(dockerfile)
 
         # Requirements file
-        requirements = '''mcn-lang>=1.0.0
+        requirements = """mcn-lang>=1.0.0
 fastapi>=0.68.0
 uvicorn>=0.15.0
 sqlalchemy>=1.4.0
@@ -170,13 +170,13 @@ psycopg2-binary>=2.9.0
 openai>=0.27.0
 requests>=2.25.0
 python-dotenv>=0.19.0
-'''
+"""
 
-        with open(project_dir / 'requirements.txt', 'w') as f:
+        with open(project_dir / "requirements.txt", "w") as f:
             f.write(requirements)
 
         # README
-        readme = f'''# {project_name}
+        readme = f"""# {project_name}
 
 MCN-powered application with AI, database, and API capabilities.
 
@@ -238,43 +238,49 @@ docker build -f deployment/docker/Dockerfile -t {project_name} .
 ## Documentation
 
 See `docs/` directory for detailed guides and API documentation.
-'''
+"""
 
-        with open(project_dir / 'README.md', 'w') as f:
+        with open(project_dir / "README.md", "w") as f:
             f.write(readme)
 
         # Create frontend integration if requested
         if include_frontend and frontend_framework:
-            self._setup_frontend_integration(project_dir, project_name, frontend_framework)
+            self._setup_frontend_integration(
+                project_dir, project_name, frontend_framework
+            )
 
-    def _setup_frontend_integration(self, project_dir: Path, project_name: str, framework: str):
+    def _setup_frontend_integration(
+        self, project_dir: Path, project_name: str, framework: str
+    ):
         """Setup frontend integration"""
 
         log_step(f"Setting up {framework} frontend integration")
 
         # Sample endpoints for frontend
         endpoints = [
-            {'name': 'main', 'path': '/main', 'method': 'POST'},
-            {'name': 'health', 'path': '/health', 'method': 'GET'}
+            {"name": "main", "path": "/main", "method": "POST"},
+            {"name": "health", "path": "/health", "method": "GET"},
         ]
 
         # Generate API client
-        frontend_dir = project_dir / 'frontend'
+        frontend_dir = project_dir / "frontend"
         mcn_frontend.project_path = frontend_dir
 
         config = mcn_frontend.create_frontend_config(framework, endpoints)
         examples = mcn_frontend.generate_frontend_examples(framework, endpoints)
 
         # Create example component
-        if 'component' in examples:
-            ext = 'tsx' if framework == 'react' else 'vue' if framework == 'vue' else 'ts'
-            example_file = frontend_dir / f'MCNExample.{ext}'
+        if "component" in examples:
+            ext = (
+                "tsx" if framework == "react" else "vue" if framework == "vue" else "ts"
+            )
+            example_file = frontend_dir / f"MCNExample.{ext}"
 
-            with open(example_file, 'w') as f:
-                f.write(examples['component'])
+            with open(example_file, "w") as f:
+                f.write(examples["component"])
 
         # Frontend README
-        frontend_readme = f'''# {project_name} Frontend
+        frontend_readme = f"""# {project_name} Frontend
 
 {framework.title()} frontend for {project_name} MCN application.
 
@@ -313,9 +319,9 @@ const {{ callApi, loading, error }} = useMCNApi();
 // Call MCN endpoint
 const result = await callApi('main', {{ data: 'example' }});
 ```
-'''
+"""
 
-        with open(frontend_dir / 'README.md', 'w') as f:
+        with open(frontend_dir / "README.md", "w") as f:
             f.write(frontend_readme)
 
     def validate_project_structure(self, project_path: str = None) -> Dict[str, Any]:
@@ -329,56 +335,52 @@ const result = await callApi('main', {{ data: 'example' }});
         log_step("Validating project structure")
 
         required_files = [
-            'mcn/main.mcn',
-            'mcn/config/app.json',
-            'requirements.txt',
-            'README.md'
+            "mcn/main.mcn",
+            "mcn/config/app.json",
+            "requirements.txt",
+            "README.md",
         ]
 
-        required_dirs = [
-            'mcn/',
-            'tests/',
-            'docs/',
-            'logs/'
-        ]
+        required_dirs = ["mcn/", "tests/", "docs/", "logs/"]
 
         validation_result = {
-            'valid': True,
-            'missing_files': [],
-            'missing_dirs': [],
-            'recommendations': []
+            "valid": True,
+            "missing_files": [],
+            "missing_dirs": [],
+            "recommendations": [],
         }
 
         # Check required files
         for file_path in required_files:
             if not (project_path / file_path).exists():
-                validation_result['missing_files'].append(file_path)
-                validation_result['valid'] = False
+                validation_result["missing_files"].append(file_path)
+                validation_result["valid"] = False
 
         # Check required directories
         for dir_path in required_dirs:
             if not (project_path / dir_path).exists():
-                validation_result['missing_dirs'].append(dir_path)
-                validation_result['valid'] = False
+                validation_result["missing_dirs"].append(dir_path)
+                validation_result["valid"] = False
 
         # Generate recommendations
-        if validation_result['missing_files']:
-            validation_result['recommendations'].append(
+        if validation_result["missing_files"]:
+            validation_result["recommendations"].append(
                 "Create missing files using: mcn init --template=basic"
             )
 
-        if validation_result['missing_dirs']:
-            validation_result['recommendations'].append(
+        if validation_result["missing_dirs"]:
+            validation_result["recommendations"].append(
                 "Create missing directories for proper project organization"
             )
 
         # Check for frontend integration
-        if not (project_path / 'frontend').exists():
-            validation_result['recommendations'].append(
+        if not (project_path / "frontend").exists():
+            validation_result["recommendations"].append(
                 "Consider adding frontend integration with: mcn add-frontend --framework=react"
             )
 
         return validation_result
+
 
 # Global project manager instance
 mcn_project_manager = MCNProjectManager()

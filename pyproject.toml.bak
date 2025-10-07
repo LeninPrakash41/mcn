@@ -65,7 +65,7 @@ cloud = [
     "google-cloud-storage>=2.0.0"
 ]
 all = [
-    "mcn-lang[dev,ai,database,cloud]"
+    "mcn[dev,ai,database,cloud]"
 ]
 
 [project.urls]
@@ -76,15 +76,13 @@ Repository = "https://github.com/zeroappz/mcn"
 Changelog = "https://github.com/zeroappz/mcn/releases"
 
 [project.scripts]
-mcn = "ms_lang.core_engine.mcn_cli:main"
-mcn-cli = "ms_lang.core_engine.mcn_cli:main"
+mcn = "mcn.core_engine.mcn_cli:main"
 
 [tool.setuptools]
-packages = ["ms_lang"]
-package-dir = {"ms_lang" = "mcn-lang"}
+packages = ["mcn"]
 
 [tool.setuptools.dynamic]
-version = {attr = "ms_lang.core_engine.mcn_interpreter.MCN_CORE_VERSION"}
+version = {attr = "mcn.__version__"}
 
 [tool.black]
 line-length = 88
@@ -93,4 +91,4 @@ target-version = ['py38']
 [tool.pytest.ini_options]
 testpaths = ["test"]
 python_files = "test_*.py"
-addopts = "-v --cov=ms_lang"
+addopts = "-v --cov=mcn"

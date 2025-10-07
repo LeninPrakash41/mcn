@@ -152,3 +152,7 @@ yarn-error.log*
 
 # Docker
 .dockerignore
+
+# Internal
+internal/
+*.db

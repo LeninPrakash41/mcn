@@ -4,6 +4,7 @@ Example demonstrating MCN usage with proper imports
 This script can be run from anywhere without path modifications
 """
 
+
 def example_basic_usage():
     """Basic MCN usage example"""
     print("=== Basic MCN Usage ===")
@@ -15,7 +16,7 @@ def example_basic_usage():
     interpreter = MCNInterpreter()
 
     # Execute MCN code
-    mcn_code = '''
+    mcn_code = """
 var name = "MCN Developer"
 var version = "2.0"
 
@@ -27,10 +28,11 @@ var y = 20
 var result = x + y
 
 echo("Calculation: " + x + " + " + y + " = " + result)
-    '''
+    """
 
     result = interpreter.execute(mcn_code, quiet=True)
     print(f"Execution completed. Variables: {list(interpreter.variables.keys())}")
+
 
 def example_embedded_usage():
     """Embedded MCN usage example"""
@@ -49,11 +51,11 @@ def example_embedded_usage():
     def format_currency(amount):
         return f"${amount:.2f}"
 
-    mcn.register_function('calculate_tax', calculate_tax)
-    mcn.register_function('format_currency', format_currency)
+    mcn.register_function("calculate_tax", calculate_tax)
+    mcn.register_function("format_currency", format_currency)
 
     # Execute MCN script with registered functions
-    business_script = '''
+    business_script = """
 var order_amount = 100.00
 var tax_rate = 0.08
 
@@ -67,17 +69,18 @@ echo("Tax: " + format_currency(tax))
 echo("Total: " + formatted_total)
 
 formatted_total
-    '''
+    """
 
     result = mcn.execute(business_script, quiet=True)
     print(f"Business calculation result: {result}")
+
 
 def example_cli_usage():
     """Example of using MCN CLI programmatically"""
     print("\n=== CLI Usage Example ===")
 
     # Create a simple MCN script
-    script_content = '''
+    script_content = """
 echo("=== MCN CLI Demo ===")
 
 var greeting = "Hello from MCN CLI!"
@@ -90,15 +93,16 @@ var data = {
 }
 
 echo("Data object created with message: " + data.message)
-    '''
+    """
 
     # Write script to file
-    with open('demo_script.mcn', 'w') as f:
+    with open("demo_script.mcn", "w") as f:
         f.write(script_content)
 
     print("Created demo_script.mcn")
     print("You can run it with: python -m mcn run demo_script.mcn")
     print("Or serve as API with: python -m mcn serve --file demo_script.mcn")
+
 
 def main():
     """Run all examples"""
@@ -121,11 +125,14 @@ def main():
     except Exception as e:
         print(f"\nERROR: Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import sys
+
     sys.exit(main())

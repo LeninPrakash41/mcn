@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
     - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
 
     - name: Run Tests
       run: |
-        python -m pytest test/ -v --cov=mcn-lang
+        python -m pytest test/ -v --cov=mcn
 
     - name: Test Installation
       run: |
@@ -56,8 +56,9 @@ jobs:
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
-        base: main
+        base: ${{ github.event.repository.default_branch }}
         head: HEAD
+        extra_args: --debug --only-verified
 
   quality:
     runs-on: ubuntu-latest
@@ -77,7 +78,7 @@ jobs:
       run: black --check .
 
     - name: Lint code
-      run: flake8 mcn-lang/ --max-line-length=88
+      run: flake8 mcn/ --max-line-length=88 --exclude=mcn/studio,mcn/web-playground
 
     - name: Type check
-      run: mypy mcn-lang/ --ignore-missing-imports
+      run: mypy mcn/ --ignore-missing-imports --exclude-dir=mcn/studio --exclude-dir=mcn/web-playground

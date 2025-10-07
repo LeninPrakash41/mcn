@@ -4,6 +4,7 @@ import os
 import argparse
 import json
 from pathlib import Path
+
 # Handle both direct execution and module import
 try:
     from .mcn_interpreter import MCNInterpreter
@@ -14,11 +15,13 @@ except ImportError:
     # Direct execution fallback
     import sys
     import os
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from mcn_interpreter import MCNInterpreter
     from mcn_logger import log_step, log_error, mcn_logger
     from mcn_project_manager import mcn_project_manager
     from mcn_frontend import mcn_frontend
+
 
 class MCNREPL:
     def __init__(self):
@@ -34,15 +37,15 @@ class MCNREPL:
             try:
                 line = input("mcn> ").strip()
 
-                if line == 'exit':
+                if line == "exit":
                     break
-                elif line == 'help':
+                elif line == "help":
                     self._show_help()
-                elif line == 'vars':
+                elif line == "vars":
                     self._show_variables()
-                elif line == 'clear':
-                    os.system('cls' if os.name == 'nt' else 'clear')
-                elif line == 'history':
+                elif line == "clear":
+                    os.system("cls" if os.name == "nt" else "clear")
+                elif line == "history":
                     self._show_history()
                 elif line:
                     self.history.append(line)
@@ -90,6 +93,7 @@ MCN Syntax:
         else:
             print("No command history")
 
+
 def run_file(filepath: str):
     """Execute MCN script from file"""
     if not os.path.exists(filepath):
@@ -97,7 +101,7 @@ def run_file(filepath: str):
         return 1
 
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             code = f.read()
 
         interpreter = MCNInterpreter()
@@ -111,13 +115,12 @@ def run_file(filepath: str):
         print(f"Error executing script: {e}")
         return 1
 
+
 def init_project(name: str, frontend: str = None):
     """Initialize new MCN project"""
     try:
         result = mcn_project_manager.create_project_structure(
-            name,
-            include_frontend=bool(frontend),
-            frontend_framework=frontend
+            name, include_frontend=bool(frontend), frontend_framework=frontend
         )
 
         print(f"Created MCN project: {name}")
@@ -134,61 +137,59 @@ def init_project(name: str, frontend: str = None):
 
         return 0
     except Exception as e:
-        log_error('PROJECT_INIT_ERROR', f'Failed to initialize project: {e}')
+        log_error("PROJECT_INIT_ERROR", f"Failed to initialize project: {e}")
         return 1
 
-def validate_project(path: str = '.'):
+
+def validate_project(path: str = "."):
     """Validate MCN project structure"""
     try:
         result = mcn_project_manager.validate_project_structure(path)
 
-        if result['valid']:
+        if result["valid"]:
             print("Project structure is valid")
         else:
             print("Project structure issues found:")
 
-            if result['missing_files']:
+            if result["missing_files"]:
                 print("\nMissing files:")
-                for file in result['missing_files']:
+                for file in result["missing_files"]:
                     print(f"  - {file}")
 
-            if result['missing_dirs']:
+            if result["missing_dirs"]:
                 print("\nMissing directories:")
-                for dir in result['missing_dirs']:
+                for dir in result["missing_dirs"]:
                     print(f"  - {dir}")
 
-            if result['recommendations']:
+            if result["recommendations"]:
                 print("\n💡 Recommendations:")
-                for rec in result['recommendations']:
+                for rec in result["recommendations"]:
                     print(f"  • {rec}")
 
-        return 0 if result['valid'] else 1
+        return 0 if result["valid"] else 1
     except Exception as e:
-        log_error('PROJECT_VALIDATION_ERROR', f'Failed to validate project: {e}')
+        log_error("PROJECT_VALIDATION_ERROR", f"Failed to validate project: {e}")
         return 1
 
-def add_frontend(framework: str, path: str = '.'):
+
+def add_frontend(framework: str, path: str = "."):
     """Add frontend integration to existing project"""
     try:
         project_path = Path(path)
 
         # Detect existing endpoints
         endpoints = []
-        mcn_files = list(project_path.glob('**/*.mcn'))
+        mcn_files = list(project_path.glob("**/*.mcn"))
 
         for mcn_file in mcn_files:
             name = mcn_file.stem
-            endpoints.append({
-                'name': name,
-                'path': f'/{name}',
-                'method': 'POST'
-            })
+            endpoints.append({"name": name, "path": f"/{name}", "method": "POST"})
 
         if not endpoints:
-            endpoints = [{'name': 'main', 'path': '/main', 'method': 'POST'}]
+            endpoints = [{"name": "main", "path": "/main", "method": "POST"}]
 
         # Setup frontend
-        frontend_dir = project_path / 'frontend'
+        frontend_dir = project_path / "frontend"
         frontend_dir.mkdir(exist_ok=True)
 
         mcn_frontend.project_path = frontend_dir
@@ -200,33 +201,34 @@ def add_frontend(framework: str, path: str = '.'):
 
         return 0
     except Exception as e:
-        log_error('FRONTEND_ADD_ERROR', f'Failed to add frontend: {e}')
+        log_error("FRONTEND_ADD_ERROR", f"Failed to add frontend: {e}")
         return 1
 
-def show_logs(log_type: str = 'all'):
+
+def show_logs(log_type: str = "all"):
     """Show MCN logs"""
     try:
-        logs_dir = Path('logs')
+        logs_dir = Path("logs")
         if not logs_dir.exists():
             print("No logs directory found")
             return 1
 
         log_files = {
-            'errors': logs_dir / 'mcn_errors.log',
-            'debug': logs_dir / 'mcn_debug.log',
-            'all': None
+            "errors": logs_dir / "mcn_errors.log",
+            "debug": logs_dir / "mcn_debug.log",
+            "all": None,
         }
 
-        if log_type == 'all':
+        if log_type == "all":
             for name, file_path in log_files.items():
-                if name != 'all' and file_path and file_path.exists():
+                if name != "all" and file_path and file_path.exists():
                     print(f"\n=== {name.upper()} LOGS ===")
-                    with open(file_path, 'r') as f:
+                    with open(file_path, "r") as f:
                         print(f.read()[-2000:])  # Last 2000 chars
         else:
             file_path = log_files.get(log_type)
             if file_path and file_path.exists():
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     print(f.read())
             else:
                 print(f"Log file not found: {log_type}")
@@ -234,78 +236,99 @@ def show_logs(log_type: str = 'all'):
 
         return 0
     except Exception as e:
-        log_error('LOGS_SHOW_ERROR', f'Failed to show logs: {e}')
+        log_error("LOGS_SHOW_ERROR", f"Failed to show logs: {e}")
         return 1
 
+
 def main():
-    parser = argparse.ArgumentParser(description='MCN (Macincode Scripting Language) CLI v2.0')
+    parser = argparse.ArgumentParser(
+        description="MCN (Macincode Scripting Language) CLI v2.0"
+    )
 
     # Subcommands
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Run command (default)
-    run_parser = subparsers.add_parser('run', help='Run MCN script')
-    run_parser.add_argument('file', help='MCN script file to execute')
-    run_parser.add_argument('--serve', action='store_true', help='Serve script as API endpoint')
-    run_parser.add_argument('--host', default='127.0.0.1', help='Server host')
-    run_parser.add_argument('--port', type=int, default=8000, help='Server port')
+    run_parser = subparsers.add_parser("run", help="Run MCN script")
+    run_parser.add_argument("file", help="MCN script file to execute")
+    run_parser.add_argument(
+        "--serve", action="store_true", help="Serve script as API endpoint"
+    )
+    run_parser.add_argument("--host", default="127.0.0.1", help="Server host")
+    run_parser.add_argument("--port", type=int, default=8000, help="Server port")
 
     # Init command
-    init_parser = subparsers.add_parser('init', help='Initialize new MCN project')
-    init_parser.add_argument('name', help='Project name')
-    init_parser.add_argument('--frontend', choices=['react', 'vue', 'angular', 'vanilla'],
-                           help='Include frontend framework')
+    init_parser = subparsers.add_parser("init", help="Initialize new MCN project")
+    init_parser.add_argument("name", help="Project name")
+    init_parser.add_argument(
+        "--frontend",
+        choices=["react", "vue", "angular", "vanilla"],
+        help="Include frontend framework",
+    )
 
     # Validate command
-    validate_parser = subparsers.add_parser('validate', help='Validate project structure')
-    validate_parser.add_argument('--path', default='.', help='Project path to validate')
+    validate_parser = subparsers.add_parser(
+        "validate", help="Validate project structure"
+    )
+    validate_parser.add_argument("--path", default=".", help="Project path to validate")
 
     # Add-frontend command
-    frontend_parser = subparsers.add_parser('add-frontend', help='Add frontend integration')
-    frontend_parser.add_argument('framework', choices=['react', 'vue', 'angular', 'vanilla'],
-                               help='Frontend framework')
-    frontend_parser.add_argument('--path', default='.', help='Project path')
+    frontend_parser = subparsers.add_parser(
+        "add-frontend", help="Add frontend integration"
+    )
+    frontend_parser.add_argument(
+        "framework",
+        choices=["react", "vue", "angular", "vanilla"],
+        help="Frontend framework",
+    )
+    frontend_parser.add_argument("--path", default=".", help="Project path")
 
     # Logs command
-    logs_parser = subparsers.add_parser('logs', help='Show MCN logs')
-    logs_parser.add_argument('--type', choices=['errors', 'debug', 'all'], default='all',
-                           help='Log type to show')
+    logs_parser = subparsers.add_parser("logs", help="Show MCN logs")
+    logs_parser.add_argument(
+        "--type",
+        choices=["errors", "debug", "all"],
+        default="all",
+        help="Log type to show",
+    )
 
     # REPL command
-    repl_parser = subparsers.add_parser('repl', help='Start interactive REPL')
+    repl_parser = subparsers.add_parser("repl", help="Start interactive REPL")
 
     # Serve command
-    serve_parser = subparsers.add_parser('serve', help='Serve MCN scripts as APIs')
-    serve_parser.add_argument('--dir', help='Directory containing MCN scripts')
-    serve_parser.add_argument('--file', help='Single MCN script to serve')
-    serve_parser.add_argument('--host', default='127.0.0.1', help='Server host')
-    serve_parser.add_argument('--port', type=int, default=8000, help='Server port')
+    serve_parser = subparsers.add_parser("serve", help="Serve MCN scripts as APIs")
+    serve_parser.add_argument("--dir", help="Directory containing MCN scripts")
+    serve_parser.add_argument("--file", help="Single MCN script to serve")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Server host")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Server port")
 
     # Legacy support - direct file execution
-    parser.add_argument('--repl', action='store_true', help='Start REPL mode (legacy)')
-    parser.add_argument('--serve', action='store_true', help='Serve script as API (legacy)')
-    parser.add_argument('--serve-dir', help='Serve directory as APIs (legacy)')
-    parser.add_argument('--host', default='127.0.0.1', help='Server host (legacy)')
-    parser.add_argument('--port', type=int, default=8000, help='Server port (legacy)')
-    parser.add_argument('--version', action='version', version='MCN 2.0')
+    parser.add_argument("--repl", action="store_true", help="Start REPL mode (legacy)")
+    parser.add_argument(
+        "--serve", action="store_true", help="Serve script as API (legacy)"
+    )
+    parser.add_argument("--serve-dir", help="Serve directory as APIs (legacy)")
+    parser.add_argument("--host", default="127.0.0.1", help="Server host (legacy)")
+    parser.add_argument("--port", type=int, default=8000, help="Server port (legacy)")
+    parser.add_argument("--version", action="version", version="MCN 2.0")
 
     args = parser.parse_args()
 
     # Handle new subcommands
-    if args.command == 'init':
+    if args.command == "init":
         return init_project(args.name, args.frontend)
-    elif args.command == 'validate':
+    elif args.command == "validate":
         return validate_project(args.path)
-    elif args.command == 'add-frontend':
+    elif args.command == "add-frontend":
         return add_frontend(args.framework, args.path)
-    elif args.command == 'logs':
+    elif args.command == "logs":
         return show_logs(args.type)
-    elif args.command == 'repl':
+    elif args.command == "repl":
         repl = MCNREPL()
         repl.run()
         return 0
-    elif args.command == 'run':
-        if hasattr(args, 'serve') and args.serve:
+    elif args.command == "run":
+        if hasattr(args, "serve") and args.serve:
             try:
                 from .mcn_server import serve_script
             except ImportError:
@@ -314,7 +337,7 @@ def main():
             return 0
         else:
             return run_file(args.file)
-    elif args.command == 'serve':
+    elif args.command == "serve":
         try:
             from .mcn_server import serve_script, serve_directory
         except ImportError:
@@ -331,13 +354,15 @@ def main():
     # Legacy support
     elif args.serve and args.file:
         from mcn_server import serve_script
+
         serve_script(args.file, args.host, args.port)
         return 0
     elif args.serve_dir:
         from mcn_server import serve_directory
+
         serve_directory(args.serve_dir, args.host, args.port)
         return 0
-    elif hasattr(args, 'file') and args.file:
+    elif hasattr(args, "file") and args.file:
         return run_file(args.file)
     elif args.repl or len(sys.argv) == 1:
         repl = MCNREPL()
@@ -347,5 +372,6 @@ def main():
         parser.print_help()
         return 1
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

@@ -13,12 +13,14 @@ from typing import Any, Dict, List, Optional, Union
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+
 @dataclass
 class MCNTask:
     name: str
     coroutine: Any
     result: Any = None
     completed: bool = False
+
 
 class MCNAIContext:
     """AI Context Engine for enhanced AI reasoning"""
@@ -44,6 +46,7 @@ class MCNAIContext:
 
         return f"{prompt}{context_str}"
 
+
 class MCNPackageManager:
     """Simple package management system"""
 
@@ -62,12 +65,16 @@ class MCNPackageManager:
 
         # Save package info
         package_file = os.path.join(self.packages_dir, f"{package_name}.json")
-        with open(package_file, 'w') as f:
-            json.dump({
-                "name": package_name,
-                "functions": list(functions.keys()),
-                "installed": True
-            }, f, indent=2)
+        with open(package_file, "w") as f:
+            json.dump(
+                {
+                    "name": package_name,
+                    "functions": list(functions.keys()),
+                    "installed": True,
+                },
+                f,
+                indent=2,
+            )
 
     def get_package_functions(self, package_name: str) -> Dict[str, Any]:
         """Get functions from a package"""
@@ -76,6 +83,7 @@ class MCNPackageManager:
     def list_packages(self) -> List[str]:
         """List installed packages"""
         return list(self.installed_packages.keys())
+
 
 class MCNAsyncRuntime:
     """Async runtime for parallel task execution"""
@@ -118,6 +126,7 @@ class MCNAsyncRuntime:
             return results
         return []
 
+
 class MCNTypeChecker:
     """Optional type checking for MCN variables"""
 
@@ -136,11 +145,11 @@ class MCNTypeChecker:
         expected_type = self.type_hints[var_name]
 
         type_map = {
-            'string': str,
-            'number': (int, float),
-            'boolean': bool,
-            'array': list,
-            'object': dict
+            "string": str,
+            "number": (int, float),
+            "boolean": bool,
+            "array": list,
+            "object": dict,
         }
 
         if expected_type in type_map:
@@ -148,9 +157,11 @@ class MCNTypeChecker:
 
         return True
 
+
 # Built-in packages
 def create_db_package():
     """Database utilities package"""
+
     def batch_insert(table: str, records: List[Dict]):
         # Mock implementation
         return f"Inserted {len(records)} records into {table}"
@@ -158,10 +169,8 @@ def create_db_package():
     def backup_table(table: str):
         return f"Backed up table {table}"
 
-    return {
-        'batch_insert': batch_insert,
-        'backup_table': backup_table
-    }
+    return {"batch_insert": batch_insert, "backup_table": backup_table}
+
 
 def create_http_package():
     """HTTP utilities package"""
@@ -175,13 +184,12 @@ def create_http_package():
         response = requests.post(url, data=data)
         return response.text
 
-    return {
-        'get_json': get_json,
-        'post_form': post_form
-    }
+    return {"get_json": get_json, "post_form": post_form}
+
 
 def create_ai_package():
     """Enhanced AI utilities package"""
+
     def summarize(text: str):
         return f"Summary: {text[:50]}..."
 
@@ -193,7 +201,7 @@ def create_ai_package():
         return {"trend": "upward", "confidence": 0.75}
 
     return {
-        'summarize': summarize,
-        'analyze_sentiment': analyze_sentiment,
-        'predict_trend': predict_trend
+        "summarize": summarize,
+        "analyze_sentiment": analyze_sentiment,
+        "predict_trend": predict_trend,
     }

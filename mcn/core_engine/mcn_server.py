@@ -11,6 +11,7 @@ import json
 from typing import Dict, Any
 from .mcn_interpreter import MCNInterpreter
 
+
 class MCNServer:
     def __init__(self):
         self.app = FastAPI(title="MCN Server Runtime", version="2.0")
@@ -22,20 +23,20 @@ class MCNServer:
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"Script not found: {script_path}")
 
-        script_name = os.path.basename(script_path).replace('.mcn', '')
+        script_name = os.path.basename(script_path).replace(".mcn", "")
         endpoint = endpoint or f"/{script_name}"
 
         # Create interpreter for this script
         interpreter = MCNInterpreter()
 
         # Read and parse script
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             script_content = f.read()
 
         self.interpreters[endpoint] = {
-            'interpreter': interpreter,
-            'script': script_content,
-            'path': script_path
+            "interpreter": interpreter,
+            "script": script_content,
+            "path": script_path,
         }
 
         # Create FastAPI route
@@ -50,11 +51,13 @@ class MCNServer:
                 # Execute script
                 result = interpreter.execute(script_content)
 
-                return JSONResponse({
-                    "success": True,
-                    "result": result,
-                    "variables": interpreter.variables
-                })
+                return JSONResponse(
+                    {
+                        "success": True,
+                        "result": result,
+                        "variables": interpreter.variables,
+                    }
+                )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
@@ -70,18 +73,20 @@ class MCNServer:
 
         uvicorn.run(self.app, host=host, port=port)
 
+
 def serve_script(script_path: str, host: str = "127.0.0.1", port: int = 8000):
     """Serve a single MCN script as API"""
     server = MCNServer()
     server.load_script(script_path)
     server.serve(host, port)
 
+
 def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8000):
     """Serve all MCN scripts in directory as APIs"""
     server = MCNServer()
 
     for filename in os.listdir(directory):
-        if filename.endswith('.mcn'):
+        if filename.endswith(".mcn"):
             script_path = os.path.join(directory, filename)
             server.load_script(script_path)
 

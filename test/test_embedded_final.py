@@ -1,4 +1,5 @@
-from mcn_interpreter import MCNInterpreter
+from mcn.core_engine.mcn_interpreter import MCNInterpreter
+
 
 class MCNEmbedded:
     def __init__(self):
@@ -12,18 +13,20 @@ class MCNEmbedded:
             self.interpreter.variables.update(context)
         return self.interpreter.execute(script, quiet=True)
 
+
 def my_existing_function(name, age):
     return f"Hello {name}, you are {age} years old!"
 
+
 # Test the embedded integration
 mcn = MCNEmbedded()
-mcn.register_function('my_function', my_existing_function)
+mcn.register_function("my_function", my_existing_function)
 
-script = '''
+script = """
 var result = my_function("Alice", 25)
 echo result
 result
-'''
+"""
 
 result = mcn.execute(script)
 print(f"✅ MCN Embedded works! Result: {result}")

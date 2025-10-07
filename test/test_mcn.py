@@ -5,35 +5,39 @@ Test script for MCN (Macincode Scripting Language)
 
 from mcn.core_engine.mcn_interpreter import MCNInterpreter
 
+
 def test_basic_operations():
     print("Testing basic MCN operations...")
 
     interpreter = MCNInterpreter()
 
     # Test variable assignment
-    result = interpreter.execute('var x = 10')
-    assert interpreter.variables['x'] == 10
+    result = interpreter.execute("var x = 10")
+    assert interpreter.variables["x"] == 10
 
     # Test arithmetic
-    result = interpreter.execute('var y = x + 5')
-    assert interpreter.variables['y'] == 15
+    result = interpreter.execute("var y = x + 5")
+    assert interpreter.variables["y"] == 15
 
     # Test string operations
     result = interpreter.execute('var name = "MCN"')
     result = interpreter.execute('var greeting = "Hello " + name')
-    assert interpreter.variables['greeting'] == "Hello MCN"
+    assert interpreter.variables["greeting"] == "Hello MCN"
 
     # Test conditionals
-    interpreter.execute('''
+    interpreter.execute(
+        """
         var age = 25
         if age > 18
             var status = "adult"
         else
             var status = "minor"
-    ''')
-    assert interpreter.variables['status'] == "adult"
+    """
+    )
+    assert interpreter.variables["status"] == "adult"
 
     print("✓ Basic operations test passed")
+
 
 def test_functions():
     print("Testing MCN built-in functions...")
@@ -45,9 +49,10 @@ def test_functions():
 
     # Test AI function (mock response)
     result = interpreter.execute('var response = ai("Test prompt")')
-    assert "Test prompt" in interpreter.variables['response']
+    assert "Test prompt" in interpreter.variables["response"]
 
     print("✓ Functions test passed")
+
 
 def test_database_operations():
     print("Testing database operations...")
@@ -58,13 +63,16 @@ def test_database_operations():
     interpreter.execute('var users = query("SELECT * FROM users")')
 
     # Test insert
-    interpreter.execute('''
+    interpreter.execute(
+        """
         var name = "Test User"
         var email = "test@example.com"
         query("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", (name, email, 30))
-    ''')
+    """
+    )
 
     print("✓ Database operations test passed")
+
 
 def test_error_handling():
     print("Testing error handling...")
@@ -72,16 +80,19 @@ def test_error_handling():
     interpreter = MCNInterpreter()
 
     # Test try-catch
-    interpreter.execute('''
+    interpreter.execute(
+        """
         try
             var result = 10 / 0
         catch
             var error_handled = true
-    ''')
+    """
+    )
 
-    assert interpreter.variables.get('error_handled') == True
+    assert interpreter.variables.get("error_handled") == True
 
     print("✓ Error handling test passed")
+
 
 def test_loops():
     print("Testing loops...")
@@ -89,23 +100,26 @@ def test_loops():
     interpreter = MCNInterpreter()
 
     # Test while loop
-    interpreter.execute('''
+    interpreter.execute(
+        """
         var counter = 0
         var sum = 0
         while counter < 5
             sum = sum + counter
             counter = counter + 1
-    ''')
+    """
+    )
 
-    assert interpreter.variables['sum'] == 10  # 0+1+2+3+4
-    assert interpreter.variables['counter'] == 5
+    assert interpreter.variables["sum"] == 10  # 0+1+2+3+4
+    assert interpreter.variables["counter"] == 5
 
     print("✓ Loops test passed")
+
 
 def run_example_script():
     print("Running example script...")
 
-    example_code = '''
+    example_code = """
         log "=== MCN Demo Script ==="
 
         var user_name = "Alice"
@@ -129,12 +143,13 @@ def run_example_script():
         log "AI Response: " + ai_response
 
         log "=== Demo Complete ==="
-    '''
+    """
 
     interpreter = MCNInterpreter()
     interpreter.execute(example_code)
 
     print("✓ Example script executed successfully")
+
 
 if __name__ == "__main__":
     print("MCN (Macincode Scripting Language) Test Suite")
@@ -154,4 +169,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()

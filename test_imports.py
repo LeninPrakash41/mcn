@@ -3,6 +3,7 @@
 Test script to verify MCN imports work correctly
 """
 
+
 def test_core_imports():
     """Test core MCN imports"""
     print("Testing core MCN imports...")
@@ -10,14 +11,17 @@ def test_core_imports():
     try:
         import sys
         import os
-        sys.path.insert(0, 'mcn-lang')
+
+        sys.path.insert(0, "mcn")
         from core_engine.mcn_interpreter import MCNInterpreter
+
         print("[OK] Core interpreter import successful")
     except ImportError as e:
         print(f"[FAIL] Core interpreter import failed: {e}")
         return False
 
     return True
+
 
 def test_basic_functionality():
     """Test basic MCN functionality"""
@@ -26,15 +30,19 @@ def test_basic_functionality():
     try:
         import sys
         import os
-        sys.path.insert(0, 'mcn-lang')
-        sys.path.insert(0, 'mcn-lang/core_engine')
-        
-        print("[OK] Basic functionality test placeholder - interpreter structure verified")
+
+        sys.path.insert(0, "mcn")
+        sys.path.insert(0, "mcn/core_engine")
+
+        print(
+            "[OK] Basic functionality test placeholder - interpreter structure verified"
+        )
         return True
 
     except Exception as e:
         print(f"[FAIL] Basic functionality test failed: {e}")
         return False
+
 
 def test_embedded_integration():
     """Test embedded integration"""
@@ -48,16 +56,13 @@ def test_embedded_integration():
         print(f"[FAIL] Embedded integration test failed: {e}")
         return False
 
+
 def main():
     """Run all import tests"""
     print("MCN Import Test Suite")
     print("=" * 40)
 
-    tests = [
-        test_core_imports,
-        test_basic_functionality,
-        test_embedded_integration
-    ]
+    tests = [test_core_imports, test_basic_functionality, test_embedded_integration]
 
     passed = 0
     total = len(tests)
@@ -77,6 +82,8 @@ def main():
         print("ERROR: Some tests failed. Check the import configuration.")
         return 1
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import sys
+
     sys.exit(main())

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from .mcn_logger import log_error, log_step
 
+
 class MCNFrontendIntegration:
     """Handles frontend application integration with MCN backend"""
 
@@ -23,13 +24,13 @@ class MCNFrontendIntegration:
 
         # Check for common frontend files
         framework_indicators = {
-            'react': ['package.json', 'src/App.js', 'src/App.tsx', 'public/index.html'],
-            'vue': ['package.json', 'src/App.vue', 'public/index.html'],
-            'angular': ['package.json', 'src/app/app.component.ts', 'angular.json'],
-            'svelte': ['package.json', 'src/App.svelte'],
-            'next': ['package.json', 'next.config.js', 'pages/'],
-            'nuxt': ['package.json', 'nuxt.config.js', 'pages/'],
-            'vanilla': ['index.html', 'main.js', 'style.css']
+            "react": ["package.json", "src/App.js", "src/App.tsx", "public/index.html"],
+            "vue": ["package.json", "src/App.vue", "public/index.html"],
+            "angular": ["package.json", "src/app/app.component.ts", "angular.json"],
+            "svelte": ["package.json", "src/App.svelte"],
+            "next": ["package.json", "next.config.js", "pages/"],
+            "nuxt": ["package.json", "nuxt.config.js", "pages/"],
+            "vanilla": ["index.html", "main.js", "style.css"],
         }
 
         for framework, files in framework_indicators.items():
@@ -39,20 +40,21 @@ class MCNFrontendIntegration:
 
         return None
 
-    def generate_api_client(self, mcn_endpoints: List[Dict[str, Any]],
-                          framework: str = None) -> str:
+    def generate_api_client(
+        self, mcn_endpoints: List[Dict[str, Any]], framework: str = None
+    ) -> str:
         """Generate frontend API client code for MCN endpoints"""
 
         if not framework:
-            framework = self.detect_frontend_framework() or 'vanilla'
+            framework = self.detect_frontend_framework() or "vanilla"
 
         log_step(f"Generating API client for {framework}")
 
         generators = {
-            'react': self._generate_react_client,
-            'vue': self._generate_vue_client,
-            'angular': self._generate_angular_client,
-            'vanilla': self._generate_vanilla_client
+            "react": self._generate_react_client,
+            "vue": self._generate_vue_client,
+            "angular": self._generate_angular_client,
+            "vanilla": self._generate_vanilla_client,
         }
 
         generator = generators.get(framework, self._generate_vanilla_client)
@@ -61,7 +63,7 @@ class MCNFrontendIntegration:
     def _generate_react_client(self, endpoints: List[Dict[str, Any]]) -> str:
         """Generate React API client"""
 
-        client_code = '''
+        client_code = """
 import axios from 'axios';
 
 class MCNApiClient {
@@ -94,15 +96,15 @@ class MCNApiClient {
       }
     );
   }
-'''
+"""
 
         # Generate methods for each endpoint
         for endpoint in endpoints:
-            method_name = endpoint.get('name', 'unknown').replace('-', '_')
-            http_method = endpoint.get('method', 'POST').lower()
-            path = endpoint.get('path', f'/{method_name}')
+            method_name = endpoint.get("name", "unknown").replace("-", "_")
+            http_method = endpoint.get("method", "POST").lower()
+            path = endpoint.get("path", f"/{method_name}")
 
-            client_code += f'''
+            client_code += f"""
   async {method_name}(data = {{}}) {{
     try {{
       const response = await this.client.{http_method}('{path}', data);
@@ -111,9 +113,9 @@ class MCNApiClient {
       throw new Error(`MCN {method_name} failed: ${{error.message}}`);
     }}
   }}
-'''
+"""
 
-        client_code += '''
+        client_code += """
 }
 
 export default MCNApiClient;
@@ -143,14 +145,14 @@ export const useMCNApi = () => {
 
   return { callApi, loading, error };
 };
-'''
+"""
 
         return client_code
 
     def _generate_vue_client(self, endpoints: List[Dict[str, Any]]) -> str:
         """Generate Vue.js API client"""
 
-        client_code = '''
+        client_code = """
 import axios from 'axios';
 
 class MCNApiClient {
@@ -162,21 +164,21 @@ class MCNApiClient {
       },
     });
   }
-'''
+"""
 
         for endpoint in endpoints:
-            method_name = endpoint.get('name', 'unknown').replace('-', '_')
-            http_method = endpoint.get('method', 'POST').lower()
-            path = endpoint.get('path', f'/{method_name}')
+            method_name = endpoint.get("name", "unknown").replace("-", "_")
+            http_method = endpoint.get("method", "POST").lower()
+            path = endpoint.get("path", f"/{method_name}")
 
-            client_code += f'''
+            client_code += f"""
   async {method_name}(data = {{}}) {{
     const response = await this.client.{http_method}('{path}', data);
     return response.data;
   }}
-'''
+"""
 
-        client_code += '''
+        client_code += """
 }
 
 // Vue Plugin
@@ -212,14 +214,14 @@ export const useMCN = () => {
 
   return { callApi, loading, error };
 };
-'''
+"""
 
         return client_code
 
     def _generate_vanilla_client(self, endpoints: List[Dict[str, Any]]) -> str:
         """Generate vanilla JavaScript API client"""
 
-        client_code = '''
+        client_code = """
 class MCNApiClient {
   constructor(baseURL = 'http://localhost:8080') {
     this.baseURL = baseURL;
@@ -247,31 +249,31 @@ class MCNApiClient {
       throw error;
     }
   }
-'''
+"""
 
         for endpoint in endpoints:
-            method_name = endpoint.get('name', 'unknown').replace('-', '_')
-            path = endpoint.get('path', f'/{method_name}')
+            method_name = endpoint.get("name", "unknown").replace("-", "_")
+            path = endpoint.get("path", f"/{method_name}")
 
-            client_code += f'''
+            client_code += f"""
   async {method_name}(data = {{}}) {{
     return this.request('{path}', data);
   }}
-'''
+"""
 
-        client_code += '''
+        client_code += """
 }
 
 // Global instance
 window.MCN = new MCNApiClient();
-'''
+"""
 
         return client_code
 
     def _generate_angular_client(self, endpoints: List[Dict[str, Any]]) -> str:
         """Generate Angular service"""
 
-        service_code = '''
+        service_code = """
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -289,27 +291,29 @@ export class MCNApiService {
       'Content-Type': 'application/json'
     });
   }
-'''
+"""
 
         for endpoint in endpoints:
-            method_name = endpoint.get('name', 'unknown').replace('-', '_')
-            path = endpoint.get('path', f'/{method_name}')
+            method_name = endpoint.get("name", "unknown").replace("-", "_")
+            path = endpoint.get("path", f"/{method_name}")
 
-            service_code += f'''
+            service_code += f"""
   {method_name}(data: any = {{}}): Observable<any> {{
     return this.http.post(`${{this.baseURL}}{path}`, data, {{
       headers: this.getHeaders()
     }});
   }}
-'''
+"""
 
-        service_code += '''
+        service_code += """
 }
-'''
+"""
 
         return service_code
 
-    def create_frontend_config(self, framework: str, mcn_endpoints: List[Dict[str, Any]]):
+    def create_frontend_config(
+        self, framework: str, mcn_endpoints: List[Dict[str, Any]]
+    ):
         """Create frontend configuration files"""
 
         log_step(f"Creating frontend config for {framework}")
@@ -318,29 +322,24 @@ export class MCNApiService {
         client_code = self.generate_api_client(mcn_endpoints, framework)
 
         # Determine file extension and path
-        extensions = {
-            'react': 'js',
-            'vue': 'js',
-            'angular': 'ts',
-            'vanilla': 'js'
-        }
+        extensions = {"react": "js", "vue": "js", "angular": "ts", "vanilla": "js"}
 
-        ext = extensions.get(framework, 'js')
-        client_file = self.project_path / f'mcn-api-client.{ext}'
+        ext = extensions.get(framework, "js")
+        client_file = self.project_path / f"mcn-api-client.{ext}"
 
-        with open(client_file, 'w') as f:
+        with open(client_file, "w") as f:
             f.write(client_code)
 
         log_step(f"Created API client: {client_file}")
 
         # Create environment config
         env_config = {
-            'MCN_API_URL': 'http://localhost:8080',
-            'MCN_ENDPOINTS': {ep.get('name'): ep.get('path') for ep in mcn_endpoints}
+            "MCN_API_URL": "http://localhost:8080",
+            "MCN_ENDPOINTS": {ep.get("name"): ep.get("path") for ep in mcn_endpoints},
         }
 
-        env_file = self.project_path / '.env.mcn'
-        with open(env_file, 'w') as f:
+        env_file = self.project_path / ".env.mcn"
+        with open(env_file, "w") as f:
             for key, value in env_config.items():
                 if isinstance(value, dict):
                     f.write(f"{key}={json.dumps(value)}\n")
@@ -348,18 +347,22 @@ export class MCNApiService {
                     f.write(f"{key}={value}\n")
 
         return {
-            'client_file': str(client_file),
-            'env_file': str(env_file),
-            'framework': framework
+            "client_file": str(client_file),
+            "env_file": str(env_file),
+            "framework": framework,
         }
 
-    def generate_frontend_examples(self, framework: str, endpoints: List[Dict[str, Any]]) -> Dict[str, str]:
+    def generate_frontend_examples(
+        self, framework: str, endpoints: List[Dict[str, Any]]
+    ) -> Dict[str, str]:
         """Generate example frontend code for using MCN APIs"""
 
         examples = {}
 
-        if framework == 'react':
-            examples['component'] = '''
+        if framework == "react":
+            examples[
+                "component"
+            ] = """
 import React, { useState } from 'react';
 import { useMCNApi } from './mcn-api-client';
 
@@ -391,10 +394,12 @@ const MCNExample = () => {
 };
 
 export default MCNExample;
-'''
+"""
 
-        elif framework == 'vue':
-            examples['component'] = '''
+        elif framework == "vue":
+            examples[
+                "component"
+            ] = """
 <template>
   <div>
     <button @click="handleApiCall" :disabled="loading">
@@ -429,9 +434,10 @@ export default {
   }
 };
 </script>
-'''
+"""
 
         return examples
+
 
 # Global frontend integration instance
 mcn_frontend = MCNFrontendIntegration()

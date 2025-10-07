@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from mcn_interpreter import MCNInterpreter
+
 
 def main():
     if len(sys.argv) != 2:
@@ -17,7 +19,7 @@ def main():
         return 1
 
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             code = f.read()
 
         interpreter = MCNInterpreter()
@@ -31,5 +33,6 @@ def main():
         print(f"Error executing script: {e}")
         return 1
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

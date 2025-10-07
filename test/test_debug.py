@@ -2,9 +2,10 @@
 
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from mcn_interpreter import MCNInterpreter
+from mcn.core_engine.mcn_interpreter import MCNInterpreter
 
 # Test basic functionality
 interpreter = MCNInterpreter()
