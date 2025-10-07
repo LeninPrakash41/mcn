@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MSL (Macincode Scripting Language) Setup
+MCN (Macincode Scripting Language) Setup
 """
 
 from setuptools import setup, find_packages
@@ -12,11 +12,11 @@ def read_readme():
     if os.path.exists(readme_path):
         with open(readme_path, 'r', encoding='utf-8') as f:
             return f.read()
-    return "MSL - Business automation scripting language with AI integration"
+    return "MCN - Business automation scripting language with AI integration"
 
 # Read requirements
 def read_requirements():
-    req_path = os.path.join(os.path.dirname(__file__), 'msl', 'requirements.txt')
+    req_path = os.path.join(os.path.dirname(__file__), 'mcn', 'requirements.txt')
     if os.path.exists(req_path):
         with open(req_path, 'r', encoding='utf-8') as f:
             return [line.strip() for line in f if line.strip() and not line.startswith('#')]
@@ -28,14 +28,14 @@ def read_requirements():
     ]
 
 setup(
-    name="msl-lang",
+    name="mcn-lang",
     version="2.0.0",
-    author="MSL Foundation from Macincode",
+    author="MCN Foundation from Macincode",
     author_email="dev@mslang.org",
     description="Business automation scripting language with AI integration",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/msl-lang/msl",
+    url="https://github.com/mcn/mcn",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -79,29 +79,29 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'msl=msl.core_engine.msl_cli:main',
-            'msl-cli=msl.core_engine.msl_cli:main',
+            'mcn=mcn.core_engine.mcn_cli:main',
+            'mcn-cli=mcn.core_engine.mcn_cli:main',
         ],
     },
     include_package_data=True,
     package_data={
-        'msl': [
-            'examples/*.msl',
-            'use-cases/*.msl',
-            'msl_packages/*.json',
+        'mcn': [
+            'examples/*.mcn',
+            'use-cases/*.mcn',
+            'mcn_packages/*.json',
             'docs/*.md',
-            'studio/vscode-msl/syntaxes/*.json',
-            'studio/vscode-msl/package.json',
+            'studio/vscode-mcn/syntaxes/*.json',
+            'studio/vscode-mcn/package.json',
             'web-playground/*.html',
             'web-playground/*.js',
             'web-playground/*.css'
         ],
     },
     zip_safe=False,
-    keywords="msl scripting automation ai business workflow",
+    keywords="mcn scripting automation ai business workflow",
     project_urls={
-        "Bug Reports": "https://github.com/zeroappz/msl/issues",
-        "Source": "https://github.com/zeroappz/msl",
+        "Bug Reports": "https://github.com/zeroappz/mcn/issues",
+        "Source": "https://github.com/zeroappz/mcn",
         "Documentation": "https://docs.mslang.org",
     },
 )

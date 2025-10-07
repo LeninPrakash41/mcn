@@ -1,0 +1,85 @@
+{
+  "name": "mcn-vscode",
+  "displayName": "MCN Language Support",
+  "description": "Language support for MCN (Macincode Scripting Language)",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:mcn"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "mcn",
+      "aliases": ["MCN", "mcn"],
+      "extensions": [".mcn"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "mcn",
+      "scopeName": "source.mcn",
+      "path": "./syntaxes/mcn.tmLanguage.json"
+    }],
+    "commands": [
+      {
+        "command": "mcn.runScript",
+        "title": "Run MCN Script",
+        "category": "MCN"
+      },
+      {
+        "command": "mcn.openRepl",
+        "title": "Open MCN REPL",
+        "category": "MCN"
+      },
+      {
+        "command": "mcn.serveAsApi",
+        "title": "Serve as API",
+        "category": "MCN"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mcn.runScript",
+        "key": "ctrl+f5",
+        "when": "editorTextFocus && resourceExtname == .mcn"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "MCN Configuration",
+      "properties": {
+        "mcn.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python executable"
+        },
+        "mcn.mcnPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to MCN CLI"
+        },
+        "mcn.aiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key for AI features"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  }
+}

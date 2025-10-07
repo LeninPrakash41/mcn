@@ -1,6 +1,6 @@
-# MSL Frontend Integration Guide
+# MCN Frontend Integration Guide
 
-MSL provides seamless integration with popular frontend frameworks, allowing developers to easily connect their frontend applications with MSL backend services.
+MCN provides seamless integration with popular frontend frameworks, allowing developers to easily connect their frontend applications with MCN backend services.
 
 ## Supported Frameworks
 
@@ -15,35 +15,35 @@ MSL provides seamless integration with popular frontend frameworks, allowing dev
 
 ```bash
 # Add React frontend
-msl add-frontend react
+mcn add-frontend react
 
-# Add Vue.js frontend  
-msl add-frontend vue
+# Add Vue.js frontend
+mcn add-frontend vue
 
 # Add Angular frontend
-msl add-frontend angular
+mcn add-frontend angular
 
 # Add Vanilla JS frontend
-msl add-frontend vanilla
+mcn add-frontend vanilla
 ```
 
 ### 2. Initialize Project with Frontend
 
 ```bash
 # Create new project with React
-msl init my-app --frontend react
+mcn init my-app --frontend react
 
 # Create new project with Vue
-msl init my-app --frontend vue
+mcn init my-app --frontend vue
 ```
 
 ## Generated Files
 
-When you add frontend integration, MSL generates:
+When you add frontend integration, MCN generates:
 
-- **API Client** - Framework-specific client for calling MSL endpoints
-- **Environment Config** - Configuration file with MSL API settings
-- **Example Components** - Sample code showing how to use MSL APIs
+- **API Client** - Framework-specific client for calling MCN endpoints
+- **Environment Config** - Configuration file with MCN API settings
+- **Example Components** - Sample code showing how to use MCN APIs
 - **Documentation** - Frontend-specific README and guides
 
 ## Framework-Specific Usage
@@ -51,25 +51,25 @@ When you add frontend integration, MSL generates:
 ### React Integration
 
 ```javascript
-import { useMSLApi } from './msl-api-client';
+import { useMCNApi } from './mcn-api-client';
 
 function MyComponent() {
-  const { callApi, loading, error } = useMSLApi();
+  const { callApi, loading, error } = useMCNApi();
   const [result, setResult] = useState(null);
-  
+
   const handleSubmit = async (data) => {
     try {
       const response = await callApi('my_endpoint', data);
       setResult(response);
     } catch (err) {
-      console.error('MSL API Error:', err);
+      console.error('MCN API Error:', err);
     }
   };
-  
+
   return (
     <div>
       <button onClick={() => handleSubmit({name: 'test'})} disabled={loading}>
-        {loading ? 'Processing...' : 'Call MSL API'}
+        {loading ? 'Processing...' : 'Call MCN API'}
       </button>
       {error && <div className="error">Error: {error}</div>}
       {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
@@ -84,7 +84,7 @@ function MyComponent() {
 <template>
   <div>
     <button @click="handleSubmit" :disabled="loading">
-      {{ loading ? 'Processing...' : 'Call MSL API' }}
+      {{ loading ? 'Processing...' : 'Call MCN API' }}
     </button>
     <div v-if="error" class="error">Error: {{ error }}</div>
     <pre v-if="result">{{ JSON.stringify(result, null, 2) }}</pre>
@@ -92,22 +92,22 @@ function MyComponent() {
 </template>
 
 <script>
-import { useMSL } from './msl-api-client';
+import { useMCN } from './mcn-api-client';
 
 export default {
   setup() {
-    const { callApi, loading, error } = useMSL();
+    const { callApi, loading, error } = useMCN();
     const result = ref(null);
-    
+
     const handleSubmit = async () => {
       try {
         const response = await callApi('my_endpoint', {name: 'test'});
         result.value = response;
       } catch (err) {
-        console.error('MSL API Error:', err);
+        console.error('MCN API Error:', err);
       }
     };
-    
+
     return { handleSubmit, loading, error, result };
   }
 };
@@ -118,31 +118,31 @@ export default {
 
 ```typescript
 import { Component } from '@angular/core';
-import { MSLApiService } from './msl-api.service';
+import { MCNApiService } from './mcn-api.service';
 
 @Component({
-  selector: 'app-msl-example',
+  selector: 'app-mcn-example',
   template: `
     <button (click)="handleSubmit()" [disabled]="loading">
-      {{ loading ? 'Processing...' : 'Call MSL API' }}
+      {{ loading ? 'Processing...' : 'Call MCN API' }}
     </button>
     <div *ngIf="error" class="error">Error: {{ error }}</div>
     <pre *ngIf="result">{{ result | json }}</pre>
   `
 })
-export class MSLExampleComponent {
+export class MCNExampleComponent {
   loading = false;
   error: string | null = null;
   result: any = null;
-  
-  constructor(private mslApi: MSLApiService) {}
-  
+
+  constructor(private mcnApi: MCNApiService) {}
+
   async handleSubmit() {
     this.loading = true;
     this.error = null;
-    
+
     try {
-      this.result = await this.mslApi.my_endpoint({name: 'test'}).toPromise();
+      this.result = await this.mcnApi.my_endpoint({name: 'test'}).toPromise();
     } catch (err) {
       this.error = err.message;
     } finally {
@@ -155,10 +155,10 @@ export class MSLExampleComponent {
 ### Vanilla JavaScript Integration
 
 ```javascript
-// Using the global MSL client
-async function callMSLApi() {
+// Using the global MCN client
+async function callMCNApi() {
   try {
-    const result = await window.MSL.my_endpoint({name: 'test'});
+    const result = await window.MCN.my_endpoint({name: 'test'});
     document.getElementById('result').textContent = JSON.stringify(result, null, 2);
   } catch (error) {
     document.getElementById('error').textContent = error.message;
@@ -166,22 +166,22 @@ async function callMSLApi() {
 }
 
 // Or create your own instance
-const mslClient = new MSLApiClient('http://localhost:8080');
-const result = await mslClient.my_endpoint({name: 'test'});
+const mcnClient = new MCNApiClient('http://localhost:8080');
+const result = await mcnClient.my_endpoint({name: 'test'});
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-MSL frontend integration uses environment variables for configuration:
+MCN frontend integration uses environment variables for configuration:
 
 ```bash
-# .env.msl
-MSL_API_URL=http://localhost:8080
-MSL_ENDPOINTS={"main":"/main","health":"/health"}
-MSL_AUTH_TOKEN=your-auth-token
-MSL_TIMEOUT=30000
+# .env.mcn
+MCN_API_URL=http://localhost:8080
+MCN_ENDPOINTS={"main":"/main","health":"/health"}
+MCN_AUTH_TOKEN=your-auth-token
+MCN_TIMEOUT=30000
 ```
 
 ### API Client Configuration
@@ -190,7 +190,7 @@ You can customize the API client behavior:
 
 ```javascript
 // React/Vue/Vanilla
-const client = new MSLApiClient('http://localhost:8080', {
+const client = new MCNApiClient('http://localhost:8080', {
   timeout: 30000,
   retries: 3,
   headers: {
@@ -200,24 +200,24 @@ const client = new MSLApiClient('http://localhost:8080', {
 
 // Angular
 @Injectable()
-export class MSLApiService {
+export class MCNApiService {
   constructor(private http: HttpClient) {
-    this.baseURL = environment.mslApiUrl;
-    this.timeout = environment.mslTimeout || 30000;
+    this.baseURL = environment.mcnApiUrl;
+    this.timeout = environment.mcnTimeout || 30000;
   }
 }
 ```
 
 ## Error Handling
 
-MSL frontend integration provides comprehensive error handling:
+MCN frontend integration provides comprehensive error handling:
 
 ```javascript
 try {
   const result = await callApi('my_endpoint', data);
 } catch (error) {
   if (error.response) {
-    // MSL API returned an error response
+    // MCN API returned an error response
     console.error('API Error:', error.response.data);
   } else if (error.request) {
     // Network error
@@ -233,19 +233,19 @@ try {
 
 ### WebSocket Integration
 
-For real-time features, MSL can provide WebSocket connections:
+For real-time features, MCN can provide WebSocket connections:
 
 ```javascript
-// Connect to MSL WebSocket
+// Connect to MCN WebSocket
 const ws = new WebSocket('ws://localhost:8080/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  // Handle real-time updates from MSL
+  // Handle real-time updates from MCN
   updateUI(data);
 };
 
-// Send data to MSL via WebSocket
+// Send data to MCN via WebSocket
 ws.send(JSON.stringify({
   action: 'process_data',
   data: { /* your data */ }
@@ -261,8 +261,8 @@ const eventSource = new EventSource('http://localhost:8080/events');
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  // Handle MSL events
-  handleMSLEvent(data);
+  // Handle MCN events
+  handleMCNEvent(data);
 };
 ```
 
@@ -271,25 +271,25 @@ eventSource.onmessage = (event) => {
 ### 1. Error Boundaries (React)
 
 ```javascript
-class MSLErrorBoundary extends React.Component {
+class MCNErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false };
   }
-  
+
   static getDerivedStateFromError(error) {
     return { hasError: true };
   }
-  
+
   componentDidCatch(error, errorInfo) {
-    console.error('MSL API Error:', error, errorInfo);
+    console.error('MCN API Error:', error, errorInfo);
   }
-  
+
   render() {
     if (this.state.hasError) {
-      return <div>Something went wrong with MSL API.</div>;
+      return <div>Something went wrong with MCN API.</div>;
     }
-    
+
     return this.props.children;
   }
 }
@@ -321,14 +321,14 @@ const cache = new Map();
 
 const cachedApiCall = async (endpoint, data) => {
   const key = `${endpoint}-${JSON.stringify(data)}`;
-  
+
   if (cache.has(key)) {
     return cache.get(key);
   }
-  
+
   const result = await callApi(endpoint, data);
   cache.set(key, result);
-  
+
   return result;
 };
 ```
@@ -338,8 +338,8 @@ const cachedApiCall = async (endpoint, data) => {
 ### Development
 
 ```bash
-# Start MSL backend
-msl serve --dir msl/ --port 8080
+# Start MCN backend
+mcn serve --dir mcn/ --port 8080
 
 # Start frontend development server
 cd frontend
@@ -354,7 +354,7 @@ cd frontend
 npm run build
 
 # Serve both backend and frontend
-msl serve --dir msl/ --static frontend/dist --port 8080
+mcn serve --dir mcn/ --static frontend/dist --port 8080
 ```
 
 ## Troubleshooting
@@ -363,7 +363,7 @@ msl serve --dir msl/ --static frontend/dist --port 8080
 
 1. **CORS Errors**
    ```javascript
-   // Enable CORS in MSL configuration
+   // Enable CORS in MCN configuration
    {
      "api": {
        "cors": true,
@@ -375,13 +375,13 @@ msl serve --dir msl/ --static frontend/dist --port 8080
 2. **Network Timeouts**
    ```javascript
    // Increase timeout in API client
-   const client = new MSLApiClient(baseURL, { timeout: 60000 });
+   const client = new MCNApiClient(baseURL, { timeout: 60000 });
    ```
 
 3. **Authentication Issues**
    ```javascript
    // Ensure auth token is properly set
-   localStorage.setItem('msl_token', 'your-token');
+   localStorage.setItem('mcn_token', 'your-token');
    ```
 
 ### Debug Mode
@@ -390,27 +390,27 @@ Enable debug mode for detailed logging:
 
 ```javascript
 // Set debug flag
-window.MSL_DEBUG = true;
+window.MCN_DEBUG = true;
 
 // Or in environment
-MSL_DEBUG=true npm start
+MCN_DEBUG=true npm start
 ```
 
 ## Examples
 
 See the `examples/` directory for complete frontend integration examples:
 
-- `examples/react-msl-app/` - Complete React application
-- `examples/vue-msl-app/` - Complete Vue.js application  
-- `examples/angular-msl-app/` - Complete Angular application
-- `examples/vanilla-msl-app/` - Vanilla JavaScript example
+- `examples/react-mcn-app/` - Complete React application
+- `examples/vue-mcn-app/` - Complete Vue.js application
+- `examples/angular-mcn-app/` - Complete Angular application
+- `examples/vanilla-mcn-app/` - Vanilla JavaScript example
 
 ## API Reference
 
-### MSLApiClient
+### MCNApiClient
 
 ```javascript
-class MSLApiClient {
+class MCNApiClient {
   constructor(baseURL, options)
   async request(endpoint, data, method)
   async [endpoint_name](data)
@@ -420,20 +420,20 @@ class MSLApiClient {
 ### React Hooks
 
 ```javascript
-const { callApi, loading, error } = useMSLApi();
+const { callApi, loading, error } = useMCNApi();
 ```
 
 ### Vue Composables
 
 ```javascript
-const { callApi, loading, error } = useMSL();
+const { callApi, loading, error } = useMCN();
 ```
 
 ### Angular Services
 
 ```typescript
 @Injectable()
-class MSLApiService {
+class MCNApiService {
   [endpoint_name](data: any): Observable<any>
 }
 ```

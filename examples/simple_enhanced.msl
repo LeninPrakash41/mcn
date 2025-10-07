@@ -1,6 +1,0 @@
-echo "Testing enhanced features"
-var api_key = env("PATH")
-echo "PATH: " + api_key
-write_file("test.txt", "Hello MSL")
-var content = read_file("test.txt")
-echo "File content: " + content

@@ -1,7 +1,7 @@
-# MSL (Macincode Scripting Language) - Project Summary
+# MCN (Macincode Scripting Language) - Project Summary
 
 ## 🎯 **Vision**
-MSL is an AI-first scripting language designed for Gen-Z developers and business automation teams. It enables rapid development of AI-powered applications with minimal code while serving as an embedded scripting engine for existing Python projects.
+MCN is an AI-first scripting language designed for Gen-Z developers and business automation teams. It enables rapid development of AI-powered applications with minimal code while serving as an embedded scripting engine for existing Python projects.
 
 ## 🚀 **Core Value Proposition**
 
@@ -12,39 +12,39 @@ MSL is an AI-first scripting language designed for Gen-Z developers and business
 - **Zero-Config Deployment**: Deploy scripts as APIs instantly
 
 ### **For Existing Python Projects**
-- **Embedded Scripting Engine**: Add MSL to existing codebases with 3 lines of code
-- **Business Logic Separation**: Keep Python for core logic, MSL for workflows
-- **User-Configurable**: Business users can modify MSL scripts without touching Python
+- **Embedded Scripting Engine**: Add MCN to existing codebases with 3 lines of code
+- **Business Logic Separation**: Keep Python for core logic, MCN for workflows
+- **User-Configurable**: Business users can modify MCN scripts without touching Python
 - **No Migration Required**: Enhance existing projects without rebuilding
 
 ## 📋 **Current Implementation Status**
 
-### ✅ **Phase 1: MSL Core (COMPLETED)**
+### ✅ **Phase 1: MCN Core (COMPLETED)**
 - **Interpreter**: Full lexer, parser, and evaluator
 - **Built-in Functions**: `log`, `query`, `trigger`, `ai`, `workflow`
 - **Language Features**: Variables, conditionals, loops, error handling
 - **CLI Interface**: Script execution and REPL mode
-- **Server Runtime**: Serve MSL scripts as REST APIs
+- **Server Runtime**: Serve MCN scripts as REST APIs
 
-### ✅ **Phase 1.5: MSL 2.0 Features (COMPLETED)**
+### ✅ **Phase 1.5: MCN 2.0 Features (COMPLETED)**
 - **Package System**: `use "db"`, `use "ai"`, `use "http"`
 - **Parallel Tasks**: `task` and `await` for async operations
 - **Type Hints**: Optional type checking with `type` function
 - **Enhanced AI**: Context-aware AI with variable integration
-- **Embedded Integration**: `MSLEmbedded` class for Python projects
+- **Embedded Integration**: `MCNEmbedded` class for Python projects
 
-### 🚧 **Phase 2: MSL Studio (ARCHITECTED)**
+### 🚧 **Phase 2: MCN Studio (ARCHITECTED)**
 - **VS Code Extension**: Syntax highlighting, debugging, AI assistant
 - **Language Server**: LSP implementation with auto-completion
 - **Web IDE**: Browser-based development environment (planned)
 
-### 🚧 **Phase 3: MSL Runtime Framework (ARCHITECTED)**
+### 🚧 **Phase 3: MCN Runtime Framework (ARCHITECTED)**
 - **Cloud Deployment**: Docker + Kubernetes infrastructure
-- **MSL Cloud CLI**: `msl-cloud deploy`, `scale`, `logs` commands
+- **MCN Cloud CLI**: `mcn-cloud deploy`, `scale`, `logs` commands
 - **Auto-scaling**: Production-ready container orchestration
 
 ### 🚧 **Phase 4: Full-Stack Framework (ARCHITECTED)**
-- **App Generator**: Generate complete React + MSL applications
+- **App Generator**: Generate complete React + MCN applications
 - **AI Code Generation**: Natural language to full-stack apps
 - **Template Marketplace**: Community-driven app templates
 
@@ -52,18 +52,18 @@ MSL is an AI-first scripting language designed for Gen-Z developers and business
 
 ### **Core Components**
 ```
-msl_interpreter.py    # Language engine (lexer, parser, evaluator)
-msl_runtime.py       # Built-in functions (DB, API, AI integration)
-msl_extensions.py    # v2.0 features (packages, async, types)
-msl_embedded.py      # Python integration layer
-msl_server.py        # API server runtime
-msl_cli.py          # Command-line interface
+mcn_interpreter.py    # Language engine (lexer, parser, evaluator)
+mcn_runtime.py       # Built-in functions (DB, API, AI integration)
+mcn_extensions.py    # v2.0 features (packages, async, types)
+mcn_embedded.py      # Python integration layer
+mcn_server.py        # API server runtime
+mcn_cli.py          # Command-line interface
 ```
 
 ### **Integration Architecture**
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Python App    │    │   MSL Scripts   │    │   External APIs │
+│   Python App    │    │   MCN Scripts   │    │   External APIs │
 │   - Core Logic  │◄──►│   - Workflows   │◄──►│   - Databases   │
 │   - Database    │    │   - Automation  │    │   - AI Models   │
 │   - APIs        │    │   - Business    │    │   - Webhooks    │
@@ -75,18 +75,18 @@ msl_cli.py          # Command-line interface
 ### **1. CRM Enhancement**
 ```python
 # Existing Python CRM
-from msl_embedded import MSLEmbedded
+from mcn_embedded import MCNEmbedded
 
 class CRM:
     def __init__(self):
-        self.msl = MSLEmbedded()
-        self.msl.register_function('send_email', self.send_email)
-        
+        self.mcn = MCNEmbedded()
+        self.mcn.register_function('send_email', self.send_email)
+
     def run_workflow(self, script: str, data: dict):
-        return self.msl.execute(script, data)
+        return self.mcn.execute(script, data)
 ```
 
-```msl
+```mcn
 // Business users can modify this workflow
 var lead = create_lead(customer_name, customer_email)
 send_email(customer_email, "Welcome!")
@@ -98,14 +98,14 @@ notify_team("New lead: " + customer_name)
 # Existing AI platform
 class AIAgent:
     def __init__(self):
-        self.msl = MSLEmbedded()
-        self.msl.register_function('classify_intent', self.classify)
-        
+        self.mcn = MCNEmbedded()
+        self.mcn.register_function('classify_intent', self.classify)
+
     def process_message(self, message: str, behavior_script: str):
-        return self.msl.execute(behavior_script, {'user_message': message})
+        return self.mcn.execute(behavior_script, {'user_message': message})
 ```
 
-```msl
+```mcn
 // AI behavior scripting
 var intent = classify_intent(user_message)
 if intent == "booking"
@@ -115,7 +115,7 @@ else
 ```
 
 ### **3. E-commerce Automation**
-```msl
+```mcn
 // Order processing workflow
 var payment = process_payment(order_amount, payment_method)
 if payment.success
@@ -173,12 +173,12 @@ if payment.success
 4. **Security**: Sandboxing and resource limits
 
 ### **Medium-term (6 months)**
-1. **MSL Cloud**: Production deployment platform
+1. **MCN Cloud**: Production deployment platform
 2. **Enterprise Features**: Team collaboration, governance
 3. **AI Enhancement**: Better code generation and suggestions
 4. **Full-Stack Generator**: Complete app scaffolding
 
-## 🎉 **Why MSL Will Succeed**
+## 🎉 **Why MCN Will Succeed**
 
 ### **Market Timing**
 - **AI Boom**: Every business wants AI integration
@@ -194,12 +194,12 @@ if payment.success
 
 ### **Business Model**
 - **Open Source Core**: Developer adoption
-- **MSL Cloud**: SaaS deployment platform
+- **MCN Cloud**: SaaS deployment platform
 - **Enterprise**: Advanced features and support
 - **Marketplace**: Revenue sharing on templates/packages
 
 ## 📈 **Competitive Advantage**
 
-MSL is positioned uniquely as the **only AI-first scripting language** that can be embedded into existing Python projects while also serving as a standalone development platform. This dual-purpose design creates a massive addressable market spanning both new AI applications and existing Python codebases.
+MCN is positioned uniquely as the **only AI-first scripting language** that can be embedded into existing Python projects while also serving as a standalone development platform. This dual-purpose design creates a massive addressable market spanning both new AI applications and existing Python codebases.
 
-**The future of business automation is AI-powered, human-readable, and embeddable. MSL is that future.**
+**The future of business automation is AI-powered, human-readable, and embeddable. MCN is that future.**

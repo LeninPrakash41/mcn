@@ -1,9 +1,9 @@
-# MSL Use Cases
+# MCN Use Cases
 
-Real-world examples demonstrating MSL's capabilities across different industries and applications.
+Real-world examples demonstrating MCN's capabilities across different industries and applications.
 
 ## 🏥 Healthcare - Patient Management
-**File:** `healthcare_patient_management.msl`
+**File:** `healthcare_patient_management.mcn`
 
 **Features:**
 - Automated patient data processing
@@ -15,19 +15,19 @@ Real-world examples demonstrating MSL's capabilities across different industries
 **Use Case:** Hospital patient intake system that automatically analyzes vital signs, generates risk assessments, and alerts medical staff for critical conditions.
 
 ## 🌐 MCP Server Creation
-**File:** `mcp_server_creation.msl`
+**File:** `mcp_server_creation.mcn`
 
 **Features:**
 - Model Context Protocol server setup
-- MSL tool registration
+- MCN tool registration
 - Database initialization
 - Request handling
 - Health monitoring
 
-**Use Case:** Create an MCP server that exposes MSL functions (database queries, AI analysis, webhooks) as standardized tools for AI assistants.
+**Use Case:** Create an MCP server that exposes MCN functions (database queries, AI analysis, webhooks) as standardized tools for AI assistants.
 
 ## 🤖 Machine Learning Pipeline
-**File:** `ml_model_training.msl`
+**File:** `ml_model_training.mcn`
 
 **Features:**
 - Automated data preparation
@@ -39,7 +39,7 @@ Real-world examples demonstrating MSL's capabilities across different industries
 **Use Case:** End-to-end ML pipeline for customer churn prediction, from data collection to model deployment and inference.
 
 ## 📊 Business Intelligence Dashboard
-**File:** `bi_analytics_dashboard.msl`
+**File:** `bi_analytics_dashboard.mcn`
 
 **Features:**
 - Real-time data aggregation
@@ -54,31 +54,31 @@ Real-world examples demonstrating MSL's capabilities across different industries
 
 ### Prerequisites
 ```bash
-# Install MSL
+# Install MCN
 git clone <repository>
-cd msl
+cd mcn
 pip install -r requirements.txt
 ```
 
 ### Execute Use Cases
 ```bash
 # Healthcare example
-python msl_cli.py use-cases/healthcare_patient_management.msl
+python mcn_cli.py use-cases/healthcare_patient_management.mcn
 
 # MCP Server (serve as API)
-python msl_cli.py use-cases/mcp_server_creation.msl --serve --port 3000
+python mcn_cli.py use-cases/mcp_server_creation.mcn --serve --port 3000
 
 # ML Pipeline
-python msl_cli.py use-cases/ml_model_training.msl
+python mcn_cli.py use-cases/ml_model_training.mcn
 
 # BI Dashboard
-python msl_cli.py use-cases/bi_analytics_dashboard.msl
+python mcn_cli.py use-cases/bi_analytics_dashboard.mcn
 ```
 
 ### Serve as APIs
 ```bash
 # Serve all use cases as REST endpoints
-python msl_cli.py --serve-dir use-cases/ --port 8080
+python mcn_cli.py --serve-dir use-cases/ --port 8080
 
 # Access endpoints:
 # POST http://localhost:8080/healthcare_patient_management
@@ -87,35 +87,35 @@ python msl_cli.py --serve-dir use-cases/ --port 8080
 # POST http://localhost:8080/bi_analytics_dashboard
 ```
 
-## Key MSL Features Demonstrated
+## Key MCN Features Demonstrated
 
 ### 🔄 Parallel Processing
-```msl
+```mcn
 task "data_fetch" "query" "SELECT * FROM users"
 task "api_call" "trigger" "https://api.com/data"
 var results = await "data_fetch" "api_call"
 ```
 
 ### 🤖 AI Integration
-```msl
+```mcn
 var analysis = ai("Analyze patient vitals: " + vital_signs)
 var insights = ai("Generate business insights from: " + metrics)
 ```
 
 ### 🗄️ Database Operations
-```msl
+```mcn
 query("INSERT INTO patients VALUES (?, ?)", (id, data))
 var results = query("SELECT * FROM analytics WHERE date > ?", (date))
 ```
 
 ### 🌐 API Automation
-```msl
+```mcn
 trigger("https://slack.com/webhook", {"text": "Alert message"})
 var response = trigger("https://api.com/data", payload, "POST")
 ```
 
 ### 📦 Package System
-```msl
+```mcn
 use "db"    // Database utilities
 use "ai"    // AI analysis functions
 use "http"  // HTTP helpers

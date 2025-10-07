@@ -1,13 +1,13 @@
-# MSL Developer Guide
+# MCN Developer Guide
 
 ## Table of Contents
 1. [Getting Started](#getting-started)
 2. [Language Syntax](#language-syntax)
 3. [Built-in Functions](#built-in-functions)
-4. [MSL 2.0 Features](#msl-20-features)
+4. [MCN 2.0 Features](#mcn-20-features)
 5. [Package System](#package-system)
 6. [Server Runtime](#server-runtime)
-7. [Extending MSL](#extending-msl)
+7. [Extending MCN](#extending-mcn)
 8. [Best Practices](#best-practices)
 
 ## Getting Started
@@ -15,31 +15,31 @@
 ### Installation
 ```bash
 git clone <repository>
-cd msl
+cd mcn
 pip install -r requirements.txt
 ```
 
-### Your First MSL Script
-Create `hello.msl`:
-```msl
+### Your First MCN Script
+Create `hello.mcn`:
+```mcn
 var name = "World"
 log "Hello " + name + "!"
 ```
 
 Run it:
 ```bash
-python msl_cli.py hello.msl
+python mcn_cli.py hello.mcn
 ```
 
 ### REPL Mode
 ```bash
-python msl_cli.py --repl
+python mcn_cli.py --repl
 ```
 
 ## Language Syntax
 
 ### Variables
-```msl
+```mcn
 var name = "Alice"
 var age = 25
 var is_active = true
@@ -47,7 +47,7 @@ var scores = [85, 92, 78]
 ```
 
 ### Conditionals
-```msl
+```mcn
 if age >= 18
     log "Adult"
 else
@@ -55,7 +55,7 @@ else
 ```
 
 ### Loops
-```msl
+```mcn
 var counter = 0
 while counter < 5
     log "Count: " + counter
@@ -63,7 +63,7 @@ while counter < 5
 ```
 
 ### Error Handling
-```msl
+```mcn
 try
     var result = risky_operation()
 catch
@@ -80,7 +80,7 @@ catch
 - `workflow(name, params)` - Execute workflows
 
 ### Example Usage
-```msl
+```mcn
 // Database
 var users = query("SELECT * FROM users WHERE age > ?", (18,))
 
@@ -91,10 +91,10 @@ var response = trigger("https://api.example.com/data", {"key": "value"})
 var summary = ai("Summarize this data: " + users)
 ```
 
-## MSL 2.0 Features
+## MCN 2.0 Features
 
 ### 1. Type Hints (Optional)
-```msl
+```mcn
 type "username" "string"
 type "age" "number"
 type "is_admin" "boolean"
@@ -104,7 +104,7 @@ var age = "25"          // ✗ Type error if strict mode
 ```
 
 ### 2. Package System
-```msl
+```mcn
 // Load packages
 use "db"
 use "http"
@@ -116,7 +116,7 @@ var result = batch_insert("users", data)
 ```
 
 ### 3. Parallel Tasks
-```msl
+```mcn
 // Create tasks
 task "email" "trigger" "https://mail.api.com/send" {"to": "user@example.com"}
 task "log" "query" "INSERT INTO logs VALUES (?)" ("User registered")
@@ -127,7 +127,7 @@ log "All tasks completed: " + results
 ```
 
 ### 4. Enhanced AI Context
-```msl
+```mcn
 var user_name = "Alice"
 var department = "Engineering"
 
@@ -140,21 +140,21 @@ var recommendation = ai("Suggest training programs for this user")
 ### Built-in Packages
 
 #### Database Package (`db`)
-```msl
+```mcn
 use "db"
 batch_insert("users", [{"name": "Alice"}, {"name": "Bob"}])
 backup_table("users")
 ```
 
 #### HTTP Package (`http`)
-```msl
+```mcn
 use "http"
 var data = get_json("https://api.example.com/data")
 post_form("https://forms.example.com", {"name": "Alice"})
 ```
 
 #### AI Package (`ai`)
-```msl
+```mcn
 use "ai"
 var sentiment = analyze_sentiment("I love this product!")
 var summary = summarize("Long text here...")
@@ -170,8 +170,8 @@ def custom_function(param):
 def another_function():
     return "Hello from package"
 
-# Register in MSL
-interpreter = MSLInterpreter()
+# Register in MCN
+interpreter = MCNInterpreter()
 interpreter.package_manager.add_package('my_package', {
     'custom_function': custom_function,
     'another_function': another_function
@@ -182,17 +182,17 @@ interpreter.package_manager.add_package('my_package', {
 
 ### Serve Single Script
 ```bash
-python msl_cli.py api_service.msl --serve --port 8000
+python mcn_cli.py api_service.mcn --serve --port 8000
 ```
 
 ### Serve Directory
 ```bash
-python msl_cli.py --serve-dir examples/ --port 8000
+python mcn_cli.py --serve-dir examples/ --port 8000
 ```
 
 ### API Script Example
-```msl
-// api_endpoint.msl
+```mcn
+// api_endpoint.mcn
 var user_id = request_data.user_id
 var user = query("SELECT * FROM users WHERE id = ?", (user_id,))
 
@@ -211,28 +211,28 @@ curl -X POST http://localhost:8000/api_endpoint \
   -d '{"user_id": 1}'
 ```
 
-## Extending MSL
+## Extending MCN
 
 ### Register Custom Functions
 ```python
-from msl_interpreter import MSLInterpreter
+from mcn_interpreter import MCNInterpreter
 
 def my_custom_function(param1, param2):
     return param1 * param2
 
-interpreter = MSLInterpreter()
+interpreter = MCNInterpreter()
 interpreter.register_function("multiply", my_custom_function)
 ```
 
 ### Register Workflows
 ```python
-from msl_runtime import MSLRuntime
+from mcn_runtime import MCNRuntime
 
 def approval_workflow(params):
     # Custom logic
     return {"approved": True, "id": params.get("request_id")}
 
-runtime = MSLRuntime()
+runtime = MCNRuntime()
 runtime.register_workflow("approval", approval_workflow)
 ```
 
@@ -248,7 +248,7 @@ interpreter.register_function("custom_ai", custom_ai_handler)
 ## Best Practices
 
 ### 1. Code Organization
-```msl
+```mcn
 // Good: Clear variable names
 var user_email = "alice@example.com"
 var is_verified = true
@@ -259,7 +259,7 @@ var v = true
 ```
 
 ### 2. Error Handling
-```msl
+```mcn
 // Always handle potential errors
 try
     var api_result = trigger("https://external-api.com/data")
@@ -270,7 +270,7 @@ catch
 ```
 
 ### 3. Database Operations
-```msl
+```mcn
 // Use parameterized queries
 var user_id = 123
 var user = query("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -280,14 +280,14 @@ var user = query("SELECT * FROM users WHERE id = ?", (user_id,))
 ```
 
 ### 4. AI Integration
-```msl
+```mcn
 // Provide context for better AI responses
 var context = "User: " + user_name + ", Role: " + user_role
 var ai_response = ai("Generate welcome message. Context: " + context)
 ```
 
 ### 5. Async Tasks
-```msl
+```mcn
 // Use tasks for independent operations
 task "notification" "trigger" "https://notify.com/send" {"message": "Welcome"}
 task "analytics" "trigger" "https://analytics.com/track" {"event": "signup"}
@@ -296,7 +296,7 @@ task "analytics" "trigger" "https://analytics.com/track" {"event": "signup"}
 ```
 
 ### 6. Package Usage
-```msl
+```mcn
 // Load packages at the top
 use "db"
 use "http"
@@ -309,7 +309,7 @@ var insights = analyze_sentiment(user_data.bio)
 ```
 
 ### 7. Type Safety
-```msl
+```mcn
 // Use type hints for critical variables
 type "user_id" "number"
 type "email" "string"
@@ -325,28 +325,28 @@ var permissions = ["read", "write"]
 ### 1. Development
 ```bash
 # Start REPL for testing
-python msl_cli.py --repl
+python mcn_cli.py --repl
 
 # Test script
-python msl_cli.py my_script.msl
+python mcn_cli.py my_script.mcn
 ```
 
 ### 2. Testing
 ```bash
 # Run test suite
-python test_msl.py
+python test_mcn.py
 
 # Test specific features
-python msl_cli.py examples/v2_features_demo.msl
+python mcn_cli.py examples/v2_features_demo.mcn
 ```
 
 ### 3. Deployment
 ```bash
 # Serve as API
-python msl_cli.py my_api.msl --serve --host 0.0.0.0 --port 8000
+python mcn_cli.py my_api.mcn --serve --host 0.0.0.0 --port 8000
 
 # Serve multiple scripts
-python msl_cli.py --serve-dir ./api_scripts/ --port 8000
+python mcn_cli.py --serve-dir ./api_scripts/ --port 8000
 ```
 
 ## Troubleshooting
@@ -359,7 +359,7 @@ python msl_cli.py --serve-dir ./api_scripts/ --port 8000
    ```
 
 2. **Database Errors**: Check if SQLite database is accessible
-   ```msl
+   ```mcn
    try
        var result = query("SELECT 1")
    catch
@@ -367,7 +367,7 @@ python msl_cli.py --serve-dir ./api_scripts/ --port 8000
    ```
 
 3. **API Timeouts**: Add error handling for external calls
-   ```msl
+   ```mcn
    try
        var response = trigger("https://slow-api.com/data")
    catch
@@ -376,7 +376,7 @@ python msl_cli.py --serve-dir ./api_scripts/ --port 8000
    ```
 
 4. **Type Errors**: Check variable types when using type hints
-   ```msl
+   ```mcn
    type "count" "number"
    var count = 10  // ✓ Correct
    // var count = "10"  // ✗ Type error
@@ -385,9 +385,9 @@ python msl_cli.py --serve-dir ./api_scripts/ --port 8000
 ## Next Steps
 
 1. **Learn Advanced Features**: Explore async tasks and package system
-2. **Build APIs**: Create MSL scripts that serve as REST endpoints  
+2. **Build APIs**: Create MCN scripts that serve as REST endpoints
 3. **Integrate AI**: Use AI functions for intelligent automation
-4. **Extend MSL**: Create custom packages and functions
-5. **Deploy**: Serve MSL scripts in production environments
+4. **Extend MCN**: Create custom packages and functions
+5. **Deploy**: Serve MCN scripts in production environments
 
-For more examples, check the `examples/` directory in the MSL repository.
+For more examples, check the `examples/` directory in the MCN repository.

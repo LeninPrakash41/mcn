@@ -1,0 +1,12 @@
+function greet()
+    echo "Hello from MCN function!"
+
+function add(x, y)
+    var result = x + y
+    echo "Testing user functions"
+    return result
+
+greet()
+
+var sum = add(10, 5)
+echo "Sum result: " + sum

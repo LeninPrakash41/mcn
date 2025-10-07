@@ -1,0 +1,51 @@
+log "=== MCN Workflow Automation Demo ==="
+
+var new_user = "Alice Smith"
+var new_email = "alice@company.com"
+var department = "Engineering"
+
+log "Starting user onboarding workflow for: " + new_user
+
+log "Step 1: Creating user account"
+var user_result = query("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", ("Alice Smith", "alice@company.com", 25))
+
+if user_result
+    log "User account created successfully"
+else
+    log "Failed to create user account"
+
+log "Step 2: Sending welcome notification"
+var notification_payload = {"user": new_user, "email": new_email, "department": department, "message": "Welcome to the company!"}
+
+var webhook_result = trigger("https://hooks.slack.com/services/example", notification_payload)
+
+if webhook_result.success
+    log "Welcome notification sent"
+else
+    log "Failed to send notification: " + webhook_result.data
+
+log "Step 3: Creating onboarding tasks"
+var tasks = ["Complete security training", "Setup development environment", "Meet with team lead", "Review company handbook"]
+
+var task_count = 0
+while task_count < 4
+    var task_title = tasks[task_count]
+    query("INSERT INTO tasks (title, description, user_id, status) VALUES (?, ?, 1, 'pending')", (task_title, "Onboarding task"))
+    task_count = task_count + 1
+
+log "Created " + task_count + " onboarding tasks"
+
+log "Step 4: Generating personalized welcome message"
+var ai_prompt = "Write a personalized welcome message for " + new_user + " joining the " + department + " department"
+var welcome_message = ai(ai_prompt)
+
+log "AI-generated welcome message:"
+log welcome_message
+
+log "Step 5: Workflow completion"
+var completion_data = {"user": new_user, "status": "onboarding_complete", "tasks_created": task_count, "timestamp": "2025-10-01T10:30:00Z"}
+
+trigger("https://api.company.com/hr/onboarding-complete", completion_data)
+
+log "=== Workflow Automation Complete ==="
+log "User " + new_user + " successfully onboarded!"

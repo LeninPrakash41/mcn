@@ -1,0 +1,17 @@
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
+include CORE_PROTECTION.md
+include requirements.txt
+recursive-include examples *.mcn
+recursive-include use-cases *.mcn
+recursive-include docs *.md
+recursive-include mcn-lang/studio/vscode-mcn *.json
+recursive-include mcn-lang/web-playground *.html *.js *.css
+include mcn-lang/core_engine/.mcn_official
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.log

@@ -1,15 +1,15 @@
-# MSL Installation Guide
+# MCN Installation Guide
 
 ## Fixed Import Paths - No More Manual Path Configuration!
 
-MSL now uses proper Python package structure with relative imports. Developers no longer need to modify paths manually.
+MCN now uses proper Python package structure with relative imports. Developers no longer need to modify paths manually.
 
 ## Installation Options
 
 ### Option 1: Development Installation (Recommended)
 ```bash
-# Clone or download MSL
-cd d:\msl
+# Clone or download MCN
+cd d:\mcn
 
 # Install in development mode
 pip install -e .
@@ -18,24 +18,24 @@ pip install -e .
 ### Option 2: Direct Installation
 ```bash
 # Install from source
-cd d:\msl
+cd d:\mcn
 pip install .
 ```
 
 ### Option 3: Use Without Installation
 ```bash
 # Method 1: Use runner script (Recommended)
-python run_msl.py run script.msl
+python run_mcn.py run script.mcn
 
-# Method 2: Add MSL to Python path temporarily
-export PYTHONPATH="d:\msl:$PYTHONPATH"  # Linux/Mac
-set PYTHONPATH=d:\msl;%PYTHONPATH%      # Windows
-python -m msl run script.msl
+# Method 2: Add MCN to Python path temporarily
+export PYTHONPATH="d:\mcn:$PYTHONPATH"  # Linux/Mac
+set PYTHONPATH=d:\mcn;%PYTHONPATH%      # Windows
+python -m mcn run script.mcn
 
 # Method 3: Use in Python code
 import sys
-sys.path.insert(0, 'd:/msl')
-from msl import MSLInterpreter
+sys.path.insert(0, 'd:/mcn')
+from mcn import MCNInterpreter
 ```
 
 ## Usage Options
@@ -44,44 +44,44 @@ from msl import MSLInterpreter
 
 **After Installation:**
 ```bash
-# Run MSL script
-msl run script.msl
+# Run MCN script
+mcn run script.mcn
 
 # Start REPL
-msl repl
+mcn repl
 
 # Serve as API
-msl serve --file script.msl --port 8080
+mcn serve --file script.mcn --port 8080
 
 # Initialize new project
-msl init my_project --frontend react
+mcn init my_project --frontend react
 ```
 
 **Without Installation (Direct Usage):**
 ```bash
 # Use the runner script
-python run_msl.py run script.msl
+python run_mcn.py run script.mcn
 
 # Or use module execution
-python -m msl run script.msl  # (requires PYTHONPATH setup)
+python -m mcn run script.mcn  # (requires PYTHONPATH setup)
 
 # Windows batch file
-msl.bat run script.msl
+mcn.bat run script.mcn
 ```
 
 ### Python Integration
 ```python
-# Import MSL components
-from msl import MSLInterpreter, MSLEmbedded, MSLServer
+# Import MCN components
+from mcn import MCNInterpreter, MCNEmbedded, MCNServer
 
 # Basic usage
-interpreter = MSLInterpreter()
+interpreter = MCNInterpreter()
 result = interpreter.execute('var x = 42')
 
 # Embedded usage
-msl = MSLEmbedded()
-msl.register_function('my_func', lambda x: x * 2)
-result = msl.execute('var result = my_func(21)')
+mcn = MCNEmbedded()
+mcn.register_function('my_func', lambda x: x * 2)
+result = mcn.execute('var result = my_func(21)')
 ```
 
 ## Key Improvements
@@ -106,44 +106,44 @@ python example_usage.py
 
 ## Migration from Old Version
 
-If you were using MSL with manual path modifications:
+If you were using MCN with manual path modifications:
 
 **Before (Required manual path setup):**
 ```python
 import sys
-sys.path.insert(0, 'd:/msl/msl')  # Manual path
-from msl_interpreter import MSLInterpreter
+sys.path.insert(0, 'd:/mcn/mcn')  # Manual path
+from mcn_interpreter import MCNInterpreter
 ```
 
 **After (Clean imports):**
 ```python
-from msl import MSLInterpreter  # Clean import
+from mcn import MCNInterpreter  # Clean import
 ```
 
 ## Package Structure
 
 ```
-msl/
+mcn/
 ├── __init__.py                 # Main package
-├── __main__.py                 # Entry point for python -m msl
-├── core_engine/                # Core MSL components
+├── __main__.py                 # Entry point for python -m mcn
+├── core_engine/                # Core MCN components
 │   ├── __init__.py
-│   ├── msl_interpreter.py      # Main interpreter
-│   ├── msl_runtime.py          # Runtime functions
-│   ├── msl_server.py           # API server
-│   ├── msl_cli.py              # Command line interface
+│   ├── mcn_interpreter.py      # Main interpreter
+│   ├── mcn_runtime.py          # Runtime functions
+│   ├── mcn_server.py           # API server
+│   ├── mcn_cli.py              # Command line interface
 │   └── ...
 ├── plugin/                     # Integration plugins
 │   ├── __init__.py
-│   └── msl_embedded.py         # Embedded integration
+│   └── mcn_embedded.py         # Embedded integration
 └── examples/                   # Example scripts
-    └── *.msl
+    └── *.mcn
 ```
 
 ## Troubleshooting
 
-**Import Error**: If you get import errors, ensure MSL is in your Python path or install it with pip.
+**Import Error**: If you get import errors, ensure MCN is in your Python path or install it with pip.
 
 **Path Issues**: The new version eliminates all hardcoded paths. If you see path-related errors, you might be using old code.
 
-**CLI Not Found**: After installation, `msl` command should be available. If not, try `python -m msl` instead.
+**CLI Not Found**: After installation, `mcn` command should be available. If not, try `python -m mcn` instead.

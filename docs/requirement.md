@@ -1,12 +1,12 @@
-Amazon Q Prompt: Build MSL - A Custom AI-Aware Scripting Language
+Amazon Q Prompt: Build MCN - A Custom AI-Aware Scripting Language
 
 Goal:
-Build a lightweight scripting language and runtime engine called MSL (Macincode Scripting Language) similar to Zoho Deluge or JavaScript, designed for creating internal business applications with AI-assisted logic, workflows, database operations, and third-party integrations.
+Build a lightweight scripting language and runtime engine called MCN (Macincode Scripting Language) similar to Zoho Deluge or JavaScript, designed for creating internal business applications with AI-assisted logic, workflows, database operations, and third-party integrations.
 
 System Overview
 
 You are an expert in language design, compiler/interpreter development, and workflow automation.
-Design a Python-based interpreter for .msl scripts that allows business users to write automation logic like:
+Design a Python-based interpreter for .mcn scripts that allows business users to write automation logic like:
 
 var name = "John"
 var age = 25
@@ -42,7 +42,7 @@ ai(prompt) – call built-in AI model for text generation
 
 Execution Engine
 
-Build an MSLInterpreter class with:
+Build an MCNInterpreter class with:
 
 Expression parser and evaluator
 
@@ -64,30 +64,30 @@ Safe sandbox execution with restricted eval or AST-based expression parsing.
 
 File Execution
 
-.msl scripts should run from CLI or embedded within Python apps.
+.mcn scripts should run from CLI or embedded within Python apps.
 
 Example:
 
-python msl_runner.py script.msl
+python mcn_runner.py script.mcn
 
 
 Optional Enhancements
 
 Include REPL mode for debugging and live scripting
 
-Add import system to load other .msl files
+Add import system to load other .mcn files
 
 Enable AI-generated script suggestions (based on context)
 
 Deliverables
 
-msl_interpreter.py – Core interpreter and function engine
+mcn_interpreter.py – Core interpreter and function engine
 
-msl_runtime.py – Database, API, and AI integration layer
+mcn_runtime.py – Database, API, and AI integration layer
 
-msl_cli.py – Command-line interface for script execution
+mcn_cli.py – Command-line interface for script execution
 
-Example .msl scripts showcasing:
+Example .mcn scripts showcasing:
 
 Database CRUD
 
@@ -109,7 +109,7 @@ Code block optimization (“rewrite this function for performance”)
 
 End Output
 
-Deliver a fully functional MSL scripting engine that:
+Deliver a fully functional MCN scripting engine that:
 
 Executes human-readable business logic like Deluge
 

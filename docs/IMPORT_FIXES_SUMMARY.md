@@ -1,9 +1,9 @@
-# MSL Import Path Fixes - Complete Summary
+# MCN Import Path Fixes - Complete Summary
 
 ## Problem Solved ✅
 
-**Before**: MSL required manual path modifications and hardcoded paths
-**After**: MSL uses proper Python package structure with automatic path resolution
+**Before**: MCN required manual path modifications and hardcoded paths
+**After**: MCN uses proper Python package structure with automatic path resolution
 
 ## Changes Made
 
@@ -14,19 +14,19 @@
 
 ### 2. Import Statements Fixed
 **Files Updated:**
-- `msl/core_engine/msl_cli.py` - Fixed relative imports
-- `msl/core_engine/msl_interpreter.py` - Fixed relative imports  
-- `msl/core_engine/msl_server.py` - Fixed relative imports
-- `msl/core_engine/msl_project_manager.py` - Fixed relative imports
-- `msl/core_engine/msl_frontend.py` - Fixed relative imports
-- `msl/plugin/msl_embedded.py` - Removed hardcoded paths
-- `msl/test/test_msl.py` - Updated to use package imports
+- `mcn/core_engine/mcn_cli.py` - Fixed relative imports
+- `mcn/core_engine/mcn_interpreter.py` - Fixed relative imports
+- `mcn/core_engine/mcn_server.py` - Fixed relative imports
+- `mcn/core_engine/mcn_project_manager.py` - Fixed relative imports
+- `mcn/core_engine/mcn_frontend.py` - Fixed relative imports
+- `mcn/plugin/mcn_embedded.py` - Removed hardcoded paths
+- `mcn/test/test_mcn.py` - Updated to use package imports
 
 ### 3. Package Files Added
-- `msl/__init__.py` - Main package exports
-- `msl/__main__.py` - Entry point for `python -m msl`
-- `msl/core_engine/__init__.py` - Core engine exports
-- `msl/plugin/__init__.py` - Plugin exports
+- `mcn/__init__.py` - Main package exports
+- `mcn/__main__.py` - Entry point for `python -m mcn`
+- `mcn/core_engine/__init__.py` - Core engine exports
+- `mcn/plugin/__init__.py` - Plugin exports
 - `setup.py` - Standard Python packaging
 
 ### 4. Testing & Verification
@@ -40,49 +40,49 @@
 ```python
 # Required manual path setup
 import sys
-sys.path.insert(0, 'd:/msl/msl')
-from msl_interpreter import MSLInterpreter
+sys.path.insert(0, 'd:/mcn/mcn')
+from mcn_interpreter import MCNInterpreter
 
 # Hardcoded paths in files
-sys.path.insert(0, 'd:/msl/msl')
+sys.path.insert(0, 'd:/mcn/mcn')
 ```
 
 ### After (Clean)
 ```python
 # Clean package imports
-from msl import MSLInterpreter, MSLEmbedded, MSLServer
-from msl.core_engine import MSLRuntime
-from msl.plugin import MSLEmbedded
+from mcn import MCNInterpreter, MCNEmbedded, MCNServer
+from mcn.core_engine import MCNRuntime
+from mcn.plugin import MCNEmbedded
 ```
 
 ## Usage Examples
 
 ### 1. Basic Usage
 ```python
-from msl import MSLInterpreter
+from mcn import MCNInterpreter
 
-interpreter = MSLInterpreter()
+interpreter = MCNInterpreter()
 result = interpreter.execute('var x = 42')
 ```
 
 ### 2. Embedded Integration
 ```python
-from msl import MSLEmbedded
+from mcn import MCNEmbedded
 
-msl = MSLEmbedded()
-msl.register_function('my_func', lambda x: x * 2)
-result = msl.execute('var result = my_func(21)')
+mcn = MCNEmbedded()
+mcn.register_function('my_func', lambda x: x * 2)
+result = mcn.execute('var result = my_func(21)')
 ```
 
 ### 3. Command Line (after installation)
 ```bash
-# Install MSL
+# Install MCN
 pip install -e .
 
 # Use CLI
-msl run script.msl
-msl repl
-msl serve --file script.msl
+mcn run script.mcn
+mcn repl
+mcn serve --file script.mcn
 ```
 
 ## Benefits Achieved
@@ -99,7 +99,7 @@ msl serve --file script.msl
 
 All tests pass:
 - ✅ Core imports work
-- ✅ Basic functionality works  
+- ✅ Basic functionality works
 - ✅ Embedded integration works
 - ✅ Works from different directories
 - ✅ No hardcoded paths remain
@@ -108,20 +108,20 @@ All tests pass:
 
 1. **Development Install**: `pip install -e .`
 2. **Regular Install**: `pip install .`
-3. **PYTHONPATH**: `set PYTHONPATH=d:\msl` (temporary)
+3. **PYTHONPATH**: `set PYTHONPATH=d:\mcn` (temporary)
 
 ## Migration Guide
 
 **Old Code:**
 ```python
 import sys
-sys.path.insert(0, 'd:/msl/msl')
-from msl_interpreter import MSLInterpreter
+sys.path.insert(0, 'd:/mcn/mcn')
+from mcn_interpreter import MCNInterpreter
 ```
 
 **New Code:**
 ```python
-from msl import MSLInterpreter
+from mcn import MCNInterpreter
 ```
 
 ## Usage Summary
@@ -129,23 +129,23 @@ from msl import MSLInterpreter
 **Immediate Usage (No Installation):**
 ```bash
 # Download and use immediately
-git clone <msl-repo>
-cd msl
-python run_msl.py run script.msl
+git clone <mcn-repo>
+cd mcn
+python run_mcn.py run script.mcn
 ```
 
 **Production Usage (After Installation):**
 ```bash
 pip install -e .
-msl run script.msl
+mcn run script.mcn
 ```
 
 ## Conclusion
 
-MSL now has a proper Python package structure that:
+MCN now has a proper Python package structure that:
 - ✅ Eliminates all hardcoded paths
 - ✅ Works out-of-the-box when downloaded from git
-- ✅ Provides `run_msl.py` for immediate usage
+- ✅ Provides `run_mcn.py` for immediate usage
 - ✅ Follows Python packaging standards
 - ✅ Is compatible with all development environments
 - ✅ Can be easily installed and distributed

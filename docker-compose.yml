@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  mcn:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./examples:/app/examples:ro
+      - ./use-cases:/app/use-cases:ro
+    environment:
+      - MCN_ENV=production
+    command: mcn serve --file examples/api_service.mcn --port 8080
+
+  mcn-dev:
+    build: .
+    ports:
+      - "8081:8080"
+    volumes:
+      - .:/app
+    environment:
+      - MCN_ENV=development
+    command: mcn repl

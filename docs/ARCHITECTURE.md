@@ -1,26 +1,26 @@
-# MSL Architecture Roadmap - CTO Perspective
+# MCN Architecture Roadmap - CTO Perspective
 
 ## 🎯 Strategic Vision
-Transform MSL from a Python-based interpreter into a full-stack, AI-first development platform for Gen-Z developers and business automation teams.
+Transform MCN from a Python-based interpreter into a full-stack, AI-first development platform for Gen-Z developers and business automation teams.
 
 ## 📋 Phase-by-Phase Architecture
 
-### Phase 1: MSL Core (Interpreter Layer) ✅ COMPLETED
+### Phase 1: MCN Core (Interpreter Layer) ✅ COMPLETED
 **Timeline**: 0-3 months | **Status**: MVP Ready
 
 #### Architecture Decisions
 - **Foundation**: Python-based interpreter for rapid prototyping
-- **Parser**: Custom lexer/parser for MSL syntax
+- **Parser**: Custom lexer/parser for MCN syntax
 - **Runtime**: Sandboxed execution environment
 - **Extensibility**: Plugin system for custom functions
 
 #### Technical Stack
 ```
-msl_interpreter.py    # Core language engine
-msl_runtime.py       # Built-in functions (DB, API, AI)
-msl_extensions.py    # v2.0 features (packages, async, types)
-msl_cli.py          # Command-line interface
-msl_server.py       # Basic API server
+mcn_interpreter.py    # Core language engine
+mcn_runtime.py       # Built-in functions (DB, API, AI)
+mcn_extensions.py    # v2.0 features (packages, async, types)
+mcn_cli.py          # Command-line interface
+mcn_server.py       # Basic API server
 ```
 
 #### Key Metrics
@@ -30,7 +30,7 @@ msl_server.py       # Basic API server
 
 ---
 
-### Phase 2: MSL Studio (Developer IDE)
+### Phase 2: MCN Studio (Developer IDE)
 **Timeline**: 3-9 months | **Target**: Developer Adoption
 
 #### Architecture Overview
@@ -45,7 +45,7 @@ msl_server.py       # Basic API server
          └───────────────────────┼───────────────────────┘
                                  │
                     ┌──────────────────┐
-                    │   MSL Language   │
+                    │   MCN Language   │
                     │   Server (LSP)   │
                     │   - Diagnostics  │
                     │   - Completions  │
@@ -57,10 +57,10 @@ msl_server.py       # Basic API server
 
 **1. Language Server Protocol (LSP)**
 ```typescript
-// msl-language-server/
+// mcn-language-server/
 ├── src/
 │   ├── server.ts           # LSP server implementation
-│   ├── parser.ts           # MSL syntax parser
+│   ├── parser.ts           # MCN syntax parser
 │   ├── diagnostics.ts      # Error detection
 │   ├── completion.ts       # Auto-completion
 │   └── ai-assistant.ts     # AI code suggestions
@@ -68,63 +68,63 @@ msl_server.py       # Basic API server
 
 **2. VS Code Extension**
 ```typescript
-// vscode-msl/
+// vscode-mcn/
 ├── src/
 │   ├── extension.ts        # Main extension entry
-│   ├── debugger.ts         # MSL debugger adapter
+│   ├── debugger.ts         # MCN debugger adapter
 │   ├── repl.ts            # Integrated REPL
 │   └── ai-chat.ts         # AI assistant panel
 ```
 
 **3. Web IDE (React + Monaco)**
 ```typescript
-// msl-web-ide/
+// mcn-web-ide/
 ├── src/
 │   ├── components/
-│   │   ├── Editor.tsx      # Monaco editor with MSL syntax
+│   │   ├── Editor.tsx      # Monaco editor with MCN syntax
 │   │   ├── Terminal.tsx    # Integrated terminal
 │   │   ├── FileTree.tsx    # Project explorer
 │   │   └── AIChat.tsx      # AI assistant
 │   ├── services/
-│   │   ├── msl-runner.ts   # Execute MSL via WebSocket
+│   │   ├── mcn-runner.ts   # Execute MCN via WebSocket
 │   │   └── ai-service.ts   # AI integration
 ```
 
 #### Key Features
-- **Real-time Collaboration**: Multiple developers editing MSL scripts
-- **AI Code Assistant**: Generate MSL code from natural language
+- **Real-time Collaboration**: Multiple developers editing MCN scripts
+- **AI Code Assistant**: Generate MCN code from natural language
 - **Visual Debugger**: Step-through debugging with variable inspection
 - **Package Manager UI**: Visual package installation and management
 
 ---
 
-### Phase 3: MSL Runtime Framework
+### Phase 3: MCN Runtime Framework
 **Timeline**: 9-15 months | **Target**: Production Deployment
 
 #### Architecture Overview
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    MSL Cloud Platform                       │
+│                    MCN Cloud Platform                       │
 ├─────────────────┬─────────────────┬─────────────────────────┤
 │   API Gateway   │   Load Balancer │    Container Registry   │
-│   - Routing     │   - Auto-scale  │    - MSL Images        │
+│   - Routing     │   - Auto-scale  │    - MCN Images        │
 │   - Auth        │   - Health      │    - Version Control   │
 └─────────────────┴─────────────────┴─────────────────────────┘
          │                   │                   │
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  MSL Runtime 1  │  │  MSL Runtime 2  │  │  MSL Runtime N  │
+│  MCN Runtime 1  │  │  MCN Runtime 2  │  │  MCN Runtime N  │
 │  ┌─────────────┐│  │  ┌─────────────┐│  │  ┌─────────────┐│
-│  │ app1.msl    ││  │  │ app2.msl    ││  │  │ appN.msl    ││
-│  │ app2.msl    ││  │  │ app3.msl    ││  │  │ ...         ││
+│  │ app1.mcn    ││  │  │ app2.mcn    ││  │  │ appN.mcn    ││
+│  │ app2.mcn    ││  │  │ app3.mcn    ││  │  │ ...         ││
 │  └─────────────┘│  │  └─────────────┘│  │  └─────────────┘│
 └─────────────────┘  └─────────────────┘  └─────────────────┘
 ```
 
 #### Technical Stack
 
-**1. MSL Runtime Engine (Enhanced)**
+**1. MCN Runtime Engine (Enhanced)**
 ```python
-# msl_runtime_v3/
+# mcn_runtime_v3/
 ├── core/
 │   ├── interpreter.py      # Optimized interpreter
 │   ├── scheduler.py        # Task scheduling
@@ -141,50 +141,50 @@ msl_server.py       # Basic API server
     └── serverless.py       # Lambda, Cloud Functions
 ```
 
-**2. MSL Cloud CLI**
+**2. MCN Cloud CLI**
 ```bash
 # Deployment commands
-msl deploy app.msl --env production
-msl scale app.msl --instances 5
-msl logs app.msl --tail
-msl rollback app.msl --version v1.2.3
+mcn deploy app.mcn --env production
+mcn scale app.mcn --instances 5
+mcn logs app.mcn --tail
+mcn rollback app.mcn --version v1.2.3
 ```
 
 **3. Container Runtime**
 ```dockerfile
-# Dockerfile.msl-runtime
+# Dockerfile.mcn-runtime
 FROM python:3.11-slim
-COPY msl_runtime/ /app/
+COPY mcn_runtime/ /app/
 COPY requirements.txt /app/
 RUN pip install -r /app/requirements.txt
 EXPOSE 8000
-CMD ["python", "/app/msl_server.py"]
+CMD ["python", "/app/mcn_server.py"]
 ```
 
 #### Key Features
-- **Auto-scaling**: Scale MSL apps based on load
+- **Auto-scaling**: Scale MCN apps based on load
 - **Multi-tenancy**: Isolated execution environments
 - **Monitoring**: Real-time metrics and logging
 - **CI/CD Integration**: GitHub Actions, GitLab CI
 
 ---
 
-### Phase 4: Full-Stack MSL Framework
+### Phase 4: Full-Stack MCN Framework
 **Timeline**: 15-24 months | **Target**: Complete Platform
 
 #### Architecture Overview
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    MSL Full-Stack Platform                  │
+│                    MCN Full-Stack Platform                  │
 ├─────────────────────────────────────────────────────────────┤
 │  Frontend Generator  │  Backend Generator  │  AI Codegen    │
-│  - React Templates   │  - MSL APIs        │  - Natural Lang │
+│  - React Templates   │  - MCN APIs        │  - Natural Lang │
 │  - Component Lib     │  - Database Models │  - Code Review  │
 │  - State Management  │  - Auth & Security │  - Optimization │
 └─────────────────────────────────────────────────────────────┘
          │                       │                   │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React App     │    │   MSL Backend   │    │   AI Assistant  │
+│   React App     │    │   MCN Backend   │    │   AI Assistant  │
 │   Generated UI  │◄──►│   Auto APIs     │◄──►│   Code Helper   │
 │   Forms & Views │    │   Business Logic│    │   Optimization  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
@@ -192,61 +192,61 @@ CMD ["python", "/app/msl_server.py"]
 
 #### Technical Components
 
-**1. MSL App Generator**
+**1. MCN App Generator**
 ```bash
 # Full-stack app creation
-msl new crm-app --template business
-msl generate model User --fields name:string,email:string
-msl generate api users --crud
-msl generate ui UserList --model User
-msl deploy --frontend vercel --backend msl-cloud
+mcn new crm-app --template business
+mcn generate model User --fields name:string,email:string
+mcn generate api users --crud
+mcn generate ui UserList --model User
+mcn deploy --frontend vercel --backend mcn-cloud
 ```
 
 **2. React Integration Layer**
 ```typescript
-// @msl/react package
-import { useMSLQuery, MSLProvider } from '@msl/react';
+// @mcn/react package
+import { useMCNQuery, MCNProvider } from '@mcn/react';
 
 function UserList() {
-  const { data, loading } = useMSLQuery('users.list');
-  
+  const { data, loading } = useMCNQuery('users.list');
+
   return (
-    <MSLProvider endpoint="https://api.msl-app.com">
+    <MCNProvider endpoint="https://api.mcn-app.com">
       {loading ? <Spinner /> : <UserTable data={data} />}
-    </MSLProvider>
+    </MCNProvider>
   );
 }
 ```
 
 **3. AI-Powered Code Generation**
-```msl
-// Natural language to MSL
+```mcn
+// Natural language to MCN
 ai_generate "Create a user management system with authentication"
 
 // Generates:
-// - user.msl (backend logic)
+// - user.mcn (backend logic)
 // - UserForm.tsx (React component)
-// - auth.msl (authentication)
+// - auth.mcn (authentication)
 // - database.sql (schema)
 ```
 
 #### Key Features
 - **One-Command Apps**: Generate full-stack apps instantly
-- **Visual Builder**: Drag-drop UI builder with MSL backend
+- **Visual Builder**: Drag-drop UI builder with MCN backend
 - **AI Architect**: AI suggests optimal app architecture
 - **Template Marketplace**: Community-driven templates
 
 ---
 
-### Phase 5: MSL Ecosystem & Platform
+### Phase 5: MCN Ecosystem & Platform
 **Timeline**: 24+ months | **Target**: Market Leadership
 
 #### Strategic Components
 
-**1. MSL Marketplace**
+**1. MCN Marketplace**
 ```
 ┌─────────────────────────────────────────┐
-│            MSL Marketplace              │
+│            MCN Marketplace              │
 ├─────────────────┬───────────────────────┤
 │   Templates     │      Packages         │
 │   - CRM         │      - Payments       │
@@ -256,16 +256,16 @@ ai_generate "Create a user management system with authentication"
 ```
 
 **2. Enterprise Features**
-- **MSL Enterprise**: On-premise deployment
-- **MSL Teams**: Collaboration and governance
-- **MSL Security**: Advanced security scanning
-- **MSL Analytics**: Usage and performance insights
+- **MCN Enterprise**: On-premise deployment
+- **MCN Teams**: Collaboration and governance
+- **MCN Security**: Advanced security scanning
+- **MCN Analytics**: Usage and performance insights
 
 **3. Community Platform**
-- **MSL Academy**: Learning platform
-- **MSL Certification**: Developer certification
-- **MSL Conference**: Annual developer conference
-- **MSL Open Source**: Community contributions
+- **MCN Academy**: Learning platform
+- **MCN Certification**: Developer certification
+- **MCN Conference**: Annual developer conference
+- **MCN Open Source**: Community contributions
 
 ---
 
@@ -276,25 +276,25 @@ ai_generate "Create a user management system with authentication"
 Language Runtime:
   - Phase 1-2: Python-based interpreter
   - Phase 3+: Rust/Go native runtime (performance)
-  
+
 Frontend:
   - React 18+ with TypeScript
   - Next.js for SSR/SSG
   - Tailwind CSS for styling
-  
+
 Backend:
   - FastAPI (Python) → Rust/Go (later)
   - PostgreSQL + Redis
   - Docker + Kubernetes
-  
+
 Cloud Infrastructure:
   - AWS/GCP multi-cloud
   - CDN for global distribution
   - Auto-scaling container groups
-  
+
 AI Integration:
   - OpenAI GPT-4+ for code generation
-  - Custom fine-tuned models for MSL
+  - Custom fine-tuned models for MCN
   - Vector databases for code search
 ```
 
@@ -340,4 +340,4 @@ AI Integration:
 4. **Competition**: Focus on AI-first differentiation
 5. **Adoption**: Strong developer experience and documentation
 
-This architecture positions MSL to become the leading AI-first development platform for the next generation of developers and business automation teams.
+This architecture positions MCN to become the leading AI-first development platform for the next generation of developers and business automation teams.
