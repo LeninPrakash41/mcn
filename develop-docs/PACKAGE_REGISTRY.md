@@ -4,8 +4,8 @@
 The MCN Package Registry is the official repository for MCN packages, similar to npm for Node.js or PyPI for Python.
 
 ## Registry URL
-- **Production**: `https://registry.mcnlang.org`
-- **Staging**: `https://staging.registry.mcnlang.org`
+- **Production**: `https://registry.mslang.org`
+- **Staging**: `https://staging.registry.mslang.org`
 
 ## Package Structure
 

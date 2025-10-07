@@ -13,14 +13,14 @@
 
 ### Q1 2025: Ecosystem Foundation
 **v2.1 Release**
-- [ ] Package registry launch (registry.mcnlang.org)
+- [ ] Package registry launch (registry.mslang.org)
 - [ ] Enhanced type system
 - [ ] Async/await support
 - [ ] Debugging protocol (DAP)
 - [ ] Performance optimizations
 
 **Infrastructure:**
-- [ ] Official website (mcnlang.org)
+- [ ] Official website (mslang.org)
 - [ ] Documentation portal
 - [ ] Community forums
 - [ ] CI/CD improvements

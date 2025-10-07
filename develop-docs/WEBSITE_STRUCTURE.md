@@ -1,13 +1,13 @@
 # MCN Official Website Structure
 
 ## Domain Strategy
-- **Primary**: `mcnlang.org` (language homepage)
-- **Registry**: `registry.mcnlang.org` (package registry)
-- **Docs**: `docs.mcnlang.org` (documentation)
-- **Blog**: `blog.mcnlang.org` (news and updates)
-- **Community**: `community.mcnlang.org` (forums)
+- **Primary**: `mslang.org` (language homepage)
+- **Registry**: `registry.mslang.org` (package registry)
+- **Docs**: `docs.mslang.org` (documentation)
+- **Blog**: `blog.mslang.org` (news and updates)
+- **Community**: `community.mslang.org` (forums)
 
-## Homepage (mcnlang.org)
+## Homepage (mslang.org)
 
 ### Hero Section
 ```
@@ -40,7 +40,7 @@ echo greeting
 ### Trusted By
 [Company Logos: AWS, Microsoft, Google, etc.]
 
-## Documentation Site (docs.mcnlang.org)
+## Documentation Site (docs.mslang.org)
 
 ### Structure
 ```
@@ -79,7 +79,7 @@ echo greeting
 - Copy-paste code snippets
 - Video walkthroughs
 
-## Package Registry (registry.mcnlang.org)
+## Package Registry (registry.mslang.org)
 
 ### Features
 - Package search and discovery
@@ -97,7 +97,7 @@ echo greeting
 - Cloud Integration
 - Security & Crypto
 
-## Community Platform (community.mcnlang.org)
+## Community Platform (community.mslang.org)
 
 ### Forums
 - General Discussion
@@ -114,7 +114,7 @@ echo greeting
 - Migration guides
 - Video tutorials
 
-## Blog (blog.mcnlang.org)
+## Blog (blog.mslang.org)
 
 ### Content Strategy
 - Release announcements
