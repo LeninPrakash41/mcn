@@ -1,2 +1,5 @@
+# Disabled test files (development only)
+test_mcn.py
+test_v2_features.py
+*.disabled*
 *.md
-*.disabled

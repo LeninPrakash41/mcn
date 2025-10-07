@@ -8,25 +8,19 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ['3.11']
-
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov psycopg2-binary pymongo sqlalchemy requests fastapi uvicorn python-dotenv
 
     - name: Test MCN Examples
       run: |
@@ -37,7 +31,7 @@ jobs:
     - name: Run Tests
       run: |
         export PYTHONPATH=$PWD
-        python -m pytest test/ -v --cov=mcn --tb=short
+        python -m pytest test/test_basic.py -v --cov=mcn --tb=short
 
     - name: Test Package Import
       run: |

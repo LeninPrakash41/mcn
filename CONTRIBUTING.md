@@ -3,7 +3,7 @@
 ## 🚀 Quick Start
 
 1. Fork the repository
-2. Clone: `git clone https://github.com/YOUR_USERNAME/mcn.git`
+2. Clone: `git clone https://github.com/zeroappz/mcn.git`
 3. Create branch: `git checkout -b feature/your-feature`
 4. Test: `python run_mcn.py run examples/hello.mcn`
 5. Submit pull request
