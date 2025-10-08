@@ -1,0 +1,28 @@
+{
+  "name": "natural",
+  "version": "3.0.0",
+  "description": "Natural language to code translation system",
+  "functions": [
+    "translate",
+    "execute"
+  ],
+  "supported_patterns": [
+    "variable_declarations",
+    "control_flow",
+    "function_calls",
+    "file_operations",
+    "database_queries",
+    "ai_operations",
+    "iot_commands",
+    "business_logic"
+  ],
+  "features": [
+    "Pattern matching",
+    "AI-enhanced translation",
+    "Context awareness",
+    "Multi-line programs",
+    "Direct execution",
+    "Business rule translation"
+  ],
+  "installed": true
+}

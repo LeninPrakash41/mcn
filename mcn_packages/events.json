@@ -1,0 +1,24 @@
+{
+  "name": "events",
+  "version": "3.0.0",
+  "description": "Event-driven programming and workflow automation",
+  "functions": [
+    "on",
+    "trigger"
+  ],
+  "features": [
+    "Event registration",
+    "Event triggering",
+    "Asynchronous event handling",
+    "Event queuing",
+    "Background processing"
+  ],
+  "event_types": [
+    "system_events",
+    "user_events", 
+    "device_events",
+    "business_events",
+    "custom_events"
+  ],
+  "installed": true
+}

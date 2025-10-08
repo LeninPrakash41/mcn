@@ -1,0 +1,25 @@
+{
+  "name": "agents",
+  "version": "3.0.0",
+  "description": "Autonomous agent creation and management system",
+  "functions": [
+    "create",
+    "activate", 
+    "think"
+  ],
+  "agent_types": [
+    "data_analyst",
+    "customer_service",
+    "security_monitor",
+    "facility_manager",
+    "business_intelligence"
+  ],
+  "capabilities": [
+    "Memory management",
+    "Tool integration",
+    "Multi-model support",
+    "Collaborative workflows",
+    "Context awareness"
+  ],
+  "installed": true
+}

@@ -1,0 +1,56 @@
+// MCN v3.0 - IoT & Edge Integration Demo
+
+use "iot"
+use "events"
+
+// Register IoT devices
+device("register", "temp_sensor_1", {"type": "temperature_sensor", "location": "office"})
+device("register", "humidity_sensor_1", {"type": "humidity_sensor", "location": "office"})
+device("register", "motion_sensor_1", {"type": "motion_sensor", "location": "entrance"})
+device("register", "smart_light_1", {"type": "smart_light", "location": "office"})
+
+// Set up event handlers for automation
+on event "high_temperature" handle_high_temp
+on event "motion_detected" handle_motion
+on event "low_humidity" handle_humidity
+
+function handle_high_temp(data) {
+    log("High temperature detected: " + data.temperature + "°C")
+    device("command", "smart_light_1", {"command": "dim", "level": 50})
+    trigger("alert", {"type": "temperature", "value": data.temperature})
+}
+
+function handle_motion(data) {
+    log("Motion detected at entrance")
+    device("command", "smart_light_1", {"command": "on", "brightness": 100})
+}
+
+function handle_humidity(data) {
+    log("Low humidity detected: " + data.humidity + "%")
+    // Could trigger humidifier or HVAC system
+}
+
+// Main monitoring loop
+for i in [1, 2, 3, 4, 5] {
+    // Read sensor data
+    var temperature = device("read", "temp_sensor_1")
+    var humidity = device("read", "humidity_sensor_1")
+    var motion = device("read", "motion_sensor_1")
+    
+    log("Sensor readings - Temp: " + temperature + "°C, Humidity: " + humidity + "%, Motion: " + motion)
+    
+    // Trigger events based on conditions
+    if temperature > 25 {
+        trigger("high_temperature", {"temperature": temperature})
+    }
+    
+    if humidity < 40 {
+        trigger("low_humidity", {"humidity": humidity})
+    }
+    
+    if motion {
+        trigger("motion_detected", {"location": "entrance"})
+    }
+}
+
+log("IoT automation demo completed")

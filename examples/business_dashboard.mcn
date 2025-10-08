@@ -1,0 +1,217 @@
+// Business Dashboard - Full-Stack MCN Application
+// Demonstrates advanced UI integration with business logic
+
+log("=== Business Dashboard Demo ===")
+
+use "ui"
+use "ai_v3" 
+use "db"
+use "pipeline"
+
+// Initialize business database
+query("CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY, product TEXT, amount REAL, date TEXT)")
+query("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, name TEXT, email TEXT, total_spent REAL)")
+
+// Create dashboard components
+log("Building dashboard UI...")
+
+// Dashboard header
+var dashboard_title = ui("text", "Business Intelligence Dashboard", {"tag": "h1", "className": "dashboard-title"})
+var refresh_button = ui("button", "Refresh Data", "refresh_dashboard", {"className": "btn-refresh"})
+var header_container = ui("container", dashboard_title, refresh_button, {"className": "dashboard-header"})
+
+// Metrics cards
+var revenue_card = ui("container", 
+    ui("text", "Total Revenue", {"tag": "h3"}),
+    ui("text", "$0", {"tag": "p", "id": "revenue-amount", "className": "metric-value"}),
+    {"className": "metric-card"}
+)
+
+var customers_card = ui("container",
+    ui("text", "Total Customers", {"tag": "h3"}),
+    ui("text", "0", {"tag": "p", "id": "customer-count", "className": "metric-value"}),
+    {"className": "metric-card"}
+)
+
+var avg_order_card = ui("container",
+    ui("text", "Avg Order Value", {"tag": "h3"}),
+    ui("text", "$0", {"tag": "p", "id": "avg-order", "className": "metric-value"}),
+    {"className": "metric-card"}
+)
+
+var metrics_row = ui("container", revenue_card, customers_card, avg_order_card, {"className": "metrics-row"})
+
+// Sales chart
+var sales_chart = ui("chart", "line", "sales_data", {
+    "className": "sales-chart",
+    "title": "Sales Trend"
+})
+
+// Customer analysis
+var analysis_button = ui("button", "AI Analysis", "generate_ai_insights", {"className": "btn-analysis"})
+var insights_text = ui("text", "Click 'AI Analysis' for insights", {"tag": "div", "id": "ai-insights", "className": "insights-panel"})
+var analysis_section = ui("container", analysis_button, insights_text, {"className": "analysis-section"})
+
+// Data tables
+var sales_table = ui("table", ["Product", "Amount", "Date"], "recent_sales", {"className": "data-table"})
+var customers_table = ui("table", ["Name", "Email", "Total Spent"], "top_customers", {"className": "data-table"})
+
+var tables_container = ui("container", 
+    ui("text", "Recent Sales", {"tag": "h3"}),
+    sales_table,
+    ui("text", "Top Customers", {"tag": "h3"}),
+    customers_table,
+    {"className": "tables-section"}
+)
+
+// Main dashboard layout
+var dashboard_container = ui("container", 
+    header_container,
+    metrics_row,
+    sales_chart,
+    analysis_section,
+    tables_container,
+    {"className": "dashboard-main"}
+)
+
+// Create dashboard page
+var dashboard_page = ui("page", "BusinessDashboard", "/dashboard", dashboard_container, {
+    "title": "Business Dashboard",
+    "description": "AI-powered business intelligence"
+})
+
+log("Dashboard UI components created")
+
+// Business logic functions
+function calculate_metrics() {
+    var sales = query("SELECT * FROM sales")
+    var customers = query("SELECT * FROM customers")
+    
+    var total_revenue = 0
+    for sale in sales {
+        total_revenue = total_revenue + sale.amount
+    }
+    
+    var customer_count = customers.length
+    var avg_order_value = total_revenue / sales.length
+    
+    return {
+        "total_revenue": total_revenue,
+        "customer_count": customer_count,
+        "avg_order_value": avg_order_value
+    }
+}
+
+function get_sales_trend() {
+    var sales = query("SELECT date, SUM(amount) as daily_total FROM sales GROUP BY date ORDER BY date")
+    return sales
+}
+
+function get_recent_sales() {
+    return query("SELECT product, amount, date FROM sales ORDER BY date DESC LIMIT 10")
+}
+
+function get_top_customers() {
+    return query("SELECT name, email, total_spent FROM customers ORDER BY total_spent DESC LIMIT 5")
+}
+
+function refresh_dashboard(data) {
+    log("Refreshing dashboard data...")
+    
+    var metrics = calculate_metrics()
+    var sales_trend = get_sales_trend()
+    var recent_sales = get_recent_sales()
+    var top_customers = get_top_customers()
+    
+    return {
+        "success": true,
+        "data": {
+            "metrics": metrics,
+            "sales_data": sales_trend,
+            "recent_sales": recent_sales,
+            "top_customers": top_customers
+        }
+    }
+}
+
+function generate_ai_insights(data) {
+    log("Generating AI business insights...")
+    
+    var metrics = calculate_metrics()
+    var sales = query("SELECT * FROM sales")
+    
+    // Create data pipeline for analysis
+    pipeline("create", "business_analyzer", [
+        {"type": "transform", "params": {"type": "extract_numbers"}},
+        {"type": "ai_classify", "params": {"categories": ["growth", "decline", "stable"]}},
+        {"type": "ai_extract", "params": {"type": "insights"}}
+    ])
+    
+    var business_summary = "Revenue: $" + metrics.total_revenue + ", Customers: " + metrics.customer_count + ", Avg Order: $" + metrics.avg_order_value + ", Total Sales: " + sales.length
+    
+    var analysis_result = pipeline("run", "business_analyzer", business_summary)
+    
+    var ai_prompt = "Analyze this business data and provide actionable insights: " + business_summary + ". Analysis: " + analysis_result
+    var ai_insights = ai("run", "gpt-4", ai_prompt)
+    
+    log("AI insights generated: " + ai_insights)
+    
+    return {
+        "success": true,
+        "insights": ai_insights,
+        "analysis": analysis_result
+    }
+}
+
+function load_page_data(data) {
+    if data.page == "BusinessDashboard" {
+        log("Loading dashboard data...")
+        
+        var dashboard_data = refresh_dashboard({})
+        
+        return {
+            "success": true,
+            "data": dashboard_data.data
+        }
+    }
+    return {"success": false, "error": "Unknown page"}
+}
+
+// Bind data to components
+ui("bind_data", sales_chart, "sales_data")
+ui("bind_data", sales_table, "recent_sales")
+ui("bind_data", customers_table, "top_customers")
+
+log("Data bindings configured")
+
+// Sample business data
+log("Inserting sample business data...")
+
+query("INSERT OR IGNORE INTO sales (id, product, amount, date) VALUES (1, 'Widget A', 299.99, '2024-01-15')")
+query("INSERT OR IGNORE INTO sales (id, product, amount, date) VALUES (2, 'Widget B', 199.99, '2024-01-16')")
+query("INSERT OR IGNORE INTO sales (id, product, amount, date) VALUES (3, 'Widget C', 399.99, '2024-01-17')")
+query("INSERT OR IGNORE INTO sales (id, product, amount, date) VALUES (4, 'Widget A', 299.99, '2024-01-18')")
+query("INSERT OR IGNORE INTO sales (id, product, amount, date) VALUES (5, 'Widget D', 499.99, '2024-01-19')")
+
+query("INSERT OR IGNORE INTO customers (id, name, email, total_spent) VALUES (1, 'John Smith', 'john@example.com', 599.98)")
+query("INSERT OR IGNORE INTO customers (id, name, email, total_spent) VALUES (2, 'Jane Doe', 'jane@example.com', 399.99)")
+query("INSERT OR IGNORE INTO customers (id, name, email, total_spent) VALUES (3, 'Bob Johnson', 'bob@example.com', 799.97)")
+
+// Export dashboard to React
+log("Exporting business dashboard...")
+ui("export", "./business-dashboard")
+
+log("=== Business Dashboard Complete ===")
+log("Generated React dashboard in ./business-dashboard directory")
+log("Features:")
+log("- Real-time metrics display")
+log("- Interactive charts and tables")
+log("- AI-powered business insights")
+log("- Responsive dashboard layout")
+log("- Data refresh functionality")
+
+var initial_metrics = calculate_metrics()
+log("Current metrics:")
+log("- Total Revenue: $" + initial_metrics.total_revenue)
+log("- Customer Count: " + initial_metrics.customer_count)
+log("- Average Order: $" + initial_metrics.avg_order_value)

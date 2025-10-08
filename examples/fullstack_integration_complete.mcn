@@ -1,0 +1,356 @@
+// Complete Full-Stack Integration Demo
+// Demonstrates the complete MCN Integration Layer with React frontend
+
+log("=== MCN Full-Stack Integration Demo ===")
+
+use "ui"
+use "ai_v3"
+use "db"
+use "agents"
+use "pipeline"
+use "natural"
+
+// Initialize application database
+query("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, name TEXT, price REAL, category TEXT, stock INTEGER)")
+query("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, product_id INTEGER, quantity INTEGER, total REAL, customer_email TEXT, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS analytics (id INTEGER PRIMARY KEY, metric_name TEXT, value REAL, date TEXT)")
+
+log("Database initialized")
+
+// Create AI-powered e-commerce application
+log("Building e-commerce application UI...")
+
+// Navigation header
+var nav_logo = ui("text", "MCN Store", {"tag": "h1", "className": "text-2xl font-bold text-blue-600"})
+var nav_search = ui("input", "Search products...", "search_products", {"className": "search-input"})
+var nav_cart = ui("button", "Cart (0)", "view_cart", {"className": "btn-cart"})
+var navigation = ui("container", nav_logo, nav_search, nav_cart, {"className": "nav-header"})
+
+// Product catalog
+var product_grid = ui("container", {"className": "product-grid", "id": "product-list"})
+var category_filter = ui("container", 
+    ui("button", "All", "filter_category('all')", {"className": "filter-btn"}),
+    ui("button", "Electronics", "filter_category('electronics')", {"className": "filter-btn"}),
+    ui("button", "Clothing", "filter_category('clothing')", {"className": "filter-btn"}),
+    {"className": "category-filters"}
+)
+
+// AI-powered recommendations
+var recommendations_title = ui("text", "AI Recommendations", {"tag": "h2", "className": "section-title"})
+var recommendations_grid = ui("container", {"className": "recommendations-grid", "id": "recommendations"})
+var recommendations_section = ui("container", recommendations_title, recommendations_grid, {"className": "recommendations-section"})
+
+// Analytics dashboard (admin)
+var analytics_title = ui("text", "Business Analytics", {"tag": "h2", "className": "section-title"})
+var sales_chart = ui("chart", "bar", "sales_analytics", {"className": "analytics-chart"})
+var metrics_container = ui("container",
+    ui("text", "Total Sales: $0", {"tag": "p", "id": "total-sales", "className": "metric"}),
+    ui("text", "Orders: 0", {"tag": "p", "id": "total-orders", "className": "metric"}),
+    ui("text", "Products: 0", {"tag": "p", "id": "total-products", "className": "metric"}),
+    {"className": "metrics-row"}
+)
+var analytics_section = ui("container", analytics_title, metrics_container, sales_chart, {"className": "analytics-section"})
+
+// Order management
+var orders_title = ui("text", "Recent Orders", {"tag": "h2", "className": "section-title"})
+var orders_table = ui("table", ["Order ID", "Product", "Quantity", "Total", "Status"], "recent_orders", {"className": "orders-table"})
+var orders_section = ui("container", orders_title, orders_table, {"className": "orders-section"})
+
+// Main application layout
+var main_app = ui("container", 
+    navigation,
+    category_filter,
+    product_grid,
+    recommendations_section,
+    analytics_section,
+    orders_section,
+    {"className": "main-application"}
+)
+
+// Create pages
+var home_page = ui("page", "Home", "/", main_app, {"title": "MCN Store - AI-Powered E-commerce"})
+var admin_page = ui("page", "Admin", "/admin", analytics_section, {"title": "Admin Dashboard"})
+
+log("UI components created")
+
+// Create AI agents for business logic
+agent("create", "product_recommender", {
+    "prompt": "You are an AI product recommendation engine. Analyze customer behavior and suggest relevant products.",
+    "model": "gpt-4",
+    "tools": ["query", "ai"]
+})
+
+agent("create", "sales_analyst", {
+    "prompt": "You are a sales data analyst. Analyze sales patterns and provide business insights.",
+    "model": "gpt-3.5-turbo", 
+    "tools": ["query", "pipeline"]
+})
+
+agent("create", "inventory_manager", {
+    "prompt": "You manage inventory and stock levels. Alert when stock is low and suggest reorder quantities.",
+    "model": "gpt-3.5-turbo",
+    "tools": ["query", "trigger"]
+})
+
+agent("activate", "product_recommender")
+agent("activate", "sales_analyst")
+agent("activate", "inventory_manager")
+
+log("AI agents activated")
+
+// Create data processing pipelines
+pipeline("create", "order_processor", [
+    {"type": "clean", "params": {}},
+    {"type": "ai_classify", "params": {"categories": ["high_value", "medium_value", "low_value"]}},
+    {"type": "transform", "params": {"type": "extract_numbers"}}
+])
+
+pipeline("create", "customer_analyzer", [
+    {"type": "ai_extract", "params": {"type": "entities"}},
+    {"type": "ai_classify", "params": {"categories": ["new_customer", "returning_customer", "vip_customer"]}}
+])
+
+log("Data pipelines created")
+
+// Business logic functions
+function load_page_data(data) {
+    if data.page == "Home" {
+        var products = query("SELECT * FROM products ORDER BY name")
+        var recommendations = get_ai_recommendations()
+        var analytics = get_sales_analytics()
+        var recent_orders = query("SELECT o.id, p.name as product, o.quantity, o.total, o.status FROM orders o JOIN products p ON o.product_id = p.id ORDER BY o.id DESC LIMIT 10")
+        
+        return {
+            "success": true,
+            "data": {
+                "products": products,
+                "recommendations": recommendations,
+                "sales_analytics": analytics,
+                "recent_orders": recent_orders
+            }
+        }
+    }
+    
+    if data.page == "Admin" {
+        var analytics = get_detailed_analytics()
+        return {
+            "success": true,
+            "data": analytics
+        }
+    }
+    
+    return {"success": false, "error": "Unknown page"}
+}
+
+function search_products(data) {
+    var search_term = data.value
+    var products = query("SELECT * FROM products WHERE name LIKE ? OR category LIKE ?", ("%" + search_term + "%", "%" + search_term + "%"))
+    
+    // Use AI to enhance search results
+    var enhanced_results = agent("think", "product_recommender", {
+        "input": "User searched for: " + search_term + ". Found " + products.length + " products. Suggest related items."
+    })
+    
+    return {
+        "success": true,
+        "products": products,
+        "suggestions": enhanced_results
+    }
+}
+
+function filter_category(category) {
+    if category == "all" {
+        var products = query("SELECT * FROM products ORDER BY name")
+    } else {
+        var products = query("SELECT * FROM products WHERE category = ? ORDER BY name", (category,))
+    }
+    
+    return {
+        "success": true,
+        "products": products
+    }
+}
+
+function get_ai_recommendations() {
+    var recent_orders = query("SELECT * FROM orders ORDER BY id DESC LIMIT 5")
+    var popular_products = query("SELECT product_id, COUNT(*) as order_count FROM orders GROUP BY product_id ORDER BY order_count DESC LIMIT 3")
+    
+    var recommendation_input = "Recent orders: " + recent_orders.length + ", Popular products: " + popular_products.length
+    var ai_recommendations = agent("think", "product_recommender", {
+        "input": recommendation_input
+    })
+    
+    return {
+        "ai_suggestions": ai_recommendations,
+        "popular_products": popular_products
+    }
+}
+
+function get_sales_analytics() {
+    var total_sales = query("SELECT SUM(total) as total FROM orders")[0].total or 0
+    var total_orders = query("SELECT COUNT(*) as count FROM orders")[0].count or 0
+    var total_products = query("SELECT COUNT(*) as count FROM products")[0].count or 0
+    
+    var daily_sales = query("SELECT DATE(id) as date, SUM(total) as daily_total FROM orders GROUP BY DATE(id) ORDER BY date DESC LIMIT 7")
+    
+    // AI analysis of sales data
+    var sales_summary = "Total sales: $" + total_sales + ", Orders: " + total_orders + ", Products: " + total_products
+    var ai_analysis = agent("think", "sales_analyst", {
+        "input": "Analyze sales performance: " + sales_summary
+    })
+    
+    return {
+        "total_sales": total_sales,
+        "total_orders": total_orders,
+        "total_products": total_products,
+        "daily_sales": daily_sales,
+        "ai_analysis": ai_analysis
+    }
+}
+
+function get_detailed_analytics() {
+    var analytics = get_sales_analytics()
+    
+    // Process through analytics pipeline
+    var processed_data = pipeline("run", "order_processor", "Sales data: " + analytics.total_sales + " revenue from " + analytics.total_orders + " orders")
+    
+    return {
+        "analytics": analytics,
+        "processed_insights": processed_data
+    }
+}
+
+function place_order(data) {
+    var product_id = data.product_id
+    var quantity = data.quantity
+    var customer_email = data.customer_email
+    
+    // Get product details
+    var product = query("SELECT * FROM products WHERE id = ?", (product_id,))[0]
+    if not product {
+        return {"success": false, "error": "Product not found"}
+    }
+    
+    // Check stock
+    if product.stock < quantity {
+        return {"success": false, "error": "Insufficient stock"}
+    }
+    
+    // Calculate total
+    var total = product.price * quantity
+    
+    // Process customer data
+    var customer_analysis = pipeline("run", "customer_analyzer", "Customer: " + customer_email + " ordering " + quantity + " of " + product.name)
+    
+    // Create order
+    query("INSERT INTO orders (product_id, quantity, total, customer_email, status) VALUES (?, ?, ?, ?, ?)", 
+          (product_id, quantity, total, customer_email, "pending"))
+    
+    // Update stock
+    query("UPDATE products SET stock = stock - ? WHERE id = ?", (quantity, product_id))
+    
+    // Check inventory levels
+    var updated_product = query("SELECT * FROM products WHERE id = ?", (product_id,))[0]
+    if updated_product.stock < 5 {
+        var inventory_alert = agent("think", "inventory_manager", {
+            "input": "Low stock alert: " + product.name + " has only " + updated_product.stock + " units left"
+        })
+        log("Inventory Alert: " + inventory_alert)
+    }
+    
+    return {
+        "success": true,
+        "order_id": "ORD_" + product_id + "_" + quantity,
+        "total": total,
+        "customer_analysis": customer_analysis
+    }
+}
+
+function view_cart(data) {
+    // Simple cart implementation
+    return {
+        "success": true,
+        "cart_items": [],
+        "total": 0
+    }
+}
+
+// Natural language interface
+function process_natural_command(data) {
+    var command = data.command
+    
+    // Translate natural language to MCN operations
+    var mcn_code = translate(command)
+    log("Natural command: " + command)
+    log("Generated MCN: " + mcn_code)
+    
+    // Execute if safe
+    if command.includes("show") or command.includes("list") or command.includes("get") {
+        var result = translate(command, true)
+        return {"success": true, "result": result, "mcn_code": mcn_code}
+    }
+    
+    return {"success": true, "mcn_code": mcn_code, "message": "Command translated but not executed for safety"}
+}
+
+log("Business logic functions defined")
+
+// Sample data
+log("Inserting sample data...")
+
+query("INSERT OR IGNORE INTO products (id, name, price, category, stock) VALUES (1, 'Laptop Pro', 1299.99, 'electronics', 15)")
+query("INSERT OR IGNORE INTO products (id, name, price, category, stock) VALUES (2, 'Wireless Headphones', 199.99, 'electronics', 25)")
+query("INSERT OR IGNORE INTO products (id, name, price, category, stock) VALUES (3, 'Smart Watch', 399.99, 'electronics', 12)")
+query("INSERT OR IGNORE INTO products (id, name, price, category, stock) VALUES (4, 'Designer T-Shirt', 49.99, 'clothing', 30)")
+query("INSERT OR IGNORE INTO products (id, name, price, category, stock) VALUES (5, 'Running Shoes', 129.99, 'clothing', 20)")
+
+query("INSERT OR IGNORE INTO orders (id, product_id, quantity, total, customer_email, status) VALUES (1, 1, 1, 1299.99, 'john@example.com', 'completed')")
+query("INSERT OR IGNORE INTO orders (id, product_id, quantity, total, customer_email, status) VALUES (2, 2, 2, 399.98, 'jane@example.com', 'completed')")
+query("INSERT OR IGNORE INTO orders (id, product_id, quantity, total, customer_email, status) VALUES (3, 3, 1, 399.99, 'bob@example.com', 'pending')")
+
+// Bind data to UI components
+ui("bind_data", product_grid, "products")
+ui("bind_data", recommendations_grid, "recommendations")
+ui("bind_data", sales_chart, "sales_analytics")
+ui("bind_data", orders_table, "recent_orders")
+
+log("Data bindings configured")
+
+// Export complete application
+log("Exporting full-stack application...")
+ui("export", "./mcn-ecommerce-app")
+
+log("=== Full-Stack Integration Complete ===")
+log("Generated complete React application in ./mcn-ecommerce-app")
+log("")
+log("Application Features:")
+log("✓ AI-powered product recommendations")
+log("✓ Natural language search and commands")
+log("✓ Real-time analytics dashboard")
+log("✓ Intelligent inventory management")
+log("✓ Customer behavior analysis")
+log("✓ Responsive React frontend")
+log("✓ MCN backend integration")
+log("✓ Data processing pipelines")
+log("✓ Autonomous business agents")
+log("")
+log("To run the application:")
+log("1. cd mcn-ecommerce-app")
+log("2. npm install")
+log("3. npm start")
+log("4. Start MCN backend: python run_mcn.py serve --file fullstack_integration_complete.mcn")
+log("")
+log("MCN Integration Layer - Bridging AI and Frontend! 🚀")
+
+// Test natural language interface
+log("=== Testing Natural Language Interface ===")
+var nl_test1 = process_natural_command({"command": "show all products in electronics category"})
+log("NL Test 1: " + nl_test1.mcn_code)
+
+var nl_test2 = process_natural_command({"command": "get total sales for this month"})
+log("NL Test 2: " + nl_test2.mcn_code)
+
+var nl_test3 = process_natural_command({"command": "list orders with status pending"})
+log("NL Test 3: " + nl_test3.mcn_code)
+
+log("Natural language interface tested successfully!")

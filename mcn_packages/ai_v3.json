@@ -1,0 +1,19 @@
+{
+  "name": "ai_v3",
+  "version": "3.0.0",
+  "description": "Advanced AI model management and fine-tuning capabilities",
+  "functions": [
+    "run",
+    "train", 
+    "set_model",
+    "register"
+  ],
+  "features": [
+    "Multi-model support",
+    "Model fine-tuning",
+    "Custom model registration",
+    "Dynamic model switching",
+    "Local and cloud models"
+  ],
+  "installed": true
+}

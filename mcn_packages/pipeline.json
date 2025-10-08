@@ -1,0 +1,32 @@
+{
+  "name": "pipeline",
+  "version": "3.0.0",
+  "description": "AI-powered data processing pipelines",
+  "functions": [
+    "create",
+    "run"
+  ],
+  "pipeline_steps": [
+    "clean",
+    "transform", 
+    "ai_classify",
+    "ai_extract",
+    "ai_summarize",
+    "ai_translate"
+  ],
+  "data_types": [
+    "text",
+    "json",
+    "csv",
+    "xml",
+    "binary"
+  ],
+  "features": [
+    "Multi-stage processing",
+    "AI integration",
+    "Performance monitoring",
+    "Error handling",
+    "Parallel execution"
+  ],
+  "installed": true
+}

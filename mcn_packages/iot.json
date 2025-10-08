@@ -1,0 +1,25 @@
+{
+  "name": "iot",
+  "version": "3.0.0", 
+  "description": "IoT device integration and edge computing support",
+  "functions": [
+    "register",
+    "read",
+    "command"
+  ],
+  "device_types": [
+    "temperature_sensor",
+    "humidity_sensor", 
+    "motion_sensor",
+    "smart_light",
+    "hvac_controller",
+    "security_camera"
+  ],
+  "protocols": [
+    "MQTT",
+    "WebSocket",
+    "HTTP",
+    "CoAP"
+  ],
+  "installed": true
+}

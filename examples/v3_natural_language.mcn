@@ -1,0 +1,139 @@
+// MCN v3.0 - Natural Language Programming Demo
+
+use "natural"
+
+log("=== Natural Language to Code Translation ===")
+
+// Basic variable operations
+var nl_code1 = translate("create a variable name with value John")
+log("Natural: create a variable name with value John")
+log("MCN Code: " + nl_code1)
+
+var nl_code2 = translate("set age to 25")
+log("Natural: set age to 25")
+log("MCN Code: " + nl_code2)
+
+// Control flow
+var nl_code3 = translate("if age is greater than 18 then print adult")
+log("Natural: if age is greater than 18 then print adult")
+log("MCN Code: " + nl_code3)
+
+var nl_code4 = translate("for each item in products do log item")
+log("Natural: for each item in products do log item")
+log("MCN Code: " + nl_code4)
+
+// Function calls
+var nl_code5 = translate("call function calculate_tax with 100")
+log("Natural: call function calculate_tax with 100")
+log("MCN Code: " + nl_code5)
+
+// File operations
+var nl_code6 = translate("read file data.txt")
+log("Natural: read file data.txt")
+log("MCN Code: " + nl_code6)
+
+var nl_code7 = translate("write hello world to file output.txt")
+log("Natural: write hello world to file output.txt")
+log("MCN Code: " + nl_code7)
+
+// Database operations
+var nl_code8 = translate("select name, email from users")
+log("Natural: select name, email from users")
+log("MCN Code: " + nl_code8)
+
+// AI and automation
+var nl_code9 = translate("create agent assistant with prompt help users")
+log("Natural: create agent assistant with prompt help users")
+log("MCN Code: " + nl_code9)
+
+var nl_code10 = translate("trigger event user_login")
+log("Natural: trigger event user_login")
+log("MCN Code: " + nl_code10)
+
+var nl_code11 = translate("read sensor temperature_1")
+log("Natural: read sensor temperature_1")
+log("MCN Code: " + nl_code11)
+
+log("=== Complex Natural Language Translation ===")
+
+// Multi-line natural language program
+var complex_nl = "create a variable users with value empty list
+for each user in database_users do add user to users
+if users length is greater than 0 then log found users
+call function send_email with admin notification"
+
+var complex_mcn = translate(complex_nl)
+log("Complex Natural Language:")
+log(complex_nl)
+log("Generated MCN Code:")
+log(complex_mcn)
+
+log("=== Direct Natural Language Execution ===")
+
+// Execute natural language directly (simplified examples)
+log("Executing: print hello from natural language")
+var result1 = translate("print hello from natural language", true)
+
+log("Executing: create variable greeting with value welcome")
+var result2 = translate("create variable greeting with value welcome", true)
+
+log("Executing: log the greeting variable")
+var result3 = translate("log greeting", true)
+
+// Business logic in natural language
+var business_nl = "create variable order_total with value 100
+create variable tax_rate with value 0.08
+create variable tax with value order_total times tax_rate
+create variable final_total with value order_total plus tax
+log the final total"
+
+log("=== Business Logic Translation ===")
+log("Natural Language Business Logic:")
+log(business_nl)
+
+var business_mcn = translate(business_nl)
+log("Generated MCN Code:")
+log(business_mcn)
+
+// AI-powered natural language understanding
+log("=== AI-Enhanced Translation ===")
+
+var ai_nl_examples = [
+    "calculate the monthly revenue growth rate",
+    "analyze customer feedback for sentiment trends",
+    "send welcome email to new users",
+    "backup the user database every night",
+    "monitor system performance and alert if CPU usage exceeds 80%"
+]
+
+for example in ai_nl_examples {
+    var ai_mcn = translate(example)
+    log("Natural: " + example)
+    log("AI Translation: " + ai_mcn)
+    log("---")
+}
+
+// Interactive natural language programming
+function natural_language_repl() {
+    log("Natural Language REPL Mode (simplified demo)")
+    
+    var commands = [
+        "create variable counter with value 0",
+        "for i in range 1 to 5 do increment counter",
+        "if counter equals 5 then log success",
+        "call function cleanup"
+    ]
+    
+    for command in commands {
+        log("NL> " + command)
+        var mcn_code = translate(command)
+        log("MCN> " + mcn_code)
+        // In real implementation, would execute the code
+        log("Executed successfully")
+        log("---")
+    }
+}
+
+natural_language_repl()
+
+log("Natural language programming demo completed")

@@ -1,0 +1,27 @@
+// MCN v3.0 - AI Model Management Demo
+
+use "ai_v3"
+
+// Register custom AI models
+register("my-gpt4", "openai", {"api_key": "sk-...", "temperature": 0.7})
+register("local-llama", "local", {"model_path": "/models/llama-2-7b"})
+
+// Set active model
+set_model("my-gpt4")
+
+// Fine-tune a model
+train("gpt-3.5-turbo", "sales_data.csv", "sales-predictor")
+
+// Use different models
+var summary = run("my-gpt4", "Summarize the quarterly sales report")
+echo("GPT-4 Summary: " + summary)
+
+var prediction = run("sales-predictor", "Predict next quarter sales based on current trends")
+echo("Sales Prediction: " + prediction)
+
+// Switch to local model for privacy-sensitive tasks
+set_model("local-llama")
+var analysis = run("local-llama", "Analyze customer feedback for sentiment")
+echo("Local Analysis: " + analysis)
+
+log("AI model management demo completed")

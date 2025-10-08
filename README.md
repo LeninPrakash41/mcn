@@ -4,7 +4,7 @@
 
 [![GitHub Stars](https://img.shields.io/github/stars/zeroappz/mcn?style=social)](https://github.com/zeroappz/mcn)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCN Version](https://img.shields.io/badge/MCN-v2.0-blue.svg)](https://github.com/zeroappz/mcn/releases)
+[![MCN Version](https://img.shields.io/badge/MCN-v3.0-blue.svg)](https://github.com/zeroappz/mcn/releases)
 [![Package Registry](https://img.shields.io/badge/Registry-registry.mslang.org-green.svg)](https://registry.mslang.org)
 [![Discord](https://img.shields.io/discord/123456789?label=Discord&logo=discord)](https://discord.gg/mcn-lang)
 
@@ -47,10 +47,14 @@ pip install -e .
 
 ## ✨ Key Features
 
-- 🤖 **Native AI Integration** - Built-in AI functions with multi-model support
+- 🤖 **Advanced AI Integration** - Multi-model support, fine-tuning, and model management
+- 🏠 **IoT & Edge Computing** - Connect and control IoT devices with real-time monitoring
+- 🔄 **Event-Driven Programming** - Asynchronous workflows and automation
+- 🤖 **Autonomous Agents** - Create intelligent agents with memory and tools
+- 🔧 **AI-Powered Pipelines** - Intelligent data processing and transformation
+- 🗣️ **Natural Language Programming** - Write code in plain English
 - 🗄️ **Database Operations** - Universal connectivity with AI-assisted queries
 - 🌐 **Full-Stack Ready** - Frontend integration and auto-generated APIs
-- 🔧 **Developer Friendly** - Enhanced error logging and IDE support
 - ⚡ **Zero Setup** - Run immediately without installation
 
 ## 📝 Basic Examples
@@ -82,34 +86,90 @@ python run_mcn.py run business.mcn
 
 ## 🎯 Advanced Features
 
-### AI Integration
+### AI Model Management (v3.0)
 ```mcn
-use "ai"
+use "ai_v3"
 
-// AI-powered analysis
-var response = ai("Analyze this data: " + data, "gpt-4")
-echo(response)
+// Register and manage multiple AI models
+register("my-gpt4", "openai", {"temperature": 0.7})
+set_model("my-gpt4")
+
+// Fine-tune models on your data
+train("gpt-3.5-turbo", "sales_data.csv", "sales-predictor")
+
+// Use different models for different tasks
+var summary = run("my-gpt4", "Summarize quarterly report")
+var prediction = run("sales-predictor", "Predict next quarter")
 ```
 
-### Database Operations
+### IoT & Automation (v3.0)
 ```mcn
-use "db"
+use "iot"
+use "events"
 
-// Simple database queries
-var users = query("SELECT * FROM users")
-echo(users)
-```
+// Connect IoT devices
+device("register", "temp_sensor", {"type": "temperature_sensor"})
+device("register", "smart_light", {"type": "smart_light"})
 
-### API Services
-```mcn
-use "http"
+// Event-driven automation
+on event "high_temperature" handle_cooling
 
-// Create API endpoints
-function get_user_data(user_id) {
-    return query("SELECT * FROM users WHERE id = ?", (user_id))
+function handle_cooling(data) {
+    device("command", "smart_light", {"command": "dim"})
 }
 
-export get_user_data
+// Monitor and respond
+var temp = device("read", "temp_sensor")
+if temp > 25 {
+    trigger("high_temperature", {"temperature": temp})
+}
+```
+
+### Autonomous Agents (v3.0)
+```mcn
+use "agents"
+
+// Create intelligent agents
+agent("create", "data_analyst", {
+    "prompt": "You are a data analysis expert",
+    "model": "gpt-4",
+    "tools": ["query", "ai", "log"]
+})
+
+agent("activate", "data_analyst")
+var analysis = agent("think", "data_analyst", {
+    "input": "Analyze Q4 sales data: Revenue $2.5M, up 15%"
+})
+```
+
+### Natural Language Programming (v3.0)
+```mcn
+use "natural"
+
+// Write code in plain English
+var code1 = translate("create a variable name with value John")
+// Result: var name = "John"
+
+var code2 = translate("if age greater than 18 then print adult")
+// Result: if age > 18 { echo("adult") }
+
+// Execute natural language directly
+translate("send welcome email to new users", true)
+```
+
+### AI-Powered Data Pipelines (v3.0)
+```mcn
+use "pipeline"
+
+// Create intelligent data processing pipelines
+pipeline("create", "feedback_processor", [
+    {"type": "clean", "params": {"remove_special_chars": true}},
+    {"type": "ai_classify", "params": {"categories": ["positive", "negative"]}},
+    {"type": "ai_extract", "params": {"type": "entities"}}
+])
+
+// Process data through pipeline
+var result = pipeline("run", "feedback_processor", "Great product! Love it!")
 ```
 
 ## 🛠️ Usage Modes

@@ -872,6 +872,9 @@ class MCNInterpreter:
         self.package_manager.add_package("http", create_http_package())
         self.package_manager.add_package("ai", create_ai_package())
 
+        # Initialize v3.0 features
+        self._init_v3_features()
+
         # Add v2.0 functions
         self.functions.update(
             {
@@ -879,8 +882,75 @@ class MCNInterpreter:
                 "await": self._await_tasks,
                 "use": self._use_package,
                 "type": self._set_type_hint,
+                # v3.0 functions
+                "on": self._on_event,
+                "trigger": self._trigger_event,
+                "device": self._device_operation,
+                "agent": self._agent_operation,
+                "pipeline": self._pipeline_operation,
+                "translate": self._translate_natural,
+                # UI functions
+                "ui": self._ui_operation,
             }
         )
+
+    def _init_v3_features(self):
+        """Initialize MCN 3.0 features"""
+        from .mcn_v3_extensions import (
+            MCNModelRegistry,
+            MCNEventSystem,
+            MCNIoTConnector,
+            MCNAgentSystem,
+            MCNDataPipeline,
+            MCNNaturalLanguage,
+            create_v3_ai_package,
+            create_v3_iot_package,
+            create_v3_event_package,
+            create_v3_agent_package,
+            create_v3_pipeline_package,
+            create_v3_nl_package,
+        )
+
+        # Initialize v3.0 systems
+        self.model_registry = MCNModelRegistry()
+        self.event_system = MCNEventSystem()
+        self.iot_connector = MCNIoTConnector()
+        self.agent_system = MCNAgentSystem(self.model_registry)
+        self.pipeline_system = MCNDataPipeline(self.model_registry)
+        self.nl_system = MCNNaturalLanguage(self.model_registry)
+
+        # Register v3.0 packages
+        self.package_manager.add_package("ai_v3", create_v3_ai_package(self.model_registry))
+        self.package_manager.add_package("iot", create_v3_iot_package(self.iot_connector))
+        self.package_manager.add_package("events", create_v3_event_package(self.event_system))
+        self.package_manager.add_package("agents", create_v3_agent_package(self.agent_system))
+        self.package_manager.add_package("pipeline", create_v3_pipeline_package(self.pipeline_system))
+        self.package_manager.add_package("natural", create_v3_nl_package(self.nl_system))
+        
+        # Initialize UI Integration Layer
+        self._init_ui_integration()
+
+    def _init_ui_integration(self):
+        """Initialize UI Integration Layer"""
+        from .mcn_ui_bindings import UIIntegrationLayer
+        
+        self.ui_integration = UIIntegrationLayer(self)
+        
+        # Add UI package functions
+        ui_package = {
+            "button": self.ui_integration._ui_button,
+            "input": self.ui_integration._ui_input,
+            "text": self.ui_integration._ui_text,
+            "container": self.ui_integration._ui_container,
+            "form": self.ui_integration._ui_form,
+            "table": self.ui_integration._ui_table,
+            "chart": self.ui_integration._ui_chart,
+            "page": self.ui_integration._ui_page,
+            "bind_data": self.ui_integration._ui_bind_data,
+            "export": self.ui_integration._ui_export,
+        }
+        
+        self.package_manager.add_package("ui", ui_package)
 
     def _init_request_context(self):
         """Initialize request context for web/API mode"""
@@ -986,6 +1056,93 @@ class MCNInterpreter:
         """Set type hint for variable"""
         self.type_checker.add_type_hint(var_name, var_type)
         return f"Type hint set: {var_name} -> {var_type}"
+
+    # v3.0 Core Functions
+    def _on_event(self, event_name: str, handler_func: str = None):
+        """Register event handler"""
+        def handler(data):
+            if handler_func and handler_func in self.functions:
+                self.functions[handler_func](data)
+            else:
+                print(f"Event '{event_name}' triggered with data: {data}")
+        
+        self.event_system.on_event(event_name, handler)
+        return f"Event handler registered for '{event_name}'"
+
+    def _trigger_event(self, event_name: str, data: dict = None):
+        """Trigger an event"""
+        return self.event_system.trigger_event(event_name, data or {})
+
+    def _device_operation(self, operation: str, device_id: str = None, **kwargs):
+        """IoT device operations"""
+        if operation == "register":
+            device_type = kwargs.get('type', 'sensor')
+            return self.iot_connector.register_device(device_id, device_type, kwargs)
+        elif operation == "read":
+            return self.iot_connector.read_device(device_id)
+        elif operation == "command":
+            command = kwargs.get('command', 'status')
+            return self.iot_connector.send_command(device_id, command, kwargs)
+        else:
+            raise Exception(f"Unknown device operation: {operation}")
+
+    def _agent_operation(self, operation: str, name: str = None, **kwargs):
+        """Agent operations"""
+        if operation == "create":
+            prompt = kwargs.get('prompt', 'You are a helpful assistant')
+            model = kwargs.get('model', None)
+            tools = kwargs.get('tools', [])
+            return self.agent_system.create_agent(name, prompt, model, tools)
+        elif operation == "activate":
+            return self.agent_system.activate_agent(name)
+        elif operation == "think":
+            input_data = kwargs.get('input', '')
+            return self.agent_system.agent_think(name, input_data)
+        else:
+            raise Exception(f"Unknown agent operation: {operation}")
+
+    def _pipeline_operation(self, operation: str, name: str = None, **kwargs):
+        """Data pipeline operations"""
+        if operation == "create":
+            steps = kwargs.get('steps', [])
+            return self.pipeline_system.create_pipeline(name, steps)
+        elif operation == "run":
+            data = kwargs.get('data', None)
+            return self.pipeline_system.run_pipeline(name, data)
+        else:
+            raise Exception(f"Unknown pipeline operation: {operation}")
+
+    def _translate_natural(self, natural_text: str, execute: bool = False):
+        """Translate natural language to MCN code"""
+        mcn_code = self.nl_system.translate(natural_text)
+        if execute:
+            return self.execute(mcn_code, quiet=True)
+        return mcn_code
+
+    def _ui_operation(self, operation: str, *args, **kwargs):
+        """UI operations"""
+        if operation == "button":
+            return self.ui_integration._ui_button(*args, **kwargs)
+        elif operation == "input":
+            return self.ui_integration._ui_input(*args, **kwargs)
+        elif operation == "text":
+            return self.ui_integration._ui_text(*args, **kwargs)
+        elif operation == "container":
+            return self.ui_integration._ui_container(*args, **kwargs)
+        elif operation == "form":
+            return self.ui_integration._ui_form(*args, **kwargs)
+        elif operation == "table":
+            return self.ui_integration._ui_table(*args, **kwargs)
+        elif operation == "chart":
+            return self.ui_integration._ui_chart(*args, **kwargs)
+        elif operation == "page":
+            return self.ui_integration._ui_page(*args, **kwargs)
+        elif operation == "bind_data":
+            return self.ui_integration._ui_bind_data(*args, **kwargs)
+        elif operation == "export":
+            return self.ui_integration._ui_export(*args, **kwargs)
+        else:
+            raise Exception(f"Unknown UI operation: {operation}")
 
     def register_function(self, name: str, func: Callable):
         self.functions[name] = func

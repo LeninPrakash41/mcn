@@ -1,0 +1,44 @@
+{
+  "name": "ui",
+  "version": "3.0.0",
+  "description": "UI Integration Layer for Full-Stack Development",
+  "functions": [
+    "button",
+    "input", 
+    "text",
+    "container",
+    "form",
+    "table",
+    "chart",
+    "page",
+    "bind_data",
+    "export"
+  ],
+  "components": [
+    "button",
+    "input",
+    "text",
+    "container", 
+    "form",
+    "table",
+    "chart",
+    "modal",
+    "navigation"
+  ],
+  "features": [
+    "React component generation",
+    "Event handler binding",
+    "Data source binding",
+    "Page routing",
+    "Responsive layouts",
+    "Component export",
+    "TypeScript support"
+  ],
+  "frameworks": [
+    "React",
+    "TypeScript",
+    "Tailwind CSS",
+    "React Router"
+  ],
+  "installed": true
+}

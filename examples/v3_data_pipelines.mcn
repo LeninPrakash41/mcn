@@ -1,0 +1,110 @@
+// MCN v3.0 - AI-Powered Data Pipelines Demo
+
+use "pipeline"
+use "ai_v3"
+
+// Create data cleaning pipeline
+pipeline("create", "text_cleaner", [
+    {"type": "clean", "params": {"remove_special_chars": true}},
+    {"type": "transform", "params": {"type": "normalize"}},
+    {"type": "ai_extract", "params": {"type": "entities"}}
+])
+
+// Create sentiment analysis pipeline
+pipeline("create", "sentiment_analyzer", [
+    {"type": "clean", "params": {}},
+    {"type": "ai_classify", "params": {"categories": ["positive", "negative", "neutral"]}},
+    {"type": "transform", "params": {"type": "extract_numbers"}}
+])
+
+// Create data enrichment pipeline
+pipeline("create", "data_enricher", [
+    {"type": "ai_extract", "params": {"type": "entities"}},
+    {"type": "ai_classify", "params": {"categories": ["urgent", "normal", "low_priority"]}},
+    {"type": "transform", "params": {"type": "normalize"}}
+])
+
+log("=== Data Pipeline Processing Demo ===")
+
+// Test text cleaning pipeline
+var raw_text = "Hello WORLD!!! This is a TEST message with @special #characters and Numbers 123."
+var cleaned_result = pipeline("run", "text_cleaner", raw_text)
+log("Original: " + raw_text)
+log("Cleaned: " + cleaned_result)
+
+// Test sentiment analysis pipeline
+var customer_feedback = [
+    "I love this product! It's amazing and works perfectly.",
+    "This is terrible. Worst purchase ever. Very disappointed.",
+    "It's okay, nothing special but does the job.",
+    "Outstanding quality! Highly recommend to everyone. 5 stars!"
+]
+
+log("=== Sentiment Analysis Results ===")
+for feedback in customer_feedback {
+    var sentiment_result = pipeline("run", "sentiment_analyzer", feedback)
+    log("Feedback: " + feedback)
+    log("Analysis: " + sentiment_result)
+    log("---")
+}
+
+// Test data enrichment pipeline
+var support_tickets = [
+    "URGENT: System is down, customers can't access their accounts!",
+    "Question about billing cycle and payment methods",
+    "Feature request: Add dark mode to mobile app",
+    "CRITICAL: Data breach detected in user authentication system"
+]
+
+log("=== Support Ticket Processing ===")
+for ticket in support_tickets {
+    var enriched_result = pipeline("run", "data_enricher", ticket)
+    log("Ticket: " + ticket)
+    log("Enriched: " + enriched_result)
+    log("---")
+}
+
+// Create complex multi-stage pipeline
+pipeline("create", "complete_processor", [
+    {"type": "clean", "params": {"remove_special_chars": false}},
+    {"type": "ai_extract", "params": {"type": "entities"}},
+    {"type": "ai_classify", "params": {"categories": ["technical", "billing", "general", "urgent"]}},
+    {"type": "transform", "params": {"type": "extract_numbers"}},
+    {"type": "ai_classify", "params": {"categories": ["high_value", "medium_value", "low_value"]}}
+])
+
+// Process complex business data
+var business_data = [
+    "Customer John Smith (ID: 12345) reported billing issue with $299.99 charge",
+    "Technical support needed for API integration, affecting 50+ enterprise clients",
+    "General inquiry about product features and pricing plans",
+    "URGENT: Server outage affecting 10,000+ users, revenue impact $50,000/hour"
+]
+
+log("=== Complete Business Data Processing ===")
+for data in business_data {
+    var complete_result = pipeline("run", "complete_processor", data)
+    log("Input: " + data)
+    log("Processed: " + complete_result)
+    log("---")
+}
+
+// Pipeline performance monitoring
+function monitor_pipeline_performance(pipeline_name, test_data) {
+    var start_time = now()
+    var result = pipeline("run", pipeline_name, test_data)
+    var end_time = now()
+    
+    log("Pipeline: " + pipeline_name)
+    log("Processing time: " + (end_time - start_time) + "ms")
+    log("Result: " + result)
+    
+    return result
+}
+
+log("=== Pipeline Performance Monitoring ===")
+monitor_pipeline_performance("text_cleaner", "Performance test data with special chars!@#")
+monitor_pipeline_performance("sentiment_analyzer", "This is a performance test message")
+monitor_pipeline_performance("complete_processor", "Complex test data with numbers 123 and entities")
+
+log("Data pipelines demo completed")

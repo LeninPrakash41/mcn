@@ -1,0 +1,120 @@
+// MCN UI Integration Demo - Full-Stack Development
+// Define UI components and pages using MCN script
+
+log("=== MCN UI Integration Demo ===")
+
+use "ui"
+use "ai_v3"
+use "db"
+
+// Initialize database
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, completed BOOLEAN, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
+// Create UI components
+log("Creating UI components...")
+
+// Header component
+var header = ui("text", "Task Manager", {"tag": "h1", "className": "header"})
+
+// Add task form
+var task_input = ui("input", "Enter new task...", "add_task", {"className": "task-input"})
+var add_button = ui("button", "Add Task", "handle_add_task", {"className": "btn-primary"})
+var task_form = ui("form", task_input, add_button, "submit_task", {"className": "task-form"})
+
+// Task list table
+var task_table = ui("table", ["ID", "Title", "Status", "Actions"], "tasks", {"className": "task-table"})
+
+// Analytics section
+var analytics_button = ui("button", "Analyze Tasks", "ai.run('analyze_tasks')", {"className": "btn-secondary"})
+var analytics_chart = ui("chart", "bar", "task_analytics", {"className": "analytics-chart"})
+
+// Main container
+var main_container = ui("container", header, task_form, task_table, analytics_button, analytics_chart, {"className": "main-app"})
+
+// Create page
+var main_page = ui("page", "TaskManager", "/", main_container, {"title": "Task Manager App"})
+
+log("UI components created successfully")
+
+// Define event handlers
+log("Setting up event handlers...")
+
+function handle_add_task(data) {
+    var title = data.value
+    if title {
+        query("INSERT INTO tasks (title, completed) VALUES (?, ?)", (title, false))
+        log("Task added: " + title)
+        return {"success": true, "message": "Task added"}
+    }
+    return {"success": false, "error": "Title required"}
+}
+
+function submit_task(data) {
+    log("Form submitted")
+    return handle_add_task(data)
+}
+
+function analyze_tasks() {
+    var tasks = query("SELECT * FROM tasks")
+    var completed_count = 0
+    var total_count = tasks.length
+    
+    for task in tasks {
+        if task.completed {
+            completed_count = completed_count + 1
+        }
+    }
+    
+    var completion_rate = (completed_count / total_count) * 100
+    
+    var analysis = ai("run", "gpt-3.5-turbo", "Analyze task completion: " + completed_count + " completed out of " + total_count + " total tasks. Completion rate: " + completion_rate + "%")
+    
+    log("Task analysis: " + analysis)
+    return {
+        "completed": completed_count,
+        "total": total_count,
+        "completion_rate": completion_rate,
+        "ai_analysis": analysis
+    }
+}
+
+function load_page_data(data) {
+    if data.page == "TaskManager" {
+        var tasks = query("SELECT * FROM tasks ORDER BY created_at DESC")
+        var analytics = analyze_tasks()
+        
+        return {
+            "success": true,
+            "data": {
+                "tasks": tasks,
+                "task_analytics": analytics
+            }
+        }
+    }
+    return {"success": false, "error": "Unknown page"}
+}
+
+// Bind data sources
+ui("bind_data", task_table, "tasks")
+ui("bind_data", analytics_chart, "task_analytics")
+
+log("Event handlers configured")
+
+// Export to React project
+log("Exporting UI to React project...")
+ui("export", "./frontend")
+
+log("=== UI Integration Demo Complete ===")
+log("Generated React components in ./frontend directory")
+log("Components created:")
+log("- TaskManagerPage.tsx")
+log("- AppRouter.tsx") 
+log("- ui-manifest.json")
+
+// Sample data for testing
+query("INSERT OR IGNORE INTO tasks (id, title, completed) VALUES (1, 'Learn MCN UI Integration', false)")
+query("INSERT OR IGNORE INTO tasks (id, title, completed) VALUES (2, 'Build React Frontend', true)")
+query("INSERT OR IGNORE INTO tasks (id, title, completed) VALUES (3, 'Deploy Full-Stack App', false)")
+
+log("Sample tasks added to database")
+log("Ready for full-stack development!")

@@ -1,0 +1,108 @@
+// MCN Development Workflow Demo
+// Shows both separate and integrated development approaches
+
+log("=== MCN Development Workflow Demo ===")
+
+use "ui"
+use "db"
+use "ai_v3"
+
+// Initialize database
+query("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, name TEXT, price REAL, category TEXT)")
+query("INSERT OR IGNORE INTO products VALUES (1, 'Laptop', 999.99, 'Electronics')")
+query("INSERT OR IGNORE INTO products VALUES (2, 'Phone', 599.99, 'Electronics')")
+query("INSERT OR IGNORE INTO products VALUES (3, 'Book', 19.99, 'Education')")
+
+// Create simple product management UI
+var title = ui("text", "Product Manager", {"tag": "h1", "className": "text-3xl font-bold mb-6"})
+
+var add_form = ui("container",
+    ui("input", "Product name...", "add_product_name", {"className": "mb-2"}),
+    ui("input", "Price...", "add_product_price", {"className": "mb-2"}),
+    ui("button", "Add Product", "add_product", {"className": "btn-primary"}),
+    {"className": "mb-6 p-4 border rounded"}
+)
+
+var product_table = ui("table", ["ID", "Name", "Price", "Category"], "products", {"className": "w-full"})
+
+var refresh_btn = ui("button", "Refresh", "load_products", {"className": "btn-secondary mt-4"})
+
+var main_app = ui("container", title, add_form, product_table, refresh_btn, {"className": "container mx-auto p-6"})
+
+var home_page = ui("page", "ProductManager", "/", main_app, {"title": "Product Manager"})
+
+// Business logic functions
+function load_page_data(data) {
+    if data.page == "ProductManager" {
+        var products = query("SELECT * FROM products ORDER BY name")
+        return {
+            "success": true,
+            "data": {
+                "products": products
+            }
+        }
+    }
+    return {"success": false, "error": "Unknown page"}
+}
+
+function load_products(data) {
+    var products = query("SELECT * FROM products ORDER BY name")
+    return {
+        "success": true,
+        "products": products
+    }
+}
+
+var new_product_name = ""
+var new_product_price = 0
+
+function add_product_name(data) {
+    new_product_name = data.value
+    return {"success": true}
+}
+
+function add_product_price(data) {
+    new_product_price = data.value
+    return {"success": true}
+}
+
+function add_product(data) {
+    if new_product_name and new_product_price {
+        query("INSERT INTO products (name, price, category) VALUES (?, ?, ?)", 
+              (new_product_name, new_product_price, "General"))
+        
+        // Reset form
+        new_product_name = ""
+        new_product_price = 0
+        
+        return {
+            "success": true,
+            "message": "Product added successfully"
+        }
+    }
+    return {"success": false, "error": "Please fill all fields"}
+}
+
+// Export React app
+ui("export", "./product-manager-app")
+
+log("=== Development Workflow Options ===")
+log("")
+log("Option 1: Separate Processes (Current)")
+log("1. python run_mcn.py serve --file dev_workflow_demo.mcn --port 8000")
+log("2. cd product-manager-app && npm install && npm start")
+log("3. Open http://localhost:3000")
+log("")
+log("Option 2: Integrated Development Server")
+log("1. python -c \"from mcn.core_engine.mcn_dev_server import start_dev_server; start_dev_server('dev_workflow_demo.mcn', './product-manager-app')\"")
+log("2. Opens both backend (8000) and frontend (3000) automatically")
+log("")
+log("Option 3: Quick Development Command")
+log("1. mcn dev dev_workflow_demo.mcn")
+log("2. Everything starts automatically")
+
+log("Product Manager app created with:")
+log("- Add/view products")
+log("- Database integration") 
+log("- Responsive UI")
+log("- Real-time updates")
