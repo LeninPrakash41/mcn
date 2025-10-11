@@ -1,0 +1,302 @@
+// E-commerce Platform with MCN Business Packages
+// Complete e-commerce solution using all business automation features
+
+log "=== E-commerce Platform Demo ==="
+
+// Setup all required packages
+use "auth"
+use "payments" 
+use "notifications"
+use "workflows"
+use "analytics"
+use "storage"
+use "realtime"
+use "integrations"
+use "compliance"
+
+// Initialize platform
+auth_setup("jwt", {"secret": env("JWT_SECRET")})
+payment_setup("stripe", {"key": env("STRIPE_KEY")})
+storage_setup("aws_s3", {"bucket": "ecommerce-assets"})
+realtime_setup("pusher", {"app_id": env("PUSHER_APP_ID")})
+
+// Product Management
+function create_product(product_data) {
+    log "Creating product: " + product_data.name
+    
+    // Upload product images
+    var image_upload = file_upload(product_data.image, {
+        "provider": "aws_s3",
+        "transforms": ["resize:800x600", "optimize"]
+    })
+    
+    // Track product creation
+    track_event("product_created", {
+        "product_id": product_data.id,
+        "category": product_data.category,
+        "price": product_data.price
+    })
+    
+    // Audit log
+    audit_log("product_created", {
+        "product_id": product_data.id,
+        "created_by": "admin"
+    })
+    
+    return {
+        "success": true,
+        "product_id": product_data.id,
+        "image_url": image_upload.url
+    }
+}
+
+// Order Processing Workflow
+workflow_create("order_processing", [
+    {"step": "validate_payment", "timeout": 30},
+    {"step": "check_inventory", "retry": 2},
+    {"step": "reserve_items", "timeout": 60},
+    {"step": "send_confirmation", "async": true},
+    {"step": "update_analytics", "async": true},
+    {"step": "notify_fulfillment", "delay": 300}
+])
+
+// Customer Registration
+function register_customer(customer_data) {
+    log "Registering customer: " + customer_data.email
+    
+    // Create account
+    var auth_result = auth_login({
+        "email": customer_data.email,
+        "password": customer_data.password
+    })
+    
+    if auth_result.success {
+        // Send welcome email
+        email_send({
+            "to": customer_data.email,
+            "template": "welcome",
+            "data": {
+                "name": customer_data.name,
+                "discount_code": "WELCOME10"
+            }
+        })
+        
+        // Track registration
+        track_event("customer_registered", {
+            "source": customer_data.source,
+            "referrer": customer_data.referrer
+        })
+        
+        // Real-time notification
+        realtime_broadcast("admin_notifications", {
+            "type": "new_customer",
+            "customer": customer_data.name,
+            "email": customer_data.email
+        })
+        
+        return {"success": true, "token": auth_result.token}
+    }
+    
+    return {"success": false, "error": "Registration failed"}
+}
+
+// Order Processing
+function process_order(order_data) {
+    log "Processing order: " + order_data.order_id
+    
+    // Calculate total
+    var total = 0
+    for item in order_data.items {
+        total = total + (item.price * item.quantity)
+    }
+    
+    // Process payment
+    var payment = payment_create({
+        "amount": total * 100, // Convert to cents
+        "currency": "usd",
+        "description": "Order #" + order_data.order_id,
+        "customer": order_data.customer_email
+    })
+    
+    if payment.success {
+        // Start order workflow
+        workflow_trigger("order_processing", {
+            "order_id": order_data.order_id,
+            "customer_email": order_data.customer_email,
+            "total": total,
+            "items": order_data.items
+        })
+        
+        // Send order confirmation
+        email_send({
+            "to": order_data.customer_email,
+            "template": "order_confirmation",
+            "data": {
+                "order_id": order_data.order_id,
+                "total": total,
+                "items": order_data.items
+            }
+        })
+        
+        // SMS notification
+        sms_send({
+            "to": order_data.phone,
+            "message": "Order #" + order_data.order_id + " confirmed! Total: $" + total
+        })
+        
+        // Track revenue
+        track_metric("revenue", total, {
+            "order_id": order_data.order_id,
+            "customer_type": order_data.customer_type
+        })
+        
+        // Real-time order update
+        realtime_broadcast("order_updates", {
+            "type": "order_confirmed",
+            "order_id": order_data.order_id,
+            "status": "confirmed"
+        })
+        
+        // Compliance audit
+        audit_log("order_processed", {
+            "order_id": order_data.order_id,
+            "amount": total,
+            "customer": order_data.customer_email
+        })
+        
+        return {
+            "success": true,
+            "order_id": order_data.order_id,
+            "payment_id": payment.charge_id,
+            "total": total
+        }
+    }
+    
+    return {"success": false, "error": "Payment failed"}
+}
+
+// Inventory Management
+function update_inventory(product_id, quantity_change) {
+    // Track inventory change
+    track_event("inventory_updated", {
+        "product_id": product_id,
+        "change": quantity_change
+    })
+    
+    // Audit inventory change
+    audit_log("inventory_change", {
+        "product_id": product_id,
+        "quantity_change": quantity_change,
+        "timestamp": now()
+    })
+    
+    return {"success": true, "updated": true}
+}
+
+// Customer Support Integration
+integration_setup("zendesk", {"api_key": env("ZENDESK_API_KEY")})
+integration_setup("slack", {"webhook_url": env("SLACK_WEBHOOK")})
+
+function create_support_ticket(ticket_data) {
+    // Create ticket in Zendesk
+    var ticket = integration_sync("zendesk", "tickets")
+    
+    // Notify support team via Slack
+    integration_notify("slack", "New support ticket: " + ticket_data.subject + " from " + ticket_data.customer_email)
+    
+    // Track support request
+    track_event("support_ticket_created", {
+        "category": ticket_data.category,
+        "priority": ticket_data.priority
+    })
+    
+    return {"success": true, "ticket_id": "TICK-12345"}
+}
+
+// Analytics Dashboard
+function generate_sales_report(period) {
+    var revenue_report = generate_report("sales_revenue", {
+        "period": period,
+        "breakdown": ["product", "category", "customer_type"]
+    })
+    
+    var customer_report = generate_report("customer_analytics", {
+        "period": period,
+        "metrics": ["new_customers", "retention", "lifetime_value"]
+    })
+    
+    return {
+        "revenue": revenue_report,
+        "customers": customer_report,
+        "generated": now()
+    }
+}
+
+// GDPR Compliance
+compliance_setup("gdpr", {"data_retention": 730})
+
+function handle_data_request(request_type, customer_email) {
+    if request_type == "export" {
+        var export_result = data_export(customer_email, "json")
+        
+        email_send({
+            "to": customer_email,
+            "template": "data_export",
+            "data": {"export_id": export_result.export_id}
+        })
+        
+        return export_result
+    } else if request_type == "delete" {
+        audit_log("data_deletion_request", {
+            "customer_email": customer_email,
+            "requested_at": now()
+        })
+        
+        return {"success": true, "message": "Deletion request logged"}
+    }
+}
+
+// Demo Data
+log "=== Running E-commerce Demo ==="
+
+// Create sample product
+var product = create_product({
+    "id": "PROD-001",
+    "name": "Premium Headphones",
+    "category": "Electronics",
+    "price": 199.99,
+    "image": "headphones.jpg"
+})
+log "Product created: " + product
+
+// Register customer
+var customer = register_customer({
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "password": "secure789",
+    "source": "website",
+    "referrer": "google"
+})
+log "Customer registered: " + customer
+
+// Process order
+var order = process_order({
+    "order_id": "ORD-001",
+    "customer_email": "alice@example.com",
+    "phone": "+1234567890",
+    "customer_type": "new",
+    "items": [
+        {"product_id": "PROD-001", "name": "Premium Headphones", "price": 199.99, "quantity": 1}
+    ]
+})
+log "Order processed: " + order
+
+// Update inventory
+var inventory = update_inventory("PROD-001", -1)
+log "Inventory updated: " + inventory
+
+// Generate report
+var report = generate_sales_report("monthly")
+log "Sales report: " + report
+
+log "=== E-commerce Platform Demo Complete ==="

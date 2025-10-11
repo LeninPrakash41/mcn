@@ -1,0 +1,22 @@
+{
+  "name": "mcp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol integration for external tools and data sources",
+  "functions": {
+    "mcp_connect": {
+      "description": "Connect to MCP server",
+      "parameters": ["server_type", "config"],
+      "example": "mcp_connect(\"filesystem\", {\"path\": \"/project\"})"
+    },
+    "mcp_call": {
+      "description": "Call MCP tool function",
+      "parameters": ["server", "tool", "params"],
+      "example": "mcp_call(\"filesystem\", \"list_files\", {\"pattern\": \"*.json\"})"
+    },
+    "mcp_list_tools": {
+      "description": "List available tools from MCP server",
+      "parameters": ["server"],
+      "example": "mcp_list_tools(\"database\")"
+    }
+  }
+}

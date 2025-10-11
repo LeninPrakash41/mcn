@@ -1,41 +1,35 @@
-# MCN Core Dependencies
-requests>=2.28.0
-psycopg2-binary>=2.9.0
-pymongo>=4.0.0
-openai>=1.0.0
-flask>=2.3.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
+# MCN Core Dependencies (Required)
+requests>=2.31.0
+PyJWT>=2.8.0
 
-# Development Dependencies
-pytest>=7.0.0
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.0.0
+# Optional dependencies for business packages
+# Uncomment as needed:
 
-# Optional Dependencies for specific features
-# Database connectors
-sqlalchemy>=2.0.0
-redis>=4.5.0
+# For advanced database support
+# psycopg2-binary>=2.9.7  # PostgreSQL
+# pymongo>=4.5.0          # MongoDB
 
-# AI/ML libraries
-transformers>=4.30.0
-torch>=2.0.0
+# For AWS S3 storage
+# boto3>=1.28.0
 
-# Web framework support
-django>=4.2.0
-starlette>=0.27.0
+# For advanced email features
+# sendgrid>=6.10.0
 
-# Utility libraries
-pydantic>=2.0.0
-python-dotenv>=1.0.0
-pyyaml>=6.0.0
-jinja2>=3.1.0
+# For Twilio SMS
+# twilio>=8.5.0
 
-# Async support
-aiohttp>=3.8.0
-asyncio-mqtt>=0.13.0
+# For Firebase push notifications
+# firebase-admin>=6.2.0
 
-# Testing and quality
-coverage>=7.0.0
-pre-commit>=3.0.0
+# For advanced analytics
+# pandas>=2.0.0
+# numpy>=1.24.0
+
+# For image processing (storage package)
+# Pillow>=10.0.0
+
+# For Excel/CSV export
+# openpyxl>=3.1.0
+
+# For advanced encryption
+# cryptography>=41.0.0

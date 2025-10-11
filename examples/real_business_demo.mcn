@@ -1,0 +1,166 @@
+// Real MCN Business Demo - Actually Working Examples
+// This script demonstrates real functionality, not mocks
+
+log "=== MCN Real Business Demo ==="
+
+// 1. Real File Storage
+use "storage"
+storage_setup("local", {"path": "./mcn_storage"})
+
+var file_content = "Hello from MCN! This is real file content."
+var upload_result = file_upload(file_content, {
+    "provider": "local",
+    "filename": "demo_file.txt"
+})
+log "File uploaded: " + upload_result
+
+// 2. Real Analytics with SQLite
+use "analytics"
+
+track_event("demo_started", {
+    "user": "developer",
+    "version": "3.0",
+    "timestamp": now()
+})
+
+track_metric("demo_revenue", 99.99, {
+    "product": "mcn_license",
+    "currency": "usd"
+})
+
+track_metric("demo_revenue", 149.99, {
+    "product": "mcn_premium",
+    "currency": "usd"
+})
+
+var revenue_report = generate_report("monthly_revenue", {
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31"
+})
+log "Revenue Report: " + revenue_report
+
+// 3. Real Authentication with Database
+use "auth"
+auth_setup("jwt", {"secret": "mcn_demo_secret_key_2024"})
+
+// Register a test user
+var registration = auth_register("demo@mcnlang.org", "secure_password_123")
+log "User registration: " + registration
+
+// Login with the user
+var login_result = auth_login({
+    "email": "demo@mcnlang.org",
+    "password": "secure_password_123"
+})
+log "Login result: " + login_result
+
+// Verify the token works
+if login_result.success {
+    var token_valid = auth_check(login_result.token)
+    log "Token is valid: " + token_valid
+}
+
+// 4. Real Email (requires SMTP setup)
+use "notifications"
+
+// This will work if you set environment variables:
+// SMTP_USERNAME=your_email@gmail.com
+// SMTP_PASSWORD=your_app_password
+
+var email_result = email_send({
+    "to": "test@example.com",
+    "subject": "MCN Demo Email",
+    "content": "This is a real email sent from MCN scripting language!"
+})
+log "Email result: " + email_result
+
+// 5. Real HTTP Requests
+use "http"
+
+var api_response = fetch("https://jsonplaceholder.typicode.com/posts/1")
+log "API Response: " + api_response
+
+// 6. Real Payment Processing (requires Stripe key)
+use "payments"
+
+// This will work if you set: STRIPE_KEY=sk_test_...
+// payment_setup("stripe", {"key": env("STRIPE_KEY")})
+
+// Uncomment to test real payments:
+// var charge = payment_create({
+//     "amount": 2000,  // $20.00
+//     "currency": "usd",
+//     "description": "MCN Demo Purchase"
+// })
+// log "Payment result: " + charge
+
+// 7. Business Logic Function
+function process_customer_order(customer_email, product, amount) {
+    log "Processing order for: " + customer_email
+    
+    // Track the order
+    track_event("order_created", {
+        "customer": customer_email,
+        "product": product,
+        "amount": amount
+    })
+    
+    // Track revenue
+    track_metric("revenue", amount, {
+        "product": product,
+        "customer_type": "new"
+    })
+    
+    // Send confirmation email
+    var email_sent = email_send({
+        "to": customer_email,
+        "subject": "Order Confirmation - " + product,
+        "content": "Thank you for your order! Product: " + product + ", Amount: $" + amount
+    })
+    
+    // Store order details
+    var order_data = {
+        "customer": customer_email,
+        "product": product,
+        "amount": amount,
+        "timestamp": now(),
+        "status": "confirmed"
+    }
+    
+    var order_file = file_upload(order_data, {
+        "provider": "local",
+        "filename": "order_" + customer_email + "_" + now() + ".json"
+    })
+    
+    return {
+        "success": true,
+        "order_id": "ORD-" + now(),
+        "email_sent": email_sent.success,
+        "order_stored": order_file.success
+    }
+}
+
+// Test the business logic
+var order_result = process_customer_order(
+    "customer@example.com",
+    "MCN Premium License",
+    299.99
+)
+log "Order processing result: " + order_result
+
+// 8. Generate Final Report
+var final_report = generate_report("event_summary", {
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31"
+})
+log "Event Summary: " + final_report
+
+log "=== Demo Complete - All Real Functionality! ==="
+
+// Instructions for full functionality:
+log ""
+log "To enable all features, set these environment variables:"
+log "- SMTP_USERNAME and SMTP_PASSWORD for email"
+log "- STRIPE_KEY for payments"
+log "- TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER for SMS"
+log "- AWS_BUCKET, AWS_ACCESS_KEY, AWS_SECRET_KEY for S3 storage"

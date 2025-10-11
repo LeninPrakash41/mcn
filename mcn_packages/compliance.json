@@ -1,0 +1,27 @@
+{
+  "name": "compliance",
+  "version": "1.0.0",
+  "description": "Compliance and audit tools for enterprise requirements",
+  "functions": {
+    "compliance_setup": {
+      "description": "Setup compliance framework",
+      "parameters": ["framework", "config"],
+      "example": "compliance_setup(\"gdpr\", {\"data_retention\": 365})"
+    },
+    "audit_log": {
+      "description": "Log audit event",
+      "parameters": ["event_type", "details"],
+      "example": "audit_log(\"data_access\", {\"user_id\": 123, \"resource\": \"users\"})"
+    },
+    "anonymize_data": {
+      "description": "Anonymize sensitive data",
+      "parameters": ["data", "fields"],
+      "example": "anonymize_data(user_data, [\"email\", \"phone\"])"
+    },
+    "data_export": {
+      "description": "Export user data for compliance",
+      "parameters": ["user_id", "format"],
+      "example": "data_export(123, \"json\")"
+    }
+  }
+}

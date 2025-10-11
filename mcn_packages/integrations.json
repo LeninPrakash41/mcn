@@ -1,0 +1,27 @@
+{
+  "name": "integrations",
+  "version": "1.0.0",
+  "description": "Pre-built API integrations for popular services",
+  "functions": {
+    "integration_setup": {
+      "description": "Setup service integration",
+      "parameters": ["service", "config"],
+      "example": "integration_setup(\"salesforce\", {\"client_id\": env(\"SF_CLIENT_ID\")})"
+    },
+    "integration_sync": {
+      "description": "Sync data from service",
+      "parameters": ["service", "resource"],
+      "example": "integration_sync(\"salesforce\", \"contacts\")"
+    },
+    "integration_notify": {
+      "description": "Send notification via service",
+      "parameters": ["service", "message"],
+      "example": "integration_notify(\"slack\", \"New lead received\")"
+    },
+    "webhook_create": {
+      "description": "Create webhook endpoint",
+      "parameters": ["service", "events", "callback"],
+      "example": "webhook_create(\"stripe\", [\"payment.success\"], handle_payment)"
+    }
+  }
+}

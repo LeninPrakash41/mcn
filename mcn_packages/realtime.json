@@ -1,0 +1,27 @@
+{
+  "name": "realtime",
+  "version": "1.0.0",
+  "description": "Real-time communication and WebSocket support",
+  "functions": {
+    "realtime_setup": {
+      "description": "Setup real-time provider",
+      "parameters": ["provider", "config"],
+      "example": "realtime_setup(\"pusher\", {\"app_id\": env(\"PUSHER_APP_ID\")})"
+    },
+    "realtime_broadcast": {
+      "description": "Broadcast message to channel",
+      "parameters": ["channel", "data"],
+      "example": "realtime_broadcast(\"chat_123\", {\"type\": \"message\", \"text\": \"Hello\"})"
+    },
+    "realtime_subscribe": {
+      "description": "Subscribe to real-time channel",
+      "parameters": ["channel", "callback"],
+      "example": "realtime_subscribe(\"notifications\", handle_notification)"
+    },
+    "websocket_send": {
+      "description": "Send WebSocket message",
+      "parameters": ["connection_id", "message"],
+      "example": "websocket_send(\"conn_123\", {\"type\": \"update\", \"data\": {}})"
+    }
+  }
+}

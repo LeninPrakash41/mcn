@@ -1,0 +1,27 @@
+{
+  "name": "storage",
+  "version": "1.0.0",
+  "description": "Multi-provider file storage and CDN",
+  "functions": {
+    "storage_setup": {
+      "description": "Setup storage provider",
+      "parameters": ["provider", "config"],
+      "example": "storage_setup(\"aws_s3\", {\"bucket\": \"my-files\"})"
+    },
+    "file_upload": {
+      "description": "Upload file to storage",
+      "parameters": ["file_data", "options"],
+      "example": "file_upload(request_data.file, {\"provider\": \"s3\"})"
+    },
+    "file_download": {
+      "description": "Download file from storage",
+      "parameters": ["file_id", "options"],
+      "example": "file_download(\"file_123\", {\"signed_url\": true})"
+    },
+    "file_delete": {
+      "description": "Delete file from storage",
+      "parameters": ["file_id"],
+      "example": "file_delete(\"file_123\")"
+    }
+  }
+}

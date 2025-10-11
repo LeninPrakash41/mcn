@@ -1,0 +1,27 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "description": "Analytics and reporting system",
+  "functions": {
+    "track_event": {
+      "description": "Track user event",
+      "parameters": ["event_name", "properties"],
+      "example": "track_event(\"user_signup\", {\"source\": \"website\"})"
+    },
+    "track_metric": {
+      "description": "Track business metric",
+      "parameters": ["metric_name", "value", "tags"],
+      "example": "track_metric(\"revenue\", 299.99, {\"product\": \"premium\"})"
+    },
+    "generate_report": {
+      "description": "Generate analytics report",
+      "parameters": ["report_type", "params"],
+      "example": "generate_report(\"monthly_revenue\", {\"start_date\": \"2024-01-01\"})"
+    },
+    "create_dashboard": {
+      "description": "Create analytics dashboard",
+      "parameters": ["dashboard_config"],
+      "example": "create_dashboard({\"name\": \"Sales\", \"widgets\": [\"revenue\", \"users\"]})"
+    }
+  }
+}

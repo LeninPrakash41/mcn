@@ -1,0 +1,27 @@
+{
+  "name": "notifications",
+  "version": "1.0.0",
+  "description": "Multi-channel notification system",
+  "functions": {
+    "email_send": {
+      "description": "Send email notification",
+      "parameters": ["email_data"],
+      "example": "email_send({\"to\": \"user@example.com\", \"template\": \"welcome\"})"
+    },
+    "sms_send": {
+      "description": "Send SMS notification",
+      "parameters": ["sms_data"],
+      "example": "sms_send({\"to\": \"+1234567890\", \"message\": \"Hello!\"})"
+    },
+    "push_send": {
+      "description": "Send push notification",
+      "parameters": ["push_data"],
+      "example": "push_send({\"device_token\": \"abc123\", \"title\": \"Alert\"})"
+    },
+    "notification_template": {
+      "description": "Create notification template",
+      "parameters": ["template_data"],
+      "example": "notification_template({\"name\": \"welcome\", \"subject\": \"Welcome!\"})"
+    }
+  }
+}

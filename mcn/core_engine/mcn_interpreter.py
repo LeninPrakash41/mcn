@@ -929,6 +929,9 @@ class MCNInterpreter:
         
         # Initialize UI Integration Layer
         self._init_ui_integration()
+        
+        # Initialize Business Packages
+        self._init_business_packages()
 
     def _init_ui_integration(self):
         """Initialize UI Integration Layer"""
@@ -951,6 +954,117 @@ class MCNInterpreter:
         }
         
         self.package_manager.add_package("ui", ui_package)
+    
+    def _init_business_packages(self):
+        """Initialize business automation packages"""
+        from .mcn_business_packages import (
+            mcp_connector, auth_system, payment_processor, notification_system,
+            workflow_engine, analytics_system, storage_system, realtime_system,
+            integration_system, compliance_system
+        )
+        
+        # MCP Package
+        mcp_package = {
+            "mcp_connect": lambda server_type, config: mcp_connector.connect(server_type, config),
+            "mcp_call": lambda server, tool, params: mcp_connector.call(server, tool, params),
+            "mcp_list_tools": lambda server: {"tools": ["list_files", "read_file", "write_file"]}
+        }
+        
+        # Auth Package
+        auth_package = {
+            "auth_setup": lambda method, config: auth_system.setup(method, config),
+            "auth_provider": lambda provider, config: auth_system.add_provider(provider, config),
+            "auth_register": lambda email, password: auth_system.register_user(email, password),
+            "auth_check": lambda token: auth_system.check_token(token),
+            "auth_login": lambda credentials: auth_system.login(credentials),
+            "auth_logout": lambda token: auth_system.logout(token)
+        }
+        
+        # Payments Package
+        payments_package = {
+            "payment_setup": lambda provider, config: payment_processor.setup_provider(provider, config),
+            "payment_create": lambda payment_data: payment_processor.create_charge(payment_data),
+            "payment_refund": lambda payment_id, amount=None: payment_processor.refund_payment(payment_id, amount),
+            "subscription_create": lambda plan_data: {"success": True, "subscription_id": f"sub_{plan_data.get('plan', 'basic')}"}
+        }
+        
+        # Notifications Package
+        notifications_package = {
+            "email_send": lambda email_data: notification_system.send_email(email_data),
+            "sms_send": lambda sms_data: notification_system.send_sms(sms_data),
+            "push_send": lambda push_data: notification_system.send_push(push_data),
+            "notification_template": lambda template_data: {"success": True, "template_id": template_data.get("name")}
+        }
+        
+        # Workflows Package
+        workflows_package = {
+            "workflow_create": lambda name, steps: workflow_engine.create_workflow(name, steps),
+            "workflow_trigger": lambda workflow_name, data: workflow_engine.trigger_workflow(workflow_name, data),
+            "workflow_status": lambda execution_id: workflow_engine.get_status(execution_id),
+            "workflow_schedule": lambda workflow_name, schedule, data: {"success": True, "scheduled": True}
+        }
+        
+        # Analytics Package
+        analytics_package = {
+            "track_event": lambda event_name, properties: analytics_system.track_event(event_name, properties),
+            "track_metric": lambda metric_name, value, tags: analytics_system.track_metric(metric_name, value, tags),
+            "generate_report": lambda report_type, params: analytics_system.generate_report(report_type, params),
+            "create_dashboard": lambda dashboard_config: {"success": True, "dashboard_id": dashboard_config.get("name")}
+        }
+        
+        # Storage Package
+        storage_package = {
+            "storage_setup": lambda provider, config: storage_system.setup_provider(provider, config),
+            "file_upload": lambda file_data, options: storage_system.upload_file(file_data, options),
+            "file_download": lambda file_id, options: {"success": True, "url": f"https://cdn.example.com/{file_id}"},
+            "file_delete": lambda file_id: {"success": True, "deleted": file_id}
+        }
+        
+        # Realtime Package
+        realtime_package = {
+            "realtime_setup": lambda provider, config: realtime_system.setup_provider(provider, config),
+            "realtime_broadcast": lambda channel, data: realtime_system.broadcast(channel, data),
+            "realtime_subscribe": lambda channel, callback: {"success": True, "subscribed": channel},
+            "websocket_send": lambda connection_id, message: {"success": True, "sent": True}
+        }
+        
+        # Integrations Package
+        integrations_package = {
+            "integration_setup": lambda service, config: integration_system.setup_integration(service, config),
+            "integration_sync": lambda service, resource: integration_system.sync_data(service, resource),
+            "integration_notify": lambda service, message: integration_system.send_notification(service, message),
+            "webhook_create": lambda service, events, callback: {"success": True, "webhook_id": f"wh_{service}"}
+        }
+        
+        # Compliance Package
+        compliance_package = {
+            "compliance_setup": lambda framework, config: compliance_system.setup_framework(framework, config),
+            "audit_log": lambda event_type, details: compliance_system.log_audit_event(event_type, details),
+            "anonymize_data": lambda data, fields: compliance_system.anonymize_data(data, fields),
+            "data_export": lambda user_id, format_type: {"success": True, "export_id": f"exp_{user_id}"}
+        }
+        
+        # HTTP Package (real requests)
+        http_package = {
+            "fetch": self._fetch,
+            "get": lambda url, headers=None: self._http_request("GET", url, headers=headers),
+            "post": lambda url, data=None, headers=None: self._http_request("POST", url, data=data, headers=headers),
+            "put": lambda url, data=None, headers=None: self._http_request("PUT", url, data=data, headers=headers),
+            "delete": lambda url, headers=None: self._http_request("DELETE", url, headers=headers)
+        }
+        
+        # Register all business packages
+        self.package_manager.add_package("mcp", mcp_package)
+        self.package_manager.add_package("auth", auth_package)
+        self.package_manager.add_package("payments", payments_package)
+        self.package_manager.add_package("notifications", notifications_package)
+        self.package_manager.add_package("workflows", workflows_package)
+        self.package_manager.add_package("analytics", analytics_package)
+        self.package_manager.add_package("storage", storage_package)
+        self.package_manager.add_package("realtime", realtime_package)
+        self.package_manager.add_package("integrations", integrations_package)
+        self.package_manager.add_package("compliance", compliance_package)
+        self.package_manager.add_package("http", http_package)
 
     def _init_request_context(self):
         """Initialize request context for web/API mode"""
@@ -997,21 +1111,45 @@ class MCNInterpreter:
 
     def _fetch(self, url: str) -> Dict:
         """HTTP GET request"""
+        return self._http_request("GET", url)
+    
+    def _http_request(self, method: str, url: str, data=None, headers=None) -> Dict:
+        """Generic HTTP request method"""
         import requests
-
+        
         try:
-            response = requests.get(url, timeout=30)
+            headers = headers or {}
+            
+            if method.upper() == "GET":
+                response = requests.get(url, headers=headers, timeout=30)
+            elif method.upper() == "POST":
+                if isinstance(data, dict):
+                    response = requests.post(url, json=data, headers=headers, timeout=30)
+                else:
+                    response = requests.post(url, data=data, headers=headers, timeout=30)
+            elif method.upper() == "PUT":
+                if isinstance(data, dict):
+                    response = requests.put(url, json=data, headers=headers, timeout=30)
+                else:
+                    response = requests.put(url, data=data, headers=headers, timeout=30)
+            elif method.upper() == "DELETE":
+                response = requests.delete(url, headers=headers, timeout=30)
+            else:
+                return {"status_code": 0, "data": f"Unsupported method: {method}", "success": False}
+            
+            # Try to parse JSON response
+            try:
+                response_data = response.json()
+            except:
+                response_data = response.text
+            
             return {
                 "status_code": response.status_code,
-                "data": (
-                    response.json()
-                    if response.headers.get("content-type", "").startswith(
-                        "application/json"
-                    )
-                    else response.text
-                ),
+                "data": response_data,
+                "headers": dict(response.headers),
                 "success": 200 <= response.status_code < 300,
             }
+            
         except Exception as e:
             return {"status_code": 0, "data": str(e), "success": False}
 

@@ -1,0 +1,27 @@
+{
+  "name": "payments",
+  "version": "1.0.0",
+  "description": "Multi-provider payment processing",
+  "functions": {
+    "payment_setup": {
+      "description": "Setup payment provider",
+      "parameters": ["provider", "config"],
+      "example": "payment_setup(\"stripe\", {\"key\": env(\"STRIPE_KEY\")})"
+    },
+    "payment_create": {
+      "description": "Create payment charge",
+      "parameters": ["payment_data"],
+      "example": "payment_create({\"amount\": 2999, \"currency\": \"usd\"})"
+    },
+    "payment_refund": {
+      "description": "Refund payment",
+      "parameters": ["payment_id", "amount"],
+      "example": "payment_refund(\"ch_123\", 1000)"
+    },
+    "subscription_create": {
+      "description": "Create subscription",
+      "parameters": ["plan_data"],
+      "example": "subscription_create({\"plan\": \"premium\", \"customer\": \"cus_123\"})"
+    }
+  }
+}

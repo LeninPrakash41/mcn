@@ -1,0 +1,27 @@
+{
+  "name": "workflows",
+  "version": "1.0.0",
+  "description": "Business workflow automation system",
+  "functions": {
+    "workflow_create": {
+      "description": "Create workflow definition",
+      "parameters": ["name", "steps"],
+      "example": "workflow_create(\"order_process\", [{\"step\": \"validate\", \"timeout\": 30}])"
+    },
+    "workflow_trigger": {
+      "description": "Trigger workflow execution",
+      "parameters": ["workflow_name", "data"],
+      "example": "workflow_trigger(\"order_process\", {\"order_id\": 123})"
+    },
+    "workflow_status": {
+      "description": "Get workflow execution status",
+      "parameters": ["execution_id"],
+      "example": "workflow_status(\"exec_456\")"
+    },
+    "workflow_schedule": {
+      "description": "Schedule workflow execution",
+      "parameters": ["workflow_name", "schedule", "data"],
+      "example": "workflow_schedule(\"daily_report\", \"0 9 * * *\", {})"
+    }
+  }
+}
