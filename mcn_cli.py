@@ -161,6 +161,22 @@ def generate_react_app(mcn_file: str, output_dir: str = None):
 
 def main():
     """Main CLI entry point"""
+    # Check if using enhanced CLI commands
+    enhanced_commands = {
+        'install', 'search', 'list', 'uninstall', 'models', 
+        'create-package', 'publish', 'registry', 'info', 'version'
+    }
+    
+    if len(sys.argv) > 1 and sys.argv[1] in enhanced_commands:
+        # Use enhanced CLI
+        try:
+            from mcn.core_engine.mcn_cli_enhanced import main as enhanced_main
+            return enhanced_main()
+        except ImportError:
+            print("Enhanced CLI features not available")
+            return 1
+    
+    # Original CLI for script execution
     parser = argparse.ArgumentParser(description="MCN CLI - Full-Stack AI-Native Development")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -193,11 +209,16 @@ def main():
     if not args.command:
         parser.print_help()
         print("\n🚀 MCN v3.0 - AI-Native Full-Stack Development")
-        print("Examples:")
+        print("\nScript Commands:")
         print("  mcn run my-app.mcn")
         print("  mcn dev my-app.mcn")
         print("  mcn generate my-app.mcn")
         print("  mcn serve --file my-app.mcn")
+        print("\nPackage Management:")
+        print("  mcn install ai_v3")
+        print("  mcn search 'machine learning'")
+        print("  mcn models list")
+        print("  mcn registry stats")
         return 1
 
     if args.command == "run":

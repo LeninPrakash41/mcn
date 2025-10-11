@@ -1,0 +1,173 @@
+// MCN v3.0 Enhanced Features Demo
+// Demonstrates the new module system, AI model management, and package registry
+
+log("=== MCN v3.0 Enhanced Features Demo ===")
+
+// 1. Enhanced Package Management
+log("\n--- Package Management ---")
+
+// Search for packages
+var ai_packages = search("ai", "", 5)
+log("AI-related packages found:")
+for package in ai_packages {
+    log("- " + package.name + ": " + package.description)
+}
+
+// Install and use advanced AI package
+install("ai_v3")
+use "ai_v3"
+
+log("AI v3 package installed and loaded")
+
+// 2. AI Model Management
+log("\n--- AI Model Management ---")
+
+// Register custom models
+register("my-gpt4", "openai", "gpt-4", {"temperature": 0.7})
+register("local-llama", "local", "llama2:latest")
+
+// Set active model
+set_model("my-gpt4")
+log("Active model set to my-gpt4")
+
+// Run AI with different models
+var response1 = run("Explain quantum computing in simple terms", "my-gpt4")
+log("GPT-4 Response: " + response1)
+
+var response2 = run("What is machine learning?", "local-llama")
+log("Local Llama Response: " + response2)
+
+// 3. IoT Integration
+log("\n--- IoT Integration ---")
+
+install("iot")
+use "iot"
+
+// Register IoT devices
+device("register", "temp_sensor_1", {"type": "temperature_sensor"})
+device("register", "smart_light_1", {"type": "smart_light"})
+
+// Read sensor data
+var temperature = device("read", "temp_sensor_1")
+log("Current temperature: " + temperature + "°C")
+
+// Conditional device control
+if temperature > 25 {
+    device("command", "smart_light_1", {"command": "dim", "level": 50})
+    log("Temperature high - dimmed lights to 50%")
+}
+
+// 4. Event-Driven Programming
+log("\n--- Event-Driven Programming ---")
+
+install("events")
+use "events"
+
+// Register event handlers
+on("temperature_alert", "handle_temp_alert")
+
+function handle_temp_alert(data) {
+    log("Temperature alert triggered! Temp: " + data.temperature)
+    device("command", "smart_light_1", {"command": "blink"})
+}
+
+// Trigger events based on conditions
+if temperature > 30 {
+    trigger("temperature_alert", {"temperature": temperature, "sensor": "temp_sensor_1"})
+}
+
+// 5. Autonomous Agents
+log("\n--- Autonomous Agents ---")
+
+install("agents")
+use "agents"
+
+// Create intelligent agents
+agent("create", "home_assistant", {
+    "prompt": "You are a smart home assistant that monitors and controls devices",
+    "model": "my-gpt4",
+    "tools": ["device", "log", "trigger"]
+})
+
+agent("activate", "home_assistant")
+
+// Agent processes sensor data
+var agent_response = agent("think", "home_assistant", {
+    "input": "Temperature is " + temperature + "°C. Should I adjust anything?"
+})
+log("Home Assistant: " + agent_response)
+
+// 6. Natural Language Programming
+log("\n--- Natural Language Programming ---")
+
+install("natural")
+use "natural"
+
+// Translate natural language to MCN code
+var code1 = translate("create a variable called user_count with value 100")
+log("Translated: " + code1)
+
+var code2 = translate("if user_count is greater than 50 then log success message")
+log("Translated: " + code2)
+
+// Execute natural language directly
+translate("send notification to admin about high temperature", true)
+
+// 7. Data Pipelines
+log("\n--- AI-Powered Data Pipelines ---")
+
+install("pipeline")
+use "pipeline"
+
+// Create data processing pipeline
+pipeline("create", "sensor_data_processor", [
+    {"type": "clean", "params": {"remove_outliers": true}},
+    {"type": "ai_classify", "params": {"categories": ["normal", "warning", "critical"]}},
+    {"type": "transform", "params": {"format": "json"}}
+])
+
+// Process sensor data through pipeline
+var sensor_data = "Temperature: " + temperature + "°C, Humidity: 65%, Status: Active"
+var processed = pipeline("run", "sensor_data_processor", sensor_data)
+log("Processed sensor data: " + processed.classification)
+
+// 8. Advanced Model Fine-tuning
+log("\n--- Model Fine-tuning ---")
+
+// Fine-tune model on custom data (simulated)
+train("gpt-3.5-turbo", "home_automation_data.csv", "home-assistant-model")
+log("Fine-tuned home assistant model created")
+
+// Use fine-tuned model
+set_model("home-assistant-model")
+var specialized_response = run("How should I optimize energy usage?")
+log("Specialized model response: " + specialized_response)
+
+// 9. Package Creation
+log("\n--- Package Development ---")
+
+// Create a custom package (would be done externally)
+log("To create a custom package:")
+log("1. mcn create-package my-sensors 'Custom sensor utilities' 'Your Name'")
+log("2. Edit src/main.mcn with your functions")
+log("3. mcn publish my-sensors")
+
+// 10. Registry Statistics
+log("\n--- Registry Statistics ---")
+
+var popular = search("", "", 5)
+log("Most popular packages:")
+for package in popular {
+    log("- " + package.name + " (" + package.downloads + " downloads)")
+}
+
+log("\n=== Demo Complete ===")
+log("MCN v3.0 provides:")
+log("✓ Enhanced package management with registry")
+log("✓ Multi-provider AI model management")
+log("✓ IoT device integration")
+log("✓ Event-driven programming")
+log("✓ Autonomous AI agents")
+log("✓ Natural language programming")
+log("✓ AI-powered data pipelines")
+log("✓ Model fine-tuning capabilities")

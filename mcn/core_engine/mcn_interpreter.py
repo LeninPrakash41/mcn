@@ -852,7 +852,6 @@ class MCNInterpreter:
         """Initialize MCN 2.0 features"""
         from .mcn_extensions import (
             MCNAIContext,
-            MCNPackageManager,
             MCNAsyncRuntime,
             MCNTypeChecker,
         )
@@ -861,16 +860,16 @@ class MCNInterpreter:
             create_http_package,
             create_ai_package,
         )
+        from .mcn_module_system import MCNModuleSystem
+        from .mcn_ai_models import MCNAIModelManager
+        from .mcn_registry import MCNPackageRegistry
 
         self.ai_context = MCNAIContext()
-        self.package_manager = MCNPackageManager()
+        self.module_system = MCNModuleSystem()
+        self.ai_model_manager = MCNAIModelManager()
+        self.package_registry = MCNPackageRegistry()
         self.async_runtime = MCNAsyncRuntime()
         self.type_checker = MCNTypeChecker()
-
-        # Register built-in packages
-        self.package_manager.add_package("db", create_db_package())
-        self.package_manager.add_package("http", create_http_package())
-        self.package_manager.add_package("ai", create_ai_package())
 
         # Initialize v3.0 features
         self._init_v3_features()
@@ -891,6 +890,12 @@ class MCNInterpreter:
                 "translate": self._translate_natural,
                 # UI functions
                 "ui": self._ui_operation,
+                # Enhanced package management
+                "install": self._install_package,
+                "search": self._search_packages,
+                "register": self._register_model,
+                "set_model": self._set_active_model,
+                "run": self._run_ai_model,
             }
         )
 
@@ -919,13 +924,8 @@ class MCNInterpreter:
         self.pipeline_system = MCNDataPipeline(self.model_registry)
         self.nl_system = MCNNaturalLanguage(self.model_registry)
 
-        # Register v3.0 packages
-        self.package_manager.add_package("ai_v3", create_v3_ai_package(self.model_registry))
-        self.package_manager.add_package("iot", create_v3_iot_package(self.iot_connector))
-        self.package_manager.add_package("events", create_v3_event_package(self.event_system))
-        self.package_manager.add_package("agents", create_v3_agent_package(self.agent_system))
-        self.package_manager.add_package("pipeline", create_v3_pipeline_package(self.pipeline_system))
-        self.package_manager.add_package("natural", create_v3_nl_package(self.nl_system))
+        # V3.0 packages are now handled by the module system
+        # They will be loaded dynamically when requested
         
         # Initialize UI Integration Layer
         self._init_ui_integration()
@@ -953,7 +953,8 @@ class MCNInterpreter:
             "export": self.ui_integration._ui_export,
         }
         
-        self.package_manager.add_package("ui", ui_package)
+        # Store UI package for dynamic loading
+        self._ui_package = ui_package
     
     def _init_business_packages(self):
         """Initialize business automation packages"""
@@ -1053,18 +1054,21 @@ class MCNInterpreter:
             "delete": lambda url, headers=None: self._http_request("DELETE", url, headers=headers)
         }
         
-        # Register all business packages
-        self.package_manager.add_package("mcp", mcp_package)
-        self.package_manager.add_package("auth", auth_package)
-        self.package_manager.add_package("payments", payments_package)
-        self.package_manager.add_package("notifications", notifications_package)
-        self.package_manager.add_package("workflows", workflows_package)
-        self.package_manager.add_package("analytics", analytics_package)
-        self.package_manager.add_package("storage", storage_package)
-        self.package_manager.add_package("realtime", realtime_package)
-        self.package_manager.add_package("integrations", integrations_package)
-        self.package_manager.add_package("compliance", compliance_package)
-        self.package_manager.add_package("http", http_package)
+        # Business packages are now handled by the module system
+        # Store them for dynamic loading
+        self._business_packages = {
+            "mcp": mcp_package,
+            "auth": auth_package,
+            "payments": payments_package,
+            "notifications": notifications_package,
+            "workflows": workflows_package,
+            "analytics": analytics_package,
+            "storage": storage_package,
+            "realtime": realtime_package,
+            "integrations": integrations_package,
+            "compliance": compliance_package,
+            "http": http_package
+        }
 
     def _init_request_context(self):
         """Initialize request context for web/API mode"""
@@ -1154,15 +1158,23 @@ class MCNInterpreter:
             return {"status_code": 0, "data": str(e), "success": False}
 
     def _enhanced_ai(
-        self, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 150
+        self, prompt: str, model: str = None, max_tokens: int = 150
     ):
-        """Enhanced AI function with context"""
+        """Enhanced AI function with context and model management"""
         # Update AI context with current variables
         for key, value in self.variables.items():
             self.ai_context.add_context(key, value)
 
         enhanced_prompt = self.ai_context.get_enhanced_prompt(prompt)
-        return self.runtime.ai(enhanced_prompt, model, max_tokens)
+        
+        # Use AI model manager for execution
+        result = self.ai_model_manager.run_model(enhanced_prompt, model, max_tokens=max_tokens)
+        
+        if "error" in result:
+            # Fallback to runtime AI
+            return self.runtime.ai(enhanced_prompt, model or "gpt-3.5-turbo", max_tokens)
+        
+        return result.get("response", "No response generated")
 
     def _create_task(self, name: str, func_name: str, *args):
         """Create async task"""
@@ -1183,12 +1195,16 @@ class MCNInterpreter:
         return results
 
     def _use_package(self, package_name: str):
-        """Import package functions"""
-        package_functions = self.package_manager.get_package_functions(package_name)
-        if package_functions:
-            self.functions.update(package_functions)
-            return f"Package '{package_name}' loaded"
-        raise Exception(f"Package '{package_name}' not found")
+        """Import package functions using enhanced module system"""
+        try:
+            package_functions = self.module_system.use_package(package_name, self)
+            if package_functions:
+                self.functions.update(package_functions)
+                return f"Package '{package_name}' loaded successfully"
+            else:
+                return f"Package '{package_name}' loaded but no functions available"
+        except Exception as e:
+            raise Exception(f"Failed to load package '{package_name}': {str(e)}")
 
     def _set_type_hint(self, var_name: str, var_type: str):
         """Set type hint for variable"""
@@ -1668,6 +1684,30 @@ class MCNInterpreter:
             raise
 
         return None
+    
+    # Enhanced Package Management Functions
+    def _install_package(self, package_name: str, version: str = "latest") -> str:
+        """Install a package from registry"""
+        return self.module_system.install_package(package_name, version)
+    
+    def _search_packages(self, query: str = "", category: str = "", limit: int = 10) -> List[Dict]:
+        """Search for packages in registry"""
+        return self.package_registry.search_packages(query, category, limit)
+    
+    def _register_model(self, name: str, provider: str, model_id: str = None, **config) -> str:
+        """Register a new AI model"""
+        return self.ai_model_manager.register_model(name, provider, model_id, **config)
+    
+    def _set_active_model(self, name: str) -> str:
+        """Set the active AI model"""
+        return self.ai_model_manager.set_active_model(name)
+    
+    def _run_ai_model(self, prompt: str, model_name: str = None, **kwargs) -> Any:
+        """Run AI model with prompt"""
+        result = self.ai_model_manager.run_model(prompt, model_name, **kwargs)
+        if "error" in result:
+            return result["error"]
+        return result.get("response", "No response")
 
     def _execute_block(self, statements: List[Dict], quiet: bool = False) -> Any:
         result = None
