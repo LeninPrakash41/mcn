@@ -1,0 +1,14 @@
+// Simple Async Demo
+log("=== Simple Async Demo ===")
+
+function test_function(param) {
+    log("Processing: " + param)
+    return "Result for " + param
+}
+
+task "my_task" test_function "test_data"
+
+var results = await("my_task")
+log("Task results: " + results)
+
+log("=== Async Demo Complete ===")

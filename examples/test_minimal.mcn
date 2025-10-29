@@ -1,0 +1,5 @@
+log("line 1")
+log("line 2")
+log("line 3")
+var x = 5
+log("x is " + x)

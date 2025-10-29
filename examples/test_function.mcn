@@ -1,0 +1,5 @@
+function test() {
+    log("inside function")
+}
+
+test()

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCN Playground</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e1e; color: #fff; }
@@ -27,21 +28,47 @@
         .output .success { color: #89d185; margin-bottom: 0.5rem; }
 
         .status-bar { background: #007acc; color: white; padding: 0.3rem 1rem; font-size: 12px; }
+        .help-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        .help-content { background: #2d2d30; margin: 5% auto; padding: 20px; width: 80%; max-width: 800px; border-radius: 5px; color: #fff; max-height: 80vh; overflow-y: auto; }
+        .help-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .help-close:hover { color: #fff; }
+        .help-section { margin-bottom: 20px; }
+        .help-section h3 { color: #4fc1ff; margin-bottom: 10px; }
+        .help-code { background: #1e1e1e; padding: 10px; border-radius: 3px; font-family: monospace; margin: 10px 0; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>MCN Playground</h1>
+        <button class="btn" onclick="showHelp()" style="float: right; margin-top: -35px;">? Help</button>
     </div>
 
     <div class="container">
         <div class="editor-panel">
             <div class="toolbar">
                 <button class="btn" onclick="runCode()">▶ Run</button>
+                <button class="btn" onclick="runCLI('run')">CLI Run</button>
+                <button class="btn" onclick="runCLI('serve')">Serve API</button>
+                <button class="btn" onclick="runCLI('init')">Init Project</button>
+                <button class="btn" onclick="runCLI('generate')">Generate</button>
                 <button class="btn" onclick="clearOutput()">Clear</button>
-                <button class="btn" onclick="loadExample('hello')">Hello</button>
-                <button class="btn" onclick="loadExample('api')">API</button>
-                <button class="btn" onclick="loadExample('ai')">AI</button>
+                <select id="exampleSelect" onchange="loadSelectedExample()" class="btn" style="margin-right: 10px;">
+                    <option value="">Select Example...</option>
+                    <option value="hello">Hello World</option>
+                    <option value="business">Business Logic</option>
+                    <option value="api_server">API Server</option>
+                    <option value="ecommerce">E-commerce</option>
+                    <option value="crm_system">CRM System</option>
+                    <option value="async">Async Tasks</option>
+                    <option value="ai_integration">AI Integration</option>
+                    <option value="iot_automation">IoT Automation</option>
+                    <option value="data_pipeline">Data Pipeline</option>
+                    <option value="ml_training">ML Training</option>
+                    <option value="natural_lang">Natural Language</option>
+                    <option value="agent_system">Agent System</option>
+                </select>
+                <button class="btn" onclick="showSessionInfo()">Session Info</button>
+                <button class="btn" onclick="clearSession()">Reset Session</button>
             </div>
             <div id="editor"></div>
             <div class="status-bar">
@@ -51,16 +78,140 @@
 
         <div class="output-panel">
             <div class="toolbar">
-                <h3 style="color: #fff; margin: 0;">Output</h3>
+                <h3 style="color: #fff; margin: 0; flex: 1;">Output</h3>
+                <span id="sessionId" style="font-size: 10px; color: #ccc;">No Session</span>
             </div>
             <div class="output" id="output">
-                <div class="log">MCN Playground Ready</div>
+                <div class="log">MCN Playground Ready - Enhanced with Real-time Features</div>
+                <div class="log">Click Help (?) for usage guide or select an example to get started!</div>
+            </div>
+            <div class="status-panel" style="background: #1e1e1e; padding: 10px; border-top: 1px solid #3e3e42; font-size: 12px;">
+                <div>Variables: <span id="varCount">0</span> | Execution Time: <span id="execTime">0ms</span> | Status: <span id="connectionStatus">Connecting...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="help-modal">
+        <div class="help-content">
+            <span class="help-close" onclick="closeHelp()">&times;</span>
+            <h2>MCN Playground Guide</h2>
+            
+            <div class="help-section">
+                <h3>Quick Start</h3>
+                <p>1. Select an example from dropdown or write your own MCN code</p>
+                <p>2. Click <strong>Run</strong> for interpreter mode or <strong>CLI Run</strong> for real execution</p>
+                <p>3. Try <strong>Serve API</strong> to create real REST endpoints from your functions</p>
+            </div>
+
+            <div class="help-section">
+                <h3>Button Functions</h3>
+                <p><strong>▶ Run</strong> - Execute in playground interpreter</p>
+                <p><strong>CLI Run</strong> - Execute with real MCN CLI (python run_mcn.py run)</p>
+                <p><strong>Serve API</strong> - Start API server, functions become endpoints</p>
+                <p><strong>Init Project</strong> - Create new MCN project with frontend</p>
+                <p><strong>Generate</strong> - Generate API docs, Postman collections, etc.</p>
+            </div>
+
+            <div class="help-section">
+                <h3>MCN Syntax Examples</h3>
+                <div class="help-code">// Variables and Functions
+var name = "MCN"
+log "Hello " + name
+
+function greet(user)
+    return "Welcome " + user
+
+echo greet("Developer")</div>
+                
+                <div class="help-code">// Async Tasks
+task "email" send_email "user@example.com"
+task "db" query "SELECT * FROM users"
+var results = await "email" "db"</div>
+                
+                <div class="help-code">// AI Integration
+use "ai_v3"
+register "my-model" "openai"
+var response = run "my-model" "Analyze data"</div>
+            </div>
+
+            <div class="help-section">
+                <h3>Real API Creation</h3>
+                <p>Write functions in MCN, then click <strong>Serve API</strong>:</p>
+                <div class="help-code">function get_users()
+    return [{"id": 1, "name": "John"}]
+
+function create_user(name, email)
+    return {"id": 2, "name": name, "email": email}</div>
+                <p>These become: <code>GET /get_users</code> and <code>POST /create_user</code></p>
+            </div>
+
+            <div class="help-section">
+                <h3>Business Examples</h3>
+                <p><strong>E-commerce</strong> - Order processing, payments, shipping</p>
+                <p><strong>CRM</strong> - Customer management, interactions</p>
+                <p><strong>ML Training</strong> - Model training and deployment</p>
+                <p><strong>IoT</strong> - Device control and automation</p>
+            </div>
+
+            <div class="help-section">
+                <h3>Tips</h3>
+                <p>- Use <strong>Session Info</strong> to see variables</p>
+                <p>- <strong>Reset Session</strong> clears all variables</p>
+                <p>- Functions you write become API endpoints when served</p>
+                <p>- Try different examples to see MCN capabilities</p>
+                <p>- CLI buttons show real MCN command execution</p>
             </div>
         </div>
     </div>
 
     <script>
         let editor;
+        let socket;
+        let currentSessionId = null;
+        let examples = {};
+
+        // Initialize WebSocket connection
+        function initializeSocket() {
+            if (typeof io !== 'undefined') {
+                socket = io();
+            
+            socket.on('connect', function() {
+                updateStatus('Connected');
+                console.log('Connected to MCN Playground server');
+            });
+            
+            socket.on('connected', function(data) {
+                currentSessionId = data.session_id;
+                document.getElementById('sessionId').textContent = `Session: ${currentSessionId.substring(0, 8)}...`;
+            });
+            
+            socket.on('output', function(data) {
+                if (data.session_id === currentSessionId) {
+                    addOutput(data.message, data.type);
+                }
+            });
+            
+            socket.on('disconnect', function() {
+                updateStatus('Disconnected');
+            });
+            } else {
+                console.log('Socket.IO not available, using HTTP only');
+                updateStatus('HTTP Mode');
+            }
+        }
+
+        // Load examples from server
+        async function loadExamples() {
+            try {
+                const response = await fetch('/api/examples');
+                examples = await response.json();
+                console.log('Examples loaded:', Object.keys(examples));
+            } catch (error) {
+                console.error('Failed to load examples:', error);
+                examples = {};
+            }
+        }
 
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
         require(['vs/editor/editor.main'], function () {
@@ -68,8 +219,8 @@
             monaco.languages.setMonarchTokensProvider('mcn', {
                 tokenizer: {
                     root: [
-                        [/\b(var|if|else|for|while|function|try|catch|task|await|use|type)\b/, 'keyword'],
-                        [/\b(log|echo|trigger|query|ai|workflow)\b/, 'keyword.function'],
+                        [/\b(var|if|else|for|while|function|try|catch|task|await|use|type|register|set_model|run|device|on|trigger|pipeline)\b/, 'keyword'],
+                        [/\b(log|echo|query|ai|workflow)\b/, 'keyword.function'],
                         [/".*?"/, 'string'],
                         [/\d+/, 'number'],
                         [/\/\/.*$/, 'comment'],
@@ -78,14 +229,36 @@
             });
 
             editor = monaco.editor.create(document.getElementById('editor'), {
-                value: `// MCN Playground
-log "Hello MCN!"
-var name = "World"
-log "Hello " + name`,
+                value: `// MCN Playground v3.0 - Real Development Environment
+// Click Help (?) for usage guide!
+
+log "Hello MCN World!"
+var name = "Developer"
+log "Welcome " + name + " to MCN Playground!"
+
+// Real business function - becomes API endpoint when served
+function process_order(customer_id, amount)
+    log "Processing order for customer: " + customer_id
+    var tax = amount * 0.08
+    var total = amount + tax
+    return "Order processed. Total: $" + total
+
+// Test the function
+var order_result = process_order("CUST001", 100)
+echo order_result
+
+// Try: Serve API to create real endpoints!`,
                 language: 'mcn',
                 theme: 'vs-dark',
                 automaticLayout: true,
-                minimap: { enabled: false }
+                minimap: { enabled: false },
+                fontSize: 14,
+                wordWrap: 'on'
+            });
+            
+            // Initialize after editor is ready
+            loadExamples().then(() => {
+                initializeSocket();
             });
         });
 
@@ -93,24 +266,98 @@ log "Hello " + name`,
             const code = editor.getValue();
             clearOutput();
             addOutput('Executing MCN code...', 'log');
+            updateStatus('Running...');
 
             try {
                 const response = await fetch('/api/execute', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
+                    body: JSON.stringify({ 
+                        code: code,
+                        session_id: currentSessionId,
+                        mode: 'interpreter'
+                    })
                 });
 
                 const result = await response.json();
                 if (result.success) {
-                    result.output?.forEach(line => addOutput(line, 'log'));
+                    // Update session info
+                    currentSessionId = result.session_id;
+                    document.getElementById('varCount').textContent = result.variables_count || 0;
+                    document.getElementById('execTime').textContent = `${result.execution_time || 0}ms`;
+                    
+                    // Display output
+                    result.output?.forEach(item => {
+                        if (typeof item === 'object') {
+                            addOutput(item.message, item.type);
+                        } else {
+                            addOutput(item, 'log');
+                        }
+                    });
+                    
+                    if (result.result !== undefined && result.result !== null) {
+                        addOutput(`Result: ${result.result}`, 'success');
+                    }
+                    
                     updateStatus('Success');
                 } else {
                     addOutput(`Error: ${result.error}`, 'error');
                     updateStatus('Error');
                 }
             } catch (error) {
-                mockExecute(code);
+                addOutput(`Network Error: ${error.message}`, 'error');
+                updateStatus('Network Error');
+            }
+        }
+
+        async function runCLI(command) {
+            const code = editor.getValue();
+            clearOutput();
+            addOutput(`Executing MCN CLI: ${command}...`, 'log');
+            updateStatus('Running CLI...');
+
+            let requestBody = {
+                code: code,
+                session_id: currentSessionId,
+                mode: 'cli',
+                command: command
+            };
+
+            // Add command-specific parameters
+            if (command === 'serve') {
+                const port = prompt('Enter port number (default: 8080):', '8080');
+                if (port) requestBody.port = port;
+            } else if (command === 'init') {
+                const projectName = prompt('Enter project name:', 'my-mcn-app');
+                const frontend = prompt('Enter frontend type (react/vue/angular):', 'react');
+                if (projectName) requestBody.project_name = projectName;
+                if (frontend) requestBody.frontend = frontend;
+            } else if (command === 'generate') {
+                const genType = prompt('Generate type (api/frontend/docs/postman):', 'api');
+                if (genType) requestBody.generate_type = genType;
+            }
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    addOutput(`Command: ${result.command}`, 'success');
+                    result.output?.forEach(item => {
+                        addOutput(item.message, item.type);
+                    });
+                    updateStatus('CLI Success');
+                } else {
+                    addOutput(`CLI Error: ${result.error}`, 'error');
+                    updateStatus('CLI Error');
+                }
+            } catch (error) {
+                addOutput(`Network Error: ${error.message}`, 'error');
+                updateStatus('Network Error');
             }
         }
 
@@ -146,18 +393,146 @@ log "Hello " + name`,
             document.getElementById('status').textContent = message;
         }
 
-        function loadExample(type) {
-            const examples = {
-                hello: `log "Hello MCN!"
-var greeting = "Welcome"
-log greeting + " to MCN Playground"`,
-                api: `var response = trigger("https://api.github.com/users/octocat")
-log "User: " + response.data.name`,
-                ai: `var data = "Sales increased 25%"
-var analysis = ai("Analyze: " + data)
-log analysis`
-            };
-            editor.setValue(examples[type] || examples.hello);
+        function loadSelectedExample() {
+            const select = document.getElementById('exampleSelect');
+            const exampleKey = select.value;
+            if (exampleKey) {
+                if (examples[exampleKey]) {
+                    editor.setValue(examples[exampleKey].code);
+                    addOutput(`Loaded example: ${examples[exampleKey].name}`, 'log');
+                    if (examples[exampleKey].description) {
+                        addOutput(`Description: ${examples[exampleKey].description}`, 'log');
+                    }
+                } else {
+                    // Fallback examples if server examples not loaded
+                    const fallbackExamples = {
+                        'hello': `// Hello World Example
+log "Hello, MCN World!"
+var greeting = "Welcome to MCN"
+log greeting`,
+                        'variables': `// Variables and Math
+var x = 10
+var y = 5
+var sum = x + y
+log "Sum: " + sum
+var name = "MCN"
+echo("Hello " + name)`,
+                        'async': `// Async Task Operations
+log "Starting async operations..."
+
+task "email_task" log "Email sent successfully"
+task "db_task" log "Database updated"
+task "ai_task" log "AI processing completed"
+
+var results = await "email_task" "db_task" "ai_task"
+log "All tasks completed"
+echo(results)`,
+                        'ai_integration': `// AI Integration v3.0
+use "ai_v3"
+
+register("my-gpt4", "openai", {"temperature": 0.7})
+set_model("my-gpt4")
+
+var summary = run("my-gpt4", "Summarize: MCN is a powerful scripting language")
+log "AI Response: " + summary`,
+                        'iot_automation': `// IoT Automation v3.0
+use "iot"
+use "events"
+
+device("register", "temp_sensor", {"type": "temperature_sensor"})
+device("register", "smart_light", {"type": "smart_light"})
+
+on "high_temperature" "handle_cooling"
+
+var temp = device("read", "temp_sensor")
+log "Current temperature: " + temp.value + temp.unit
+
+if temp.value > 25
+    trigger("high_temperature", {"temperature": temp.value})`,
+                        'data_pipeline': `// AI-Powered Data Pipeline v3.0
+use "pipeline"
+
+pipeline("create", "feedback_processor", [
+    {"type": "clean", "params": {"remove_special_chars": true}},
+    {"type": "ai_classify", "params": {"categories": ["positive", "negative"]}}
+])
+
+var result = pipeline("run", "feedback_processor", "Great product! Love it!")
+log "Pipeline result:"
+echo(result)`
+                    };
+                    if (fallbackExamples[exampleKey]) {
+                        editor.setValue(fallbackExamples[exampleKey]);
+                        addOutput(`Loaded example: ${exampleKey}`, 'log');
+                    }
+                }
+            }
+        }
+
+        async function showSessionInfo() {
+            if (!currentSessionId) {
+                addOutput('No active session', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/session/${currentSessionId}/variables`);
+                const data = await response.json();
+                
+                if (data.variables) {
+                    addOutput('Session Variables:', 'log');
+                    Object.entries(data.variables).forEach(([key, value]) => {
+                        addOutput(`  ${key}: ${JSON.stringify(value)}`, 'log');
+                    });
+                } else {
+                    addOutput('No variables in current session', 'log');
+                }
+            } catch (error) {
+                addOutput(`Failed to get session info: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearSession() {
+            if (!currentSessionId) {
+                addOutput('No active session to clear', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/session/${currentSessionId}/clear`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addOutput('Session cleared successfully', 'success');
+                    document.getElementById('varCount').textContent = '0';
+                } else {
+                    addOutput(`Failed to clear session: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addOutput(`Failed to clear session: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStatus(message) {
+            document.getElementById('connectionStatus').textContent = message;
+        }
+
+        function showHelp() {
+            document.getElementById('helpModal').style.display = 'block';
+        }
+
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
         }
     </script>
 </body>

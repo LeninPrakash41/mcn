@@ -1,0 +1,30 @@
+// MCN v3.0 Simple Working Demo
+log "=== MCN v3.0 Simple Demo ==="
+
+// 1. AI Integration
+use "ai_v3"
+register("gpt4", "openai")
+set_model("gpt4")
+var ai_result = run("Hello AI")
+log("AI: " + ai_result)
+
+// 2. IoT Integration  
+use "iot"
+device("register", "temp_sensor")
+var temp_reading = device("read", "temp_sensor")
+log("Temperature: " + temp_reading)
+
+// 3. User Functions
+function add_numbers(a, b)
+    var sum = a + b
+    log("Adding " + a + " + " + b + " = " + sum)
+    return sum
+
+var result = add_numbers(10, 20)
+log("Function result: " + result)
+
+// 4. Events
+use "events"
+trigger("test_event", "sample_data")
+
+log "=== Demo Complete ==="

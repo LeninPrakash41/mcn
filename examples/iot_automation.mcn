@@ -1,0 +1,46 @@
+// MCN v3.0 IoT & Automation Demo
+use "iot"
+use "events"
+
+log("=== IoT Automation Demo ===")
+
+// Register IoT devices
+device("register", "temp_sensor", {"type": "temperature_sensor", "location": "living_room"})
+device("register", "smart_light", {"type": "smart_light", "room": "living_room"})
+device("register", "motion_sensor", {"type": "motion_sensor", "area": "entrance"})
+
+log("Devices registered successfully")
+
+// Read sensor data
+var temperature = device("read", "temp_sensor")
+log("Current temperature: " + temperature.value + temperature.unit)
+
+var motion = device("read", "motion_sensor")
+log("Motion detected: " + motion.value)
+
+// Automation logic
+if temperature.value > 25 {
+    log("Temperature is high, dimming lights")
+    device("command", "smart_light", {"command": "dim", "level": 50})
+}
+
+if motion.value == true {
+    log("Motion detected, turning on lights")
+    device("command", "smart_light", {"command": "on", "brightness": 100})
+}
+
+// Event-driven automation
+on("high_temperature", "handle_cooling")
+
+function handle_cooling(data) {
+    log("Handling high temperature event: " + data.temperature)
+    device("command", "smart_light", {"command": "dim"})
+    return "Cooling measures activated"
+}
+
+// Trigger event if temperature is high
+if temperature.value > 24 {
+    trigger("high_temperature", {"temperature": temperature.value, "location": "living_room"})
+}
+
+log("=== IoT Automation Complete ===")

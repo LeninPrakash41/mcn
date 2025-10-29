@@ -150,15 +150,15 @@ def generate_postman_collection(output_dir="postman_exports"):
         print(f"Generating Postman collection to: {output_dir}")
         result = gen_collection(output_dir)
         
-        print(f"✅ Generated {result['endpoints_count']} endpoints")
-        print(f"📁 Collection: {result['collection_file']}")
-        print(f"🌍 Environment: {result['environment_file']}")
-        print(f"📖 README: {result['readme_file']}")
-        print("\n🚀 Import these files into Postman to start testing!")
+        print(f"Generated {result['endpoints_count']} endpoints")
+        print(f"Collection: {result['collection_file']}")
+        print(f"Environment: {result['environment_file']}")
+        print(f"README: {result['readme_file']}")
+        print("\nImport these files into Postman to start testing!")
         
         return 0
     except Exception as e:
-        print(f"❌ Failed to generate Postman collection: {e}")
+        print(f"Failed to generate Postman collection: {e}")
         return 1
 
 
@@ -171,14 +171,14 @@ def generate_api_docs(output_dir="api_docs"):
         print(f"Generating API documentation to: {output_dir}")
         result = generate_swagger_docs(output_dir)
         
-        print(f"✅ Generated documentation for {result['endpoints_count']} endpoints")
-        print(f"📄 OpenAPI Spec: {result['spec_file']}")
-        print(f"🌐 Interactive Docs: {result['html_file']}")
-        print("\n🚀 Open the HTML file in your browser for interactive documentation!")
+        print(f"Generated documentation for {result['endpoints_count']} endpoints")
+        print(f"OpenAPI Spec: {result['spec_file']}")
+        print(f"Interactive Docs: {result['html_file']}")
+        print("\nOpen the HTML file in your browser for interactive documentation!")
         
         return 0
     except Exception as e:
-        print(f"❌ Failed to generate API documentation: {e}")
+        print(f"Failed to generate API documentation: {e}")
         return 1
 
 
@@ -191,15 +191,15 @@ def generate_client_sdks(output_dir="generated_clients"):
         print(f"Generating client SDKs to: {output_dir}")
         result = generate_all_clients(output_dir)
         
-        print(f"✅ Generated client SDKs successfully")
-        print(f"🐍 Python SDK: {result['results']['python']['client_file']}")
-        print(f"🟨 JavaScript SDK: {result['results']['javascript']['client_file']}")
-        print(f"🐳 Docker Setup: {result['results']['docker']['compose_file']}")
-        print("\n🚀 Use these SDKs to integrate MCN into your applications!")
+        print(f"Generated client SDKs successfully")
+        print(f"Python SDK: {result['results']['python']['client_file']}")
+        print(f"JavaScript SDK: {result['results']['javascript']['client_file']}")
+        print(f"Docker Setup: {result['results']['docker']['compose_file']}")
+        print("\nUse these SDKs to integrate MCN into your applications!")
         
         return 0
     except Exception as e:
-        print(f"❌ Failed to generate client SDKs: {e}")
+        print(f"Failed to generate client SDKs: {e}")
         return 1
 
 
@@ -212,39 +212,39 @@ def show_monitoring_dashboard():
         monitor = get_monitor()
         analytics = MCNAnalytics(monitor)
         
-        print("📊 MCN Performance Dashboard")
+        print("MCN Performance Dashboard")
         print("=" * 40)
         
         dashboard_data = analytics.generate_dashboard_data()
         
         # System Health
         health = dashboard_data['system_health']
-        status_emoji = "🟢" if health['status'] == 'healthy' else "🟡" if health['status'] == 'warning' else "🔴"
-        print(f"\n{status_emoji} System Health: {health['status'].upper()} (Score: {health['score']})")
+        status_text = "HEALTHY" if health['status'] == 'healthy' else "WARNING" if health['status'] == 'warning' else "ERROR"
+        print(f"\nSystem Health: {status_text} (Score: {health['score']})")
         print(f"   Avg Response Time: {health.get('avg_response_time', 0):.3f}s")
         print(f"   Error Rate: {health.get('error_rate', 0):.1f}%")
         
         # Performance Report
         perf_report = dashboard_data['performance_report']
         if perf_report:
-            print("\n📈 Performance Summary (Last 5 minutes):")
+            print("\nPerformance Summary (Last 5 minutes):")
             for event_type, stats in perf_report.items():
                 print(f"   {event_type}: {stats['count']} calls, avg {stats['avg_duration']:.3f}s")
         
         # Recent Anomalies
         anomalies = dashboard_data['anomalies']
         if anomalies:
-            print("\n⚠️  Performance Anomalies Detected:")
+            print("\nPerformance Anomalies Detected:")
             for anomaly in anomalies[:3]:  # Show top 3
                 print(f"   {anomaly['event_type']}: {anomaly['severity']:.1f}x slower than baseline")
         else:
-            print("\n✅ No performance anomalies detected")
+            print("\nNo performance anomalies detected")
         
-        print("\n📊 For detailed metrics, check mcn_monitoring.db")
+        print("\nFor detailed metrics, check mcn_monitoring.db")
         
         return 0
     except Exception as e:
-        print(f"❌ Failed to show monitoring dashboard: {e}")
+        print(f"Failed to show monitoring dashboard: {e}")
         return 1
 
 

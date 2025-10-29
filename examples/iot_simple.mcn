@@ -1,0 +1,35 @@
+// MCN v3.0 Simple IoT Demo
+use "iot"
+use "events"
+
+log("=== Simple IoT Demo ===")
+
+// Register IoT devices
+var reg1 = device("register", "temp_sensor", {"type": "temperature_sensor"})
+log("Temperature sensor: " + reg1.message)
+
+var reg2 = device("register", "smart_light", {"type": "smart_light"})
+log("Smart light: " + reg2.message)
+
+// Read sensor data
+var temp_reading = device("read", "temp_sensor")
+log("Temperature reading: " + temp_reading.value + " " + temp_reading.unit)
+
+var motion_reading = device("read", "motion_sensor")
+log("Motion status: " + motion_reading.value)
+
+// Send commands
+var light_cmd = device("command", "smart_light", {"command": "on"})
+log("Light command: " + light_cmd.message)
+
+// Event handling
+on("temperature_alert", "handle_alert")
+
+function handle_alert(data) {
+    log("Alert handled for temperature event")
+    return "Alert processed"
+}
+
+trigger("temperature_alert", {"temp": 28})
+
+log("=== Simple IoT Demo Complete ===")

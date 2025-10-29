@@ -1,0 +1,25 @@
+// MCN v3.0 AI Integration Demo
+use "ai_v3"
+
+// Register AI models
+register("my-gpt4", "openai", {"temperature": 0.7, "max_tokens": 200})
+register("claude", "anthropic", {"temperature": 0.5})
+
+// Set active model
+set_model("my-gpt4")
+
+// Basic AI interaction
+var greeting = run("Say hello and introduce yourself as an AI assistant")
+log("AI Response: " + greeting)
+
+// Switch models and compare
+set_model("claude")
+var analysis = run("Analyze the benefits of renewable energy in 2 sentences")
+log("Claude Analysis: " + analysis)
+
+// Back to GPT-4 for creative task
+set_model("my-gpt4")
+var story = run("Write a short story about a robot learning to paint", {"max_tokens": 300})
+log("Creative Story: " + story)
+
+log("=== AI v3.0 Demo Complete ===")

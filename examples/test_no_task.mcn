@@ -1,0 +1,12 @@
+// Test without task keyword
+log("Testing without task")
+
+function test_func(param) {
+    log("Function called with: " + param)
+    return "result"
+}
+
+var result = test_func("hello")
+log("Function result: " + result)
+
+log("Test complete")

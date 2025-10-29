@@ -1,0 +1,24 @@
+// MCN v3.0 Working Async Demo
+log "=== Async Tasks Demo ==="
+
+function fetch_data(id)
+    log "Fetching data for ID: " + id
+    return "Data for " + id
+
+function process_data(data_type)
+    log "Processing: " + data_type
+    return "Processed " + data_type
+
+// Create async tasks
+task "fetch_task" fetch_data "12345"
+task "process_task" process_data "analytics"
+
+log "Tasks created, awaiting results..."
+
+// Await task completion
+var results = await "fetch_task" "process_task"
+
+log "Results received:"
+log results
+
+log "=== Async Demo Complete ==="

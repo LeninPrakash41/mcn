@@ -1,0 +1,39 @@
+// MCN v3.0 Async Tasks Demo
+log("=== Async Tasks Demo ===")
+
+// Define functions for async execution
+function fetch_user_data(user_id) {
+    log("Fetching user data for ID: " + user_id)
+    // Simulate API call delay
+    sleep(1)
+    return {"id": user_id, "name": "User " + user_id, "email": "user" + user_id + "@example.com"}
+}
+
+function process_analytics(data_type) {
+    log("Processing analytics for: " + data_type)
+    sleep(2)
+    return {"type": data_type, "count": 150, "trend": "increasing"}
+}
+
+function generate_report(report_type) {
+    log("Generating report: " + report_type)
+    sleep(1.5)
+    return {"report": report_type, "status": "completed", "pages": 25}
+}
+
+// Create async tasks
+task "user_task" fetch_user_data "12345"
+task "analytics_task" process_analytics "sales"
+task "report_task" generate_report "monthly_summary"
+
+log("All tasks created, waiting for completion...")
+
+// Await task completion
+var results = await("user_task", "analytics_task", "report_task")
+
+log("Task Results:")
+log("User Task: " + results.user_task)
+log("Analytics Task: " + results.analytics_task)
+log("Report Task: " + results.report_task)
+
+log("=== Async Tasks Complete ===")

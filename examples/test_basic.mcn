@@ -1,0 +1,12 @@
+// Basic MCN test
+use "iot"
+
+log("Testing basic functionality")
+
+var result = device("register", "sensor1", {"type": "test"})
+log("Device registration result: " + result)
+
+var reading = device("read", "sensor1")
+log("Device reading: " + reading)
+
+log("Test complete")

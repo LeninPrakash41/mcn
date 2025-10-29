@@ -1,0 +1,35 @@
+// MCN v3.0 Working Feature Demo
+log "=== MCN v3.0 Working Demo ==="
+
+// 1. AI Integration with function calls
+use "ai_v3"
+register("gpt4", "openai", {"temperature": 0.7})
+set_model("gpt4")
+var ai_response = run("Explain MCN programming language")
+log("AI Response: " + ai_response)
+
+// 2. IoT Integration
+use "iot"
+device("register", "sensor1", {"type": "temperature"})
+var sensor_data = device("read", "sensor1")
+log("Sensor Data: " + sensor_data)
+
+// 3. User Functions
+function greet_user(name)
+    log("Hello, " + name + "!")
+    return "Greeted " + name
+
+var greeting = greet_user("MCN User")
+log("Greeting result: " + greeting)
+
+// 4. Event System
+use "events"
+on("test_event", "event_handler")
+
+function event_handler(data)
+    log("Event received with data")
+    return "Event processed"
+
+trigger("test_event", {"message": "Hello Events"})
+
+log "=== MCN v3.0 Demo Complete ==="
