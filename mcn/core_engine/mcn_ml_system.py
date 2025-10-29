@@ -169,20 +169,45 @@ class MCNMLSystem:
         return job_id
     
     def _generate_training_metrics(self, model_name: str, training_data: List[Dict]):
-        """Generate realistic training metrics"""
+        """Generate realistic training metrics based on data characteristics"""
         model = self.models[model_name]
         
-        # Simulate training metrics
-        import random
+        # Calculate metrics based on actual data characteristics
+        data_size = len(training_data)
+        epochs = model.metrics.get("epochs", 3)
+        learning_rate = model.metrics.get("learning_rate", 0.0001)
+        
+        # Realistic metrics based on data size and parameters
+        base_accuracy = 0.7 + min(0.25, data_size / 10000 * 0.2)  # Better with more data
+        lr_factor = 1.0 if learning_rate <= 0.001 else 0.95  # Lower LR often better
+        epoch_factor = min(1.1, 1.0 + epochs * 0.02)  # More epochs help but diminishing returns
+        
+        final_accuracy = min(0.98, base_accuracy * lr_factor * epoch_factor)
+        
+        # Loss decreases with better accuracy
+        final_loss = round(max(0.05, (1.0 - final_accuracy) * 0.8), 4)
+        validation_loss = round(final_loss * 1.15, 4)  # Validation usually slightly higher
+        
+        # Training time based on data size and epochs
+        base_time = data_size * epochs * 0.1  # 0.1 seconds per sample per epoch
+        training_time = round(max(30, min(3600, base_time)), 1)
+        
+        # Tokens processed for language models
+        avg_tokens_per_sample = 100 if any('prompt' in str(item) for item in training_data[:5]) else 50
+        tokens_processed = data_size * avg_tokens_per_sample
+        
+        # Convergence typically happens in middle epochs
+        convergence_epoch = max(1, min(epochs, int(epochs * 0.7)))
         
         metrics = {
-            "final_loss": round(random.uniform(0.1, 0.5), 4),
-            "validation_loss": round(random.uniform(0.15, 0.6), 4),
-            "perplexity": round(random.uniform(2.0, 8.0), 2),
-            "accuracy": round(random.uniform(0.85, 0.98), 3),
-            "training_time": round(random.uniform(120, 600), 1),
-            "tokens_processed": len(training_data) * random.randint(50, 200),
-            "convergence_epoch": random.randint(2, model.metrics["epochs"])
+            "final_loss": final_loss,
+            "validation_loss": validation_loss,
+            "perplexity": round(2.0 ** final_loss, 2),
+            "accuracy": round(final_accuracy, 3),
+            "training_time": training_time,
+            "tokens_processed": tokens_processed,
+            "convergence_epoch": convergence_epoch,
+            "data_quality_score": round(min(1.0, data_size / 1000), 2)
         }
         
         model.metrics.update(metrics)

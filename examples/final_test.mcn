@@ -1,6 +1,0 @@
-echo "MCN Enhanced Features Working!"
-var path_var = env("PATH")
-echo "Environment variable retrieved"
-write_file("hello.txt", "Hello from MCN!")
-var file_content = read_file("hello.txt")
-echo file_content

@@ -320,33 +320,87 @@ class DynamicPackageSystem:
                 return self._simple_ai_response(prompt)
         
         def _simple_ai_response(self, prompt: str) -> str:
-            """Simple AI-like responses without API"""
+            """Intelligent AI-like responses with context awareness"""
             prompt_lower = prompt.lower()
             
-            if "hello" in prompt_lower or "hi" in prompt_lower:
-                return "Hello! How can I help you today?"
-            elif "weather" in prompt_lower:
-                return "I don't have access to real-time weather data, but you can check a weather service."
-            elif "time" in prompt_lower:
-                return f"The current time is {time.strftime('%Y-%m-%d %H:%M:%S')}"
-            elif "calculate" in prompt_lower or "math" in prompt_lower:
-                # Extract numbers and try basic math
+            # Greeting responses
+            if any(word in prompt_lower for word in ["hello", "hi", "hey", "greetings"]):
+                return "Hello! I'm your AI assistant. I can help with calculations, analysis, text processing, and more. What would you like to do?"
+            
+            # Time and date queries
+            elif any(word in prompt_lower for word in ["time", "date", "when"]):
+                current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+                if "date" in prompt_lower:
+                    return f"Today's date is {time.strftime('%Y-%m-%d')}"
+                return f"The current time is {current_time}"
+            
+            # Mathematical operations
+            elif any(word in prompt_lower for word in ["calculate", "math", "compute", "solve"]):
                 numbers = re.findall(r'\d+\.?\d*', prompt)
                 if len(numbers) >= 2:
                     try:
-                        if "+" in prompt:
-                            result = sum(float(n) for n in numbers)
-                            return f"The sum is {result}"
-                        elif "*" in prompt:
-                            result = 1
-                            for n in numbers:
-                                result *= float(n)
-                            return f"The product is {result}"
-                    except:
-                        pass
-                return "I can help with basic calculations. Try asking 'calculate 5 + 3'"
+                        nums = [float(n) for n in numbers]
+                        if "+" in prompt or "add" in prompt_lower or "sum" in prompt_lower:
+                            result = sum(nums)
+                            return f"The sum of {' + '.join(numbers)} = {result}"
+                        elif "-" in prompt or "subtract" in prompt_lower:
+                            result = nums[0] - nums[1]
+                            return f"{numbers[0]} - {numbers[1]} = {result}"
+                        elif "*" in prompt or "multiply" in prompt_lower or "times" in prompt_lower:
+                            result = nums[0] * nums[1]
+                            return f"{numbers[0]} × {numbers[1]} = {result}"
+                        elif "/" in prompt or "divide" in prompt_lower:
+                            if nums[1] != 0:
+                                result = nums[0] / nums[1]
+                                return f"{numbers[0]} ÷ {numbers[1]} = {result:.2f}"
+                            return "Cannot divide by zero"
+                        elif "power" in prompt_lower or "**" in prompt or "^" in prompt:
+                            result = nums[0] ** nums[1]
+                            return f"{numbers[0]} to the power of {numbers[1]} = {result}"
+                    except Exception as e:
+                        return f"Calculation error: {str(e)}"
+                elif len(numbers) == 1:
+                    num = float(numbers[0])
+                    if "square" in prompt_lower:
+                        return f"The square of {numbers[0]} is {num ** 2}"
+                    elif "sqrt" in prompt_lower or "square root" in prompt_lower:
+                        return f"The square root of {numbers[0]} is {num ** 0.5:.2f}"
+                return "Please provide numbers for calculation. Example: 'calculate 15 + 25'"
+            
+            # Text analysis
+            elif any(word in prompt_lower for word in ["analyze", "sentiment", "classify"]):
+                if "sentiment" in prompt_lower:
+                    text_to_analyze = prompt[prompt_lower.find("sentiment") + 9:].strip()
+                    if text_to_analyze:
+                        positive_words = ['good', 'great', 'excellent', 'love', 'happy', 'wonderful']
+                        negative_words = ['bad', 'terrible', 'hate', 'sad', 'awful', 'horrible']
+                        
+                        pos_count = sum(1 for word in positive_words if word in text_to_analyze.lower())
+                        neg_count = sum(1 for word in negative_words if word in text_to_analyze.lower())
+                        
+                        if pos_count > neg_count:
+                            return f"Sentiment analysis: POSITIVE (confidence: {min(0.9, 0.6 + pos_count * 0.1):.1f})"
+                        elif neg_count > pos_count:
+                            return f"Sentiment analysis: NEGATIVE (confidence: {min(0.9, 0.6 + neg_count * 0.1):.1f})"
+                        else:
+                            return "Sentiment analysis: NEUTRAL (confidence: 0.7)"
+                return "I can analyze text sentiment. Try: 'analyze sentiment of: your text here'"
+            
+            # Weather queries
+            elif "weather" in prompt_lower:
+                return "I don't have access to real-time weather data. For current weather, please check a weather service like weather.com or your local weather app."
+            
+            # Help and capabilities
+            elif any(word in prompt_lower for word in ["help", "what can you do", "capabilities"]):
+                return "I can help with: calculations, text analysis, sentiment analysis, time/date queries, basic data processing, and general questions. What would you like to try?"
+            
+            # Default intelligent response
             else:
-                return f"I understand you're asking about: {prompt[:50]}... Let me help with that."
+                # Extract key topics from the prompt
+                key_words = [word for word in prompt.split() if len(word) > 3 and word.isalpha()]
+                if key_words:
+                    return f"I understand you're asking about {', '.join(key_words[:3])}. While I don't have specific information about this topic, I can help with calculations, text analysis, or other tasks. Could you rephrase your question or ask for something specific?"
+                return "I'm here to help! I can assist with calculations, text analysis, time queries, and more. What would you like me to help you with?"
         
         def summarize(text: str, max_length: int = 100):
             """Summarize text"""

@@ -1,7 +1,0 @@
-function test_vars(x, y)
-    var result = x + y
-    echo "Inside function: " + result
-    return result
-
-var answer = test_vars(10, 5)
-echo "Final answer: " + answer

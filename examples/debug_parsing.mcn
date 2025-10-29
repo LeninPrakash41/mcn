@@ -1,8 +1,0 @@
-log "Before function"
-
-function test()
-    log "Inside function"
-
-log "After function"
-test()
-log "Done"

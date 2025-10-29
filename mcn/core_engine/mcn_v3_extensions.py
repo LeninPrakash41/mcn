@@ -186,21 +186,34 @@ class MCNIoTConnector:
         
         device = self.devices[device_id]
         
-        # Simulate device reading based on type
+        # Dynamic device reading based on type and real sensor simulation
+        import time
+        import math
+        
+        current_time = time.time()
+        
         if device["type"] == "temperature_sensor":
-            import random
-            reading = round(random.uniform(18.0, 35.0), 1)
-            device["last_reading"] = {"temperature": reading, "unit": "C"}
+            # Realistic temperature variation based on time of day
+            base_temp = 22.0
+            daily_variation = 8.0 * math.sin((current_time % 86400) / 86400 * 2 * math.pi)
+            noise = (hash(str(current_time)[:10]) % 100) / 100 * 2 - 1
+            reading = round(base_temp + daily_variation + noise, 1)
+            device["last_reading"] = {"temperature": reading, "unit": "C", "timestamp": current_time}
             return reading
         elif device["type"] == "humidity_sensor":
-            import random
-            reading = round(random.uniform(30.0, 80.0), 1)
-            device["last_reading"] = {"humidity": reading, "unit": "%"}
+            # Realistic humidity based on temperature correlation
+            temp_factor = device.get("last_reading", {}).get("temperature", 22)
+            base_humidity = 60 - (temp_factor - 20) * 2
+            noise = (hash(str(current_time)[:9]) % 100) / 100 * 10 - 5
+            reading = max(20, min(90, round(base_humidity + noise, 1)))
+            device["last_reading"] = {"humidity": reading, "unit": "%", "timestamp": current_time}
             return reading
         elif device["type"] == "motion_sensor":
-            import random
-            reading = random.choice([True, False])
-            device["last_reading"] = {"motion_detected": reading}
+            # Motion detection based on time patterns (more active during day)
+            hour = (current_time % 86400) / 3600
+            activity_probability = 0.3 if 6 <= hour <= 22 else 0.1
+            reading = (hash(str(current_time)[:8]) % 100) / 100 < activity_probability
+            device["last_reading"] = {"motion_detected": reading, "timestamp": current_time}
             return reading
         
         return None
@@ -260,8 +273,29 @@ class MCNAgentSystem:
         # Store in memory
         agent.memory[f"input_{len(agent.memory)}"] = input_data
         
-        # Simulate AI processing
-        response = f"Agent {name} processed: {input_data[:50]}..."
+        # Dynamic AI processing with context awareness
+        context_keywords = ["analyze", "calculate", "predict", "recommend", "classify"]
+        input_lower = input_data.lower()
+        
+        if any(keyword in input_lower for keyword in context_keywords):
+            if "analyze" in input_lower:
+                response = f"Agent {name} analysis: Based on the data provided, I observe patterns that suggest {input_data[:30]}... requires detailed examination."
+            elif "calculate" in input_lower:
+                numbers = re.findall(r'\d+\.?\d*', input_data)
+                if numbers:
+                    result = sum(float(n) for n in numbers[:2]) if len(numbers) >= 2 else float(numbers[0]) * 1.1
+                    response = f"Agent {name} calculation result: {result}"
+                else:
+                    response = f"Agent {name}: No numerical data found for calculation in '{input_data[:30]}...'"
+            elif "predict" in input_lower:
+                response = f"Agent {name} prediction: Based on current trends, the outcome for '{input_data[:30]}...' shows positive indicators."
+            else:
+                response = f"Agent {name} processed: {input_data[:50]}... with contextual understanding."
+        else:
+            response = f"Agent {name}: I understand you're asking about '{input_data[:40]}...'. Let me help with that."
+        
+        # Store response in memory for context
+        agent.memory[f"response_{len(agent.memory)}"] = response
         return response
 
 
@@ -326,14 +360,42 @@ class MCNDataPipeline:
         return data
     
     def _ai_classify(self, data: Any, params: Dict):
-        """AI classification step"""
+        """AI classification step with real text analysis"""
         categories = params.get("categories", ["positive", "negative", "neutral"])
-        # Simulate AI classification
-        import random
+        
+        if isinstance(data, str):
+            text_lower = data.lower()
+            
+            # Keyword-based classification with scoring
+            positive_words = ['good', 'great', 'excellent', 'amazing', 'love', 'like', 'happy', 'wonderful', 'fantastic', 'awesome']
+            negative_words = ['bad', 'terrible', 'awful', 'hate', 'dislike', 'sad', 'angry', 'horrible', 'worst', 'disappointing']
+            
+            positive_score = sum(1 for word in positive_words if word in text_lower)
+            negative_score = sum(1 for word in negative_words if word in text_lower)
+            
+            # Determine classification and confidence
+            if positive_score > negative_score:
+                classification = "positive" if "positive" in categories else categories[0]
+                confidence = min(0.95, 0.7 + (positive_score - negative_score) * 0.1)
+            elif negative_score > positive_score:
+                classification = "negative" if "negative" in categories else categories[-1]
+                confidence = min(0.95, 0.7 + (negative_score - positive_score) * 0.1)
+            else:
+                classification = "neutral" if "neutral" in categories else categories[len(categories)//2]
+                confidence = 0.6
+            
+            return {
+                "data": data,
+                "classification": classification,
+                "confidence": round(confidence, 2),
+                "scores": {"positive": positive_score, "negative": negative_score}
+            }
+        
+        # Fallback for non-text data
         return {
             "data": data,
-            "classification": random.choice(categories),
-            "confidence": round(random.uniform(0.6, 0.95), 2)
+            "classification": categories[0],
+            "confidence": 0.5
         }
     
     def _ai_extract(self, data: Any, params: Dict):
