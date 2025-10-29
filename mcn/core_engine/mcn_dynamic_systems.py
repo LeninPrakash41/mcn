@@ -62,7 +62,11 @@ class DynamicPackageSystem:
             "auth": self._create_auth_package(),
             "notifications": self._create_notifications_package(),
             "workflows": self._create_workflows_package(),
-            "ml": self._create_ml_package()
+            "ml": self._create_ml_package(),
+            "postman": self._create_postman_package(),
+            "swagger": self._create_swagger_package(),
+            "codegen": self._create_codegen_package(),
+            "monitoring": self._create_monitoring_package()
         })
     
     def use_package(self, package_name: str):
@@ -852,6 +856,102 @@ class DynamicPackageSystem:
             "deploy": deploy_model,
             "fine_tune": fine_tune_model,
             "list_models": list_models
+        }
+    
+    def _create_postman_package(self) -> Dict[str, Callable]:
+        """Postman collection generation package"""
+        
+        def generate_collection(output_dir: str = "postman_exports"):
+            """Generate Postman collection"""
+            try:
+                from .mcn_postman_generator import generate_postman_collection
+                return generate_postman_collection(output_dir)
+            except Exception as e:
+                return {"error": f"Generation failed: {str(e)}"}
+        
+        def auto_generate():
+            """Auto-generate collection with default settings"""
+            return generate_collection()
+        
+        return {
+            "generate": generate_collection,
+            "auto_generate": auto_generate
+        }
+    
+    def _create_swagger_package(self) -> Dict[str, Callable]:
+        """OpenAPI/Swagger documentation package"""
+        
+        def generate_docs(output_dir: str = "api_docs"):
+            """Generate OpenAPI documentation"""
+            try:
+                from .mcn_swagger_generator import generate_swagger_docs
+                return generate_swagger_docs(output_dir)
+            except Exception as e:
+                return {"error": f"Documentation generation failed: {str(e)}"}
+        
+        return {"generate_docs": generate_docs}
+    
+    def _create_codegen_package(self) -> Dict[str, Callable]:
+        """Code generation package"""
+        
+        def generate_clients(output_dir: str = "generated_clients"):
+            """Generate client SDKs"""
+            try:
+                from .mcn_codegen import generate_all_clients
+                return generate_all_clients(output_dir)
+            except Exception as e:
+                return {"error": f"Code generation failed: {str(e)}"}
+        
+        def generate_python_client(output_dir: str = "python_client"):
+            """Generate Python client"""
+            try:
+                from .mcn_codegen import MCNCodeGenerator
+                generator = MCNCodeGenerator()
+                return generator.generate_python_client(output_dir)
+            except Exception as e:
+                return {"error": f"Python client generation failed: {str(e)}"}
+        
+        return {
+            "generate_all": generate_clients,
+            "generate_python": generate_python_client
+        }
+    
+    def _create_monitoring_package(self) -> Dict[str, Callable]:
+        """Performance monitoring package"""
+        
+        def start_monitoring():
+            """Start performance monitoring"""
+            try:
+                from .mcn_monitoring import get_monitor
+                monitor = get_monitor()
+                return {"success": True, "message": "Monitoring started"}
+            except Exception as e:
+                return {"error": f"Monitoring start failed: {str(e)}"}
+        
+        def get_metrics(time_window: int = 300):
+            """Get performance metrics"""
+            try:
+                from .mcn_monitoring import get_monitor, MCNAnalytics
+                monitor = get_monitor()
+                analytics = MCNAnalytics(monitor)
+                return analytics.generate_dashboard_data()
+            except Exception as e:
+                return {"error": f"Metrics retrieval failed: {str(e)}"}
+        
+        def record_metric(name: str, value: float, tags: dict = None):
+            """Record custom metric"""
+            try:
+                from .mcn_monitoring import get_monitor
+                monitor = get_monitor()
+                monitor.record_metric(name, value, tags or {})
+                return {"success": True}
+            except Exception as e:
+                return {"error": f"Metric recording failed: {str(e)}"}
+        
+        return {
+            "start": start_monitoring,
+            "get_metrics": get_metrics,
+            "record_metric": record_metric
         }
 
 

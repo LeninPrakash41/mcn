@@ -64,12 +64,20 @@ class MCNServer:
         self.routes[endpoint] = script_path
         return endpoint
 
-    def serve(self, host: str = "127.0.0.1", port: int = 8000):
+    def serve(self, host: str = "127.0.0.1", port: int = 8000, auto_postman: bool = True):
         """Start the MCN server"""
         print(f"MCN Server starting on http://{host}:{port}")
         print("Loaded endpoints:")
         for endpoint, script_path in self.routes.items():
             print(f"  POST {endpoint} -> {script_path}")
+        
+        # Auto-generate Postman collection
+        if auto_postman:
+            try:
+                from .mcn_postman_generator import auto_generate_on_server_start
+                auto_generate_on_server_start(self)
+            except Exception as e:
+                print(f"⚠️  Postman generation failed: {e}")
 
         uvicorn.run(self.app, host=host, port=port)
 

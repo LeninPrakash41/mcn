@@ -978,6 +978,8 @@ class MCNInterpreter:
                 "retrieve": self._retrieve_data,
                 "create_user": self._create_user,
                 "authenticate": self._authenticate_user,
+                # Postman Integration
+                "generate_postman": self._generate_postman_collection,
                 # ML System Functions
                 "train": self._train_ml_model,
                 "predict": self._predict_ml_model,
@@ -1331,6 +1333,21 @@ class MCNInterpreter:
             return ml_system.get_training_status(job_id)
         except Exception as e:
             return {"error": f"Status check failed: {str(e)}"}
+    
+    def _generate_postman_collection(self, output_dir: str = "postman_exports"):
+        """Generate Postman collection for MCN APIs"""
+        try:
+            from .mcn_postman_generator import generate_postman_collection
+            result = generate_postman_collection(output_dir)
+            return {
+                "success": True,
+                "collection_file": result["collection_file"],
+                "environment_file": result["environment_file"],
+                "endpoints_count": result["endpoints_count"],
+                "message": f"Postman collection generated with {result['endpoints_count']} endpoints"
+            }
+        except Exception as e:
+            return {"error": f"Postman generation failed: {str(e)}"}
 
 
 

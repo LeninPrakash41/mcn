@@ -1,0 +1,59 @@
+// MCN Developer Tools Demo
+// Comprehensive demonstration of all developer productivity features
+
+use "postman"
+use "swagger"
+use "codegen"
+use "monitoring"
+
+log "=== MCN Developer Tools Suite Demo ==="
+
+// 1. Start Performance Monitoring
+log "Starting performance monitoring..."
+var monitor_result = start()
+log monitor_result
+
+// 2. Generate API Documentation
+log "Generating OpenAPI/Swagger documentation..."
+var docs_result = generate_docs("api_documentation")
+log docs_result
+
+// 3. Generate Postman Collection
+log "Generating Postman collection..."
+var postman_result = auto_generate()
+log postman_result
+
+// 4. Generate Client SDKs
+log "Generating client SDKs for multiple languages..."
+var clients_result = generate_all("client_sdks")
+log clients_result
+
+// 5. Generate Python Client Specifically
+log "Generating Python client SDK..."
+var python_client = generate_python("python_sdk")
+log python_client
+
+// 6. Record Custom Metrics
+log "Recording custom metrics..."
+record_metric("demo_execution", 1.0, {"type": "demo", "version": "3.0"})
+record_metric("api_calls", 5.0, {"endpoint": "developer_tools"})
+
+// 7. Get Performance Metrics
+log "Retrieving performance metrics..."
+var metrics = get_metrics(300)
+log metrics
+
+log "=== Developer Tools Demo Complete ==="
+log ""
+log "Generated Files:"
+log "📊 API Documentation: api_documentation/index.html"
+log "📮 Postman Collection: postman_exports/MCN_API_Collection.json"
+log "🐍 Python SDK: client_sdks/python/mcn_client.py"
+log "🟨 JavaScript SDK: client_sdks/javascript/mcn-client.js"
+log "🐳 Docker Setup: client_sdks/docker/docker-compose.yml"
+log ""
+log "Next Steps:"
+log "1. Open api_documentation/index.html for interactive API docs"
+log "2. Import Postman collection for API testing"
+log "3. Use generated SDKs in your applications"
+log "4. Monitor performance with built-in analytics"

@@ -1,0 +1,29 @@
+// Postman Collection Generation Demo
+// Auto-generate Postman collections for MCN APIs
+
+use "postman"
+
+log "=== MCN Postman Collection Generator ==="
+
+// 1. Auto-generate Postman collection with default settings
+log "Generating Postman collection..."
+var result = auto_generate()
+log result
+
+// 2. Generate collection to custom directory
+log "Generating collection to custom directory..."
+var custom_result = generate("api_docs/postman")
+log custom_result
+
+// 3. Use direct function call
+log "Using direct function call..."
+var direct_result = generate_postman("postman_output")
+log direct_result
+
+log "=== Postman Generation Complete ==="
+log "Import the generated files into Postman:"
+log "1. Open Postman"
+log "2. Click Import"
+log "3. Select MCN_API_Collection.json"
+log "4. Select MCN_Development_Environment.json"
+log "5. Start testing MCN APIs!"
