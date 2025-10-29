@@ -17,15 +17,22 @@ def run_script(file_path: str, quiet: bool = False):
     try:
         from mcn.core_engine.mcn_interpreter import MCNInterpreter
         
-        if not os.path.exists(file_path):
+        # Validate file path to prevent path traversal
+        resolved_path = os.path.abspath(file_path)
+        current_dir = os.path.abspath(".")
+        if not resolved_path.startswith(current_dir):
+            print("Error: File must be within current directory")
+            return 1
+        
+        if not os.path.exists(resolved_path):
             print(f"Error: File '{file_path}' not found")
             return 1
         
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(resolved_path, 'r', encoding='utf-8') as f:
             code = f.read()
         
         interpreter = MCNInterpreter()
-        result = interpreter.execute(code, file_path, quiet)
+        result = interpreter.execute(code, resolved_path, quiet)
         
         if not quiet:
             print(f"Script executed successfully: {file_path}")
@@ -41,14 +48,21 @@ def serve_script(file_path: str, port: int = 8000, host: str = "localhost"):
     try:
         from mcn.core_engine.mcn_server import MCNServer
         
-        if not os.path.exists(file_path):
+        # Validate file path to prevent path traversal
+        resolved_path = os.path.abspath(file_path)
+        current_dir = os.path.abspath(".")
+        if not resolved_path.startswith(current_dir):
+            print("Error: File must be within current directory")
+            return 1
+        
+        if not os.path.exists(resolved_path):
             print(f"Error: File '{file_path}' not found")
             return 1
         
         server = MCNServer()
         print(f"Starting MCN server on {host}:{port}")
         print(f"Serving script: {file_path}")
-        server.start(file_path, host, port)
+        server.start(resolved_path, host, port)
         
         return 0
         
@@ -115,7 +129,14 @@ def start_dev_server(mcn_file: str, frontend_dir: str = None):
             ]
             
             for dir_path in possible_dirs:
-                if os.path.exists(dir_path) and os.path.exists(os.path.join(dir_path, "package.json")):
+                # Validate path to prevent directory traversal
+                resolved_dir = os.path.abspath(dir_path)
+                current_dir = os.path.abspath(".")
+                if not resolved_dir.startswith(current_dir):
+                    continue
+                    
+                package_json_path = os.path.join(resolved_dir, "package.json")
+                if os.path.exists(resolved_dir) and os.path.exists(package_json_path):
                     frontend_dir = dir_path
                     break
         
@@ -147,7 +168,14 @@ def generate_react_app(mcn_file: str, output_dir: str = None):
             base_name = os.path.splitext(os.path.basename(mcn_file))[0]
             output_dir = f"./{base_name}-react-app"
         
-        if os.path.exists(output_dir):
+        # Validate output directory to prevent path traversal
+        resolved_output = os.path.abspath(output_dir)
+        current_dir = os.path.abspath(".")
+        if not resolved_output.startswith(current_dir):
+            print("Error: Output directory must be within current directory")
+            return 1
+        
+        if os.path.exists(resolved_output):
             print(f"✅ React app generated: {output_dir}")
             print(f"📦 To run: cd {output_dir} && npm install && npm start")
         else:

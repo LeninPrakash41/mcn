@@ -7,12 +7,14 @@ Dynamic Flask server with real MCN integration
 try:
     from flask import Flask, request, jsonify, send_from_directory, session
     from flask_cors import CORS
+    import html
 except ImportError:
     print("Installing required packages...")
     import subprocess
     subprocess.check_call(["pip", "install", "flask", "flask-cors"])
     from flask import Flask, request, jsonify, send_from_directory, session
     from flask_cors import CORS
+    import html
 
 import sys
 import os
@@ -231,7 +233,9 @@ def execute_mcn():
         
         def capture_output(message, msg_type="log"):
             timestamp = datetime.now().strftime("%H:%M:%S")
-            formatted_msg = f"[{timestamp}] {message}"
+            # Escape HTML to prevent XSS
+            safe_message = html.escape(str(message))
+            formatted_msg = f"[{timestamp}] {safe_message}"
             output_lines.append({"message": formatted_msg, "type": msg_type})
             session_data["output_buffer"].append(formatted_msg)
             

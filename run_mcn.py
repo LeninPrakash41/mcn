@@ -55,23 +55,30 @@ def main():
 
 def run_file(filepath):
     """Run a MCN file using the real interpreter"""
-    if not os.path.exists(filepath):
+    # Validate filepath to prevent path traversal
+    resolved_path = os.path.abspath(filepath)
+    current_dir = os.path.abspath(".")
+    if not resolved_path.startswith(current_dir):
+        print("Error: File must be within current directory")
+        return 1
+        
+    if not os.path.exists(resolved_path):
         print(f"Error: File '{filepath}' not found")
         return 1
 
     try:
         # Import the real MCN interpreter
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_interpreter import MCNInterpreter
+        from mcn.core_engine.mcn_interpreter import MCNInterpreter
         
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(resolved_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         print(f"Running MCN file: {filepath}")
         
         # Use real interpreter
         interpreter = MCNInterpreter()
-        result = interpreter.execute(content, filepath, quiet=False)
+        result = interpreter.execute(content, resolved_path, quiet=False)
         
         if result is not None:
             print(f"Script result: {result}")
@@ -92,7 +99,7 @@ def run_repl():
     try:
         # Import the real MCN interpreter
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_interpreter import MCNInterpreter
+        from mcn.core_engine.mcn_interpreter import MCNInterpreter
         
         interpreter = MCNInterpreter()
         
@@ -145,7 +152,7 @@ def generate_postman_collection(output_dir="postman_exports"):
     """Generate Postman collection"""
     try:
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_postman_generator import generate_postman_collection as gen_collection
+        from mcn.core_engine.mcn_postman_generator import generate_postman_collection as gen_collection
         
         print(f"Generating Postman collection to: {output_dir}")
         result = gen_collection(output_dir)
@@ -166,7 +173,7 @@ def generate_api_docs(output_dir="api_docs"):
     """Generate OpenAPI documentation"""
     try:
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_swagger_generator import generate_swagger_docs
+        from mcn.core_engine.mcn_swagger_generator import generate_swagger_docs
         
         print(f"Generating API documentation to: {output_dir}")
         result = generate_swagger_docs(output_dir)
@@ -186,7 +193,7 @@ def generate_client_sdks(output_dir="generated_clients"):
     """Generate client SDKs"""
     try:
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_codegen import generate_all_clients
+        from mcn.core_engine.mcn_codegen import generate_all_clients
         
         print(f"Generating client SDKs to: {output_dir}")
         result = generate_all_clients(output_dir)
@@ -207,7 +214,7 @@ def show_monitoring_dashboard():
     """Show monitoring dashboard"""
     try:
         sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
-        from mcn_monitoring import get_monitor, MCNAnalytics
+        from mcn.core_engine.mcn_monitoring import get_monitor, MCNAnalytics
         
         monitor = get_monitor()
         analytics = MCNAnalytics(monitor)
