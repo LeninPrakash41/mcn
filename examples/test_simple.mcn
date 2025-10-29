@@ -1,0 +1,5 @@
+log("Testing individual functions")
+use "db"
+device("register", "sensor1", {"type": "temperature"})
+var temp = device("read", "sensor1")
+log("Temperature: " + temp)

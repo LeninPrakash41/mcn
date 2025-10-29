@@ -1,0 +1,22 @@
+// Simple Dynamic Systems Test
+log("Testing Dynamic Systems")
+
+// Test package loading
+use "db"
+log("Database package loaded")
+
+// Test database operations
+var result = query("SELECT 1 as test")
+log("Database query result: " + result)
+
+// Test AI system
+register("test-ai", "local")
+set_model("test-ai")
+var ai_result = run("What is 2+2?")
+log("AI result: " + ai_result)
+
+// Test event system
+trigger("test_event", {"message": "Hello Events"})
+log("Event triggered")
+
+log("Dynamic systems test complete!")

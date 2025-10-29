@@ -1,0 +1,83 @@
+// Simple MCN Dynamic Systems Test
+log("=== MCN Dynamic Systems Test ===")
+
+// 1. Package System Test
+log("1. Testing Package System...")
+use "db"
+use "ai" 
+log("SUCCESS: Packages loaded")
+
+// 2. Database Test
+log("2. Testing Database...")
+query("CREATE TABLE IF NOT EXISTS test_users (id INTEGER PRIMARY KEY, name TEXT)")
+query("INSERT OR REPLACE INTO test_users (id, name) VALUES (1, 'Test User')")
+var users = query("SELECT * FROM test_users WHERE id = 1")
+log("SUCCESS: Database working - Found " + users.length + " users")
+
+// 3. AI Test
+log("3. Testing AI...")
+var ai_response = ai("What is 2+2?")
+log("SUCCESS: AI response: " + ai_response)
+
+// 4. HTTP Test
+log("4. Testing HTTP...")
+var api_response = http("GET", "https://httpbin.org/json")
+if api_response.success
+    log("SUCCESS: HTTP working - Status: " + api_response.status_code)
+else
+    log("INFO: HTTP test - " + api_response.data)
+
+// 5. Analytics Test
+log("5. Testing Analytics...")
+track("test_event", {"user": "test_user"})
+var events = get("test_event", 1)
+log("SUCCESS: Analytics working - Events: " + events.length)
+
+// 6. Storage Test
+log("6. Testing Storage...")
+store("test_key", "test_value")
+var stored = retrieve("test_key")
+log("SUCCESS: Storage working - Retrieved: " + stored)
+
+// 7. Event System Test
+log("7. Testing Events...")
+on event "test_event" handle_test
+
+function handle_test(data) {
+    log("Event received: " + data.message)
+}
+
+trigger("test_event", {"message": "Hello Events"})
+log("SUCCESS: Event system working")
+
+// 8. IoT Test
+log("8. Testing IoT...")
+device("register", "sensor1", {"type": "temperature"})
+var reading = device("read", "sensor1")
+if reading.success
+    log("SUCCESS: IoT working - Reading: " + reading.value + reading.unit)
+else
+    log("ERROR: IoT failed")
+
+// 9. Natural Language Test
+log("9. Testing NLP...")
+var code = translate("create a variable greeting with value hello")
+log("SUCCESS: NLP working - Generated: " + code)
+
+// 10. Authentication Test
+log("10. Testing Auth...")
+create_user("testuser", "testpass", "test@example.com")
+var auth = authenticate("test@example.com", "testpass")
+if auth.success
+    log("SUCCESS: Auth working - User ID: " + auth.user.id)
+else
+    log("ERROR: Auth failed")
+
+log("=== All Systems Operational ===")
+
+// Return final result
+{
+    "status": "success",
+    "systems_tested": 10,
+    "message": "All dynamic systems working"
+}

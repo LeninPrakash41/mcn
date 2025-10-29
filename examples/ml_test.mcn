@@ -1,0 +1,35 @@
+// Simple ML Test - MCN v3.0
+// Quick test of ML system integration
+
+log "=== Testing MCN ML System ==="
+
+// 1. Load sample dataset
+log "Loading sample dataset..."
+var dataset = load_dataset("test_data", "examples/sample_ml_data.csv")
+log dataset
+
+// 2. Train a simple model
+log "Training random forest model..."
+var model_result = train("random_forest", "test_data", "churn", {"n_estimators": 50})
+log model_result
+
+// 3. Make a prediction
+if model_result.success
+    log "Making prediction..."
+    var test_input = {
+        "age": 30,
+        "income": 45000,
+        "spending_score": 0.7,
+        "gender": 1,
+        "category": 2
+    }
+    
+    var prediction = predict(model_result.model_id, test_input)
+    log prediction
+    
+    // 4. Export the model
+    log "Exporting model..."
+    var export_result = export_model(model_result.model_id, "json")
+    log export_result
+
+log "=== ML Test Complete ==="

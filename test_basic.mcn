@@ -1,0 +1,15 @@
+log("MCN Dynamic Systems Test")
+
+use "db"
+log("Package loaded")
+
+query("CREATE TABLE test (id INTEGER)")
+log("Database working")
+
+var result = ai("Hello")
+log("AI working: " + result)
+
+{
+    "status": "success",
+    "message": "Basic test complete"
+}

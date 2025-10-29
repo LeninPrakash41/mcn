@@ -10,6 +10,9 @@ import argparse
 
 def main():
     """Simple MCN runner that handles basic commands"""
+    global script_dir
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
     parser = argparse.ArgumentParser(
         description="MCN (Macincode Scripting Language) Runner"
     )
@@ -23,7 +26,6 @@ def main():
     args = parser.parse_args()
 
     # Add paths for imports
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     mcn_lang_path = os.path.join(script_dir, "mcn")
     core_engine_path = os.path.join(mcn_lang_path, "core_engine")
 
@@ -44,19 +46,28 @@ def main():
 
 
 def run_file(filepath):
-    """Run a MCN file"""
+    """Run a MCN file using the real interpreter"""
     if not os.path.exists(filepath):
         print(f"Error: File '{filepath}' not found")
         return 1
 
     try:
-        # Simple file execution
+        # Import the real MCN interpreter
+        sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
+        from mcn_interpreter import MCNInterpreter
+        
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
 
         print(f"Running MCN file: {filepath}")
-        print(f"Content preview: {content[:100]}...")
-        print("Note: Full MCN interpreter not yet loaded. This is a placeholder.")
+        
+        # Use real interpreter
+        interpreter = MCNInterpreter()
+        result = interpreter.execute(content, filepath, quiet=False)
+        
+        if result is not None:
+            print(f"Script result: {result}")
+        
         return 0
 
     except Exception as e:
@@ -65,32 +76,59 @@ def run_file(filepath):
 
 
 def run_repl():
-    """Run MCN REPL"""
-    print("MCN (Macincode Scripting Language) REPL v2.0")
+    """Run MCN REPL with real interpreter"""
+    print("MCN (Macincode Scripting Language) REPL v3.0 - Dynamic Systems")
     print("Type 'exit' to quit, 'help' for commands")
     print("-" * 40)
+    
+    try:
+        # Import the real MCN interpreter
+        sys.path.insert(0, os.path.join(script_dir, "mcn", "core_engine"))
+        from mcn_interpreter import MCNInterpreter
+        
+        interpreter = MCNInterpreter()
+        
+        while True:
+            try:
+                line = input("mcn> ").strip()
 
-    while True:
-        try:
-            line = input("mcn> ").strip()
+                if line == "exit":
+                    break
+                elif line == "help":
+                    print("Available commands:")
+                    print("  exit - Exit REPL")
+                    print("  help - Show this help")
+                    print("  vars - Show variables")
+                    print("  Dynamic systems: db, http, ai, events, agents, storage")
+                elif line == "vars":
+                    if interpreter.variables:
+                        for name, value in interpreter.variables.items():
+                            print(f"  {name} = {repr(value)}")
+                    else:
+                        print("  No variables defined")
+                elif line:
+                    result = interpreter.execute(line, quiet=True)
+                    if result is not None:
+                        print(f"=> {result}")
 
-            if line == "exit":
+            except KeyboardInterrupt:
+                print("\nUse 'exit' to quit")
+            except Exception as e:
+                print(f"Error: {e}")
+    
+    except ImportError as e:
+        print(f"Could not load MCN interpreter: {e}")
+        print("Running in basic mode...")
+        # Fallback to basic mode
+        while True:
+            try:
+                line = input("mcn> ").strip()
+                if line == "exit":
+                    break
+                elif line:
+                    print(f"Basic mode - received: {line}")
+            except KeyboardInterrupt:
                 break
-            elif line == "help":
-                print("Available commands:")
-                print("  exit - Exit REPL")
-                print("  help - Show this help")
-                print("  Note: Full interpreter not yet loaded")
-            elif line:
-                print(f"Input received: {line}")
-                print(
-                    "Note: Full MCN interpreter not yet loaded. This is a placeholder."
-                )
-
-        except KeyboardInterrupt:
-            print("\nUse 'exit' to quit")
-        except Exception as e:
-            print(f"Error: {e}")
 
     return 0
 

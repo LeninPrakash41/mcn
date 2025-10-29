@@ -1,0 +1,11 @@
+help
+use "storage"
+save("test.json", {"message": "Dynamic storage working!"})
+var data = load("test.json")
+log("Loaded data: " + data)
+use "analytics"
+track("user_action", {"action": "test", "timestamp": now()})
+var events = get("user_action", 1)
+log("Tracked events: " + events.length)
+vars
+exit

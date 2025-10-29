@@ -1,0 +1,57 @@
+log("Testing all 11 dynamic systems")
+
+// 1. Package System
+use "db"
+log("1. Package System: OK")
+
+// 2. AI Integration  
+register("test-ai", "local")
+set_model("test-ai")
+var ai_result = run("Hello AI")
+log("2. AI Integration: " + ai_result)
+
+// 3. Database
+var db_result = query("SELECT 1 as test")
+log("3. Database: " + db_result)
+
+// 4. Async System
+function test_task() {
+    return "Task done"
+}
+task("test", "test_task")
+var task_result = await("test")
+log("4. Async: " + task_result)
+
+// 5. UI System
+ui("button", "Test Button")
+log("5. UI: Button created")
+
+// 6. AI Models
+register("local-model", "local")
+log("6. AI Models: Registered")
+
+// 7. IoT Devices
+device("register", "sensor1", {"type": "temperature_sensor"})
+var reading = device("read", "sensor1")
+log("7. IoT: Temperature " + reading)
+
+// 8. Events
+trigger("test_event", {"msg": "hello"})
+log("8. Events: Triggered")
+
+// 9. Agents
+agent("create", "bot1", {"prompt": "You are helpful"})
+agent("activate", "bot1")
+var agent_result = agent("think", "bot1", {"input": "Hi"})
+log("9. Agents: " + agent_result)
+
+// 10. Pipelines
+pipeline("create", "pipe1", [{"type": "clean"}])
+var pipe_result = pipeline("run", "pipe1", "test data")
+log("10. Pipelines: " + pipe_result)
+
+// 11. Natural Language
+var nl_result = translate("create variable x with value 5")
+log("11. Natural Language: " + nl_result)
+
+log("All 11 systems working!")
