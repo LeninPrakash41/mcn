@@ -23,6 +23,10 @@ class MCNRuntime:
             "anthropic": os.getenv("ANTHROPIC_API_KEY"),
             "google": os.getenv("GOOGLE_AI_KEY"),
         }
+        # Validate API keys are set
+        for provider, key in self.ai_providers.items():
+            if key and len(key) < 10:
+                self.ai_providers[provider] = None
         self.workflows = {}
         self.email_config = {
             "smtp_server": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
@@ -93,7 +97,12 @@ class MCNRuntime:
             raise Exception(f"Database error: {str(e)}")
 
     def _query_sqlite(self, sql: str, params: tuple = None) -> List[Dict]:
-        """SQLite query execution"""
+        """SQLite query execution with injection protection"""
+        import re
+        # Basic SQL injection protection
+        if re.search(r'[;\\\x00]', sql):
+            raise Exception("Invalid SQL query detected")
+        
         cursor = self.db_connection.cursor()
         if params:
             cursor.execute(sql, params)

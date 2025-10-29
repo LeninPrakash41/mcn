@@ -6,14 +6,54 @@
     "run",
     "train", 
     "set_model",
-    "register"
+    "register",
+    "fine_tune",
+    "get_training_status",
+    "list_models",
+    "delete_model",
+    "export_model",
+    "import_model",
+    "benchmark_model",
+    "optimize_model"
   ],
   "features": [
-    "Multi-model support",
-    "Model fine-tuning",
-    "Custom model registration",
-    "Dynamic model switching",
-    "Local and cloud models"
+    "Multi-model support (OpenAI, Anthropic, Google, Local)",
+    "Model fine-tuning with custom datasets",
+    "Custom model registration and deployment",
+    "Dynamic model switching and load balancing",
+    "Local and cloud model orchestration",
+    "Real-time training monitoring",
+    "Model performance benchmarking",
+    "Automatic model optimization",
+    "Model versioning and rollback",
+    "Cost optimization and usage tracking"
   ],
-  "installed": true
+  "providers": {
+    "openai": {
+      "models": ["gpt-4", "gpt-3.5-turbo", "text-davinci-003"],
+      "capabilities": ["chat", "completion", "fine-tuning"]
+    },
+    "anthropic": {
+      "models": ["claude-3-sonnet", "claude-3-haiku"],
+      "capabilities": ["chat", "analysis"]
+    },
+    "google": {
+      "models": ["gemini-pro", "palm-2"],
+      "capabilities": ["chat", "multimodal"]
+    },
+    "local": {
+      "models": ["llama-2", "mistral-7b"],
+      "capabilities": ["chat", "completion", "privacy"]
+    }
+  },
+  "config": {
+    "default_provider": "openai",
+    "default_model": "gpt-3.5-turbo",
+    "max_tokens": 2048,
+    "temperature": 0.7,
+    "timeout": 30,
+    "retry_attempts": 3
+  },
+  "installed": true,
+  "last_updated": "2024-01-15T10:30:00Z"
 }

@@ -23,15 +23,25 @@
   ],
   "repository": {
     "keywords": {
-      "patterns": [{
-        "name": "keyword.control.mcn",
-        "match": "\\b(var|if|else|while|for|try|catch|throw|function|return)\\b"
-      }]
+      "patterns": [
+        {
+          "name": "keyword.control.mcn",
+          "match": "\\b(var|if|else|while|for|in|try|catch|throw|function|return|task|await|use)\\b"
+        },
+        {
+          "name": "keyword.other.mcn",
+          "match": "\\b(event|handle|create|activate|think|register|set_model|run|train|predict)\\b"
+        },
+        {
+          "name": "storage.type.mcn",
+          "match": "\\b(true|false|null|undefined)\\b"
+        }
+      ]
     },
     "functions": {
       "patterns": [{
         "name": "entity.name.function.mcn",
-        "match": "\\b(log|query|trigger|ai|workflow|use|task|await|type|batch_insert|analyze_sentiment|summarize)\\b"
+        "match": "\\b(log|echo|query|trigger|ai|workflow|use|task|await|type|on|device|agent|pipeline|translate|ui|register|set_model|run|train|predict|load_dataset|preprocess|deploy_model|batch_predict|compare_models|export_model|fine_tune|get_training_status|generate_postman|http|track|get|store|retrieve|create_user|authenticate|analyze_sentiment|summarize|batch_insert|now|format_date|hash_data|encode_base64|decode_base64|send_email|read_file|write_file|append_file|fetch|env|typeof|len|str|int|float|bool|list|dict|abs|min|max|round|sum|range|split|join|replace|upper|lower|trim|push|pop|slice|indexOf|includes|keys|values|hasKey|random|sleep|print)\\b"
       }]
     },
     "strings": {
@@ -63,10 +73,24 @@
       "match": "\\b\\d+(\\.\\d+)?\\b"
     },
     "operators": {
-      "patterns": [{
-        "name": "keyword.operator.mcn",
-        "match": "(\\+|\\-|\\*|\\/|==|!=|>|<|>=|<=|=|and|or|not)"
-      }]
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.mcn",
+          "match": "(\\+|\\-|\\*|\\/|%)"
+        },
+        {
+          "name": "keyword.operator.comparison.mcn",
+          "match": "(==|!=|>|<|>=|<=)"
+        },
+        {
+          "name": "keyword.operator.logical.mcn",
+          "match": "\\b(and|or|not)\\b"
+        },
+        {
+          "name": "keyword.operator.assignment.mcn",
+          "match": "="
+        }
+      ]
     }
   },
   "scopeName": "source.mcn"
