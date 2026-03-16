@@ -1,0 +1,8 @@
+{
+  "name": "http",
+  "functions": [
+    "get_json",
+    "post_form"
+  ],
+  "installed": true
+}

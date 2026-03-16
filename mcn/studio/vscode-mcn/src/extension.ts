@@ -1,221 +1,372 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import * as cp from 'child_process';
+import {
+  LanguageClient,
+  LanguageClientOptions,
+  ServerOptions,
+  TransportKind
+} from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
-export function activate(context: vscode.ExtensionContext) {
-    // Language Server setup
-    const serverModule = context.asAbsolutePath(path.join('..', 'mcn-language-server', 'out', 'server.js'));
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-    const serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
-        debug: { module: serverModule, transport: TransportKind.ipc }
-    };
-
-    const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'mcn' }],
-        synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/.mcn')
-        }
-    };
-
-    client = new LanguageClient('mcnLanguageServer', 'MCN Language Server', serverOptions, clientOptions);
-    client.start();
-
-    // Register commands
-    const runScript = vscode.commands.registerCommand('mcn.runScript', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN Runner');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} "${editor.document.fileName}"`);
-    });
-
-    const openRepl = vscode.commands.registerCommand('mcn.openRepl', () => {
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN REPL');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} --repl`);
-    });
-
-    const serveAsApi = vscode.commands.registerCommand('mcn.serveAsApi', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const port = await vscode.window.showInputBox({
-            prompt: 'Enter port number',
-            value: '8000',
-            validateInput: (value: any) => {
-                const num = parseInt(value);
-                return (isNaN(num) || num < 1 || num > 65535) ? 'Invalid port number' : null;
-            }
-        });
-
-        if (!port) return;
-
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN API Server');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} "${editor.document.fileName}" --serve --port ${port}`);
-
-        vscode.window.showInformationMessage(`MCN API server starting on port ${port}`);
-    });
-
-    // AI Assistant Panel
-    const aiAssistant = vscode.commands.registerCommand('mcn.aiAssistant', () => {
-        const panel = vscode.window.createWebviewPanel(
-            'mcnAiAssistant',
-            'MCN AI Assistant',
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true
-            }
-        );
-
-        panel.webview.html = getAiAssistantHtml();
-
-        panel.webview.onDidReceiveMessage(async (message: any) => {
-            switch (message.command) {
-                case 'generateCode':
-                    const code = await generateMcnCode(message.prompt);
-                    panel.webview.postMessage({ command: 'codeGenerated', code });
-                    break;
-            }
-        });
-    });
-
-    context.subscriptions.push(runScript, openRepl, serveAsApi, aiAssistant);
+function mcnCmd(): string {
+  const cfg = vscode.workspace.getConfiguration('mcn');
+  return cfg.get<string>('cliPath', 'mcn');
 }
+
+function pythonCmd(): string {
+  const cfg = vscode.workspace.getConfiguration('mcn');
+  return cfg.get<string>('pythonPath', 'python3');
+}
+
+/** Run `mcn <args>` in a terminal with a given name. */
+function runInTerminal(name: string, args: string): vscode.Terminal {
+  const terminal = vscode.window.createTerminal(name);
+  terminal.show(true);
+  terminal.sendText(`${mcnCmd()} ${args}`);
+  return terminal;
+}
+
+/** Return the file path of the active editor if it's a .mcn/.mx file. */
+function activeFilePath(): string | null {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return null;
+  const lang = editor.document.languageId;
+  const ext  = path.extname(editor.document.fileName);
+  if (lang !== 'mcn' && ext !== '.mcn' && ext !== '.mx') return null;
+  return editor.document.fileName;
+}
+
+
+// ── Activate ──────────────────────────────────────────────────────────────────
+
+export function activate(context: vscode.ExtensionContext) {
+
+  // ── Language Server ─────────────────────────────────────────────────────────
+  const serverModule = context.asAbsolutePath(
+    path.join('..', 'mcn-language-server', 'out', 'server.js')
+  );
+
+  const serverOptions: ServerOptions = {
+    run:   { module: serverModule, transport: TransportKind.ipc },
+    debug: { module: serverModule, transport: TransportKind.ipc }
+  };
+
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [{ scheme: 'file', language: 'mcn' }],
+    synchronize: {
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{mcn,mx}')
+    }
+  };
+
+  client = new LanguageClient(
+    'mcnLanguageServer', 'MCN Language Server',
+    serverOptions, clientOptions
+  );
+  client.start();
+
+
+  // ── Commands ────────────────────────────────────────────────────────────────
+
+  /** mcn run <file> */
+  const cmdRun = vscode.commands.registerCommand('mcn.runScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Run', `run "${file}"`);
+  });
+
+  /** mcn test <file> */
+  const cmdTest = vscode.commands.registerCommand('mcn.testScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Test', `test "${file}" --verbose`);
+  });
+
+  /** mcn fmt --write <file> */
+  const cmdFmt = vscode.commands.registerCommand('mcn.formatDocument', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    // Run format and reload
+    cp.exec(`${mcnCmd()} fmt --write "${file}"`, (err, stdout, stderr) => {
+      if (err) {
+        vscode.window.showErrorMessage(`mcn fmt failed: ${stderr || err.message}`);
+        return;
+      }
+      // Reload the file in the editor
+      vscode.commands.executeCommand('workbench.action.revertFile');
+      vscode.window.setStatusBarMessage('MCN: formatted', 3000);
+    });
+  });
+
+  /** mcn check <file> */
+  const cmdCheck = vscode.commands.registerCommand('mcn.checkScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Check', `check "${file}"`);
+  });
+
+  /** mcn repl */
+  const cmdRepl = vscode.commands.registerCommand('mcn.openRepl', () => {
+    runInTerminal('MCN: REPL', 'repl');
+  });
+
+  /** mcn serve --file <file> --port <N> */
+  const cmdServe = vscode.commands.registerCommand('mcn.serveAsApi', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+
+    const port = await vscode.window.showInputBox({
+      prompt: 'Port to serve on',
+      value:  '8080',
+      validateInput: v => (isNaN(+v) || +v < 1 || +v > 65535) ? 'Enter a valid port (1–65535)' : null
+    });
+    if (!port) return;
+
+    runInTerminal('MCN: Serve', `serve --file "${file}" --port ${port}`);
+    vscode.window.showInformationMessage(`MCN serving ${path.basename(file)} on port ${port}`);
+  });
+
+  /** Open the web playground in the browser */
+  const cmdPlayground = vscode.commands.registerCommand('mcn.openPlayground', () => {
+    const cfg  = vscode.workspace.getConfiguration('mcn');
+    const port = cfg.get<number>('playgroundPort', 5000);
+    vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
+  });
+
+  /** AI assistant side panel */
+  const cmdAi = vscode.commands.registerCommand('mcn.aiAssistant', () => {
+    const panel = vscode.window.createWebviewPanel(
+      'mcnAiAssistant', 'MCN AI Assistant',
+      vscode.ViewColumn.Beside,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    panel.webview.html = aiAssistantHtml();
+
+    panel.webview.onDidReceiveMessage(async (msg: any) => {
+      if (msg.command === 'generate') {
+        const code = generateSnippet(msg.prompt);
+        panel.webview.postMessage({ command: 'result', code });
+      }
+      if (msg.command === 'insertCode') {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+          editor.edit(eb => eb.insert(editor.selection.active, msg.code));
+        }
+      }
+    });
+  });
+
+  context.subscriptions.push(
+    cmdRun, cmdTest, cmdFmt, cmdCheck,
+    cmdRepl, cmdServe, cmdPlayground, cmdAi
+  );
+
+  // Status bar item — shows "MCN" when editing an MCN file
+  const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+  statusItem.text    = '$(zap) MCN';
+  statusItem.tooltip = 'MCN: click to run';
+  statusItem.command = 'mcn.runScript';
+  context.subscriptions.push(statusItem);
+
+  const updateStatus = (editor?: vscode.TextEditor) => {
+    if (editor && (editor.document.languageId === 'mcn' ||
+                   editor.document.fileName.endsWith('.mx'))) {
+      statusItem.show();
+    } else {
+      statusItem.hide();
+    }
+  };
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(updateStatus)
+  );
+  updateStatus(vscode.window.activeTextEditor);
+}
+
 
 export function deactivate(): Thenable<void> | undefined {
-    if (!client) {
-        return undefined;
-    }
-    return client.stop();
+  return client?.stop();
 }
 
-function getAiAssistantHtml(): string {
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>MCN AI Assistant</title>
-        <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .chat-container { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-            .input-container { display: flex; gap: 10px; }
-            input { flex: 1; padding: 8px; }
-            button { padding: 8px 16px; }
-            .message { margin-bottom: 10px; padding: 8px; border-radius: 4px; }
-            .user { background-color: #e3f2fd; }
-            .ai { background-color: #f3e5f5; }
-            .code { background-color: #f5f5f5; font-family: monospace; white-space: pre-wrap; }
-        </style>
-    </head>
-    <body>
-        <h2>MCN AI Assistant</h2>
-        <div id="chat" class="chat-container"></div>
-        <div class="input-container">
-            <input type="text" id="prompt" placeholder="Describe what you want to build in MCN..." />
-            <button onclick="generateCode()">Generate Code</button>
-        </div>
 
-        <script>
-            const vscode = acquireVsCodeApi();
+// ── AI Assistant webview ──────────────────────────────────────────────────────
 
-            function generateCode() {
-                const prompt = document.getElementById('prompt').value;
-                if (!prompt) return;
+function aiAssistantHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--vscode-font-family); font-size: 13px;
+           background: var(--vscode-editor-background);
+           color: var(--vscode-editor-foreground); padding: 12px; }
+    h3 { margin-bottom: 10px; font-size: 14px; }
+    textarea { width: 100%; height: 70px; resize: vertical; padding: 8px;
+               background: var(--vscode-input-background);
+               color: var(--vscode-input-foreground);
+               border: 1px solid var(--vscode-input-border, #555);
+               border-radius: 3px; font-family: inherit; font-size: 13px; }
+    .row { display: flex; gap: 8px; margin: 8px 0; }
+    button { padding: 6px 14px; border: none; border-radius: 3px; cursor: pointer;
+             background: var(--vscode-button-background);
+             color: var(--vscode-button-foreground); font-size: 12px; font-weight: 600; }
+    button:hover { background: var(--vscode-button-hoverBackground); }
+    .btn-insert { background: var(--vscode-button-secondaryBackground);
+                  color: var(--vscode-button-secondaryForeground); }
+    pre { background: var(--vscode-textCodeBlock-background, #1e1e1e);
+          border: 1px solid var(--vscode-panel-border, #444);
+          border-radius: 3px; padding: 10px; overflow-x: auto;
+          font-family: var(--vscode-editor-font-family, monospace);
+          font-size: 12px; white-space: pre-wrap; margin-top: 10px; }
+    .hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h3>MCN AI Assistant</h3>
+  <textarea id="prompt" placeholder="Describe what you want to build…
+e.g. &quot;a service that classifies customer feedback&quot;"></textarea>
+  <div class="row">
+    <button onclick="generate()">Generate</button>
+  </div>
+  <div id="output" style="display:none">
+    <pre id="code"></pre>
+    <div class="row">
+      <button class="btn-insert" onclick="insertCode()">Insert into editor</button>
+    </div>
+  </div>
+  <div class="hint">Tip: Ctrl+Enter to run the file after inserting.</div>
 
-                addMessage('user', prompt);
-                document.getElementById('prompt').value = '';
+  <script>
+    const vscode = acquireVsCodeApi();
+    let lastCode = '';
 
-                vscode.postMessage({
-                    command: 'generateCode',
-                    prompt: prompt
-                });
-            }
+    document.getElementById('prompt').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
+    });
 
-            function addMessage(type, content) {
-                const chat = document.getElementById('chat');
-                const message = document.createElement('div');
-                message.className = 'message ' + type;
-                message.textContent = content;
-                chat.appendChild(message);
-                chat.scrollTop = chat.scrollHeight;
-            }
-
-            window.addEventListener('message', event => {
-                const message = event.data;
-                if (message.command === 'codeGenerated') {
-                    addMessage('ai', 'Generated MCN code:');
-                    const codeDiv = document.createElement('div');
-                    codeDiv.className = 'message code';
-                    codeDiv.textContent = message.code;
-                    document.getElementById('chat').appendChild(codeDiv);
-                }
-            });
-
-            document.getElementById('prompt').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    generateCode();
-                }
-            });
-        </script>
-    </body>
-    </html>`;
-}
-
-async function generateMcnCode(prompt: string): Promise<string> {
-    // Mock AI code generation - in real implementation, call OpenAI API
-    const templates = {
-        'user management': `var user_name = "Alice"
-var user_email = "alice@example.com"
-
-query("INSERT INTO users (name, email) VALUES (?, ?)", (user_name, user_email))
-log "User created: " + user_name`,
-
-        'api integration': `var api_url = "https://api.example.com/data"
-var response = trigger(api_url, {"key": "value"})
-
-if response.success
-    log "API call successful: " + response.data
-else
-    log "API call failed: " + response.error`,
-
-        'ai analysis': `var text_data = "Sample text for analysis"
-var sentiment = ai("Analyze sentiment of: " + text_data)
-log "Sentiment analysis: " + sentiment`
-    };
-
-    // Simple keyword matching for demo
-    for (const [key, template] of Object.entries(templates)) {
-        if (prompt.toLowerCase().includes(key)) {
-            return template;
-        }
+    function generate() {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) return;
+      vscode.postMessage({ command: 'generate', prompt });
     }
 
-    return `// Generated MCN code for: ${prompt}
+    function insertCode() {
+      if (lastCode) vscode.postMessage({ command: 'insertCode', code: lastCode });
+    }
+
+    window.addEventListener('message', e => {
+      if (e.data.command === 'result') {
+        lastCode = e.data.code;
+        document.getElementById('code').textContent = lastCode;
+        document.getElementById('output').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>`;
+}
+
+
+// ── Snippet generator (offline fallback) ──────────────────────────────────────
+
+function generateSnippet(prompt: string): string {
+  const p = prompt.toLowerCase();
+
+  if (p.includes('sentiment') || p.includes('classify') || p.includes('feedback')) {
+    return `contract Feedback
+    sentiment: str
+    score:     int
+
+service feedback_api
+    port 8080
+
+    endpoint analyze(text)
+        var result = extract(text, Feedback)
+        return result`;
+  }
+
+  if (p.includes('agent') || p.includes('researcher')) {
+    return `agent researcher
+    model  "claude-3-5-sonnet-20241022"
+    tools  ai, fetch
+    memory session
+
+    task analyze(topic)
+        var data     = fetch("https://api.example.com?q=" + topic)
+        var findings = ai("Key insights from: " + data)
+        return findings`;
+  }
+
+  if (p.includes('pipeline') || p.includes('etl') || p.includes('data')) {
+    return `pipeline data_pipeline
+    stage extract
+        var rows = query("SELECT * FROM events WHERE processed = false")
+        return rows
+
+    stage transform(data)
+        var clean = ai("Normalize and deduplicate: " + data)
+        return clean
+
+    stage load(data)
+        query("INSERT INTO clean_events VALUES ?", data)
+        log("Loaded {data} records")`;
+  }
+
+  if (p.includes('api') || p.includes('service') || p.includes('endpoint')) {
+    return `service my_api
+    port 8080
+
+    endpoint get_item(id)
+        var item = query("SELECT * FROM items WHERE id = ?", (id,))
+        if not item
+            throw "Item not found: {id}"
+        return item
+
+    endpoint create_item(name, description)
+        query("INSERT INTO items (name, description) VALUES (?, ?)", (name, description))
+        return {success: true, name: name}`;
+  }
+
+  if (p.includes('test') || p.includes('unit')) {
+    return `function add(a, b)
+    return a + b
+
+function clamp(val, lo, hi)
+    if val < lo
+        return lo
+    if val > hi
+        return hi
+    return val
+
+test "addition works"
+    assert add(2, 3) == 5
+    assert add(-1, 1) == 0
+
+test "clamping"
+    assert clamp(15, 0, 10) == 10
+    assert clamp(-5, 0, 10) == 0`;
+  }
+
+  if (p.includes('prompt') || p.includes('template')) {
+    return `prompt support_reply
+    system "You are a helpful customer support agent. Be concise and friendly."
+    user   "Customer message: {{message}}"
+    format text
+
+var reply = support_reply.run({message: customer_input})
+log(reply)`;
+  }
+
+  // Generic fallback
+  return `// MCN snippet for: ${prompt}
 var result = ai("${prompt}")
-log "Result: " + result`;
+log("Result: {result}")`;
 }

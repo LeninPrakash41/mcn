@@ -1,164 +1,1173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCN Playground</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e1e; color: #fff; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCN Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .header { background: #2d2d30; padding: 1rem; border-bottom: 1px solid #3e3e42; }
-        .header h1 { color: #fff; font-size: 1.5rem; }
+    :root {
+      --bg:          #ffffff;
+      --surface:     #f8f9fb;
+      --surface2:    #f1f3f6;
+      --border:      #e4e8ef;
+      --accent:      #7c3aed;
+      --accent-bg:   #ede9fe;
+      --accent-h:    #6d28d9;
+      --green:       #16a34a;
+      --red:         #dc2626;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --header-h:    52px;
+      --sidebar-w:   224px;
+      --preview-w:   390px;
+      --status-h:    24px;
+    }
 
-        .container { display: flex; height: calc(100vh - 70px); }
-        .editor-panel { flex: 1; display: flex; flex-direction: column; }
-        .output-panel { width: 400px; background: #252526; border-left: 1px solid #3e3e42; display: flex; flex-direction: column; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+    }
 
-        .toolbar { background: #2d2d30; padding: 0.5rem; border-bottom: 1px solid #3e3e42; }
-        .btn { background: #0e639c; color: white; border: none; padding: 0.5rem 1rem; border-radius: 3px; cursor: pointer; margin-right: 0.5rem; }
-        .btn:hover { background: #1177bb; }
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      height: var(--header-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 6px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
 
-        #editor { flex: 1; }
-        .output { flex: 1; padding: 1rem; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; }
-        .output .log { color: #4fc1ff; margin-bottom: 0.5rem; }
-        .output .error { color: #f48771; margin-bottom: 0.5rem; }
-        .output .success { color: #89d185; margin-bottom: 0.5rem; }
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 6px;
+    }
+    .logo-gem {
+      width: 24px; height: 24px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 12px; font-weight: 700;
+    }
+    .logo-ver { font-size: 11px; color: var(--muted); font-weight: 400; }
 
-        .status-bar { background: #007acc; color: white; padding: 0.3rem 1rem; font-size: 12px; }
-    </style>
+    .hdr-sep { flex: 1; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn:hover:not(:disabled) { background: var(--surface); border-color: #c1c9d8; }
+    .btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); border-color: var(--accent-h); }
+
+    .btn-gradient {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: white;
+      border: none;
+      padding: 7px 14px;
+      box-shadow: 0 1px 3px rgba(124,58,237,.3);
+    }
+    .btn-gradient:hover:not(:disabled) { opacity: 0.92; }
+
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-icon { padding: 6px 8px; }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .workspace { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+    .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 12px 12px 4px;
+    }
+
+    .tree-folder {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      user-select: none;
+      cursor: default;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 4px 24px;
+      font-size: 12.5px;
+      cursor: pointer;
+      color: var(--text);
+      border-radius: 5px;
+      margin: 0 4px;
+      user-select: none;
+      transition: background .1s;
+    }
+    .tree-item:hover { background: var(--surface2); }
+    .tree-item.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .tree-icon { font-size: 13px; flex-shrink: 0; line-height: 1; }
+
+    .sidebar-div { height: 1px; background: var(--border); margin: 6px 12px; }
+
+    /* ── Editor ──────────────────────────────────────────────────────── */
+    .editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+      position: relative;
+    }
+
+    .tab-bar {
+      height: 36px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .tab-bar::-webkit-scrollbar { height: 3px; }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      font-size: 12.5px;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      color: var(--muted);
+      position: relative;
+      user-select: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+    .tab-close {
+      font-size: 14px;
+      opacity: 0;
+      line-height: 1;
+      padding: 0 1px;
+      border-radius: 3px;
+    }
+    .tab:hover .tab-close { opacity: 0.5; }
+    .tab-close:hover { opacity: 1 !important; }
+    .tab.dirty .tab-label::after { content: '•'; color: var(--accent); margin-left: 3px; }
+
+    #monaco-container { flex: 1; overflow: hidden; }
+
+    .no-file-open {
+      position: absolute;
+      inset: 36px 0 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--muted);
+      gap: 10px;
+      pointer-events: none;
+    }
+    .no-file-open .nfo-icon { font-size: 40px; opacity: 0.18; }
+    .no-file-open p { font-size: 13px; }
+
+    /* ── Preview panel ───────────────────────────────────────────────── */
+    .preview-panel {
+      width: var(--preview-w);
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .panel-tabs {
+      height: 36px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+    .panel-tab {
+      padding: 0 16px;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+      user-select: none;
+      position: relative;
+    }
+    .panel-tab:hover { color: var(--text); }
+    .panel-tab.active { background: var(--bg); color: var(--text); font-weight: 500; }
+    .panel-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .panel-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .panel-section { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .panel-section.active { display: flex; }
+
+    /* Preview placeholder */
+    .preview-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .preview-placeholder .ph-icon { font-size: 52px; opacity: 0.1; }
+    .preview-placeholder h3 { font-size: 16px; font-weight: 600; }
+    .preview-placeholder p { font-size: 13px; color: var(--muted); max-width: 230px; line-height: 1.6; }
+
+    #preview-iframe {
+      flex: 1;
+      border: none;
+      background: white;
+    }
+
+    /* Build files */
+    .build-files-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .build-file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .build-file-item:hover { background: var(--surface); color: var(--text); }
+
+    /* Output log */
+    #output-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      background: #1a1b26;
+      color: #c0caf5;
+    }
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-line.success { color: #9ece6a; }
+    .log-line.error   { color: #f7768e; }
+    .log-line.info    { color: #7dcfff; }
+    .log-line.warn    { color: #e0af68; }
+    .log-line.dim     { color: #565f89; }
+
+    /* Preview actions */
+    .preview-actions {
+      padding: 7px 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    #server-badge {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+    #server-badge.running { color: var(--green); font-weight: 500; }
+
+    /* ── Status bar ──────────────────────────────────────────────────── */
+    .status-bar {
+      height: var(--status-h);
+      background: var(--accent);
+      color: rgba(255,255,255,.85);
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 14px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    #status-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); }
+    #status-dot.ok { background: #86efac; }
+    #status-dot.err { background: #fca5a5; }
+    .status-div { opacity: .4; }
+
+    /* ── Generate Modal ──────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal-card {
+      background: var(--bg);
+      border-radius: 16px;
+      width: 580px;
+      max-width: 92vw;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 48px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .modal-hdr {
+      padding: 22px 24px 0;
+    }
+    .modal-title { font-size: 19px; font-weight: 700; }
+    .modal-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 18px; }
+
+    .modal-body {
+      padding: 0 24px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-footer {
+      padding: 14px 24px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 13px; font-weight: 500; }
+    .form-label span { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      transition: border-color .15s;
+      outline: none;
+    }
+    .form-input:focus, .form-textarea:focus { border-color: var(--accent); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    .gen-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 2px 0;
+    }
+    .gen-status.hidden { display: none; }
+
+    .gen-stream {
+      background: #1a1b26;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      color: #c0caf5;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.65;
+    }
+    .gen-stream.hidden { display: none; }
+
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbars ──────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #dde2ea; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b8c0cc; }
+
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>MCN Playground</h1>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-gem">M</div>
+    MCN
+    <span class="logo-ver">v2.2</span>
+  </div>
+
+  <button class="btn btn-gradient" onclick="openGenerateModal()">✦ Generate AI App</button>
+  <button class="btn" onclick="runActiveFile()" title="Run active file (Ctrl+Enter)">▶ Run</button>
+  <button class="btn btn-primary" onclick="buildProject()">⚡ Build</button>
+
+  <div class="hdr-sep"></div>
+
+  <button class="btn" id="btnDownload" onclick="downloadProject()" disabled title="Download frontend as zip">⬇ Download</button>
+  <button class="btn" id="btnLaunch" onclick="toggleDevServer()">🚀 Launch Preview</button>
+</header>
+
+<!-- ── Workspace ───────────────────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="section-label">Project</div>
+      <div id="file-tree"></div>
+
+      <div class="sidebar-div"></div>
+      <div class="section-label">Examples</div>
+      <div id="examples-list"></div>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-area">
+    <div class="tab-bar" id="tab-bar"></div>
+    <div id="monaco-container" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
+    <div class="no-file-open" id="no-file-msg">
+      <div class="nfo-icon">📝</div>
+      <p>Select a file to start editing</p>
+    </div>
+  </div>
+
+  <!-- Preview panel -->
+  <div class="preview-panel">
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-panel="preview" onclick="switchPanel('preview', this)">Preview</div>
+      <div class="panel-tab" data-panel="output" onclick="switchPanel('output', this)">Output</div>
+      <div class="panel-tab" data-panel="files" onclick="switchPanel('files', this)">Files</div>
+    </div>
+    <div class="panel-content">
+
+      <!-- Preview -->
+      <div class="panel-section active" id="panel-preview">
+        <div class="preview-placeholder" id="preview-ph">
+          <div class="ph-icon">🖥️</div>
+          <h3>No Preview</h3>
+          <p>Build your app then click <b>Launch Preview</b> to see it live here.</p>
+        </div>
+        <iframe id="preview-iframe" class="hidden" allow="same-origin"></iframe>
+      </div>
+
+      <!-- Output log -->
+      <div class="panel-section" id="panel-output">
+        <div id="output-log"></div>
+      </div>
+
+      <!-- Build files -->
+      <div class="panel-section" id="panel-files">
+        <div class="build-files-list" id="build-files-list">
+          <div style="padding:24px;text-align:center;color:var(--muted)">No build yet — click ⚡ Build</div>
+        </div>
+      </div>
     </div>
 
-    <div class="container">
-        <div class="editor-panel">
-            <div class="toolbar">
-                <button class="btn" onclick="runCode()">▶ Run</button>
-                <button class="btn" onclick="clearOutput()">Clear</button>
-                <button class="btn" onclick="loadExample('hello')">Hello</button>
-                <button class="btn" onclick="loadExample('api')">API</button>
-                <button class="btn" onclick="loadExample('ai')">AI</button>
-            </div>
-            <div id="editor"></div>
-            <div class="status-bar">
-                <span id="status">Ready</span>
-            </div>
-        </div>
-
-        <div class="output-panel">
-            <div class="toolbar">
-                <h3 style="color: #fff; margin: 0;">Output</h3>
-            </div>
-            <div class="output" id="output">
-                <div class="log">MCN Playground Ready</div>
-            </div>
-        </div>
+    <div class="preview-actions">
+      <button class="btn btn-sm" onclick="refreshPreview()" title="Reload iframe">↻ Refresh</button>
+      <div style="flex:1"></div>
+      <span id="server-badge">No dev server</span>
     </div>
+  </div>
+</div>
 
-    <script>
-        let editor;
+<!-- ── Status bar ───────────────────────────────────────────────────────── -->
+<div class="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">Ready</span>
+  <span class="status-div">|</span>
+  <span id="status-ws" style="opacity:.7">~/.mcn/playground</span>
+  <div style="flex:1"></div>
+  <span id="status-srv" style="opacity:.7"></span>
+</div>
 
-        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
-        require(['vs/editor/editor.main'], function () {
-            monaco.languages.register({ id: 'mcn' });
-            monaco.languages.setMonarchTokensProvider('mcn', {
-                tokenizer: {
-                    root: [
-                        [/\b(var|if|else|for|while|function|try|catch|task|await|use|type)\b/, 'keyword'],
-                        [/\b(log|echo|trigger|query|ai|workflow)\b/, 'keyword.function'],
-                        [/".*?"/, 'string'],
-                        [/\d+/, 'number'],
-                        [/\/\/.*$/, 'comment'],
-                    ]
-                }
-            });
+<!-- ── Generate Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="gen-modal">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <div class="modal-title">✦ Generate AI App</div>
+      <div class="modal-sub">Describe your app in plain English — Claude generates the MCN backend &amp; UI</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">App description</label>
+        <textarea class="form-textarea" id="gen-desc" rows="3"
+          placeholder="e.g. A CRM with deals, contacts, companies, and activities. Sidebar navigation. CRUD for each section."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          Claude API key
+          <span>(optional if set via <code>mcn config set api_key</code>)</span>
+        </label>
+        <input class="form-input" type="password" id="gen-key" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+      <div class="gen-status hidden" id="gen-status">
+        <div class="spinner"></div>
+        <span id="gen-status-text">Connecting…</span>
+      </div>
+      <pre class="gen-stream hidden" id="gen-stream"></pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeGenerateModal()">Cancel</button>
+      <button class="btn btn-gradient" id="gen-submit" onclick="submitGenerate()">Generate</button>
+    </div>
+  </div>
+</div>
 
-            editor = monaco.editor.create(document.getElementById('editor'), {
-                value: `// MCN Playground
-log "Hello MCN!"
-var name = "World"
-log "Hello " + name`,
-                language: 'mcn',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false }
-            });
-        });
+<!-- ── Scripts ─────────────────────────────────────────────────────────── -->
+<script>
+// ── Monaco init ─────────────────────────────────────────────────────────
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } })
+require(['vs/editor/editor.main'], function () {
 
-        async function runCode() {
-            const code = editor.getValue();
-            clearOutput();
-            addOutput('Executing MCN code...', 'log');
+  monaco.languages.register({ id: 'mcn' })
+  monaco.languages.setMonarchTokensProvider('mcn', {
+    keywords: ['var','function','return','if','else','for','in','while','break','continue',
+               'try','catch','throw','true','false','null','and','or','not',
+               'contract','service','endpoint','agent','task','pipeline','stage',
+               'workflow','step','prompt','system','user','format','memory',
+               'component','state','on','render','app','title','theme','layout',
+               'tabs','tab','sidebar','nav','route','test','assert'],
+    builtins: ['log','fetch','trigger','query','ai','llm','embed','extract',
+               'classify','checkpoint','read_file','write_file','env'],
+    tokenizer: {
+      root: [
+        [/\/\/.*$/, 'comment'],
+        [/"""[\s\S]*?"""/, 'string'],
+        [/"(?:[^"\\]|\\.)*"/, 'string'],
+        [/\b(true|false|null)\b/, 'constant.language'],
+        [/\b\d+(\.\d+)?\b/, 'number'],
+        [/\b(var|function|return|if|else|for|in|while|break|continue|try|catch|throw|and|or|not)\b/, 'keyword'],
+        [/\b(contract|service|endpoint|agent|task|pipeline|stage|workflow|step|prompt)\b/, 'keyword.declaration'],
+        [/\b(component|state|on|render|app|title|theme|layout|tabs|tab|sidebar|nav|route)\b/, 'keyword.control'],
+        [/\b(test|assert)\b/, 'keyword.other'],
+        [/\b(log|fetch|trigger|query|ai|llm|embed|extract|classify|checkpoint|read_file|write_file|env)\b/, 'support.function'],
+        [/[a-zA-Z_]\w*/, 'identifier'],
+      ]
+    }
+  })
 
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
-                });
+  monaco.editor.defineTheme('mcn-light', {
+    base: 'vs', inherit: true,
+    rules: [
+      { token: 'comment',            foreground: '6a9955', fontStyle: 'italic' },
+      { token: 'keyword',            foreground: '0000ff' },
+      { token: 'keyword.declaration',foreground: '795e26', fontStyle: 'bold' },
+      { token: 'keyword.control',    foreground: '267f99' },
+      { token: 'keyword.other',      foreground: '811f3f' },
+      { token: 'support.function',   foreground: '795e26' },
+      { token: 'string',             foreground: 'a31515' },
+      { token: 'number',             foreground: '098658' },
+      { token: 'constant.language',  foreground: '0070c1' },
+    ],
+    colors: {
+      'editor.background': '#ffffff',
+      'editor.lineHighlightBackground': '#f8f9fb',
+      'editorLineNumber.foreground': '#adb5bd',
+    }
+  })
 
-                const result = await response.json();
-                if (result.success) {
-                    result.output?.forEach(line => addOutput(line, 'log'));
-                    updateStatus('Success');
-                } else {
-                    addOutput(`Error: ${result.error}`, 'error');
-                    updateStatus('Error');
-                }
-            } catch (error) {
-                mockExecute(code);
+  window._editor = monaco.editor.create(document.getElementById('monaco-container'), {
+    theme:             'mcn-light',
+    language:          'mcn',
+    automaticLayout:   true,
+    fontSize:          13.5,
+    fontFamily:        '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
+    lineNumbers:       'on',
+    minimap:           { enabled: false },
+    scrollBeyondLastLine: false,
+    wordWrap:          'on',
+    padding:           { top: 12, bottom: 12 },
+    renderWhitespace:  'selection',
+    bracketPairColorization: { enabled: true },
+  })
+
+  window._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runActiveFile)
+  window._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveActiveTab)
+
+  window._editor.onDidChangeModelContent(() => {
+    const m = window._editor.getModel()
+    if (!m) return
+    const p = m.uri.path.slice(1)
+    if (_tabState.has(p)) { _tabState.get(p).dirty = true; renderTabs() }
+  })
+
+  initApp()
+})
+
+// ── State ────────────────────────────────────────────────────────────────
+let _openTabs  = []       // [{path}]
+let _models    = new Map() // path → monaco model
+let _tabState  = new Map() // path → {dirty}
+let _active    = null
+let _devOn     = false
+let _built     = false
+
+// ── Init ─────────────────────────────────────────────────────────────────
+async function initApp() {
+  await loadFileTree()
+  await loadExamples()
+  await openFile('backend/main.mcn')
+  pollDevStatus()
+}
+
+// ── File tree ────────────────────────────────────────────────────────────
+async function loadFileTree() {
+  try {
+    const r = await fetch('/api/workspace/files')
+    const d = await r.json()
+    renderFileTree(d.files || [])
+  } catch (_) {}
+}
+
+function fileIcon(path) {
+  const ext = path.split('.').pop()
+  if (ext === 'mcn')  return '📄'
+  if (ext === 'tsx' || ext === 'ts') return '⚛'
+  if (ext === 'json') return '{}'
+  if (ext === 'css')  return '🎨'
+  if (ext === 'html') return '🌐'
+  return '📄'
+}
+
+function renderFileTree(files) {
+  const ct = document.getElementById('file-tree')
+  ct.innerHTML = ''
+  const folders = {}
+  for (const f of files) {
+    if (f.path.includes('node_modules')) continue
+    const parts = f.path.split('/')
+    const folder = parts.length > 1 ? parts[0] : '__root__'
+    if (!folders[folder]) folders[folder] = []
+    folders[folder].push(f)
+  }
+  const folderOrder = ['backend', 'ui', 'frontend', '__root__']
+  const allFolders = [...new Set([...folderOrder, ...Object.keys(folders)])]
+  for (const folder of allFolders) {
+    if (!folders[folder]) continue
+    if (folder !== '__root__') {
+      const el = document.createElement('div')
+      el.className = 'tree-folder'
+      el.innerHTML = `<span class="tree-icon">📁</span>${folder}/`
+      ct.appendChild(el)
+    }
+    for (const f of folders[folder]) {
+      ct.appendChild(makeFileItem(f.path))
+    }
+  }
+}
+
+function makeFileItem(path) {
+  const el = document.createElement('div')
+  el.className = 'tree-item' + (_active === path ? ' active' : '')
+  el.dataset.path = path
+  const name = path.split('/').pop()
+  el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${name}</span>`
+  el.onclick = () => openFile(path)
+  return el
+}
+
+// ── Examples ─────────────────────────────────────────────────────────────
+async function loadExamples() {
+  try {
+    const r = await fetch('/api/examples')
+    const d = await r.json()
+    const ct = document.getElementById('examples-list')
+    ct.innerHTML = ''
+    for (const ex of d) {
+      const el = document.createElement('div')
+      el.className = 'tree-item'
+      el.innerHTML = `<span class="tree-icon">📌</span><span>${ex.name}</span>`
+      el.onclick = () => loadExample(ex)
+      ct.appendChild(el)
+    }
+  } catch (_) {}
+}
+
+async function loadExample(ex) {
+  await fetch('/api/workspace/file', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: ex.file, content: ex.code })
+  })
+  if (_models.has(ex.file)) {
+    _models.get(ex.file).setValue(ex.code)
+    if (_tabState.has(ex.file)) _tabState.get(ex.file).dirty = false
+  }
+  await openFile(ex.file)
+  renderTabs()
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+async function openFile(path) {
+  if (!_models.has(path)) {
+    try {
+      const r = await fetch(`/api/workspace/file?path=${encodeURIComponent(path)}`)
+      const d = await r.json()
+      if (d.error) { appendLog('error', d.error); return }
+      const ext = path.endsWith('.mcn') ? 'mcn'
+                : path.endsWith('.tsx') || path.endsWith('.ts') ? 'typescript'
+                : path.endsWith('.json') ? 'json'
+                : path.endsWith('.css') ? 'css'
+                : 'plaintext'
+      const uri   = monaco.Uri.parse('file:///' + path)
+      const model = monaco.editor.createModel(d.content, ext, uri)
+      _models.set(path, model)
+      _tabState.set(path, { dirty: false })
+    } catch (e) { appendLog('error', 'Cannot open ' + path); return }
+  }
+  if (!_openTabs.find(t => t.path === path)) _openTabs.push({ path })
+  _active = path
+  const model = _models.get(path)
+  window._editor.setModel(model)
+  window._editor.updateOptions({ readOnly: path.startsWith('frontend/') })
+  const msg = document.getElementById('no-file-msg')
+  msg && msg.classList.add('hidden')
+  renderTabs()
+  syncTreeActive()
+}
+
+function closeTab(path, e) {
+  if (e) e.stopPropagation()
+  const idx = _openTabs.findIndex(t => t.path === path)
+  if (idx < 0) return
+  _openTabs.splice(idx, 1)
+  if (_models.has(path)) { _models.get(path).dispose(); _models.delete(path) }
+  _tabState.delete(path)
+  if (_active === path) {
+    const next = _openTabs[Math.min(idx, _openTabs.length - 1)]
+    if (next) openFile(next.path)
+    else {
+      _active = null
+      window._editor.setModel(null)
+      document.getElementById('no-file-msg')?.classList.remove('hidden')
+      renderTabs()
+    }
+  } else { renderTabs() }
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tab-bar')
+  bar.innerHTML = ''
+  for (const t of _openTabs) {
+    const dirty    = _tabState.get(t.path)?.dirty
+    const isActive = t.path === _active
+    const el = document.createElement('div')
+    el.className = 'tab' + (isActive ? ' active' : '') + (dirty ? ' dirty' : '')
+    el.onclick = () => openFile(t.path)
+    const name = t.path.split('/').pop()
+    el.innerHTML = `<span class="tree-icon" style="font-size:11px">${fileIcon(t.path)}</span><span class="tab-label">${name}</span><span class="tab-close" onclick="closeTab('${t.path}', event)">×</span>`
+    bar.appendChild(el)
+  }
+}
+
+function syncTreeActive() {
+  document.querySelectorAll('.tree-item[data-path]').forEach(el =>
+    el.classList.toggle('active', el.dataset.path === _active))
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────
+async function saveActiveTab() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  await fetch('/api/workspace/file', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: _active, content: model.getValue() })
+  })
+  if (_tabState.has(_active)) _tabState.get(_active).dirty = false
+  renderTabs()
+}
+
+async function saveAllTabs() {
+  for (const [path, model] of _models.entries()) {
+    const st = _tabState.get(path)
+    if (st?.dirty) {
+      await fetch('/api/workspace/file', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content: model.getValue() })
+      })
+      st.dirty = false
+    }
+  }
+  renderTabs()
+}
+
+// ── Run MCN ──────────────────────────────────────────────────────────────
+async function runActiveFile() {
+  if (!_active) { appendLog('warn', 'No file open'); return }
+  const model = _models.get(_active)
+  if (!model) return
+  setStatus('Running…')
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '▶ Run: ' + _active)
+  try {
+    const r = await fetch('/api/execute', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    for (const l of (d.output || [])) appendLog('', l)
+    if (!d.success) { appendLog('error', '✗ ' + d.error); setStatus('Error', 'err') }
+    else setStatus('Done', 'ok')
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+// ── Build ─────────────────────────────────────────────────────────────────
+async function buildProject() {
+  await saveAllTabs()
+  setStatus('Building…')
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '⚡ Building UI from ui/app.mcn…')
+  try {
+    const r = await fetch('/api/build', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    })
+    const d = await r.json()
+    if (d.stdout) appendLog('dim', d.stdout)
+    if (d.stderr) appendLog('warn', d.stderr)
+    if (d.success) {
+      appendLog('success', `✓ Build complete — ${d.files?.length || 0} files generated`)
+      setStatus('Build complete', 'ok')
+      _built = true
+      document.getElementById('btnDownload').disabled = false
+      renderBuildFiles(d.files || [])
+      await loadFileTree()
+    } else {
+      appendLog('error', '✗ ' + data.error)
+      setStatus('Build failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+function renderBuildFiles(files) {
+  const ct = document.getElementById('build-files-list')
+  ct.innerHTML = ''
+  for (const f of files) {
+    const el = document.createElement('div')
+    el.className = 'build-file-item'
+    el.innerHTML = `<span>${fileIcon(f)}</span><span>${f}</span>`
+    el.onclick = () => openFile(f)
+    ct.appendChild(el)
+  }
+  switchPanel('files', document.querySelector('[data-panel="files"]'))
+}
+
+// ── Download ──────────────────────────────────────────────────────────────
+function downloadProject() {
+  window.location.href = '/api/download'
+}
+
+// ── Dev server ────────────────────────────────────────────────────────────
+async function toggleDevServer() {
+  if (_devOn) await stopDevServer(); else await startDevServer()
+}
+
+async function startDevServer() {
+  setStatus('Starting dev server…')
+  try {
+    const r = await fetch('/api/devserver/start', { method: 'POST' })
+    const d = await r.json()
+    if (d.success) {
+      _devOn = true
+      setStatus(`Dev server :${d.port}`, 'ok')
+      document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+      document.getElementById('server-badge').textContent = `● :${d.port}`
+      document.getElementById('server-badge').className = 'running'
+      document.getElementById('status-srv').textContent = `:${d.port}`
+      showPreview()
+    } else {
+      appendLog('error', '✗ ' + d.error)
+      setStatus('Server failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function stopDevServer() {
+  await fetch('/api/devserver/stop', { method: 'POST' })
+  _devOn = false
+  document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+  document.getElementById('server-badge').textContent = 'No dev server'
+  document.getElementById('server-badge').className = ''
+  document.getElementById('status-srv').textContent = ''
+  hidePreview()
+  setStatus('Dev server stopped')
+}
+
+function showPreview() {
+  const iframe = document.getElementById('preview-iframe')
+  iframe.src = 'http://localhost:5174'
+  iframe.classList.remove('hidden')
+  document.getElementById('preview-ph').classList.add('hidden')
+  switchPanel('preview', document.querySelector('[data-panel="preview"]'))
+}
+
+function hidePreview() {
+  const iframe = document.getElementById('preview-iframe')
+  iframe.src = 'about:blank'
+  iframe.classList.add('hidden')
+  document.getElementById('preview-ph').classList.remove('hidden')
+}
+
+function refreshPreview() {
+  const iframe = document.getElementById('preview-iframe')
+  if (_devOn) iframe.src = iframe.src
+}
+
+async function pollDevStatus() {
+  while (true) {
+    try {
+      const r = await fetch('/api/devserver/status')
+      const d = await r.json()
+      if (d.running !== _devOn) {
+        _devOn = d.running
+        if (_devOn) {
+          document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+          document.getElementById('server-badge').textContent = `● :${d.port}`
+          document.getElementById('server-badge').className = 'running'
+          document.getElementById('status-srv').textContent = `:${d.port}`
+        } else {
+          document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+          document.getElementById('server-badge').textContent = 'No dev server'
+          document.getElementById('server-badge').className = ''
+          document.getElementById('status-srv').textContent = ''
+        }
+      }
+    } catch (_) {}
+    await new Promise(r => setTimeout(r, 5000))
+  }
+}
+
+// ── Panel switching ────────────────────────────────────────────────────────
+function switchPanel(name, tabEl) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'))
+  if (tabEl) tabEl.classList.add('active')
+  const sec = document.getElementById('panel-' + name)
+  if (sec) sec.classList.add('active')
+}
+
+// ── Output log ────────────────────────────────────────────────────────────
+function appendLog(type, text) {
+  const ct = document.getElementById('output-log')
+  const el = document.createElement('div')
+  el.className = 'log-line ' + (type || '')
+  el.textContent = text
+  ct.appendChild(el)
+  ct.scrollTop = ct.scrollHeight
+}
+
+// ── Status ────────────────────────────────────────────────────────────────
+function setStatus(text, state) {
+  document.getElementById('status-text').textContent = text
+  const dot = document.getElementById('status-dot')
+  dot.className = state === 'ok' ? 'ok' : state === 'err' ? 'err' : ''
+}
+
+// ── Generate modal ────────────────────────────────────────────────────────
+function openGenerateModal() {
+  document.getElementById('gen-modal').classList.remove('hidden')
+  document.getElementById('gen-desc').focus()
+}
+
+function closeGenerateModal() {
+  document.getElementById('gen-modal').classList.add('hidden')
+  document.getElementById('gen-stream').textContent = ''
+  document.getElementById('gen-stream').classList.add('hidden')
+  document.getElementById('gen-status').classList.add('hidden')
+  document.getElementById('gen-submit').disabled = false
+}
+
+async function submitGenerate() {
+  const desc   = document.getElementById('gen-desc').value.trim()
+  const apiKey = document.getElementById('gen-key').value.trim()
+  if (!desc) { alert('Please enter a description.'); return }
+
+  document.getElementById('gen-submit').disabled = true
+  document.getElementById('gen-status').classList.remove('hidden')
+  document.getElementById('gen-stream').classList.remove('hidden')
+  document.getElementById('gen-stream').textContent = ''
+  document.getElementById('gen-status-text').textContent = 'Connecting…'
+
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc, api_key: apiKey })
+    })
+    if (!r.ok) {
+      const err = await r.json()
+      alert(err.error || 'Generation failed')
+      closeGenerateModal(); return
+    }
+
+    const reader  = r.body.getReader()
+    const decoder = new TextDecoder()
+    let   buf     = ''
+    document.getElementById('gen-status-text').textContent = 'Generating…'
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split('\n\n')
+      buf = parts.pop()
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue
+        const ev = JSON.parse(part.slice(5).trim())
+        if (ev.type === 'token') {
+          const s = document.getElementById('gen-stream')
+          s.textContent += ev.text
+          s.scrollTop = s.scrollHeight
+        } else if (ev.type === 'status') {
+          document.getElementById('gen-status-text').textContent = ev.text
+        } else if (ev.type === 'done') {
+          document.getElementById('gen-status-text').textContent = '✓ Generation complete!'
+          if (ev.backend) {
+            await fetch('/api/workspace/file', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: 'backend/main.mcn', content: ev.backend })
+            })
+            if (_models.has('backend/main.mcn')) {
+              _models.get('backend/main.mcn').setValue(ev.backend)
+              if (_tabState.has('backend/main.mcn')) _tabState.get('backend/main.mcn').dirty = false
             }
+          }
+          if (ev.ui) {
+            await fetch('/api/workspace/file', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: 'ui/app.mcn', content: ev.ui })
+            })
+            if (_models.has('ui/app.mcn')) {
+              _models.get('ui/app.mcn').setValue(ev.ui)
+              if (_tabState.has('ui/app.mcn')) _tabState.get('ui/app.mcn').dirty = false
+            }
+          }
+          await loadFileTree()
+          setTimeout(() => { closeGenerateModal(); openFile('ui/app.mcn') }, 1500)
+        } else if (ev.type === 'error') {
+          appendLog('error', '✗ Generation error: ' + ev.message)
+          alert('Error: ' + ev.message)
+          closeGenerateModal()
         }
+      }
+    }
+  } catch (e) {
+    appendLog('error', '✗ ' + e.message)
+    alert('Error: ' + e.message)
+    closeGenerateModal()
+  }
+}
 
-        function mockExecute(code) {
-            const lines = code.split('\n');
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.startsWith('log ')) {
-                    const message = line.substring(4).replace(/"/g, '');
-                    addOutput(message, 'success');
-                } else if (line.startsWith('var ')) {
-                    const varName = line.split('=')[0].replace('var ', '').trim();
-                    addOutput(`${varName} declared`, 'log');
-                }
-            });
-            updateStatus('Mock execution complete');
-        }
-
-        function addOutput(message, type = 'log') {
-            const output = document.getElementById('output');
-            const div = document.createElement('div');
-            div.className = type;
-            div.textContent = message;
-            output.appendChild(div);
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function clearOutput() {
-            document.getElementById('output').innerHTML = '';
-        }
-
-        function updateStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
-
-        function loadExample(type) {
-            const examples = {
-                hello: `log "Hello MCN!"
-var greeting = "Welcome"
-log greeting + " to MCN Playground"`,
-                api: `var response = trigger("https://api.github.com/users/octocat")
-log "User: " + response.data.name`,
-                ai: `var data = "Sales increased 25%"
-var analysis = ai("Analyze: " + data)
-log analysis`
-            };
-            editor.setValue(examples[type] || examples.hello);
-        }
-    </script>
+document.getElementById('gen-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeGenerateModal()
+})
+</script>
 </body>
 </html>

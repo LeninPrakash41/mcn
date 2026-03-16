@@ -94,6 +94,54 @@ MCN Syntax:
             print("No command history")
 
 
+def check_file(filepath: str, strict: bool = False) -> int:
+    """
+    Static-check a MCN script without executing it.
+
+    Runs:
+      1. Lexing + parsing  — catches syntax errors
+      2. Type inference    — catches type errors and suspicious patterns
+
+    Exit codes:
+      0  — no issues (or only warnings when --strict is NOT set)
+      1  — at least one ERROR found (or any issue when --strict IS set)
+    """
+    try:
+        from .type_checker import check_source, Severity
+    except ImportError:
+        from type_checker import check_source, Severity
+
+    if not os.path.exists(filepath):
+        print(f"error: file not found: '{filepath}'")
+        return 1
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        code = f.read()
+
+    issues = check_source(code)
+
+    if not issues:
+        print(f"ok  {filepath}")
+        return 0
+
+    errors   = [i for i in issues if i.severity == Severity.ERROR]
+    warnings = [i for i in issues if i.severity == Severity.WARNING]
+
+    for issue in sorted(issues, key=lambda i: (i.line, i.col)):
+        print(f"{filepath}:{issue}")
+
+    total = len(errors)
+    if strict:
+        total += len(warnings)
+
+    summary = []
+    if errors:   summary.append(f"{len(errors)} error(s)")
+    if warnings: summary.append(f"{len(warnings)} warning(s)")
+    print(f"\n{'FAIL' if total else 'PASS'}  {', '.join(summary)}")
+
+    return 1 if total else 0
+
+
 def run_file(filepath: str):
     """Execute MCN script from file"""
     if not os.path.exists(filepath):
@@ -240,6 +288,187 @@ def show_logs(log_type: str = "all"):
         return 1
 
 
+def _cmd_build(mcn_file: str, out_dir: str) -> int:
+    """
+    mcn build <file> [--out <dir>]
+
+    Parses the MCN file, collects all component/app declarations via the
+    evaluator, then runs the UICompiler to emit a React + shadcn/ui project.
+    """
+    from pathlib import Path
+    src = Path(mcn_file)
+    if not src.exists():
+        print(f"Error: file not found: {mcn_file}")
+        return 1
+
+    out = Path(out_dir)
+
+    try:
+        from .lexer       import Lexer
+        from .parser      import Parser
+        from .evaluator   import Evaluator
+        from .ui_compiler import UICompiler
+        from .mcn_interpreter import MCNInterpreter
+    except ImportError:
+        from lexer       import Lexer
+        from parser      import Parser
+        from evaluator   import Evaluator
+        from ui_compiler import UICompiler
+        from mcn_interpreter import MCNInterpreter
+
+    code = src.read_text(encoding="utf-8")
+
+    # Parse
+    tokens  = Lexer(code).tokenize()
+    program = Parser(tokens).parse()
+
+    # Run evaluator — registers components/app but doesn't serve
+    interp    = MCNInterpreter()
+    evaluator = interp._evaluator
+    evaluator.execute_program(program)
+
+    n_components = len(evaluator.components)
+    has_app      = evaluator.app_decl is not None
+
+    if n_components == 0 and not has_app:
+        print(f"No component or app declarations found in {mcn_file}")
+        return 1
+
+    app_name = evaluator.app_decl.name if has_app else "App"
+    print(f"\nBuilding: {app_name}")
+    print(f"Components: {', '.join(evaluator.components) or 'none'}")
+    print(f"Output:    {out}/\n")
+
+    compiler = UICompiler(output_dir=out)
+    compiler.compile(evaluator)
+
+    print(f"\n✓ Frontend generated in {out}/")
+    print(f"\nNext steps:")
+    print(f"  cd {out}")
+    print(f"  npm install")
+    if compiler._shadcn_needed:
+        pkgs = " ".join(sorted(compiler._shadcn_needed))
+        print(f"  npx shadcn@latest add {pkgs}")
+    print(f"  npm run dev")
+    return 0
+
+
+_MCN_CONFIG_PATH = Path.home() / ".mcn" / "config.json"
+
+
+def _load_config() -> dict:
+    if _MCN_CONFIG_PATH.exists():
+        import json as _json
+        try:
+            return _json.loads(_MCN_CONFIG_PATH.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _save_config(data: dict) -> None:
+    import json as _json
+    _MCN_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _MCN_CONFIG_PATH.write_text(_json.dumps(data, indent=2))
+
+
+def _cmd_config(args) -> int:
+    """mcn config set <key> <value>  |  mcn config get <key>  |  mcn config show"""
+    cfg = _load_config()
+
+    if args.config_action == "set":
+        cfg[args.key] = args.value
+        _save_config(cfg)
+        print(f"Saved: {args.key} = {'*' * len(args.value)}")
+        return 0
+
+    elif args.config_action == "get":
+        val = cfg.get(args.key)
+        if val is None:
+            print(f"Not set: {args.key}")
+            return 1
+        # Mask secret-looking values
+        if "key" in args.key.lower() or "secret" in args.key.lower():
+            print(f"{args.key} = {val[:8]}{'*' * max(0, len(val) - 8)}")
+        else:
+            print(f"{args.key} = {val}")
+        return 0
+
+    elif args.config_action == "show":
+        if not cfg:
+            print("No configuration saved. Use `mcn config set <key> <value>`.")
+            return 0
+        for k, v in cfg.items():
+            is_secret = "key" in k.lower() or "secret" in k.lower()
+            masked = v[:4] + "*" * max(4, len(v) - 4) if is_secret else v
+            print(f"  {k} = {masked}")
+        return 0
+
+    print(f"Unknown config action: {args.config_action}")
+    return 1
+
+
+def _cmd_generate(args) -> int:
+    """
+    mcn generate "<description>" [--out <dir>] [--port N] [--build] [--model M] [--api-key K] [--quiet]
+
+    Uses the MCNAgent to turn a natural-language description into a full
+    MCN application (backend/main.mcn + ui/app.mcn), validates both files,
+    and optionally compiles the React frontend.
+
+    API key resolution order:
+      1. --api-key flag
+      2. ~/.mcn/config.json  (set with: mcn config set api_key sk-ant-...)
+      3. ANTHROPIC_API_KEY env var
+    """
+    cfg = _load_config()
+    api_key = (
+        getattr(args, "api_key", None)
+        or cfg.get("api_key")
+        or os.getenv("ANTHROPIC_API_KEY")
+    )
+    if not api_key:
+        print("Error: No Claude API key found.")
+        print("  Option 1 (recommended): mcn config set api_key sk-ant-...")
+        print("  Option 2 (one-time):    mcn generate ... --api-key sk-ant-...")
+        print("  Option 3 (env var):     export ANTHROPIC_API_KEY=sk-ant-...")
+        return 1
+
+    try:
+        # Import from sibling package — works whether run as module or installed
+        try:
+            from mcn.ai.mcn_agent import MCNAgent
+        except ImportError:
+            # Fallback when running from within core_engine directory directly
+            sys.path.insert(0, str(Path(__file__).parent.parent))
+            from ai.mcn_agent import MCNAgent
+    except ImportError as exc:
+        print(f"Error: could not import MCNAgent — {exc}")
+        print("       Make sure `anthropic` is installed:  pip install anthropic")
+        return 1
+
+    agent = MCNAgent(api_key=api_key, model=args.model)
+    verbose = not args.quiet
+
+    if getattr(args, "build", False):
+        result = agent.generate_and_build(
+            description=args.description,
+            output_dir=args.out,
+            port=args.port,
+            verbose=verbose,
+        )
+        build_rc = result.get("build_result", {}).get("returncode", 0)
+        return 0 if build_rc == 0 else 1
+    else:
+        result = agent.generate(
+            description=args.description,
+            output_dir=args.out,
+            port=args.port,
+            verbose=verbose,
+        )
+        return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="MCN (Macincode Scripting Language) CLI v2.0"
@@ -292,8 +521,106 @@ def main():
         help="Log type to show",
     )
 
+    # Check command
+    check_parser = subparsers.add_parser(
+        "check", help="Static type-check a MCN script without running it"
+    )
+    check_parser.add_argument("file", help="MCN script file to check")
+    check_parser.add_argument(
+        "--strict", action="store_true",
+        help="Treat warnings as errors (exit 1 if any issues)"
+    )
+
+    # Test command
+    test_parser = subparsers.add_parser(
+        "test", help="Run test blocks in MCN scripts"
+    )
+    test_parser.add_argument(
+        "path", help="MCN script file or directory to test"
+    )
+    test_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Verbose output"
+    )
+
+    # Fmt command
+    fmt_parser = subparsers.add_parser(
+        "fmt", help="Format MCN source code"
+    )
+    fmt_parser.add_argument(
+        "path", help="MCN script file or directory to format"
+    )
+    fmt_parser.add_argument(
+        "--write", "-w", action="store_true",
+        help="Rewrite file(s) in place (default: print to stdout)"
+    )
+    fmt_parser.add_argument(
+        "--check", action="store_true",
+        help="Exit 1 if any file needs formatting (CI mode)"
+    )
+
     # REPL command
     repl_parser = subparsers.add_parser("repl", help="Start interactive REPL")
+
+    # Build command — compile MCN component/app blocks → React + shadcn frontend
+    build_parser = subparsers.add_parser(
+        "build", help="Compile MCN UI components to React + shadcn/ui"
+    )
+    build_parser.add_argument(
+        "file", help="MCN source file containing component/app declarations"
+    )
+    build_parser.add_argument(
+        "--out", default="frontend",
+        help="Output directory for generated React project (default: frontend/)"
+    )
+
+    # Generate command — AI agent: natural language → MCN → React app
+    gen_parser = subparsers.add_parser(
+        "generate", aliases=["gen"],
+        help="Generate a full MCN app from a natural-language description (requires ANTHROPIC_API_KEY)"
+    )
+    gen_parser.add_argument(
+        "description",
+        help="Natural-language description of the app to build"
+    )
+    gen_parser.add_argument(
+        "--out", default=".",
+        help="Output directory (default: current directory)"
+    )
+    gen_parser.add_argument(
+        "--port", type=int, default=8080,
+        help="Backend server port (default: 8080)"
+    )
+    gen_parser.add_argument(
+        "--build", action="store_true",
+        help="Also run `mcn build` on the generated UI after writing files"
+    )
+    gen_parser.add_argument(
+        "--model", default="claude-opus-4-6",
+        help="Claude model to use (default: claude-opus-4-6)"
+    )
+    gen_parser.add_argument(
+        "--api-key", dest="api_key", default=None,
+        help="Claude API key (overrides config file and env var)"
+    )
+    gen_parser.add_argument(
+        "--quiet", "-q", action="store_true",
+        help="Suppress streaming output"
+    )
+
+    # Config command — store Claude API key and other settings
+    config_parser = subparsers.add_parser(
+        "config", help="Get or set MCN configuration (e.g. Claude API key)"
+    )
+    config_sub = config_parser.add_subparsers(dest="config_action")
+
+    cfg_set = config_sub.add_parser("set", help="Set a config value")
+    cfg_set.add_argument("key",   help="Config key   (e.g. api_key)")
+    cfg_set.add_argument("value", help="Config value (e.g. sk-ant-...)")
+
+    cfg_get = config_sub.add_parser("get", help="Get a config value")
+    cfg_get.add_argument("key", help="Config key to retrieve")
+
+    config_sub.add_parser("show", help="Show all saved config values")
 
     # Serve command
     serve_parser = subparsers.add_parser("serve", help="Serve MCN scripts as APIs")
@@ -315,7 +642,37 @@ def main():
     args = parser.parse_args()
 
     # Handle new subcommands
-    if args.command == "init":
+    if args.command in ("generate", "gen"):
+        return _cmd_generate(args)
+
+    elif args.command == "config":
+        if not getattr(args, "config_action", None):
+            print("Usage: mcn config {set|get|show}")
+            return 1
+        return _cmd_config(args)
+
+    elif args.command == "build":
+        return _cmd_build(args.file, args.out)
+
+    elif args.command == "test":
+        try:
+            from .test_runner import run_tests
+        except ImportError:
+            from test_runner import run_tests
+        return run_tests(args.path, verbose=getattr(args, "verbose", False))
+
+    elif args.command == "fmt":
+        try:
+            from .formatter import run_fmt
+        except ImportError:
+            from formatter import run_fmt
+        return run_fmt(args.path,
+                       write=getattr(args, "write", False),
+                       check=getattr(args, "check", False))
+
+    elif args.command == "check":
+        return check_file(args.file, strict=getattr(args, "strict", False))
+    elif args.command == "init":
         return init_project(args.name, args.frontend)
     elif args.command == "validate":
         return validate_project(args.path)
