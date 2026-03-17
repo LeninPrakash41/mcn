@@ -13,8 +13,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from .lexer import Token, TT
+from .lexer import Token, TT, KEYWORDS
 from . import ast_nodes as ast
+
+# Token types that may appear as unquoted object literal keys
+_KEYWORD_TYPES = frozenset(KEYWORDS.values())
 
 
 # ── Errors ─────────────────────────────────────────────────────────────────────
@@ -58,14 +61,52 @@ class Parser:
     def parse(self) -> ast.Program:
         tok  = self._current()
         body: List[ast.Stmt] = []
+        self.errors: List[str] = []          # collected non-fatal parse errors
         while not self._at_end():
             self._skip_newlines()
             if self._at_end():
                 break
-            stmt = self._statement()
-            if stmt is not None:
-                body.append(stmt)
+            try:
+                stmt = self._statement()
+                if stmt is not None:
+                    body.append(stmt)
+            except ParseError as e:
+                self.errors.append(str(e))
+                self._synchronize()          # skip to next safe statement boundary
         return ast.Program(body=body, line=tok.line, col=tok.col)
+
+    def _synchronize(self) -> None:
+        """Advance past the current bad token(s) to the next top-level statement.
+
+        Strategy: consume tokens until we see a NEWLINE at indent depth 0, or
+        one of the statement-starting keywords.  This prevents a single syntax
+        error from cascading into dozens of confusing follow-on errors.
+        """
+        _STMT_STARTERS = {
+            TT.VAR, TT.FUNCTION, TT.IF, TT.FOR, TT.WHILE, TT.RETURN,
+            TT.TRY, TT.THROW, TT.USE, TT.PIPELINE, TT.SERVICE,
+            TT.WORKFLOW, TT.CONTRACT, TT.PROMPT, TT.AGENT,
+            TT.TEST, TT.COMPONENT, TT.APP, TT.TASK,
+        }
+        depth = 0
+        while not self._at_end():
+            tok = self._current()
+            if tok.type == TT.INDENT:
+                depth += 1
+                self._advance()
+            elif tok.type == TT.DEDENT:
+                depth = max(0, depth - 1)
+                self._advance()
+                if depth == 0:
+                    return
+            elif tok.type == TT.NEWLINE:
+                self._advance()
+                if depth == 0:
+                    return
+            elif depth == 0 and tok.type in _STMT_STARTERS:
+                return
+            else:
+                self._advance()
 
     # ── Statement dispatch ─────────────────────────────────────────────────────
 
@@ -99,11 +140,19 @@ class Parser:
         if tok.type == TT.COMPONENT: return self._component_decl()
         if tok.type == TT.APP:       return self._app_decl()
         if tok.type == TT.INCLUDE:   return self._include_stmt()
-        # Bare assignment: name = expr  (must come before _expr_stmt)
+        # Bare assignment variants: name = expr, name += expr, name -= expr ...
+        _COMPOUND_OPS = {
+            TT.PLUS_ASSIGN: "+", TT.MINUS_ASSIGN: "-",
+            TT.STAR_ASSIGN: "*", TT.SLASH_ASSIGN: "/",
+            TT.PERCENT_ASSIGN: "%",
+        }
         if (tok.type == TT.IDENTIFIER and
-                self._pos + 1 < len(self._tokens) and
-                self._tokens[self._pos + 1].type == TT.ASSIGN):
-            return self._assign_stmt()
+                self._pos + 1 < len(self._tokens)):
+            next_tt = self._tokens[self._pos + 1].type
+            if next_tt == TT.ASSIGN:
+                return self._assign_stmt()
+            if next_tt in _COMPOUND_OPS:
+                return self._compound_assign_stmt(_COMPOUND_OPS[next_tt])
         return self._expr_stmt()
 
     # ── Statement parsers ──────────────────────────────────────────────────────
@@ -111,10 +160,15 @@ class Parser:
     def _var_decl(self) -> ast.VarDecl:
         tok      = self._advance()            # consume VAR
         name_tok = self._consume(TT.IDENTIFIER, "Expected variable name after 'var'")
+        # optional type hint: var x: int = 5
+        type_hint: Optional[str] = None
+        if self._match(TT.COLON):
+            type_tok  = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
+            type_hint = type_tok.value
         self._consume(TT.ASSIGN, "Expected '=' after variable name")
         value    = self._expression()
         self._consume_end()
-        return ast.VarDecl(name=name_tok.value, value=value,
+        return ast.VarDecl(name=name_tok.value, value=value, type_hint=type_hint,
                            line=tok.line, col=tok.col)
 
     def _assign_stmt(self) -> ast.AssignStmt:
@@ -125,6 +179,15 @@ class Parser:
         return ast.AssignStmt(name=name_tok.value, value=value,
                               line=name_tok.line, col=name_tok.col)
 
+    def _compound_assign_stmt(self, op: str) -> ast.CompoundAssignStmt:
+        """x += expr, x -= expr, x *= expr, x /= expr, x %= expr"""
+        name_tok = self._advance()   # consume IDENTIFIER
+        self._advance()              # consume +=/-=/etc.
+        value    = self._expression()
+        self._consume_end()
+        return ast.CompoundAssignStmt(name=name_tok.value, op=op, value=value,
+                                      line=name_tok.line, col=name_tok.col)
+
     def _if_stmt(self) -> ast.IfStmt:
         tok       = self._advance()           # consume IF
         condition = self._expression()
@@ -132,21 +195,37 @@ class Parser:
         then_body = self._block()
         else_body: List[ast.Stmt] = []
         if self._check(TT.ELSE):
-            self._advance()
-            self._consume_end()
-            else_body = self._block()
+            self._advance()                   # consume ELSE
+            if self._check(TT.IF):
+                # else if → wrap the nested if as the else_body (one-item list)
+                else_body = [self._if_stmt()]
+            else:
+                self._consume_end()
+                else_body = self._block()
         return ast.IfStmt(condition=condition, then_body=then_body,
                           else_body=else_body, line=tok.line, col=tok.col)
 
     def _for_stmt(self) -> ast.ForStmt:
         tok     = self._advance()             # consume FOR
-        var_tok = self._consume(TT.IDENTIFIER, "Expected loop variable after 'for'")
+        first   = self._consume(TT.IDENTIFIER, "Expected loop variable after 'for'")
+
+        # for i, val in list  →  index_var=i, variable=val
+        index_var: Optional[str] = None
+        if self._check(TT.COMMA):
+            self._advance()                   # consume ','
+            second    = self._consume(TT.IDENTIFIER, "Expected value variable after ','")
+            index_var = first.value
+            var_name  = second.value
+        else:
+            var_name  = first.value
+
         self._consume(TT.IN, "Expected 'in' after loop variable")
         iterable = self._expression()
         self._consume_end()
         body = self._block()
-        return ast.ForStmt(variable=var_tok.value, iterable=iterable,
-                           body=body, line=tok.line, col=tok.col)
+        return ast.ForStmt(variable=var_name, index_var=index_var,
+                           iterable=iterable, body=body,
+                           line=tok.line, col=tok.col)
 
     def _while_stmt(self) -> ast.WhileStmt:
         tok       = self._advance()           # consume WHILE
@@ -159,13 +238,30 @@ class Parser:
     def _try_stmt(self) -> ast.TryStmt:
         tok      = self._advance()            # consume TRY
         self._consume_end()
-        try_body  = self._block()
-        catch_body: List[ast.Stmt] = []
+        try_body     = self._block()
+        catch_var:    Optional[str]   = None
+        catch_body:   List[ast.Stmt]  = []
+        finally_body: List[ast.Stmt]  = []
+
         if self._check(TT.CATCH):
-            self._advance()
+            self._advance()                   # consume CATCH
+            # Optional binding: catch e  or  catch (e)
+            if self._check(TT.IDENTIFIER):
+                catch_var = self._advance().value
+            elif self._check(TT.LPAREN):
+                self._advance()               # consume (
+                catch_var = self._consume(TT.IDENTIFIER, "Expected variable name").value
+                self._consume(TT.RPAREN, "Expected ')' after catch variable")
             self._consume_end()
             catch_body = self._block()
-        return ast.TryStmt(try_body=try_body, catch_body=catch_body,
+
+        if self._check(TT.FINALLY):
+            self._advance()                   # consume FINALLY
+            self._consume_end()
+            finally_body = self._block()
+
+        return ast.TryStmt(try_body=try_body, catch_var=catch_var,
+                           catch_body=catch_body, finally_body=finally_body,
                            line=tok.line, col=tok.col)
 
     def _throw_stmt(self) -> ast.ThrowStmt:
@@ -193,34 +289,47 @@ class Parser:
 
     def _parse_params(self) -> tuple:
         """
-        Parse a parenthesised parameter list with optional defaults.
+        Parse a parenthesised parameter list with optional type hints and defaults.
         Caller must have already consumed the opening '('.
-        Returns (params: List[str], defaults: dict).
+        Returns (params: List[str], defaults: dict, param_types: dict).
+        Supports: foo(x: int, y: str = "hi")
         """
-        params:   List[str] = []
-        defaults: dict      = {}
-        if not self._check(TT.RPAREN):
+        params:      List[str] = []
+        defaults:    dict      = {}
+        param_types: dict      = {}
+
+        def _one_param():
             p = self._consume(TT.IDENTIFIER, "Expected parameter name").value
             params.append(p)
+            # optional type hint: param: type
+            if self._match(TT.COLON):
+                type_tok = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
+                param_types[p] = type_tok.value
             if self._match(TT.ASSIGN):
                 defaults[p] = self._expression()
+
+        if not self._check(TT.RPAREN):
+            _one_param()
             while self._match(TT.COMMA):
-                p = self._consume(TT.IDENTIFIER, "Expected parameter name").value
-                params.append(p)
-                if self._match(TT.ASSIGN):
-                    defaults[p] = self._expression()
-        return params, defaults
+                _one_param()
+        return params, defaults, param_types
 
     def _function_decl(self) -> ast.FunctionDecl:
         tok      = self._advance()            # consume FUNCTION
         name_tok = self._consume(TT.IDENTIFIER, "Expected function name")
         self._consume(TT.LPAREN, "Expected '(' after function name")
-        params, defaults = self._parse_params()
+        params, defaults, param_types = self._parse_params()
         self._consume(TT.RPAREN, "Expected ')' after parameters")
+        # optional return type: function foo(x): bool
+        return_type: Optional[str] = None
+        if self._match(TT.COLON):
+            rt = self._consume(TT.IDENTIFIER, "Expected return type after ':'")
+            return_type = rt.value
         self._consume_end()
         body = self._block()
         return ast.FunctionDecl(name=name_tok.value, params=params,
                                 defaults=defaults, body=body,
+                                param_types=param_types, return_type=return_type,
                                 line=tok.line, col=tok.col)
 
     def _return_stmt(self) -> ast.ReturnStmt:
@@ -253,6 +362,23 @@ class Parser:
             return ast.ExprStmt(expression=call, line=func_tok.line, col=func_tok.col)
 
         expr = self._expression()
+
+        # Property/index assignment: obj.key = val  or  arr[i] = val
+        if self._check(TT.ASSIGN):
+            self._advance()           # consume '='
+            value = self._expression()
+            self._consume_end()
+            if isinstance(expr, ast.Property):
+                return ast.PropertyAssignStmt(
+                    object=expr.object, prop=expr.name, value=value,
+                    line=expr.line, col=expr.col)
+            if isinstance(expr, ast.Index):
+                return ast.IndexAssignStmt(
+                    object=expr.object, index=expr.index, value=value,
+                    line=expr.line, col=expr.col)
+            # Fall through — treat as error or re-wrap (shouldn't happen after
+            # the IDENTIFIER fast-path above handled simple name = val)
+
         self._consume_end()
         return ast.ExprStmt(expression=expr, line=tok.line, col=tok.col)
 
@@ -289,7 +415,16 @@ class Parser:
     # ── Expression grammar (Pratt-style precedence) ────────────────────────────
 
     def _expression(self) -> ast.Expr:
-        return self._or()
+        """Top-level expression. Handles ternary: condition ? then : else"""
+        expr = self._or()
+        if self._check(TT.QUESTION):
+            q        = self._advance()        # consume '?'
+            then_ex  = self._or()
+            self._consume(TT.COLON, "Expected ':' in ternary expression")
+            else_ex  = self._or()
+            return ast.TernaryExpr(condition=expr, then_expr=then_ex, else_expr=else_ex,
+                                   line=q.line, col=q.col)
+        return expr
 
     def _or(self) -> ast.Expr:
         left = self._and()
@@ -338,7 +473,7 @@ class Parser:
 
     def _factor(self) -> ast.Expr:
         left = self._unary()
-        while self._current().type in (TT.STAR, TT.SLASH):
+        while self._current().type in (TT.STAR, TT.SLASH, TT.PERCENT):
             op    = self._advance()
             right = self._unary()
             left  = ast.Binary(left=left, operator=op.value, right=right,
@@ -399,6 +534,12 @@ class Parser:
             return ast.Literal(value=tok.value, line=tok.line, col=tok.col)
 
         if self._match(TT.IDENTIFIER):
+            # Arrow function: single param shorthand   x => expr
+            if self._check(TT.ARROW):
+                self._advance()              # consume '=>'
+                body = self._expression()
+                return ast.ArrowFunc(params=[tok.value], body=body,
+                                     line=tok.line, col=tok.col)
             return ast.Variable(name=tok.value, line=tok.line, col=tok.col)
 
         # await keyword used as an expression
@@ -422,42 +563,89 @@ class Parser:
                         break
                     elements.append(self._expression())
             self._consume(TT.RPAREN, "Expected ')' after expression")
+            # Arrow function: (x, y) => expr  or  (x) => expr
+            if self._check(TT.ARROW):
+                self._advance()              # consume '=>'
+                # params must all be plain identifiers
+                params = []
+                for el in elements:
+                    if isinstance(el, ast.Variable):
+                        params.append(el.name)
+                    else:
+                        raise ParseError("Arrow function params must be identifiers", tok)
+                body = self._expression()
+                return ast.ArrowFunc(params=params, body=body,
+                                     line=tok.line, col=tok.col)
+
             # (x,) or (x, y) → tuple; (x) without trailing comma → grouped expr
             if len(elements) == 1 and not trailing_comma:
                 return elements[0]
             return ast.MCNTuple(elements=elements, line=tok.line, col=tok.col)
 
-        # Array literal: [a, b, c] or [a, b,]
+        # Array literal: [a, b, c] or [a, b,] — may span multiple lines
         if self._match(TT.LBRACKET):
             elements = []
+            self._skip_whitespace()
             if not self._check(TT.RBRACKET):
                 elements.append(self._expression())
+                self._skip_whitespace()
                 while self._match(TT.COMMA):
+                    self._skip_whitespace()
                     if self._check(TT.RBRACKET):  # trailing comma
                         break
                     elements.append(self._expression())
+                    self._skip_whitespace()
             self._consume(TT.RBRACKET, "Expected ']' after array elements")
             return ast.Array(elements=elements, line=tok.line, col=tok.col)
 
-        # Object literal: {key: value, ...}
+        # Object literal: {key: value, ...} — may span multiple lines
+        # Keys may be identifiers, string literals, OR reserved keywords used
+        # as property names (e.g. {task: "send_email", type: "job"}).
         if self._match(TT.LBRACE):
             props = []
+            self._skip_whitespace()
             if not self._check(TT.RBRACE):
-                key = self._expression()
+                key = self._object_key()
                 self._consume(TT.COLON, "Expected ':' after object key")
                 val = self._expression()
                 props.append((key, val))
+                self._skip_whitespace()
                 while self._match(TT.COMMA):
-                    key = self._expression()
+                    self._skip_whitespace()
+                    if self._check(TT.RBRACE):   # trailing comma
+                        break
+                    key = self._object_key()
                     self._consume(TT.COLON, "Expected ':' after object key")
                     val = self._expression()
                     props.append((key, val))
+                    self._skip_whitespace()
             self._consume(TT.RBRACE, "Expected '}' after object properties")
             return ast.MCNObject(properties=props, line=tok.line, col=tok.col)
 
         raise ParseError("Unexpected token", tok)
 
     # ── Helpers ────────────────────────────────────────────────────────────────
+
+    def _object_key(self) -> ast.Expr:
+        """
+        Parse an object literal key.  Accepts:
+          - identifiers:       {name: ...}
+          - string literals:   {"key": ...}
+          - any keyword token: {task: ..., type: ..., service: ...}
+        Returns a Literal (string) or Variable node.
+        """
+        t = self._current()
+        if t.type == TT.IDENTIFIER:
+            self._advance()
+            return ast.Variable(name=t.value, line=t.line, col=t.col)
+        if t.type == TT.STRING:
+            self._advance()
+            return ast.Literal(value=t.value, line=t.line, col=t.col)
+        if t.type in _KEYWORD_TYPES:
+            # Treat keyword as a plain string key so {task: x, type: y} works
+            self._advance()
+            return ast.Literal(value=t.value, line=t.line, col=t.col)
+        raise ParseError("Expected object key (identifier or string)", t)
 
     def _advance(self) -> Token:
         tok = self._tokens[self._pos]
@@ -488,6 +676,11 @@ class Parser:
 
     def _skip_newlines(self):
         while self._check(TT.NEWLINE):
+            self._advance()
+
+    def _skip_whitespace(self):
+        """Skip NEWLINE, INDENT, and DEDENT — used inside multi-line collections."""
+        while self._current().type in (TT.NEWLINE, TT.INDENT, TT.DEDENT):
             self._advance()
 
     def _at_end(self) -> bool:
@@ -535,7 +728,7 @@ class Parser:
         params: List[str] = []
         defaults: dict    = {}
         if self._match(TT.LPAREN):
-            params, defaults = self._parse_params()
+            params, defaults, _ = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after stage parameters")
         self._consume_end()
         body = self._block()
@@ -584,7 +777,7 @@ class Parser:
         params: List[str] = []
         defaults: dict    = {}
         if self._match(TT.LPAREN):
-            params, defaults = self._parse_params()
+            params, defaults, _ = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after endpoint parameters")
         self._consume_end()
         body = self._block()
@@ -625,7 +818,7 @@ class Parser:
         params: List[str] = []
         defaults: dict    = {}
         if self._match(TT.LPAREN):
-            params, defaults = self._parse_params()
+            params, defaults, _ = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after step parameters")
         self._consume_end()
         body = self._block()
@@ -839,7 +1032,7 @@ class Parser:
         params: List[str] = []
         defaults: dict    = {}
         if self._match(TT.LPAREN):
-            params, defaults = self._parse_params()
+            params, defaults, _ = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after task parameters")
         self._consume_end()
         body = self._block()

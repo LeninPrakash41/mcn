@@ -33,8 +33,10 @@ class TT(Enum):
     FUNCTION   = auto()
     TRY        = auto()
     CATCH      = auto()
+    FINALLY    = auto()
     THROW      = auto()
     RETURN     = auto()
+    ARROW      = auto()   # =>
     TASK       = auto()
     AWAIT      = auto()
     USE        = auto()
@@ -54,6 +56,13 @@ class TT(Enum):
     LT     = auto()   # <
     GTE    = auto()   # >=
     LTE    = auto()   # <=
+    PERCENT       = auto()   # %
+    PLUS_ASSIGN   = auto()   # +=
+    MINUS_ASSIGN  = auto()   # -=
+    STAR_ASSIGN   = auto()   # *=
+    SLASH_ASSIGN  = auto()   # /=
+    PERCENT_ASSIGN = auto()  # %=
+    QUESTION      = auto()   # ?  (ternary)
 
     # Punctuation
     LPAREN   = auto()  # (
@@ -118,6 +127,7 @@ KEYWORDS: dict[str, TT] = {
     "function": TT.FUNCTION,
     "try":      TT.TRY,
     "catch":    TT.CATCH,
+    "finally":  TT.FINALLY,
     "throw":    TT.THROW,
     "return":   TT.RETURN,
     "task":     TT.TASK,
@@ -338,8 +348,14 @@ class Lexer:
 
         # Two-character operators (check before single-char)
         two = self._src[self._pos : self._pos + 2]
-        two_ops = {"==": TT.EQ, "!=": TT.NEQ, ">=": TT.GTE, "<=": TT.LTE,
-                   "?.": TT.SAFE_DOT}
+        two_ops = {
+            "==": TT.EQ,   "!=": TT.NEQ, ">=": TT.GTE,  "<=": TT.LTE,
+            "?.": TT.SAFE_DOT,
+            "+=": TT.PLUS_ASSIGN,  "-=": TT.MINUS_ASSIGN,
+            "*=": TT.STAR_ASSIGN,  "/=": TT.SLASH_ASSIGN,
+            "%=": TT.PERCENT_ASSIGN,
+            "=>": TT.ARROW,
+        }
         if two in two_ops:
             self._push(two_ops[two], two)
             self._pos += 2
@@ -349,8 +365,8 @@ class Lexer:
         # Single-character tokens
         one_ops = {
             "=": TT.ASSIGN, "+": TT.PLUS,  "-": TT.MINUS,
-            "*": TT.STAR,   "/": TT.SLASH,
-            ">": TT.GT,     "<": TT.LT,
+            "*": TT.STAR,   "/": TT.SLASH,  "%": TT.PERCENT,
+            ">": TT.GT,     "<": TT.LT,    "?": TT.QUESTION,
             "(": TT.LPAREN, ")": TT.RPAREN,
             "{": TT.LBRACE, "}": TT.RBRACE,
             "[": TT.LBRACKET, "]": TT.RBRACKET,

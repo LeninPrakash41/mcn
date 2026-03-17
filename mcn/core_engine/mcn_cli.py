@@ -469,6 +469,148 @@ def _cmd_generate(args) -> int:
         return 0
 
 
+def _cmd_install(args) -> int:
+    """mcn install [package] [--path dir] [--name name]"""
+    try:
+        from .mcn_packages import get_registry, _BUNDLED, PackageNotFoundError
+    except ImportError:
+        from mcn_packages import get_registry, _BUNDLED, PackageNotFoundError
+
+    registry = get_registry()
+
+    if args.path:
+        # Install from local path
+        pkg_name = registry.install_from_path(args.path, package_name=getattr(args, "name", None))
+        print(f"✓ Installed '{pkg_name}' from {args.path}")
+        print(f"  Use it in MCN:  use \"{pkg_name}\"")
+        return 0
+
+    if not args.package:
+        print("Usage: mcn install <package>  OR  mcn install --path ./my_package")
+        print(f"\nBuilt-in packages (no install needed):")
+        for name in sorted(_BUNDLED.keys()):
+            print(f"  {name}")
+        return 1
+
+    # Try loading it to validate it exists
+    try:
+        fns = registry.load(args.package)
+        print(f"✓ Package '{args.package}' is available ({len(fns)} exports: {', '.join(sorted(fns.keys()))})")
+        print(f"  Use it in MCN:  use \"{args.package}\"")
+        return 0
+    except PackageNotFoundError as e:
+        print(f"✗ {e}")
+        return 1
+
+
+def _cmd_packages(args) -> int:
+    """mcn packages {list|info|remove}"""
+    try:
+        from .mcn_packages import get_registry, _REGISTRY_DIR
+    except ImportError:
+        from mcn_packages import get_registry, _REGISTRY_DIR
+
+    action = getattr(args, "pkg_action", None) or "list"
+    registry = get_registry()
+
+    if action == "list":
+        pkgs = registry.installed_packages()
+        print(f"{'NAME':<30}  {'VERSION':<10}  {'SOURCE'}")
+        print("-" * 70)
+        for p in pkgs:
+            print(f"{p['name']:<30}  {p['version']:<10}  {p.get('source','bundled')}")
+        print(f"\n{len(pkgs)} packages. Registry: {_REGISTRY_DIR}")
+        return 0
+
+    if action == "info":
+        try:
+            fns = registry.load(args.package)
+            print(f"Package: {args.package}")
+            print(f"Exports ({len(fns)}):")
+            for name, fn in sorted(fns.items()):
+                doc = (fn.__doc__ or "").strip().split("\n")[0]
+                print(f"  {name:<28} {doc}")
+            return 0
+        except Exception as e:
+            print(f"✗ {e}")
+            return 1
+
+    if action == "remove":
+        import shutil as _shutil
+        pkg_dir = _REGISTRY_DIR / args.package
+        if pkg_dir.exists():
+            _shutil.rmtree(pkg_dir)
+            print(f"✓ Removed '{args.package}'")
+            return 0
+        print(f"✗ Package '{args.package}' not found in registry")
+        return 1
+
+    print(f"Unknown action '{action}'. Use: list, info, remove")
+    return 1
+
+
+def _cmd_deploy(args) -> int:
+    """mcn deploy [workspace] [--target zip|docker|cloud] [--name app-name] [--out dir]"""
+    try:
+        from .mcn_deployer import deploy_workspace
+    except ImportError:
+        from mcn_deployer import deploy_workspace  # type: ignore
+
+    workspace = Path(args.workspace).resolve()
+    if not workspace.exists():
+        print(f"Error: workspace not found: {workspace}")
+        return 1
+
+    print(f"Packaging '{args.name}' from {workspace} (target: {args.target})...")
+
+    try:
+        result = deploy_workspace(workspace, app_name=args.name, target=args.target)
+    except Exception as exc:
+        print(f"Deploy failed: {exc}")
+        return 1
+
+    # Write zip to --out directory
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = out_dir / f"{args.name}.zip"
+    zip_path.write_bytes(result["zip_bytes"])
+
+    print(f"\nPackage:  {zip_path}  ({len(result['zip_bytes']) // 1024} KB)")
+    print(f"Files:    {len(result['files_included'])} included")
+    print(f"\nTo deploy with Docker:")
+    print(f"  {result['docker_cmd']}")
+    if result.get("cloud_url"):
+        print(f"\nCloud URL: {result['cloud_url']}")
+    else:
+        print(f"\nTip: set MCN_DEPLOY_URL to push directly to your cloud.")
+    return 0
+
+
+def _cmd_new_package(args) -> int:
+    """mcn new-package <name> [--path dir] [--author x] [--description y]"""
+    try:
+        from .mcn_packages import get_registry
+    except ImportError:
+        from mcn_packages import get_registry
+
+    dest = Path(args.path) / args.name.replace("/", "_")
+    registry = get_registry()
+    pkg_dir  = registry.scaffold_package(
+        str(dest), args.name,
+        author=getattr(args, "author", ""),
+        description=getattr(args, "description", ""),
+    )
+    print(f"✓ Package scaffold created: {pkg_dir}")
+    print(f"\nFiles created:")
+    for f in sorted(Path(pkg_dir).iterdir()):
+        print(f"  {f.name}")
+    print(f"\nNext steps:")
+    print(f"  1. Edit {pkg_dir}/index.py  (or index.mcn)")
+    print(f"  2. mcn install --path {pkg_dir}")
+    print(f"  3. Use in MCN:  use \"{args.name}\"")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="MCN (Macincode Scripting Language) CLI v2.0"
@@ -622,6 +764,45 @@ def main():
 
     config_sub.add_parser("show", help="Show all saved config values")
 
+    # ── Package commands ────────────────────────────────────────────────────────
+    install_parser = subparsers.add_parser("install", help="Install a MCN package")
+    install_parser.add_argument("package", nargs="?", help="Package name (e.g. stripe, accenture/healthcare)")
+    install_parser.add_argument("--path", help="Install from a local directory path")
+    install_parser.add_argument("--name", help="Override package name when installing from path")
+
+    pkg_parser = subparsers.add_parser("packages", help="Manage installed packages")
+    pkg_sub = pkg_parser.add_subparsers(dest="pkg_action")
+    pkg_sub.add_parser("list", help="List installed packages")
+    pkg_info = pkg_sub.add_parser("info", help="Show package details")
+    pkg_info.add_argument("package", help="Package name")
+    pkg_rm = pkg_sub.add_parser("remove", help="Remove an installed package")
+    pkg_rm.add_argument("package", help="Package name")
+
+    newpkg_parser = subparsers.add_parser("new-package", help="Scaffold a new MCN package")
+    newpkg_parser.add_argument("name", help="Package name (e.g. myorg/crm)")
+    newpkg_parser.add_argument("--path", default=".", help="Directory to create package in")
+    newpkg_parser.add_argument("--author", default="", help="Package author")
+    newpkg_parser.add_argument("--description", default="", help="Package description")
+
+    # Deploy command
+    deploy_parser = subparsers.add_parser("deploy", help="Package and deploy an MCN workspace")
+    deploy_parser.add_argument(
+        "workspace", nargs="?", default=".",
+        help="Workspace path (default: current directory)"
+    )
+    deploy_parser.add_argument(
+        "--target", choices=["zip", "docker", "cloud"], default="zip",
+        help="Deployment target: zip (default), docker, or cloud (needs MCN_DEPLOY_URL)"
+    )
+    deploy_parser.add_argument(
+        "--name", default="mcn-app",
+        help="Application name used for the package and Docker image (default: mcn-app)"
+    )
+    deploy_parser.add_argument(
+        "--out", default=".",
+        help="Output directory for the generated zip (default: current directory)"
+    )
+
     # Serve command
     serve_parser = subparsers.add_parser("serve", help="Serve MCN scripts as APIs")
     serve_parser.add_argument("--dir", help="Directory containing MCN scripts")
@@ -642,7 +823,19 @@ def main():
     args = parser.parse_args()
 
     # Handle new subcommands
-    if args.command in ("generate", "gen"):
+    if args.command == "install":
+        return _cmd_install(args)
+
+    elif args.command == "packages":
+        return _cmd_packages(args)
+
+    elif args.command == "deploy":
+        return _cmd_deploy(args)
+
+    elif args.command == "new-package":
+        return _cmd_new_package(args)
+
+    elif args.command in ("generate", "gen"):
         return _cmd_generate(args)
 
     elif args.command == "config":

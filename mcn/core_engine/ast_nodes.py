@@ -24,9 +24,10 @@ class Node:
 
 @dataclass
 class VarDecl(Node):
-    """var name = expr"""
-    name: str = ""
-    value: "Expr" = None
+    """var name [: type] = expr"""
+    name:      str           = ""
+    value:     "Expr"        = None
+    type_hint: Optional[str] = None   # e.g. "int", "str", "bool", "list", "object"
 
 
 @dataclass
@@ -39,10 +40,11 @@ class IfStmt(Node):
 
 @dataclass
 class ForStmt(Node):
-    """for variable in iterable\n    body"""
-    variable: str = ""
-    iterable: "Expr" = None
-    body: List["Stmt"] = field(default_factory=list)
+    """for variable in iterable  OR  for index, variable in iterable"""
+    variable:  str             = ""
+    index_var: Optional[str]   = None   # set when 'for i, val in list'
+    iterable:  "Expr"          = None
+    body:      List["Stmt"]    = field(default_factory=list)
 
 
 @dataclass
@@ -54,9 +56,11 @@ class WhileStmt(Node):
 
 @dataclass
 class TryStmt(Node):
-    """try\n    body\ncatch\n    body"""
-    try_body: List["Stmt"] = field(default_factory=list)
-    catch_body: List["Stmt"] = field(default_factory=list)
+    """try / catch [var] / finally"""
+    try_body:     List["Stmt"]  = field(default_factory=list)
+    catch_var:    Optional[str] = None   # e.g. 'catch e' → e.message, e.type
+    catch_body:   List["Stmt"]  = field(default_factory=list)
+    finally_body: List["Stmt"]  = field(default_factory=list)
 
 
 @dataclass
@@ -82,10 +86,12 @@ class UseStmt(Node):
 @dataclass
 class FunctionDecl(Node):
     """function name(params)\n    body"""
-    name:     str               = ""
-    params:   List[str]         = field(default_factory=list)
-    defaults: Dict[str, "Expr"] = field(default_factory=dict)
-    body:     List["Stmt"]      = field(default_factory=list)
+    name:        str               = ""
+    params:      List[str]         = field(default_factory=list)
+    defaults:    Dict[str, "Expr"] = field(default_factory=dict)
+    body:        List["Stmt"]      = field(default_factory=list)
+    param_types: Dict[str, str]    = field(default_factory=dict)  # param → type hint
+    return_type: Optional[str]     = None                          # return type hint
 
 
 @dataclass
@@ -98,6 +104,27 @@ class ReturnStmt(Node):
 class AssignStmt(Node):
     """name = expr  — re-assign an existing variable (no 'var' keyword)"""
     name:  str    = ""
+    value: "Expr" = None
+
+@dataclass
+class PropertyAssignStmt(Node):
+    """obj.key = expr  — assign to an object property"""
+    object: "Expr" = None
+    prop:   str    = ""
+    value:  "Expr" = None
+
+@dataclass
+class IndexAssignStmt(Node):
+    """obj[idx] = expr  — assign to an array index or dict key"""
+    object: "Expr" = None
+    index:  "Expr" = None
+    value:  "Expr" = None
+
+@dataclass
+class CompoundAssignStmt(Node):
+    """name OP= expr  — shorthand: x += 1, x -= 1, x *= 2, x /= 2, x %= 3"""
+    name:  str    = ""
+    op:    str    = "+"   # "+", "-", "*", "/", "%"
     value: "Expr" = None
 
 @dataclass
@@ -204,6 +231,19 @@ class MCNObject(Node):
 class MCNTuple(Node):
     """(a, b, c)  — used as SQL parameter tuples, etc."""
     elements: List["Expr"] = field(default_factory=list)
+
+@dataclass
+class TernaryExpr(Node):
+    """condition ? then_expr : else_expr"""
+    condition: "Expr" = None
+    then_expr: "Expr" = None
+    else_expr: "Expr" = None
+
+@dataclass
+class ArrowFunc(Node):
+    """(x, y) => expr   or   x => expr   (lambda / anonymous function)"""
+    params: List[str]  = field(default_factory=list)
+    body:   "Expr"     = None   # single-expression body; stmt body TBD
 
 
 # ── 2030 Language Primitives ───────────────────────────────────────────────────

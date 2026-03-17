@@ -207,6 +207,7 @@ class UICompiler:
         self.out              = Path(output_dir)
         self._shadcn_needed: Set[str] = set()   # shadcn package slugs to install
         self._current_comp: Optional[ast.ComponentDecl] = None
+        self._extra_imports: Set[str] = set()   # per-component extra import lines
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -343,6 +344,7 @@ class UICompiler:
     def _compile_component(self, comp: ast.ComponentDecl) -> str:
         """Compile a single ComponentDecl → .tsx file content."""
         self._current_comp = comp
+        self._extra_imports = set()
 
         shadcn_imports: Dict[str, List[str]] = {}
 
@@ -442,7 +444,7 @@ class UICompiler:
                 f"  }}, [editItemId, {', '.join(s.name for s in edit_fields)}])\n"
             )
 
-        # Render JSX
+        # Render JSX (must happen before final import assembly so _extra_imports is populated)
         jsx_lines: List[str] = []
         if comp.render:
             for el in comp.render.elements:
@@ -454,6 +456,35 @@ class UICompiler:
         needs_fragment = len(comp.render.elements if comp.render else []) > 1
         if needs_fragment:
             jsx_lines = ["    <>", *["  " + ln for ln in jsx_lines], "    </>"]
+
+        # Merge lucide-react imports and append remaining extras
+        lucide_icons: list = []
+        other_extras: list = []
+        for line in self._extra_imports:
+            if '"lucide-react"' in line:
+                # Extract icon name from: import { X } from "lucide-react"
+                import importlib as _il  # local import to avoid polluting module scope
+                import re as _re
+                m = _re.search(r'\{\s*([^}]+)\s*\}', line)
+                if m:
+                    lucide_icons.extend(n.strip() for n in m.group(1).split(','))
+            else:
+                other_extras.append(line)
+        # Merge with any existing lucide-react import in imports list
+        existing_lucide_idx = next(
+            (i for i, ln in enumerate(imports) if '"lucide-react"' in ln), None)
+        if lucide_icons:
+            if existing_lucide_idx is not None:
+                # Extract existing names and merge
+                import re as _re2
+                m2 = _re2.search(r'\{\s*([^}]+)\s*\}', imports[existing_lucide_idx])
+                existing_names = [n.strip() for n in m2.group(1).split(',')] if m2 else []
+                merged = sorted(set(existing_names + lucide_icons))
+                imports[existing_lucide_idx] = f'import {{ {", ".join(merged)} }} from "lucide-react"'
+            else:
+                imports.append(f'import {{ {", ".join(sorted(set(lucide_icons)))} }} from "lucide-react"')
+        for extra in sorted(other_extras):
+            imports.append(extra)
 
         # Assemble
         lines = [
@@ -802,19 +833,50 @@ class UICompiler:
             ]
             return lines
 
-        # stat_card — a compact KPI card with a big number and label
+        # stat_card — a compact KPI card with icon, value, trend
         if tag == "stat_card":
             label_attr = next((a for a in el.attrs if a.key == "label"), None)
             value_attr = next((a for a in el.attrs if a.key == "value"), None)
             unit_attr  = next((a for a in el.attrs if a.key == "unit"),  None)
+            icon_attr  = next((a for a in el.attrs if a.key == "icon"),  None)
+            trend_attr = next((a for a in el.attrs if a.key == "trend"), None)
+            trend_lbl  = next((a for a in el.attrs if a.key == "trend_label"), None)
+            color_attr = next((a for a in el.attrs if a.key == "color"), None)
             lbl   = _expr_to_ts(label_attr.value) if label_attr else '""'
             val   = _expr_to_ts(value_attr.value) if value_attr else '""'
             unit  = _expr_to_ts(unit_attr.value)  if unit_attr  else '""'
+            icon  = icon_attr.value.value if icon_attr and isinstance(icon_attr.value, ast.Literal) else "TrendingUp"
+            trend = _expr_to_ts(trend_attr.value) if trend_attr else None
+            tlbl  = _expr_to_ts(trend_lbl.value) if trend_lbl else '"vs last month"'
+            color = color_attr.value.value if color_attr and isinstance(color_attr.value, ast.Literal) else "primary"
+            icon_cls = {
+                "green": "text-green-600 bg-green-100",
+                "red":   "text-red-600 bg-red-100",
+                "blue":  "text-blue-600 bg-blue-100",
+                "amber": "text-amber-600 bg-amber-100",
+                "purple":"text-purple-600 bg-purple-100",
+            }.get(color, "text-primary bg-primary/10")
+            self._extra_imports.add(f'import {{ {icon} }} from "lucide-react"')
+            trend_jsx = ""
+            if trend:
+                trend_jsx = (
+                    f'\n{pad}    <p className="text-xs text-muted-foreground mt-1">'
+                    f'<span className={{({trend}) >= 0 ? "text-green-600" : "text-red-600"}}>'
+                    f'{{({trend}) >= 0 ? "↑" : "↓"}} {{{trend}}}%</span> {{{tlbl}}}</p>'
+                )
             lines += [
-                f'{pad}<Card className="p-4">',
-                f'{pad}  <CardContent className="pt-4">',
-                f'{pad}    <p className="text-sm text-muted-foreground">{{{lbl}}}</p>',
-                f'{pad}    <p className="text-3xl font-bold mt-1">{{{val}}}<span className="text-base font-normal ml-1">{{{unit}}}</span></p>',
+                f'{pad}<Card>',
+                f'{pad}  <CardContent className="p-5">',
+                f'{pad}    <div className="flex items-center justify-between">',
+                f'{pad}      <div>',
+                f'{pad}        <p className="text-sm font-medium text-muted-foreground">{{{lbl}}}</p>',
+                f'{pad}        <p className="text-2xl font-bold mt-1">{{{val}}}<span className="text-sm font-normal ml-1 text-muted-foreground">{{{unit}}}</span></p>',
+                f'{pad}        {trend_jsx}',
+                f'{pad}      </div>',
+                f'{pad}      <div className="p-2 rounded-lg {icon_cls}">',
+                f'{pad}        <{icon} className="w-5 h-5" />',
+                f'{pad}      </div>',
+                f'{pad}    </div>',
                 f'{pad}  </CardContent>',
                 f'{pad}</Card>',
             ]
@@ -999,6 +1061,16 @@ class UICompiler:
             lines.append(f'{pad}  </SheetContent>')
             lines.append(f'{pad}</Sheet>')
             return lines
+
+        # Auto-class for headings when no className provided
+        _heading_cls = {
+            "h1": "text-3xl font-bold mb-4",
+            "h2": "text-xl font-semibold mb-4",
+            "h3": "text-base font-semibold mb-2",
+            "h4": "text-sm font-semibold mb-1",
+        }
+        if tag in _heading_cls and 'className' not in props:
+            props = f'className="{_heading_cls[tag]}" {props}'.strip()
 
         # generic element with possible children or text
         if has_children or has_text:
@@ -1204,9 +1276,10 @@ class UICompiler:
             if layout.routes:
                 return self._gen_router_layout(app, components, comp_imports)
 
-            # Sidebar + tabs layout
-            if layout.sidebar and layout.tabs:
-                self._shadcn_needed.add("tabs")
+            # Sidebar layout (with or without tabs)
+            if layout.sidebar:
+                if layout.tabs:
+                    self._shadcn_needed.add("tabs")
                 return self._gen_sidebar_tabs_layout(app, components, comp_imports)
 
             # Tabs only
@@ -1331,9 +1404,13 @@ export default function App() {{
 
         default_page = layout.sidebar[0].label if layout.sidebar else ""
 
+        app_icon = self._nav_icon(title.split()[0].lower()) if title else "Circle"
+        all_icons = sorted(set(icon_names) | {app_icon, "LogOut", "ChevronRight"})
+        icons_import_full = ", ".join(all_icons)
+
         return f'''\
 import React, {{ useState }} from "react"
-import {{ {icons_import} }} from "lucide-react"
+import {{ {icons_import_full} }} from "lucide-react"
 {comp_imports}
 import "./globals.css"
 
@@ -1342,16 +1419,43 @@ export default function App() {{
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="w-60 border-r bg-card flex flex-col">
-        <div className="px-4 py-5 border-b">
-          <h2 className="text-base font-bold tracking-tight">{title}</h2>
+      <aside className="w-64 border-r bg-card flex flex-col shadow-sm">
+        {{/* Header */}}
+        <div className="flex items-center gap-3 px-4 py-4 border-b">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <{app_icon} className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold leading-tight">{title}</h2>
+            <p className="text-xs text-muted-foreground">Workspace</p>
+          </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+
+        {{/* Nav */}}
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2 mt-1">Navigation</p>
 {nav_items}
         </nav>
+
+        {{/* User footer */}}
+        <div className="border-t p-3">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-accent cursor-pointer group">
+            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
+              U
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">User</p>
+              <p className="text-xs text-muted-foreground truncate">user@example.com</p>
+            </div>
+            <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </div>
       </aside>
-      <main className="flex-1 p-6 overflow-auto">
+
+      <main className="flex-1 overflow-auto">
+        <div className="p-6">
 {pages}
+        </div>
       </main>
     </div>
   )

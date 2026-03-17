@@ -147,10 +147,124 @@ class TestRunner:
                               elapsed=elapsed)
 
     def _register_builtins(self, functions: dict):
-        """Wire the same built-ins the interpreter uses."""
+        """Wire the same built-ins the interpreter uses, plus test-specific helpers."""
         from .mcn_interpreter import MCNInterpreter
         tmp = MCNInterpreter()
         functions.update(tmp._functions)
+
+        # ── Rich assertion helpers ─────────────────────────────────────────────
+
+        def assert_equal(a, b, msg=""):
+            if a != b:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {b!r} but got {a!r}{label}")
+
+        def assert_not_equal(a, b, msg=""):
+            if a == b:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected values to differ, both are {a!r}{label}")
+
+        def assert_null(v, msg=""):
+            if v is not None:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected null but got {v!r}{label}")
+
+        def assert_not_null(v, msg=""):
+            if v is None:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected non-null value{label}")
+
+        def assert_truthy(v, msg=""):
+            from .evaluator import Evaluator
+            if not Evaluator({})._truthy(v):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected truthy value but got {v!r}{label}")
+
+        def assert_falsy(v, msg=""):
+            from .evaluator import Evaluator
+            if Evaluator({})._truthy(v):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected falsy value but got {v!r}{label}")
+
+        def assert_contains(collection, item, msg=""):
+            if item not in collection:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {item!r} in {collection!r}{label}")
+
+        def assert_not_contains(collection, item, msg=""):
+            if item in collection:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {item!r} not in {collection!r}{label}")
+
+        def assert_gt(a, b, msg=""):
+            if not (a > b):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {a!r} > {b!r}{label}")
+
+        def assert_gte(a, b, msg=""):
+            if not (a >= b):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {a!r} >= {b!r}{label}")
+
+        def assert_lt(a, b, msg=""):
+            if not (a < b):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {a!r} < {b!r}{label}")
+
+        def assert_lte(a, b, msg=""):
+            if not (a <= b):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected {a!r} <= {b!r}{label}")
+
+        def assert_type(v, type_name: str, msg=""):
+            type_map = {
+                "string": str, "number": (int, float), "bool": bool,
+                "list": list, "dict": dict, "null": type(None),
+            }
+            expected = type_map.get(type_name)
+            if expected is None:
+                raise AssertionError(f"Unknown type name: {type_name!r}")
+            if not isinstance(v, expected):
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(
+                    f"Expected {type_name} but got {type(v).__name__}{label}")
+
+        def assert_len(collection, length: int, msg=""):
+            actual = len(collection)
+            if actual != length:
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected length {length} but got {actual}{label}")
+
+        def assert_throws(fn_name: str, msg=""):
+            fn = functions.get(fn_name)
+            if fn is None:
+                raise AssertionError(f"Function '{fn_name}' not found")
+            try:
+                fn()
+                label = f" — {msg}" if msg else ""
+                raise AssertionError(f"Expected '{fn_name}' to throw, but it didn't{label}")
+            except AssertionError:
+                raise
+            except Exception:
+                pass   # ✓ threw as expected
+
+        functions.update({
+            "assert_equal":       assert_equal,
+            "assert_not_equal":   assert_not_equal,
+            "assert_null":        assert_null,
+            "assert_not_null":    assert_not_null,
+            "assert_truthy":      assert_truthy,
+            "assert_falsy":       assert_falsy,
+            "assert_contains":    assert_contains,
+            "assert_not_contains": assert_not_contains,
+            "assert_gt":          assert_gt,
+            "assert_gte":         assert_gte,
+            "assert_lt":          assert_lt,
+            "assert_lte":         assert_lte,
+            "assert_type":        assert_type,
+            "assert_len":         assert_len,
+            "assert_throws":      assert_throws,
+        })
 
     # ── Reporting ──────────────────────────────────────────────────────────────
 

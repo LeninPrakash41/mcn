@@ -176,6 +176,41 @@ class Evaluator:
             env.assign(stmt.name, value)
             return value
 
+        # ── compound assignment (name OP= expr) ────────────────────────────────
+        if isinstance(stmt, ast.CompoundAssignStmt):
+            current = env.get(stmt.name)
+            delta   = self._eval(stmt.value, env)
+            value   = self._apply_binary(stmt.op, current, delta, stmt.line, stmt.col)
+            env.assign(stmt.name, value)
+            return value
+
+        # ── property assignment (obj.key = expr) ──────────────────────────────
+        if isinstance(stmt, ast.PropertyAssignStmt):
+            obj = self._eval(stmt.object, env)
+            val = self._eval(stmt.value, env)
+            if isinstance(obj, dict):
+                obj[stmt.prop] = val
+            elif hasattr(obj, stmt.prop):
+                setattr(obj, stmt.prop, val)
+            else:
+                raise MCNError(
+                    f"Cannot set property '{stmt.prop}' on {type(obj).__name__}",
+                    stmt.line, stmt.col)
+            return val
+
+        # ── index assignment (arr[i] = expr  or  dict[key] = expr) ────────────
+        if isinstance(stmt, ast.IndexAssignStmt):
+            obj = self._eval(stmt.object, env)
+            idx = self._eval(stmt.index, env)
+            val = self._eval(stmt.value, env)
+            if isinstance(obj, (list, dict)):
+                obj[idx] = val
+            else:
+                raise MCNError(
+                    f"Cannot index-assign on {type(obj).__name__}",
+                    stmt.line, stmt.col)
+            return val
+
         # ── if / else ─────────────────────────────────────────────────────────
         if isinstance(stmt, ast.IfStmt):
             cond = self._eval(stmt.condition, env)
@@ -188,14 +223,18 @@ class Evaluator:
         # ── for loop ──────────────────────────────────────────────────────────
         if isinstance(stmt, ast.ForStmt):
             iterable = self._eval(stmt.iterable, env)
+            if isinstance(iterable, dict):
+                iterable = list(iterable.items())   # dict → [(k,v), ...]
             if not isinstance(iterable, (list, tuple)):
                 raise MCNError(
                     f"Cannot iterate over {type(iterable).__name__}",
                     stmt.line, stmt.col,
                 )
-            for item in iterable:
+            for idx, item in enumerate(iterable):
                 loop_env = Environment(env)
                 loop_env.define(stmt.variable, item)
+                if stmt.index_var:
+                    loop_env.define(stmt.index_var, idx)
                 try:
                     self._exec_block(stmt.body, loop_env)
                 except BreakSignal:
@@ -225,16 +264,32 @@ class Evaluator:
 
         # ── try / catch ───────────────────────────────────────────────────────
         if isinstance(stmt, ast.TryStmt):
+            result = None
             try:
-                return self._exec_block(stmt.try_body, env)
+                result = self._exec_block(stmt.try_body, env)
             except ReturnSignal:
                 raise                         # never swallow return signals
+            except (BreakSignal, ContinueSignal):
+                raise                         # never swallow loop signals
             except Exception as exc:
                 if stmt.catch_body:
                     catch_env = Environment(env)
-                    catch_env.define("error", str(exc))
-                    return self._exec_block(stmt.catch_body, catch_env)
-                raise
+                    # Named catch var:  catch e  →  e.message, e.type, e.raw
+                    var = stmt.catch_var or "error"
+                    err_obj = {
+                        "message": str(exc),
+                        "type":    type(exc).__name__,
+                        "raw":     exc,
+                    }
+                    catch_env.define(var, err_obj)
+                    catch_env.define("error", str(exc))  # legacy compat
+                    result = self._exec_block(stmt.catch_body, catch_env)
+                else:
+                    raise
+            finally:
+                if stmt.finally_body:
+                    self._exec_block(stmt.finally_body, env)
+            return result
 
         # ── throw ─────────────────────────────────────────────────────────────
         if isinstance(stmt, ast.ThrowStmt):
@@ -401,6 +456,26 @@ class Evaluator:
                 f"Undefined variable: '{expr.name}'.{hint}",
                 expr.line, expr.col,
             )
+
+        if isinstance(expr, ast.TernaryExpr):
+            cond = self._eval(expr.condition, env)
+            return self._eval(expr.then_expr if self._truthy(cond) else expr.else_expr, env)
+
+        if isinstance(expr, ast.ArrowFunc):
+            # Capture the current environment (closure)
+            captured_env  = env
+            params        = expr.params
+            body_expr     = expr.body
+            evaluator_ref = self
+
+            def arrow_fn(*args: Any) -> Any:
+                fn_env = Environment(captured_env)
+                for i, p in enumerate(params):
+                    fn_env.define(p, args[i] if i < len(args) else None)
+                return evaluator_ref._eval(body_expr, fn_env)
+
+            arrow_fn.__name__ = f"<arrow({', '.join(params)})>"
+            return arrow_fn
 
         if isinstance(expr, ast.Binary):
             left  = self._eval(expr.left,  env)
@@ -614,26 +689,91 @@ class Evaluator:
 
     # ── String interpolation ───────────────────────────────────────────────────
 
-    _INTERP_RE = _re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
+    # Matches {identifier}, {obj.prop}, {arr[0]}, {obj["key"]}, {arr[0].prop}, etc.
+    _INTERP_RE = _re.compile(
+        r'\{([a-zA-Z_][a-zA-Z0-9_]*'
+        r'(?:'
+        r'  \.[a-zA-Z_][a-zA-Z0-9_]*'    # .prop
+        r'| \[\d+\]'                       # [0]
+        r'| \["[^"]*"\]'                   # ["key"]'
+        r"| \['[^']*'\]"                   # ['key']
+        r')*'
+        r')\}',
+        _re.VERBOSE,
+    )
 
     def _interpolate(self, s: str, env: Environment) -> str:
         """
-        Replace {identifier} placeholders in a string with their current values.
+        Replace {identifier} or {obj.prop.sub} or {arr[0]} or {obj["key"]}
+        placeholders in a string with their values.
 
-        "Hello {name}, you have {count} messages"
-        → "Hello Lenin, you have 3 messages"
+        "Hello {name}, you have {items[0]} and {items[1]}"
+        "Path: {result.data[0].name}"
 
         Unknown identifiers are left as-is so JSON-like strings don't break.
-        Use \\{ to emit a literal { (handled by the lexer's escape sequences).
         """
+        # Tokenise an accessor expression like: name, arr[0], obj.prop["key"].x
+        _STEP_RE = _re.compile(
+            r'\.([a-zA-Z_][a-zA-Z0-9_]*)'   # .prop
+            r'|\[(\d+)\]'                     # [int_index]
+            r'|\["([^"]*)"\]'                 # ["str_key"]
+            r"|\'([^']*)\']"                  # ['str_key']  (legacy compat)
+        )
+
+        def _resolve(expr: str) -> Any:
+            # Split off the root identifier (everything before first . or [)
+            m0 = _re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)', expr)
+            if not m0:
+                return _UNDEFINED
+            root = m0.group(1)
+            val = env.get(root)
+            if val is _UNDEFINED:
+                if root in self.functions:
+                    val = self.functions[root]
+                else:
+                    return _UNDEFINED
+
+            rest = expr[m0.end():]
+            for step in _STEP_RE.finditer(rest):
+                if val is None or val is _UNDEFINED:
+                    return _UNDEFINED
+                prop, idx, skey1, skey2 = step.groups()
+                if prop is not None:
+                    # .prop  — handle .length specially
+                    if prop == "length" and isinstance(val, (list, str)):
+                        val = len(val)
+                    elif isinstance(val, dict):
+                        val = val.get(prop, _UNDEFINED)
+                    elif hasattr(val, prop):
+                        val = getattr(val, prop)
+                    else:
+                        return _UNDEFINED
+                elif idx is not None:
+                    # [integer_index]
+                    i = int(idx)
+                    if isinstance(val, (list, str)):
+                        try:
+                            val = val[i]
+                        except IndexError:
+                            return _UNDEFINED
+                    elif isinstance(val, dict):
+                        val = val.get(i, val.get(str(i), _UNDEFINED))
+                    else:
+                        return _UNDEFINED
+                else:
+                    # ["str_key"] or ['str_key']
+                    key = skey1 if skey1 is not None else skey2
+                    if isinstance(val, dict):
+                        val = val.get(key, _UNDEFINED)
+                    else:
+                        return _UNDEFINED
+            return val
+
         def _replace(m: "_re.Match") -> str:
-            name = m.group(1)
-            val = env.get(name)
-            if val is not _UNDEFINED:
-                return "" if val is None else str(val)
-            if name in self.functions:
-                return str(self.functions[name])
-            return m.group(0)   # leave {name} untouched
+            val = _resolve(m.group(1))
+            if val is _UNDEFINED:
+                return m.group(0)   # leave {expr} untouched
+            return "" if val is None else str(val)
 
         return self._INTERP_RE.sub(_replace, s)
 
@@ -716,6 +856,10 @@ class Evaluator:
             if right == 0:
                 raise MCNError("Division by zero", line, col)
             return left / right
+        if op == "%":
+            if right == 0:
+                raise MCNError("Modulo by zero", line, col)
+            return left % right
         if op == "==": return left == right
         if op == "!=": return left != right
         if op == ">":  return left > right

@@ -1,18 +1,30 @@
 # MCN — Macincode Scripting Language
 
-A production-grade scripting language with first-class AI, database, API, and full-stack primitives. Write less, ship more — AI is a language primitive, not a library call.
+A full-stack scripting language built for the AI era. Write backend services, data pipelines, AI workflows, and React UIs — all in a single `.mcn` file. AI is a language primitive, not a library call.
+
+```mcn
+use "healthcare"
+
+var patient = {id: "P001", name: "John Doe"}
+var admission = admit_patient(patient)
+
+var risk = ai("Assess risk for: " + to_json(patient))
+var token = auth_create_token({user: "nurse_01", role: "staff"})
+
+log("Admitted {admission.patient_id} — risk: {risk}")
+```
+
+---
 
 ## Why MCN?
 
-MCN sits in the space Python occupies for data science — but built for the AI era. Every intelligent operation (`ai`, `classify`, `extract`) is a one-liner. Backend services, databases, and React UIs all compile from a single `.mcn` file. And the **MCN Agent** turns a sentence into a complete, runnable full-stack application.
-
-```mcn
-// Classify, extract, respond — three lines
-var intent  = classify(message, ["buy", "refund", "support"])
-var details = extract(message, OrderContract)
-var reply   = ai("Draft a {intent} response for: {details.summary}")
-log(reply)
-```
+| Problem | MCN's answer |
+|---|---|
+| AI requires 50 lines of SDK boilerplate | `ai(prompt)` is a single expression |
+| Full-stack apps need 3 separate codebases | One `.mcn` file generates backend + React UI |
+| SIs re-implement domain logic for every client | Package it once: `use "accenture/healthcare"` |
+| Bolt.new / v0 generate code you still have to maintain | MCN is the runtime — no generated mess |
+| Non-technical builders can't use code-gen output | MCN reads like English, executes like a program |
 
 ---
 
@@ -20,283 +32,83 @@ log(reply)
 
 ```bash
 git clone https://github.com/zeroappz/mcn
-cd mcn
+cd mt-mcn
 pip install -e .
 mcn run examples/hello.mcn
 ```
 
----
-
-## MCN Agent — Generate Full-Stack Apps from Natural Language
-
-The MCN Agent uses Claude to turn a plain-English description into a complete, runnable full-stack application — backend API, SQLite database, and a React + shadcn/ui frontend — in seconds.
-
-### 1. Save your Claude API key (once)
+Or open the web playground:
 
 ```bash
-mcn config set api_key sk-ant-...
+cd mcn/web-playground
+python server.py
+# → http://localhost:7842
 ```
-
-That's it. The key is stored in `~/.mcn/config.json` and used automatically for all future `mcn generate` runs. No environment variables needed.
-
-### 2. Generate an app
-
-```bash
-mcn generate "An expense tracker with title, amount, and category. Table with edit/delete. Bar chart of spending by category."
-```
-
-Output:
-```
-[MCN Agent] Generating MCN for: 'An expense tracker ...'
-
-<backend>
-contract Expense
-    title: str
-    amount: float
-    category: str
-...
-</backend>
-
-  ✓ MCN validated on attempt 1
-
-[MCN Agent] Written:
-  backend → ./backend/main.mcn
-  ui      → ./ui/app.mcn
-
-[MCN Agent] Next step:
-  mcn build ./ui/app.mcn --out ./frontend
-```
-
-### 3. Build the React frontend
-
-```bash
-mcn build ./ui/app.mcn --out ./frontend
-cd frontend && npm install && npm run dev
-```
-
-### Generate + build in one command
-
-```bash
-mcn generate "A CRM with contacts, notes, and pipeline dashboard" --out ./crm --build
-```
-
-### All `mcn generate` options
-
-| Flag | Default | Description |
-|---|---|---|
-| `--out <dir>` | `.` | Output directory for `backend/` and `ui/` |
-| `--port <N>` | `8080` | Backend server port |
-| `--build` | off | Also compile the React frontend after writing |
-| `--model <id>` | `claude-opus-4-6` | Claude model to use |
-| `--api-key <key>` | config / env | Override API key for this run only |
-| `--quiet / -q` | off | Suppress streaming output |
-
-### Config commands
-
-```bash
-mcn config set api_key sk-ant-...   # save API key
-mcn config get api_key              # check saved key (masked)
-mcn config show                     # show all saved config
-```
-
-**Key resolution order:** `--api-key` flag → `~/.mcn/config.json` → `ANTHROPIC_API_KEY` env var.
 
 ---
 
-## Full-Stack Compiler (`mcn build`)
+## Language at a Glance
 
-MCN compiles component and app declarations directly to a React + TypeScript + shadcn/ui project.
-
-### Backend — service, endpoints, AI
+### Variables, operators, control flow
 
 ```mcn
-contract Item
-    name: str
-    price: float
-    status: str
+var score = 85
+var grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : "F"
 
-query("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL, status TEXT, created_at TEXT DEFAULT (datetime('now')))")
+// Compound assignment
+var total = 0
+total += score
+total *= 1.1
 
-service items_api
-    port 8080
-
-    endpoint create_item(name, price, status)
-        var category = classify(name, ["electronics", "clothing", "food", "other"])
-        query("INSERT INTO items (name, price, status) VALUES (?, ?, ?)", (name, price, status))
-        var id = query("SELECT last_insert_rowid() as id")[0].id
-        return {success: true, id: id}
-
-    endpoint list_items(limit = 50, offset = 0)
-        var items = query("SELECT * FROM items ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
-        var insight = ai("Give a one-sentence business insight on these records: {items}")
-        return {success: true, data: items, total: items, insight: insight}
-
-    endpoint update_item(id, name, price, status)
-        query("UPDATE items SET name = ?, price = ?, status = ? WHERE id = ?", (name, price, status, id))
-        return {success: true}
-
-    endpoint delete_item(id)
-        query("DELETE FROM items WHERE id = ?", (id,))
-        return {success: true}
-```
-
-### UI — components, CRUD, charts, modals
-
-```mcn
-component ItemTable
-    state items           = []
-    state insight         = ""
-    state edit_name       = ""
-    state edit_price      = 0
-    state edit_status     = ""
-    state edit_item       = null        // enables CRUD mode (Edit/Delete auto-injected)
-    state show_edit_modal = false
-
-    on load
-        var response = list_items()
-        items   = response.data
-        insight = response.insight
-
-    render
-        card
-            card_header "All Items"
-            div
-                text insight
-            table
-                table_header
-                    table_row
-                        table_head "id"
-                        table_head "name"
-                        table_head "price"
-                        table_head "status"
-                        table_head "created_at"
-                table_body
-        modal show=show_edit_modal
-            card_header "Edit Item"
-            form on_submit=handleSave
-                input bind=edit_name label="Name"
-                input bind=edit_price label="Price" type="number"
-                button "Save Changes" variant="default"
-
-app ItemManager
-    title  "Item Manager"
-    theme  "professional"
-    layout
-        tabs
-            tab "Add Item"   ItemForm
-            tab "All Items"  ItemTable
-```
-
-```bash
-mcn build ui/app.mcn --out frontend
-cd frontend && npm install && npm run dev
-```
-
-### Supported UI tags
-
-| Category | Tags |
-|---|---|
-| Layout | `div`, `div grid_cols=N`, `card`, `card_header`, `card_content`, `card_footer` |
-| Forms | `form`, `input`, `textarea`, `select`, `button` |
-| Data | `table`, `table_header`, `table_row`, `table_head`, `table_body`, `badge`, `alert`, `separator`, `progress`, `skeleton` |
-| Charts | `bar_chart`, `line_chart`, `pie_chart` (recharts) |
-| KPI | `stat_card label="..." value=var unit="..."` |
-| Navigation | `tabs`, `tabs_list`, `tab_trigger`, `tab_content`, `scroll_area` |
-| Modal | `modal show=boolVar` |
-| Conditional | `div show=boolVar`, `text show=boolVar` |
-| Pagination | `pagination page=var total=var page_size=N` |
-
-Themes: `"professional"` (blue) · `"modern"` (dark) · `"minimal"` (clean) · `"default"`
-
----
-
-## Language Reference
-
-### Variables & Types
-
-```mcn
-var name    = "Lenin"
-var score   = 42
-var active  = true
-var nothing = null
-
-// Bare reassignment (no var keyword)
-score = score + 10
-```
-
-### String Interpolation & Multi-line Strings
-
-```mcn
-var lang = "MCN"
-log("Hello from {lang}!")           // → Hello from MCN!
-
-var prompt_text = """
-You are a helpful assistant.
-Language: {lang}
-"""
-```
-
-### Operators
-
-```mcn
-// Arithmetic
-var total = (price * qty) + tax
-
-// Comparison
-if score >= 90
-    log("A grade")
-
-// and / or return values (not booleans)
-var user    = null
-var display = user or "Anonymous"   // → "Anonymous"
-
-// Null-safe access
-var city = user?.address?.city      // → null if user or address is null
-```
-
-### Control Flow
-
-```mcn
-// if / else
-if score >= 90
-    log("A")
+// else if chains
+if grade == "A"
+    log("Excellent")
+else if grade == "B"
+    log("Good")
 else
-    log("B or lower")
+    log("Keep going")
 
-// for / while with break and continue
-for item in items
-    if item == "skip"
-        continue
-    log(item)
-
-// try / catch / throw
-try
-    var data = fetch("https://api.example.com/data")
-catch
-    throw "Fetch failed: {error}"
+// Modulo
+var is_even = score % 2 == 0 ? "even" : "odd"
 ```
 
-### Functions & Default Parameters
+### Mutable objects and arrays
+
+```mcn
+var user = {name: "Alice", role: "viewer", score: 0}
+user.role  = "admin"          // property assignment
+user.score += 10              // compound on property (via temp var)
+
+var items = ["a", "b", "c"]
+items[1] = "B"                // index assignment
+
+// String interpolation — simple vars and dotted paths
+log("User: {user.name}, role: {user.role}")
+log("Items count: {items.length}")
+```
+
+### Functions, recursion, defaults
 
 ```mcn
 function greet(name, greeting = "Hello")
     return "{greeting}, {name}!"
 
-log(greet("Lenin"))           // → Hello, Lenin!
-log(greet("World", "Hi"))    // → Hi, World!
+function factorial(n)
+    return n <= 1 ? 1 : n * factorial(n - 1)
+
+log(greet("Lenin"))           // Hello, Lenin!
+log(factorial(6))             // 720
 ```
 
-### Collections
+### Try / catch
 
 ```mcn
-var nums = [1, 2, 3, 4, 5]
-var user = {name: "Lenin", role: "admin"}
-
-log(nums[0])         // → 1
-log(user.name)       // → Lenin
-
-// Tuples (SQL parameter binding)
-var rows = query("SELECT * FROM users WHERE id = ?", (user_id,))
+try
+    var data = fetch("https://api.example.com/data")
+    log("Got {data.count} records")
+catch
+    log("Request failed — using cached data")
+    var data = cache_get("last_response")
 ```
 
 ---
@@ -305,36 +117,428 @@ var rows = query("SELECT * FROM users WHERE id = ?", (user_id,))
 
 ```mcn
 // Free-form generation
-var summary = ai("Summarize: " + article)
-
-// Structured extraction (validates against a contract)
-var order = extract(raw_text, OrderContract)
-
-// Zero-shot classification
-var intent = classify(message, ["buy", "return", "support"])
+var summary = ai("Summarize in 3 bullets: " + article)
 
 // Explicit model routing
-var haiku = llm("claude-haiku", "Quick answer: " + question)
+var fast   = llm("claude-haiku-4-5", "Quick answer: " + question)
+var deep   = llm("claude-opus-4-6",  "Detailed analysis: " + question)
+
+// Zero-shot classification
+var intent = classify(message, ["buy", "refund", "support"])
+
+// Structured extraction (validated against a contract)
+contract Order
+    id:     int
+    amount: float
+    item:   str
+
+var order = extract(raw_text, Order)
+log("Order #{order.id} — {order.item} at ${order.amount}")
 
 // Embeddings
 var vec = embed("semantic search query")
 
-// Human-in-the-loop checkpoint
-checkpoint("Review before sending", reply)
-```
-
-### Prompt Templates
-
-```mcn
+// Prompt templates
 prompt support_reply
     system "You are a helpful customer support agent."
     user   "Customer said: {{message}}"
     format text
 
 var reply = support_reply.run({message: customer_input})
+
+// Human-in-the-loop
+checkpoint("Review before sending", reply)
 ```
 
-### Agent Declarations
+### RAG — Retrieval-Augmented Generation
+
+```mcn
+// Index your documents
+vector_upsert("doc1", "MCN supports pipelines, services, and agents")
+vector_upsert("doc2", "Use `use \"stripe\"` to process payments")
+vector_upsert("doc3", "The `rag()` function retrieves then answers")
+
+// Ask a question — retrieve + answer in one call
+var answer = rag("How do I process a payment in MCN?")
+log(answer)
+```
+
+---
+
+## Standard Library (100+ built-ins)
+
+No `use` statement needed — available in every script.
+
+### Session & Cache
+
+```mcn
+session_set("user_id", "u_42")
+var uid = session_get("user_id")
+
+cache_set("exchange_rate", 1.08, 3600)   // TTL: 1 hour
+var rate = cache_get("exchange_rate")
+```
+
+### Agent Memory
+
+```mcn
+var mid = memory_store("Customer prefers email over phone", {category: "prefs"})
+var hits = memory_search("contact preference", 5)
+log("Found {hits.length} relevant memories")
+```
+
+### Auth
+
+```mcn
+var hashed = auth_hash("mysecret123")
+var ok     = auth_verify_hash("mysecret123", hashed)   // true
+
+var token   = auth_create_token({user_id: "u_42", role: "admin"}, "my-secret")
+var payload = auth_verify_token(token, "my-secret")
+log("Token user: {payload.user_id}")
+```
+
+### Data & Strings
+
+```mcn
+var rows    = parse_csv("name,score\nAlice,90\nBob,85")
+var js      = to_json({name: "test", value: 42})
+var words   = split("hello world mcn", " ")
+var joined  = join(words, "-")                 // "hello-world-mcn"
+var upped   = upper("mcn lang")               // "MCN LANG"
+var matches = regex_extract("user@example.com", "[a-z]+@[a-z]+\.[a-z]+")
+```
+
+### Arrays & Math
+
+```mcn
+var scores = [90, 85, 92, 78, 95]
+var avg    = average(scores)              // 88.0
+var top    = sort_list(scores, "", true)  // descending
+var groups = group_by(users, "department")
+var uniq   = unique([1, 2, 2, 3, 3, 3])  // [1, 2, 3]
+
+log("Max: {max_val(scores)}, Min: {min_val(scores)}")
+var roll = random_int(1, 6)
+```
+
+### Queue & Crypto
+
+```mcn
+queue_push("jobs", {task: "send_email", to: "user@example.com"})
+var job = queue_pop("jobs")
+log("Processing: {job.task}")
+
+var id   = uuid()
+var hash = sha256("hello mcn")
+```
+
+---
+
+## Package System
+
+MCN has a built-in package registry. Bundled packages work out of the box; custom packages install from local directories.
+
+### Bundled packages
+
+```bash
+mcn packages list
+# stripe, twilio, resend, slack, openai, healthcare, finance
+```
+
+```mcn
+use "stripe"
+var payment = charge(299.99, "usd", "Premium subscription")
+log("Payment: {payment.id}")
+
+use "twilio"
+send_sms("+14155551234", "Your OTP is 847293")
+
+use "resend"
+send_email("user@example.com", "Welcome to MCN", "Thanks for signing up!")
+
+use "slack"
+post_message("#alerts", "Deploy complete — v2.3 is live")
+```
+
+### Vertical domain packages (SI ecosystem)
+
+```mcn
+use "healthcare"
+
+var admission = admit_patient({id: "P001", name: "John", ward: "cardiology"})
+var appt      = schedule_appointment("P001", "echocardiogram", "high")
+var drugs     = check_drug_interactions(["warfarin", "aspirin"])
+var audit     = hipaa_audit_log("READ", "nurse_01", "P001", "vitals")
+```
+
+```mcn
+use "finance"
+
+var kyc    = kyc_check({name: "Alice Smith", country: "US"})
+var aml    = aml_screen({amount: 75000, currency: "USD"})
+var credit = calculate_credit_score({annual_income: 95000, total_debt: 12000})
+log("Credit: {credit.score} (grade {credit.grade})")
+```
+
+### Author and publish your own package
+
+```bash
+# Scaffold a new package
+mcn new-package accenture/crm --path . --description "CRM workflows"
+
+# Edit index.py with your domain logic, then install
+mcn install --path ./accenture_crm --name accenture/crm
+
+# Use it
+# use "accenture/crm"
+```
+
+**Package authoring** — `index.py`:
+
+```python
+def onboard_customer(data: dict) -> dict:
+    """Validate, enrich, and register a new customer."""
+    return {"customer_id": "c_" + data["email"][:6], "status": "active"}
+
+MCN_EXPORTS = [onboard_customer]
+```
+
+Or write pure MCN in `index.mcn`:
+
+```mcn
+function onboard_customer(data)
+    var id = "c_" + data.email
+    return {customer_id: id, status: "active"}
+```
+
+CLI reference:
+
+```bash
+mcn install stripe                         # confirm bundled package
+mcn install --path ./my_pkg               # install from local path
+mcn packages list                         # all installed + bundled
+mcn packages info healthcare              # show exports + docs
+mcn packages remove myorg/old-pkg         # uninstall
+mcn new-package myorg/retail --path .     # scaffold new package
+```
+
+---
+
+## Pipelines
+
+```mcn
+pipeline etl
+    stage extract
+        var records = parse_csv(read_file("data/leads.csv"))
+        log("Extracted {records.length} records")
+        return records
+
+    stage transform(data)
+        var total = 0
+        for r in data
+            total = total + r.score
+        var avg = total / data.length
+        log("Average score: {avg}")
+        return {count: data.length, average: avg}
+
+    stage load(report)
+        query("INSERT INTO reports (count, average) VALUES (?, ?)",
+              (report.count, report.average))
+        log("Pipeline complete — {report.count} records, avg {report.average}")
+
+etl.run()
+```
+
+---
+
+## Services (HTTP APIs)
+
+Endpoints starting with `get_`, `list_`, `fetch_`, `find_` are served on **GET** (query string → args). All endpoints also accept **POST** with a JSON body. Path parameters (`/get_user/42`) are mapped to the first positional arg.
+
+```mcn
+service users_api
+    port 8080
+
+    endpoint get_user(id)
+        var user = query("SELECT * FROM users WHERE id = ?", (id,))
+        return user[0] or {error: "not found"}
+
+    endpoint list_users(limit = 50, offset = 0)
+        return query("SELECT * FROM users LIMIT ? OFFSET ?", (limit, offset))
+
+    endpoint create_user(name, email)
+        query("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
+        return {success: true, id: query("SELECT last_insert_rowid() as id")[0].id}
+
+    endpoint delete_user(id)
+        query("DELETE FROM users WHERE id = ?", (id,))
+        return {success: true}
+```
+
+```bash
+mcn serve --file backend/main.mcn --port 8080
+
+# GET /list_users?limit=10
+# GET /get_user/42
+# POST /create_user  {"name": "Alice", "email": "alice@example.com"}
+```
+
+---
+
+## Full-Stack Compiler (`mcn build`)
+
+```mcn
+component Dashboard
+    state deals     = []
+    state revenue   = 0
+
+    on load
+        var data  = fetch("/api/dashboard")
+        deals   = data.deals
+        revenue = data.revenue
+
+    render
+        div grid_cols=4
+            stat_card label="Total Deals"   value=deals.length color="blue"   icon="TrendingUp"
+            stat_card label="Revenue"       value=revenue      color="green"  icon="DollarSign" unit="$"
+        card
+            card_header "Recent Deals"
+            table
+                table_header
+                    table_row
+                        table_head "Name"
+                        table_head "Stage"
+                        table_head "Value"
+                table_body
+
+app CRM
+    title "CRM Dashboard"
+    theme "professional"
+    layout
+        sidebar
+            nav "Dashboard"  Dashboard
+            nav "Contacts"   ContactList
+            nav "Reports"    Reports
+```
+
+```bash
+mcn build ui/app.mcn --out frontend
+cd frontend && npm install && npm run dev
+```
+
+**Supported UI elements:**
+
+| Category | Elements |
+|---|---|
+| Layout | `div`, `div grid_cols=N`, `card`, `card_header`, `card_content`, `card_footer` |
+| Forms | `form`, `input`, `textarea`, `select`, `button`, `checkbox`, `switch`, `radio` |
+| Data display | `table`, `badge`, `alert`, `separator`, `progress`, `skeleton`, `avatar` |
+| Charts | `bar_chart`, `line_chart`, `pie_chart` (via Recharts) |
+| KPI | `stat_card label="..." value=var color="blue" icon="TrendingUp" trend=5` |
+| Navigation | `tabs`, `tab`, `sidebar`, `nav`, `scroll_area` |
+| Overlays | `modal show=boolVar`, `sheet`, `dropdown_menu`, `tooltip` |
+| Misc | `accordion`, `pagination page=var total=var page_size=N` |
+
+Themes: `"professional"` · `"modern"` · `"minimal"` · `"default"`
+
+---
+
+## AI App Generator (`mcn generate`)
+
+```bash
+mcn config set api_key sk-ant-...
+
+mcn generate "A CRM with contacts, notes, and pipeline dashboard"
+# Streams MCN code, validates it, writes backend/ and ui/ dirs
+
+mcn generate "..." --out ./my-app --build
+# Also compiles the React frontend
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--out <dir>` | `.` | Output directory |
+| `--build` | off | Also compile React frontend |
+| `--model <id>` | `claude-opus-4-6` | Claude model |
+| `--api-key <key>` | config / env | Override for this run |
+| `--quiet` | off | Suppress streaming |
+
+---
+
+## Testing
+
+MCN has a built-in test framework with 15+ assertion helpers.
+
+```mcn
+function divide(a, b)
+    if b == 0
+        throw "Division by zero"
+    return a / b
+
+test "basic arithmetic"
+    assert_equal(divide(10, 2), 5.0)
+    assert_equal(10 % 3, 1)
+
+test "ternary and else-if"
+    var x = 75
+    var grade = x >= 90 ? "A" : x >= 80 ? "B" : x >= 70 ? "C" : "F"
+    assert_equal(grade, "C")
+
+test "collections"
+    var items = [1, 2, 3, 4, 5]
+    assert_len(items, 5)
+    assert_contains(items, 3)
+    assert_gt(max_val(items), 4)
+
+test "auth tokens"
+    var token   = auth_create_token({user: "alice"}, "secret")
+    var payload = auth_verify_token(token, "secret")
+    assert_not_null(payload)
+    assert_equal(payload.user, "alice")
+
+test "null safety"
+    var obj = null
+    assert_null(obj?.name)
+    assert_truthy("hello" or "fallback")
+```
+
+**Assertion helpers:**
+
+`assert_equal` · `assert_not_equal` · `assert_null` · `assert_not_null` · `assert_truthy` · `assert_falsy` · `assert_contains` · `assert_not_contains` · `assert_gt` · `assert_gte` · `assert_lt` · `assert_lte` · `assert_type` · `assert_len` · `assert_throws`
+
+```bash
+mcn test script.mcn
+mcn test tests/ --verbose
+```
+
+---
+
+## Workflows & Agents
+
+### Workflow (step-by-step with history and replay)
+
+```mcn
+workflow order_processing
+    step validate(order_id)
+        var order = query("SELECT * FROM orders WHERE id = ?", (order_id,))
+        if not order
+            throw "Order not found: {order_id}"
+        return order[0]
+
+    step charge(order)
+        use "stripe"
+        return charge(order.amount, "usd", "Order #{order.id}")
+
+    step notify(order, payment)
+        use "resend"
+        send_email(order.email, "Order confirmed", "Payment {payment.id} received")
+        return {order_id: order.id, status: "complete"}
+```
+
+### Agent
 
 ```mcn
 agent researcher
@@ -343,182 +547,57 @@ agent researcher
     memory session
 
     task analyze(topic)
-        var data     = fetch("https://api.example.com?q=" + topic)
-        var findings = ai("Key insights from: " + data)
-        return findings
+        var docs    = fetch("https://api.example.com?q=" + topic)
+        var summary = ai("Key insights from: " + to_json(docs))
+        memory_store(summary, {topic: topic})
+        return summary
 
-var result = researcher.analyze("AI trends 2025")
+var result = researcher.analyze("MCN competitive landscape")
 ```
 
 ---
 
-## Domain Primitives
-
-### Contracts (typed schemas)
-
-```mcn
-contract User
-    id:    int
-    name:  str
-    email: str
-
-var user = extract(raw_json, User)
-log(user.email)
-```
-
-### Pipelines
-
-```mcn
-pipeline data_pipeline
-    stage extract
-        var raw = query("SELECT * FROM events")
-        return raw
-
-    stage transform(data)
-        var clean = ai("Normalize this JSON: " + data)
-        return clean
-
-    stage load(data)
-        query("INSERT INTO clean_events VALUES ?", data)
-```
-
-### Services (HTTP APIs)
-
-```mcn
-service user_api
-    port 8080
-
-    endpoint get_user(id)
-        var user = query("SELECT * FROM users WHERE id = ?", (id,))
-        return user
-
-    endpoint create_user(name, email)
-        query("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
-        return {success: true}
-```
-
-### Workflows
-
-```mcn
-workflow order_processing
-    step validate(order_id)
-        var order = query("SELECT * FROM orders WHERE id = ?", (order_id,))
-        if not order
-            throw "Order not found: {order_id}"
-        return order
-
-    step charge(order)
-        var result = trigger("https://payments.api/charge", order)
-        return result
-
-    step notify(order, result)
-        ai("Send confirmation email for order {order.id}")
-```
-
----
-
-## Built-in Functions
-
-| Function | Description |
-|---|---|
-| `log(msg)` | Print to console |
-| `fetch(url)` | HTTP GET |
-| `trigger(url, data)` | HTTP POST |
-| `query(sql, params?)` | Database query (SQLite) |
-| `ai(prompt)` | AI text generation |
-| `llm(model, prompt)` | AI with explicit model |
-| `embed(text)` | Vector embedding |
-| `extract(text, schema)` | Structured extraction |
-| `classify(text, labels)` | Zero-shot classification |
-| `checkpoint(msg, data?)` | Human-in-the-loop |
-| `read_file(path)` | Read file contents |
-| `write_file(path, content)` | Write file |
-| `env(key)` | Read environment variable |
-
----
-
-## CLI Commands
+## CLI Reference
 
 ```bash
-# ── AI App Generation ───────────────────────────────────────────────────
-mcn config set api_key sk-ant-...              # save Claude API key (once)
-mcn generate "A todo app with priorities"      # generate full-stack app
-mcn generate "..." --out ./myapp --build       # also compile React frontend
-mcn generate "..." --api-key sk-ant-...        # one-off key override
+# ── Script execution ─────────────────────────────────────────────────────
+mcn run script.mcn
+mcn repl
 
-# ── Compiler ────────────────────────────────────────────────────────────
-mcn build ui/app.mcn --out frontend           # compile MCN UI → React project
+# ── Full-stack ───────────────────────────────────────────────────────────
+mcn generate "An invoice app with PDF export"  # AI-generated app
+mcn generate "..." --out ./myapp --build       # generate + compile
+mcn build ui/app.mcn --out frontend           # compile MCN UI → React
 
-# ── Runtime ─────────────────────────────────────────────────────────────
-mcn run script.mcn                             # run a script
-mcn repl                                       # interactive REPL
-
-# ── Quality ─────────────────────────────────────────────────────────────
-mcn test script.mcn                            # run test blocks
-mcn test tests/ --verbose                      # all .mcn files in directory
-mcn check script.mcn                           # static type check
-mcn check --strict script.mcn                 # warnings as errors
-mcn fmt script.mcn                             # print formatted output
-mcn fmt --write src/                           # rewrite files in place
-mcn fmt --check src/                           # CI mode (exit 1 if unformatted)
-
-# ── Server ──────────────────────────────────────────────────────────────
-mcn serve --file script.mcn --port 8080
+# ── Server ───────────────────────────────────────────────────────────────
+mcn serve --file backend/main.mcn --port 8080
 mcn serve --dir endpoints/ --port 8080
 
-# ── Project ─────────────────────────────────────────────────────────────
+# ── Quality ──────────────────────────────────────────────────────────────
+mcn test script.mcn                    # run test blocks
+mcn test tests/ --verbose              # all .mcn files in directory
+mcn check script.mcn                   # static type check
+mcn check --strict script.mcn          # warnings as errors
+mcn fmt script.mcn                     # format and print
+mcn fmt --write src/                   # rewrite in place
+mcn fmt --check src/                   # CI check (exit 1 if dirty)
+
+# ── Package management ───────────────────────────────────────────────────
+mcn packages list                      # all available packages
+mcn packages info healthcare           # exports + docs
+mcn install stripe                     # verify bundled package
+mcn install --path ./my_pkg            # install from local directory
+mcn packages remove myorg/old          # uninstall
+mcn new-package myorg/retail --path .  # scaffold a new SI package
+
+# ── Config ───────────────────────────────────────────────────────────────
+mcn config set api_key sk-ant-...
+mcn config get api_key
+mcn config show
+
+# ── Project ──────────────────────────────────────────────────────────────
 mcn init my-app
 mcn validate
-```
-
----
-
-## Testing
-
-```mcn
-function add(a, b)
-    return a + b
-
-test "addition works"
-    assert add(2, 3) == 5
-
-test "null-safe operator"
-    var obj = null
-    assert obj?.name == null
-```
-
-```bash
-mcn test examples/tests.mcn
-#   ✓ addition works  (0.1 ms)
-#   ✓ null-safe operator  (0.0 ms)
-#   All 2 test(s) passed.
-```
-
----
-
-## Project Structure
-
-```
-mcn/
-├── core_engine/        # Lexer, parser, evaluator, type checker, CLI, UI compiler
-│   ├── lexer.py
-│   ├── parser.py
-│   ├── evaluator.py
-│   ├── ast_nodes.py
-│   ├── ui_compiler.py  # MCN → React + shadcn/ui
-│   ├── type_checker.py
-│   ├── formatter.py
-│   ├── test_runner.py
-│   └── mcn_cli.py
-├── ai/                 # MCN Agent (Claude-powered app generator)
-│   ├── mcn_agent.py    # MCNAgent class
-│   └── mcn_spec.py     # MCN language spec (system prompt)
-├── fullstack/          # Template-based fullstack generator
-├── providers/          # AI provider adapters
-├── web-playground/     # Browser-based IDE
-└── plugin/             # Embed MCN in Python apps
-examples/               # Ready-to-run .mcn scripts
-use-cases/              # Real-world scenario scripts
 ```
 
 ---
@@ -531,13 +610,12 @@ from mcn.plugin.mcn_embedded import MCNEmbedded
 mcn = MCNEmbedded()
 result = mcn.execute("""
     var total = price * qty
-    return total
+    var tax   = total * 0.1
+    return {total: total, tax: tax, grand: total + tax}
 """, context={"price": 9.99, "qty": 3})
 
-print(result)   # 29.97
+print(result)   # {"total": 29.97, "tax": 2.997, "grand": 32.967}
 ```
-
-### Programmatic agent usage
 
 ```python
 from mcn.ai.mcn_agent import MCNAgent
@@ -550,19 +628,53 @@ result = agent.generate(
 )
 print(result["backend_path"])   # ./leave_app/backend/main.mcn
 print(result["ui_path"])        # ./leave_app/ui/app.mcn
-print(result["attempts"])       # 1  (self-corrected 0 times)
+```
+
+---
+
+## Project Structure
+
+```
+mt-mcn/
+├── mcn/
+│   ├── core_engine/
+│   │   ├── lexer.py            # Tokeniser
+│   │   ├── parser.py           # Recursive-descent parser
+│   │   ├── evaluator.py        # Tree-walking evaluator
+│   │   ├── ast_nodes.py        # AST node dataclasses
+│   │   ├── stdlib_builtins.py  # 100+ built-in functions
+│   │   ├── ai_builtins.py      # AI primitives (ai, llm, embed, extract, classify)
+│   │   ├── mcn_packages.py     # Package registry (stripe, healthcare, finance, ...)
+│   │   ├── ui_compiler.py      # MCN → React + shadcn/ui
+│   │   ├── type_checker.py     # Static type checker
+│   │   ├── formatter.py        # Code formatter
+│   │   ├── test_runner.py      # Test framework + 15 assertion helpers
+│   │   ├── mcn_server.py       # HTTP server (GET/POST, path params, query strings)
+│   │   └── mcn_cli.py          # CLI entry point
+│   ├── ai/
+│   │   ├── mcn_agent.py        # AI-powered app generator
+│   │   └── mcn_spec.py         # Language spec (system prompt)
+│   ├── providers/
+│   │   ├── anthropic_provider.py
+│   │   └── openai_provider.py
+│   ├── web-playground/         # Browser-based IDE (Monaco + Python server)
+│   └── plugin/                 # Embed MCN in Python apps
+├── examples/                   # Ready-to-run .mcn scripts
+└── use-cases/                  # Real-world scenario scripts
 ```
 
 ---
 
 ## Roadmap
 
-| Version | Focus |
-|---|---|
-| v2.1 | AI primitives, test runner, formatter, type checker |
-| v2.2 (current) | MCN Agent, full-stack compiler (CRUD, charts, modals, routing) |
-| v2.3 | More shadcn components (checkbox, switch, combobox, date picker), form validation, toast notifications |
-| v3.0 | LSP server, WASM runtime, multi-target code generation |
+| Version | Status | Focus |
+|---|---|---|
+| v2.0 | Released | Pipelines, services, workflows, contracts, AI primitives |
+| v2.1 | Released | Test runner, formatter, type checker, MCN Agent |
+| v2.2 | Released | Full-stack compiler, CRUD, charts, modals, routing |
+| **v2.3** | **Current** | **100+ stdlib built-ins, package system (stripe/twilio/healthcare/finance), else-if, ternary, compound assign, property/index assign, rich test assertions, GET endpoints + path params** |
+| v2.4 | Planned | `try/catch` error variable, `finally`, arrow functions, `for i, val in list`, type annotations |
+| v3.0 | Planned | Cloud runtime (1-click deploy), VS Code extension, public package registry, local LLM (Ollama) |
 
 ---
 
@@ -573,6 +685,12 @@ print(result["attempts"])       # 1  (self-corrected 0 times)
 3. Run `mcn test` and `mcn check --strict` before submitting
 4. Open a pull request
 
+**Areas actively needed:**
+- Cloud runtime / deploy button
+- VS Code extension with MCN syntax highlighting + IntelliSense
+- Public package registry (npm-style, for SI packages)
+- More domain packages (`payments`, `logistics`, `hr`, `legal`)
+
 ---
 
 ## License
@@ -581,4 +699,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-*MCN v2.2 — describe it, ship it.*
+*MCN v2.3 — write less, ship more. AI is a primitive, not a library.*

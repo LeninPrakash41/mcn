@@ -1,276 +1,74 @@
-# MCN (Macincode [aka] Micro Scripting Language)
+# MCN Core Engine
 
-🚀 **The Future of AI-Powered Development** - A revolutionary scripting language that bridges the gap between natural language and code, designed for the AI era.
+This directory contains the MCN language runtime, compiler, and CLI.
 
-## 🌟 Vision
+See the **[root README](../README.md)** for the full language reference, quick start, and package docs.
 
-MCN empowers developers to build intelligent applications with unprecedented ease. By combining AI, databases, APIs, and frontend integration in a single, intuitive language, MCN transforms complex development workflows into simple, readable scripts.
-
-## 🚀 Quick Start - No Installation Required!
-
-### 1. Get MCN
-```bash
-git clone https://github.com/zeroappz/mcn
-cd mcn
-```
-
-### 2. Run Your First Script
-```bash
-# Use the runner script (works immediately)
-python run_mcn.py run mcn/examples/hello.mcn
-
-# Windows users can also use
-mcn.bat run mcn/examples/hello.mcn
-```
-
-### 3. Start Interactive REPL
-```bash
-python run_mcn.py repl
-```
-
-### 4. Serve as API
-```bash
-python run_mcn.py serve --file mcn/examples/hello.mcn --port 8080
-```
-
-### For Production Use
-```bash
-pip install -e .
-# Then use directly: mcn run script.mcn
-```
-
-## ✨ Key Features
-
-- 🤖 **Native AI Integration** - Built-in AI functions with multi-model support
-- 🗄️ **Database Operations** - Universal connectivity with AI-assisted queries
-- 🌐 **Full-Stack Ready** - Frontend integration and auto-generated APIs
-- 🔧 **Developer Friendly** - Enhanced error logging and IDE support
-- ⚡ **Zero Setup** - Run immediately without installation
-
-## 📝 Basic Examples
-
-### Hello World (hello.mcn)
-```mcn
-var name = "World"
-var greeting = "Hello " + name + "!"
-echo(greeting)
-```
-
-### Business Logic (business.mcn)
-```mcn
-var order_total = 100.00
-var tax_rate = 0.08
-var tax = order_total * tax_rate
-var final_total = order_total + tax
-
-echo("Order: $" + order_total)
-echo("Tax: $" + tax)
-echo("Total: $" + final_total)
-```
-
-### Run Examples
-```bash
-python run_mcn.py run hello.mcn
-python run_mcn.py run business.mcn
-```
-
-## 🎯 Advanced Features
-
-### AI Integration
-```mcn
-use "ai"
-
-// AI-powered analysis
-var response = ai("Analyze this data: " + data, "gpt-4")
-echo(response)
-```
-
-### Database Operations
-```mcn
-use "db"
-
-// Simple database queries
-var users = query("SELECT * FROM users")
-echo(users)
-```
-
-### API Services
-```mcn
-use "http"
-
-// Create API endpoints
-function get_user_data(user_id) {
-    return query("SELECT * FROM users WHERE id = ?", (user_id))
-}
-
-export get_user_data
-```
-
-## 🛠️ Usage Modes
-
-### Direct Script Execution
-```bash
-# Run any MCN script
-python run_mcn.py run script.mcn
-
-# Interactive development
-python run_mcn.py repl
-```
-
-### API Server Mode
-```bash
-# Serve single script as API
-python run_mcn.py serve --file script.mcn --port 8080
-
-# Serve directory of scripts
-python run_mcn.py serve --dir examples/ --port 8080
-```
-
-### Production Installation
-```bash
-pip install -e .
-mcn run script.mcn
-mcn serve --file script.mcn
-```
-
-## 📁 Project Structure
+## Directory layout
 
 ```
-mcn/
-├── examples/           # Ready-to-run examples
-│   ├── hello.mcn      # Basic hello world
-│   ├── business.mcn   # Business logic demo
-│   ├── ai_integration.mcn
-│   └── database_crud.mcn
-├── use-cases/         # Real-world scenarios
-├── docs/             # Documentation
-├── run_mcn.py        # Main runner (no install needed)
-└── mcn.bat          # Windows batch file
+core_engine/
+  lexer.py            Tokeniser — handles all operators including %, +=, -=, *=, /=, %=, ?
+  parser.py           Recursive-descent parser — if/else-if/else, ternary, modulo,
+                      compound assign, property/index assign, object keyword keys
+  evaluator.py        Tree-walking evaluator — executes all AST nodes
+  ast_nodes.py        Typed AST dataclasses
+  stdlib_builtins.py  100+ standard library functions:
+                        session_*, cache_*, memory_*, vector_*, rag()
+                        auth_hash / auth_create_token / auth_verify_token
+                        parse_csv / parse_json / to_json
+                        split / join / upper / lower / trim / replace / contains / ...
+                        first / last / sort_list / group_by / unique / flatten / ...
+                        sum_list / average / min_val / max_val / random_int / clamp
+                        queue_push / queue_pop / queue_size
+                        uuid / sha256 / md5
+  ai_builtins.py      AI primitives: ai() llm() embed() extract() classify() checkpoint()
+  mcn_packages.py     Package registry — bundled: stripe twilio resend slack openai
+                        healthcare finance. Custom: mcn new-package / mcn install
+  ui_compiler.py      MCN component/app → React + TypeScript + shadcn/ui
+  type_checker.py     Static type checker (130+ built-in type signatures)
+  formatter.py        Code formatter (mcn fmt)
+  test_runner.py      Test framework + 15 assertion helpers
+  mcn_server.py       HTTP server — GET/POST endpoints, path params, query strings,
+                        auto GET for get_*/list_*/find_* naming convention
+  mcn_cli.py          CLI: run serve test fmt check build generate install packages ...
+  mcn_interpreter.py  Top-level interpreter (wires all modules together)
+  runtime_types.py    MCNPipeline MCNService MCNWorkflow MCNContract MCNPrompt MCNAgent
+
+web-playground/
+  server.py           Playground backend (Flask) — /api/execute /api/build /api/test ...
+  index.html          Monaco-based browser IDE
+
+ai/
+  mcn_agent.py        AI-powered full-stack app generator (mcn generate)
+  mcn_spec.py         MCN language spec used as the agent system prompt
+
+providers/
+  anthropic_provider.py
+  openai_provider.py
+
+plugin/
+  mcn_embedded.py     Embed MCN in Python apps
 ```
 
-## ✅ Key Benefits
-
-- **No Installation Required**: Use `python run_mcn.py` immediately
-- **No Path Setup**: Runner script handles all imports automatically
-- **Cross-Platform**: Works on Windows, Linux, macOS
-- **Production Ready**: Install with pip for production use
-- **Rich Examples**: Comprehensive examples in `/examples` directory
-- **Enhanced Error Handling**: Clear error messages with suggestions
-
-## 📚 Learning Resources
-
-- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - Complete development guide
-- **[Use Cases](use-cases/)** - Real-world examples and scenarios
-- **[Examples](examples/)** - Ready-to-run code samples
-- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture overview
-
-## 🤝 Welcome Contributors!
-
-We're excited to have you join the MCN community! Whether you're fixing bugs, adding features, improving documentation, or sharing use cases, every contribution matters.
-
-### How to Contribute
-
-1. **Fork the repository** and create your feature branch
-2. **Test your changes** using `python run_mcn.py run examples/`
-3. **Submit a pull request** with a clear description
-4. **Join discussions** and help other developers
-
-### Areas We Need Help
-
-- 🐛 **Bug Reports & Fixes** - Help us improve stability
-- 📝 **Documentation** - Make MCN more accessible
-- 🎯 **Use Cases** - Share real-world applications
-- 🔧 **Features** - Extend MCN's capabilities
-- 🧪 **Testing** - Improve test coverage
-
-### Get in Touch
-
-- **Email**: [dev@mslang.org](mailto:dev@mslang.org)
-- **GitHub Issues**: Report bugs and request features
-- **Discussions**: Share ideas and get help
-
-**Thank you for making MCN better for everyone!** 🚀
-
----
-
-*MCN v2.0 - Bridging the gap between natural language and code***Blog**: Read about MCN development and use cases
-
-## 🚀 What Makes MCN Special?
-
-### For Developers
-- **Rapid Prototyping**: Build AI-powered apps in minutes
-- **Full-Stack**: Backend + Frontend in one language
-- **AI-First**: Native AI integration, not an afterthought
-- **Developer-Friendly**: Clear errors, great tooling
-
-### For Businesses
-- **Faster Time-to-Market**: Reduce development cycles
-- **Lower Costs**: Less code, fewer bugs, faster delivery
-- **AI-Ready**: Built for the AI-powered future
-- **Scalable**: From prototype to production
-
-### For the Future
-- **AI-Native**: Designed for human-AI collaboration
-- **Intuitive**: Natural language meets programming
-- **Extensible**: Plugin system for custom functionality
-- **Open Source**: Community-driven development
-
-## 📈 Roadmap
-
-- **v2.1**: Visual programming interface
-- **v2.2**: Multi-language code generation
-- **v2.3**: Advanced AI model fine-tuning
-- **v3.0**: Natural language programming
-
-## 🤝 Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Ready to build the future with MCN?** 🚀
+## Running tests
 
 ```bash
-# Quick backend script
-python mcn_cli.py examples/ai_integration.mcn
-
-# Or full-stack project
-mcn init my-ai-app --frontend react
-cd my-ai-app
-mcn run mcn/main.mcn
+cd mt-mcn
+mcn test examples/tests.mcn
+mcn test use-cases/ --verbose
 ```
 
-*Join thousands of developers already building with MCN!*atural language meets programming
-- **Extensible**: Plugin system for custom functionality
-- **Open Source**: Community-driven development
+## Adding a built-in function
 
-## 📈 Roadmap
+1. Implement in `stdlib_builtins.py` — add to `register_stdlib_builtins()`
+2. Add return type + arg count to `BUILTIN_RETURN_TYPES` / `BUILTIN_ARG_COUNTS` in `type_checker.py`
+3. Write a `test` block in `examples/tests.mcn`
 
-- **v2.1**: Visual programming interface
-- **v2.2**: Multi-language code generation
-- **v2.3**: Advanced AI model fine-tuning
-- **v3.0**: Natural language programming
-
-## 🤝 Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Ready to build the future with MCN?** 🚀
+## Adding a package
 
 ```bash
-mcn init my-ai-app --frontend react
-cd my-ai-app
-mcn run mcn/main.mcn
+mcn new-package myorg/mypackage --path .
+# edit myorg_mypackage/index.py
+mcn install --path ./myorg_mypackage --name myorg/mypackage
 ```
-
-*Join thousands of developers already building with MCN!*

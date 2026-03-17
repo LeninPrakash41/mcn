@@ -39,10 +39,12 @@ _agent_context = threading.local()
 def _get_provider(opts: dict) -> str:
     """Pick provider from options → env var → key presence → default."""
     if opts.get("provider"):
-        return str(opts["provider"])
+        return str(opts["provider"]).lower()
     explicit = os.getenv("MCN_AI_PROVIDER", "").lower()
-    if explicit in ("anthropic", "openai"):
+    if explicit in ("anthropic", "openai", "ollama"):
         return explicit
+    if os.getenv("OLLAMA_URL"):      # explicit Ollama URL = user wants Ollama
+        return "ollama"
     if os.getenv("ANTHROPIC_API_KEY"):
         return "anthropic"
     if os.getenv("OPENAI_API_KEY"):
@@ -53,6 +55,7 @@ def _get_provider(opts: dict) -> str:
 def _provider_complete(prompt: str, opts: dict) -> str:
     """Dispatch a completion call to the right provider."""
     from ..providers.anthropic_provider import anthropic_complete
+    from ..providers.ollama_provider    import ollama_complete
     from ..providers.openai_provider    import openai_complete
 
     provider = _get_provider(opts)
@@ -63,6 +66,10 @@ def _provider_complete(prompt: str, opts: dict) -> str:
 
     if provider == "openai":
         return openai_complete(prompt, model=model or "gpt-4o",
+                               system=system, max_tokens=max_tok,
+                               temperature=temp)
+    if provider == "ollama":
+        return ollama_complete(prompt, model=model or "",
                                system=system, max_tokens=max_tok,
                                temperature=temp)
     # default → anthropic
@@ -101,20 +108,33 @@ def mcn_llm(model: str, prompt: str, options: Any = None) -> str:
         opts.setdefault("provider", "anthropic")
     elif model.startswith(("gpt", "o1", "o3", "o4")):
         opts.setdefault("provider", "openai")
+    elif model.startswith(("llama", "mistral", "gemma", "phi", "qwen",
+                            "deepseek", "codellama", "vicuna", "orca",
+                            "neural-chat", "solar", "starling", "dolphin")):
+        opts.setdefault("provider", "ollama")
     return _provider_complete(str(prompt), opts)
 
 
 # ── embed() ───────────────────────────────────────────────────────────────────
 
-def mcn_embed(text: str) -> List[float]:
+def mcn_embed(text: str, model: str = "") -> List[float]:
     """
-    Generate a text embedding (1536-dim via OpenAI text-embedding-3-small).
-    Falls back to a 128-dim deterministic mock when OPENAI_API_KEY is absent.
+    Generate a text embedding.
+    - OpenAI (text-embedding-3-small) when OPENAI_API_KEY is set
+    - Ollama (nomic-embed-text) when OLLAMA_URL is set
+    - 128-dim deterministic mock otherwise
 
     embed("cloud cost optimisation")
     var vec = embed(user_query)
     var results = query("SELECT * FROM docs ORDER BY dist(embedding, ?) LIMIT 5", vec)
     """
+    if os.getenv("OPENAI_API_KEY"):
+        from ..providers.openai_provider import openai_embed
+        return openai_embed(str(text), model=model or "text-embedding-3-small")
+    if os.getenv("OLLAMA_URL") or _get_provider({}) == "ollama":
+        from ..providers.ollama_provider import ollama_embed
+        return ollama_embed(str(text), model=model or "nomic-embed-text")
+    # fallback: deterministic mock
     from ..providers.openai_provider import openai_embed
     return openai_embed(str(text))
 

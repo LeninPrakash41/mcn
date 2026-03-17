@@ -191,6 +191,11 @@ class MCNInterpreter:
         from .ai_builtins import register_ai_builtins
         register_ai_builtins(self._functions)
 
+        # ── Standard library (Layer 2): session, cache, memory, vector, RAG,
+        #    auth, data, strings, arrays, math, queue, crypto ─────────────────
+        from .stdlib_builtins import register_stdlib_builtins
+        register_stdlib_builtins(self._functions)
+
     def _init_v2_features(self):
         """Initialise MCN 2.0 features (packages, async, type hints, AI context)."""
         from .mcn_extensions import (
@@ -280,11 +285,34 @@ class MCNInterpreter:
             loop.close()
 
     def _use_package(self, package_name: str) -> str:
+        from .mcn_packages import get_registry, PackageNotFoundError
+
+        def _bind(pkg_name: str, pkg_fns: dict) -> str:
+            """Bind package functions both flat and as a namespaced dict."""
+            self._functions.update(pkg_fns)
+            # Also expose as package_name.fn() namespace object
+            # Use only the last path component: "accenture/healthcare" → "healthcare"
+            ns_key = pkg_name.split("/")[-1].replace("-", "_")
+            self._evaluator.globals.define(ns_key, pkg_fns)
+            return f"Package '{pkg_name}' loaded ({len(pkg_fns)} exports)"
+
+        # 1. Try the new registry (bundled + disk + project)
+        try:
+            pkg_fns = get_registry().load(package_name)
+            return _bind(package_name, pkg_fns)
+        except PackageNotFoundError:
+            pass
+
+        # 2. Fall back to legacy in-memory package_manager (db/http/ai packages)
         pkg_fns = self.package_manager.get_package_functions(package_name)
         if pkg_fns:
-            self._functions.update(pkg_fns)
-            return f"Package '{package_name}' loaded"
-        raise Exception(f"Package '{package_name}' not found")
+            return _bind(package_name, pkg_fns)
+
+        raise Exception(
+            f"Package '{package_name}' not found.\n"
+            f"Built-in packages: stripe, twilio, resend, slack, openai, healthcare, finance\n"
+            f"Install custom: mcn install --path ./my_package"
+        )
 
     def _set_type_hint(self, var_name: str, var_type: str) -> str:
         self.type_checker.add_type_hint(var_name, var_type)

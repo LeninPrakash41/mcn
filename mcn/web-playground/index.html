@@ -506,12 +506,25 @@
 
   <button class="btn btn-gradient" onclick="openGenerateModal()">✦ Generate AI App</button>
   <button class="btn" onclick="runActiveFile()" title="Run active file (Ctrl+Enter)">▶ Run</button>
+  <button class="btn btn-sm" onclick="formatActiveFile()" title="Format active file">⌥ Format</button>
+  <button class="btn btn-sm" onclick="checkActiveFile()" title="Type-check active file">✓ Check</button>
+  <button class="btn btn-sm" onclick="runTests()" title="Run tests in active file">⚗ Test</button>
   <button class="btn btn-primary" onclick="buildProject()">⚡ Build</button>
 
   <div class="hdr-sep"></div>
 
-  <button class="btn" id="btnDownload" onclick="downloadProject()" disabled title="Download frontend as zip">⬇ Download</button>
+  <button class="btn btn-sm" onclick="clearOutput()" title="Clear output log">⌫ Clear</button>
+  <button class="btn" id="btnDownload" onclick="downloadProject()" disabled title="Download built project as zip">⬇ Download</button>
+  <button class="btn" onclick="openDeployModal()" title="Package workspace for deployment">☁ Deploy</button>
   <button class="btn" id="btnLaunch" onclick="toggleDevServer()">🚀 Launch Preview</button>
+
+  <div class="hdr-sep"></div>
+
+  <div id="auth-area">
+    <button class="btn btn-sm" onclick="openAuthModal()" id="btn-signin">⚿ Sign In</button>
+    <span id="auth-user" style="display:none;font-size:13px;color:var(--fg-dim);cursor:pointer;" onclick="openAuthModal()"></span>
+    <button class="btn btn-sm" onclick="signOut()" id="btn-signout" style="display:none;">Sign Out</button>
+  </div>
 </header>
 
 <!-- ── Workspace ───────────────────────────────────────────────────────── -->
@@ -622,6 +635,73 @@
   </div>
 </div>
 
+<!-- ── Auth Modal ───────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="auth-modal">
+  <div class="modal-card" style="max-width:400px">
+    <div class="modal-hdr">
+      <div class="modal-title" id="auth-modal-title">Sign In</div>
+      <div class="modal-sub">Your workspace is saved between sessions</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="btn btn-sm" id="auth-tab-login" onclick="switchAuthTab('login')" style="flex:1">Sign In</button>
+        <button class="btn btn-sm" id="auth-tab-register" onclick="switchAuthTab('register')" style="flex:1">Register</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="auth-email" placeholder="you@example.com" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div id="auth-error" style="display:none;color:#f87171;font-size:13px;margin-top:4px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeAuthModal()">Cancel</button>
+      <button class="btn btn-primary" id="auth-submit" onclick="submitAuth()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Deploy Modal ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="deploy-modal">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <div class="modal-title">☁ Deploy MCN App</div>
+      <div class="modal-sub">Package your workspace as a Docker-ready zip for any cloud platform</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">App name</label>
+        <input class="form-input" type="text" id="deploy-name" value="mcn-app" placeholder="my-app" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target</label>
+        <select class="form-input" id="deploy-target">
+          <option value="zip">Zip only (download)</option>
+          <option value="docker">Zip + Docker command</option>
+        </select>
+      </div>
+      <div class="gen-status hidden" id="deploy-status">
+        <div class="spinner"></div>
+        <span id="deploy-status-text">Building…</span>
+      </div>
+      <div class="hidden" id="deploy-result">
+        <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✓ Deployment package ready!</div>
+        <div class="form-label">Run with Docker:</div>
+        <pre id="deploy-docker-cmd" style="background:var(--bg-deep);padding:10px;border-radius:6px;font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:4px;"></pre>
+        <div class="form-label" style="margin-top:10px;">Files included:</div>
+        <div id="deploy-files" style="font-size:12px;color:var(--fg-dim);line-height:1.7;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDeployModal()">Close</button>
+      <button class="btn btn-primary" id="deploy-submit" onclick="submitDeploy()">⬇ Build &amp; Download</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Scripts ─────────────────────────────────────────────────────────── -->
 <script>
 // ── Monaco init ─────────────────────────────────────────────────────────
@@ -636,8 +716,26 @@ require(['vs/editor/editor.main'], function () {
                'workflow','step','prompt','system','user','format','memory',
                'component','state','on','render','app','title','theme','layout',
                'tabs','tab','sidebar','nav','route','test','assert'],
-    builtins: ['log','fetch','trigger','query','ai','llm','embed','extract',
-               'classify','checkpoint','read_file','write_file','env'],
+    builtins: ['log','echo','fetch','http_get','http_post','http_put','http_delete',
+               'query','query_one','execute','db_insert','db_update','db_delete',
+               'ai','llm','embed','extract','classify','checkpoint','rag',
+               'session_set','session_get','session_delete','session_clear',
+               'cache_set','cache_get','cache_delete',
+               'memory_add','memory_search','memory_clear',
+               'vector_add','vector_search','vector_delete',
+               'auth_hash_password','auth_verify_password','auth_create_token','auth_verify_token',
+               'to_upper','to_lower','trim','split','join','replace','starts_with','ends_with',
+               'contains','str_len','substr','format_str','regex_match','regex_find','regex_replace',
+               'to_str','to_int','to_float','to_bool',
+               'len','push','pop','shift','unshift','slice','map','filter','reduce','find',
+               'sort','reverse','unique','flat','zip','range','sum','avg','min','max',
+               'count','group_by','keys','values','has_key','merge',
+               'json_parse','json_str','pick','omit',
+               'abs','ceil','floor','round','sqrt','pow','random','random_int',
+               'now','date_parse','date_format','date_add','date_diff',
+               'queue_push','queue_pop','queue_peek','queue_len',
+               'uuid','hash_sha256','hash_md5','base64_encode','base64_decode',
+               'trigger','wait','read_file','write_file','env'],
     tokenizer: {
       root: [
         [/\/\/.*$/, 'comment'],
@@ -645,13 +743,230 @@ require(['vs/editor/editor.main'], function () {
         [/"(?:[^"\\]|\\.)*"/, 'string'],
         [/\b(true|false|null)\b/, 'constant.language'],
         [/\b\d+(\.\d+)?\b/, 'number'],
-        [/\b(var|function|return|if|else|for|in|while|break|continue|try|catch|throw|and|or|not)\b/, 'keyword'],
+        [/\b(var|function|return|if|else|for|in|while|break|continue|try|catch|finally|throw|and|or|not|use)\b/, 'keyword'],
         [/\b(contract|service|endpoint|agent|task|pipeline|stage|workflow|step|prompt)\b/, 'keyword.declaration'],
         [/\b(component|state|on|render|app|title|theme|layout|tabs|tab|sidebar|nav|route)\b/, 'keyword.control'],
         [/\b(test|assert)\b/, 'keyword.other'],
-        [/\b(log|fetch|trigger|query|ai|llm|embed|extract|classify|checkpoint|read_file|write_file|env)\b/, 'support.function'],
+        [/\b(log|echo|fetch|http_get|http_post|http_put|http_delete|query|query_one|execute|db_insert|db_update|db_delete|ai|llm|embed|extract|classify|checkpoint|rag|session_set|session_get|session_delete|session_clear|cache_set|cache_get|cache_delete|memory_add|memory_search|memory_clear|vector_add|vector_search|vector_delete|auth_hash_password|auth_verify_password|auth_create_token|auth_verify_token|to_upper|to_lower|trim|split|join|replace|starts_with|ends_with|contains|str_len|substr|format_str|regex_match|regex_find|regex_replace|to_str|to_int|to_float|to_bool|len|push|pop|shift|unshift|slice|map|filter|reduce|find|sort|reverse|unique|flat|zip|range|sum|avg|min|max|count|group_by|keys|values|has_key|merge|json_parse|json_str|pick|omit|abs|ceil|floor|round|sqrt|pow|random|random_int|now|date_parse|date_format|date_add|date_diff|queue_push|queue_pop|queue_peek|queue_len|uuid|hash_sha256|hash_md5|base64_encode|base64_decode|trigger|wait|read_file|write_file|env)\b/, 'support.function'],
         [/[a-zA-Z_]\w*/, 'identifier'],
       ]
+    }
+  })
+
+  // ── IntelliSense: completion items ──────────────────────────────────────
+  const _CK = monaco.languages.CompletionItemKind
+  const _mcnBuiltins = [
+    // Core I/O
+    { label: 'log',         kind: _CK.Function, detail: 'log(value)',               documentation: 'Print value to console/output' },
+    { label: 'echo',        kind: _CK.Function, detail: 'echo(value)',              documentation: 'Alias for log()' },
+    { label: 'read_file',   kind: _CK.Function, detail: 'read_file(path)',          documentation: 'Read text file contents' },
+    { label: 'write_file',  kind: _CK.Function, detail: 'write_file(path, content)', documentation: 'Write text to file' },
+    { label: 'env',         kind: _CK.Function, detail: 'env(key)',                 documentation: 'Read environment variable' },
+    // HTTP
+    { label: 'fetch',       kind: _CK.Function, detail: 'fetch(url, options?)',     documentation: 'HTTP GET/POST request' },
+    { label: 'http_get',    kind: _CK.Function, detail: 'http_get(url, headers?)', documentation: 'HTTP GET' },
+    { label: 'http_post',   kind: _CK.Function, detail: 'http_post(url, body?, headers?)', documentation: 'HTTP POST' },
+    { label: 'http_put',    kind: _CK.Function, detail: 'http_put(url, body?, headers?)',  documentation: 'HTTP PUT' },
+    { label: 'http_delete', kind: _CK.Function, detail: 'http_delete(url, headers?)',      documentation: 'HTTP DELETE' },
+    // DB
+    { label: 'query',       kind: _CK.Function, detail: 'query(sql, params?)',      documentation: 'Run SQL query, returns list of rows' },
+    { label: 'query_one',   kind: _CK.Function, detail: 'query_one(sql, params?)', documentation: 'Run SQL, return first row or null' },
+    { label: 'execute',     kind: _CK.Function, detail: 'execute(sql, params?)',   documentation: 'Run SQL INSERT/UPDATE/DELETE' },
+    { label: 'db_insert',   kind: _CK.Function, detail: 'db_insert(table, row)',   documentation: 'Insert a dict into a table' },
+    { label: 'db_update',   kind: _CK.Function, detail: 'db_update(table, row, where)', documentation: 'Update rows in a table' },
+    { label: 'db_delete',   kind: _CK.Function, detail: 'db_delete(table, where)', documentation: 'Delete rows from a table' },
+    // AI
+    { label: 'ai',          kind: _CK.Function, detail: 'ai(prompt, options?)',     documentation: 'Call AI with a prompt. Options: {model, temperature, system}' },
+    { label: 'llm',         kind: _CK.Function, detail: 'llm(model, prompt, opts?)', documentation: 'Explicit model call: llm("claude-3-5-sonnet", prompt)' },
+    { label: 'embed',       kind: _CK.Function, detail: 'embed(text)',              documentation: 'Generate text embedding vector' },
+    { label: 'extract',     kind: _CK.Function, detail: 'extract(text, contract)',  documentation: 'Extract structured data matching a contract' },
+    { label: 'classify',    kind: _CK.Function, detail: 'classify(text, labels)',   documentation: 'Classify text into one of the labels' },
+    { label: 'checkpoint',  kind: _CK.Function, detail: 'checkpoint(label, data)',  documentation: 'Human-in-the-loop approval step' },
+    { label: 'rag',         kind: _CK.Function, detail: 'rag(query, docs?, template?)', documentation: 'Retrieval-augmented generation' },
+    // Session
+    { label: 'session_set', kind: _CK.Function, detail: 'session_set(key, value)', documentation: 'Store value in current session' },
+    { label: 'session_get', kind: _CK.Function, detail: 'session_get(key)',        documentation: 'Read value from current session' },
+    { label: 'session_delete', kind: _CK.Function, detail: 'session_delete(key)', documentation: 'Remove key from current session' },
+    { label: 'session_clear', kind: _CK.Function, detail: 'session_clear()',      documentation: 'Clear all session data' },
+    // Cache
+    { label: 'cache_set',   kind: _CK.Function, detail: 'cache_set(key, value, ttl?)', documentation: 'Cache a value with optional TTL (seconds)' },
+    { label: 'cache_get',   kind: _CK.Function, detail: 'cache_get(key)',           documentation: 'Get cached value (null if expired/absent)' },
+    { label: 'cache_delete', kind: _CK.Function, detail: 'cache_delete(key)',       documentation: 'Remove item from cache' },
+    // Memory
+    { label: 'memory_add',  kind: _CK.Function, detail: 'memory_add(text, meta?)', documentation: 'Add text to long-term memory store' },
+    { label: 'memory_search', kind: _CK.Function, detail: 'memory_search(query, n?)', documentation: 'Semantic search across memory store' },
+    { label: 'memory_clear', kind: _CK.Function, detail: 'memory_clear()',         documentation: 'Clear all memory entries' },
+    // Vector / RAG
+    { label: 'vector_add',  kind: _CK.Function, detail: 'vector_add(id, text, meta?)', documentation: 'Add document to vector store' },
+    { label: 'vector_search', kind: _CK.Function, detail: 'vector_search(query, n?)',  documentation: 'Semantic similarity search' },
+    { label: 'vector_delete', kind: _CK.Function, detail: 'vector_delete(id)',         documentation: 'Remove document from vector store' },
+    // Auth
+    { label: 'auth_hash_password', kind: _CK.Function, detail: 'auth_hash_password(password)', documentation: 'Bcrypt-style password hash' },
+    { label: 'auth_verify_password', kind: _CK.Function, detail: 'auth_verify_password(password, hash)', documentation: 'Verify password against hash' },
+    { label: 'auth_create_token', kind: _CK.Function, detail: 'auth_create_token(payload, secret, ttl?)', documentation: 'Create JWT-style token' },
+    { label: 'auth_verify_token', kind: _CK.Function, detail: 'auth_verify_token(token, secret)', documentation: 'Verify and decode token' },
+    // Strings
+    { label: 'to_upper',    kind: _CK.Function, detail: 'to_upper(s)',             documentation: 'Uppercase string' },
+    { label: 'to_lower',    kind: _CK.Function, detail: 'to_lower(s)',             documentation: 'Lowercase string' },
+    { label: 'trim',        kind: _CK.Function, detail: 'trim(s)',                 documentation: 'Strip whitespace from both ends' },
+    { label: 'split',       kind: _CK.Function, detail: 'split(s, sep)',           documentation: 'Split string by separator' },
+    { label: 'join',        kind: _CK.Function, detail: 'join(list, sep)',         documentation: 'Join list into string' },
+    { label: 'replace',     kind: _CK.Function, detail: 'replace(s, old, new)',    documentation: 'Replace all occurrences' },
+    { label: 'starts_with', kind: _CK.Function, detail: 'starts_with(s, prefix)', documentation: 'Check if string starts with prefix' },
+    { label: 'ends_with',   kind: _CK.Function, detail: 'ends_with(s, suffix)',   documentation: 'Check if string ends with suffix' },
+    { label: 'contains',    kind: _CK.Function, detail: 'contains(s, sub)',        documentation: 'Check if string/list contains value' },
+    { label: 'str_len',     kind: _CK.Function, detail: 'str_len(s)',              documentation: 'String length' },
+    { label: 'substr',      kind: _CK.Function, detail: 'substr(s, start, end?)', documentation: 'Substring extraction' },
+    { label: 'format_str',  kind: _CK.Function, detail: 'format_str(template, args)', documentation: 'Format string with values' },
+    { label: 'regex_match', kind: _CK.Function, detail: 'regex_match(s, pattern)', documentation: 'Test regex match' },
+    { label: 'regex_find',  kind: _CK.Function, detail: 'regex_find(s, pattern)', documentation: 'Find first regex match' },
+    { label: 'regex_replace', kind: _CK.Function, detail: 'regex_replace(s, pattern, repl)', documentation: 'Replace via regex' },
+    { label: 'to_str',      kind: _CK.Function, detail: 'to_str(v)',              documentation: 'Convert value to string' },
+    { label: 'to_int',      kind: _CK.Function, detail: 'to_int(v)',              documentation: 'Convert value to integer' },
+    { label: 'to_float',    kind: _CK.Function, detail: 'to_float(v)',            documentation: 'Convert value to float' },
+    { label: 'to_bool',     kind: _CK.Function, detail: 'to_bool(v)',             documentation: 'Convert value to bool' },
+    // Arrays
+    { label: 'len',         kind: _CK.Function, detail: 'len(list)',              documentation: 'Length of list or string' },
+    { label: 'push',        kind: _CK.Function, detail: 'push(list, value)',      documentation: 'Append value to list (mutates)' },
+    { label: 'pop',         kind: _CK.Function, detail: 'pop(list)',              documentation: 'Remove and return last element' },
+    { label: 'shift',       kind: _CK.Function, detail: 'shift(list)',            documentation: 'Remove and return first element' },
+    { label: 'unshift',     kind: _CK.Function, detail: 'unshift(list, value)',   documentation: 'Prepend value to list' },
+    { label: 'slice',       kind: _CK.Function, detail: 'slice(list, start, end?)', documentation: 'Extract sub-list' },
+    { label: 'map',         kind: _CK.Function, detail: 'map(list, fn)',          documentation: 'Transform list elements' },
+    { label: 'filter',      kind: _CK.Function, detail: 'filter(list, fn)',       documentation: 'Keep elements matching predicate' },
+    { label: 'reduce',      kind: _CK.Function, detail: 'reduce(list, fn, init)', documentation: 'Accumulate list into single value' },
+    { label: 'find',        kind: _CK.Function, detail: 'find(list, fn)',         documentation: 'Find first matching element' },
+    { label: 'sort',        kind: _CK.Function, detail: 'sort(list, key?)',       documentation: 'Sort list (returns sorted copy)' },
+    { label: 'reverse',     kind: _CK.Function, detail: 'reverse(list)',          documentation: 'Reverse list (returns reversed copy)' },
+    { label: 'unique',      kind: _CK.Function, detail: 'unique(list)',           documentation: 'Remove duplicate elements' },
+    { label: 'flat',        kind: _CK.Function, detail: 'flat(list)',             documentation: 'Flatten one level of nesting' },
+    { label: 'zip',         kind: _CK.Function, detail: 'zip(a, b)',              documentation: 'Zip two lists into list of pairs' },
+    { label: 'range',       kind: _CK.Function, detail: 'range(n) / range(start, end)', documentation: 'Generate integer range list' },
+    { label: 'sum',         kind: _CK.Function, detail: 'sum(list)',              documentation: 'Sum numeric list' },
+    { label: 'avg',         kind: _CK.Function, detail: 'avg(list)',              documentation: 'Average of numeric list' },
+    { label: 'min',         kind: _CK.Function, detail: 'min(list)',              documentation: 'Minimum value in list' },
+    { label: 'max',         kind: _CK.Function, detail: 'max(list)',              documentation: 'Maximum value in list' },
+    { label: 'count',       kind: _CK.Function, detail: 'count(list, val?)',      documentation: 'Count elements (or occurrences of val)' },
+    { label: 'group_by',    kind: _CK.Function, detail: 'group_by(list, key)',    documentation: 'Group list items by key into dict' },
+    // Object / dict
+    { label: 'keys',        kind: _CK.Function, detail: 'keys(obj)',              documentation: 'List of dict keys' },
+    { label: 'values',      kind: _CK.Function, detail: 'values(obj)',            documentation: 'List of dict values' },
+    { label: 'has_key',     kind: _CK.Function, detail: 'has_key(obj, key)',      documentation: 'Check if dict has key' },
+    { label: 'merge',       kind: _CK.Function, detail: 'merge(obj1, obj2)',      documentation: 'Merge two dicts (obj2 wins)' },
+    { label: 'json_parse',  kind: _CK.Function, detail: 'json_parse(s)',          documentation: 'Parse JSON string to object' },
+    { label: 'json_str',    kind: _CK.Function, detail: 'json_str(obj)',          documentation: 'Serialize object to JSON string' },
+    { label: 'pick',        kind: _CK.Function, detail: 'pick(obj, keys)',        documentation: 'Select subset of object keys' },
+    { label: 'omit',        kind: _CK.Function, detail: 'omit(obj, keys)',        documentation: 'Exclude keys from object' },
+    // Math
+    { label: 'abs',         kind: _CK.Function, detail: 'abs(n)',                documentation: 'Absolute value' },
+    { label: 'ceil',        kind: _CK.Function, detail: 'ceil(n)',               documentation: 'Round up' },
+    { label: 'floor',       kind: _CK.Function, detail: 'floor(n)',              documentation: 'Round down' },
+    { label: 'round',       kind: _CK.Function, detail: 'round(n, places?)',     documentation: 'Round to decimal places' },
+    { label: 'sqrt',        kind: _CK.Function, detail: 'sqrt(n)',               documentation: 'Square root' },
+    { label: 'pow',         kind: _CK.Function, detail: 'pow(base, exp)',        documentation: 'Power: base ^ exp' },
+    { label: 'random',      kind: _CK.Function, detail: 'random()',             documentation: 'Random float 0.0–1.0' },
+    { label: 'random_int',  kind: _CK.Function, detail: 'random_int(min, max)', documentation: 'Random integer in [min, max]' },
+    // Date / time
+    { label: 'now',         kind: _CK.Function, detail: 'now()',                 documentation: 'Current UTC timestamp (ISO string)' },
+    { label: 'date_parse',  kind: _CK.Function, detail: 'date_parse(s)',         documentation: 'Parse date string to timestamp dict' },
+    { label: 'date_format', kind: _CK.Function, detail: 'date_format(ts, fmt)',  documentation: 'Format timestamp with strftime pattern' },
+    { label: 'date_add',    kind: _CK.Function, detail: 'date_add(ts, n, unit)', documentation: 'Add time to timestamp' },
+    { label: 'date_diff',   kind: _CK.Function, detail: 'date_diff(a, b, unit)', documentation: 'Difference between two timestamps' },
+    // Queue
+    { label: 'queue_push',  kind: _CK.Function, detail: 'queue_push(name, msg)', documentation: 'Enqueue a message' },
+    { label: 'queue_pop',   kind: _CK.Function, detail: 'queue_pop(name)',       documentation: 'Dequeue the next message' },
+    { label: 'queue_peek',  kind: _CK.Function, detail: 'queue_peek(name)',      documentation: 'Peek at next message without removing' },
+    { label: 'queue_len',   kind: _CK.Function, detail: 'queue_len(name)',       documentation: 'Number of messages in queue' },
+    // Crypto / ID
+    { label: 'uuid',        kind: _CK.Function, detail: 'uuid()',               documentation: 'Generate UUID v4' },
+    { label: 'hash_sha256', kind: _CK.Function, detail: 'hash_sha256(s)',       documentation: 'SHA-256 hex digest' },
+    { label: 'hash_md5',    kind: _CK.Function, detail: 'hash_md5(s)',          documentation: 'MD5 hex digest' },
+    { label: 'base64_encode', kind: _CK.Function, detail: 'base64_encode(s)',   documentation: 'Base64 encode' },
+    { label: 'base64_decode', kind: _CK.Function, detail: 'base64_decode(s)',   documentation: 'Base64 decode' },
+    // Workflow
+    { label: 'trigger',     kind: _CK.Function, detail: 'trigger(event, data?)', documentation: 'Emit an event to trigger a handler' },
+    { label: 'wait',        kind: _CK.Function, detail: 'wait(ms)',              documentation: 'Pause execution for ms milliseconds' },
+  ]
+
+  const _mcnKeywords = [
+    'var','function','return','if','else','for','in','while','break','continue',
+    'try','catch','finally','throw','true','false','null','and','or','not','use',
+    'contract','service','endpoint','agent','task','pipeline','stage',
+    'workflow','step','prompt','memory','component','state','on','render',
+    'app','title','theme','layout','tabs','tab','sidebar','nav','route',
+    'test','assert',
+  ]
+
+  const _mcnSnippets = [
+    { label: 'function',      kind: _CK.Snippet, insertText: 'function ${1:name}(${2:params})\n    ${3:// body}', insertTextRules: 4, detail: 'Function declaration' },
+    { label: 'if',            kind: _CK.Snippet, insertText: 'if ${1:condition}\n    ${2:// then}', insertTextRules: 4, detail: 'If statement' },
+    { label: 'if-else',       kind: _CK.Snippet, insertText: 'if ${1:condition}\n    ${2:// then}\nelse\n    ${3:// else}', insertTextRules: 4, detail: 'If-else statement' },
+    { label: 'for',           kind: _CK.Snippet, insertText: 'for ${1:item} in ${2:list}\n    ${3:log(item)}', insertTextRules: 4, detail: 'For-in loop' },
+    { label: 'for-enum',      kind: _CK.Snippet, insertText: 'for ${1:i}, ${2:item} in ${3:list}\n    ${4:log(item)}', insertTextRules: 4, detail: 'For-in with index' },
+    { label: 'while',         kind: _CK.Snippet, insertText: 'while ${1:condition}\n    ${2:// body}', insertTextRules: 4, detail: 'While loop' },
+    { label: 'try',           kind: _CK.Snippet, insertText: 'try\n    ${1:// body}\ncatch ${2:e}\n    log(${2:e}.message)', insertTextRules: 4, detail: 'Try-catch' },
+    { label: 'var',           kind: _CK.Snippet, insertText: 'var ${1:name} = ${2:value}', insertTextRules: 4, detail: 'Variable declaration' },
+    { label: 'contract',      kind: _CK.Snippet, insertText: 'contract ${1:Name}\n    ${2:field}: ${3:str}', insertTextRules: 4, detail: 'Contract declaration' },
+    { label: 'service',       kind: _CK.Snippet, insertText: 'service ${1:name}\n    port ${2:8080}\n\n    endpoint ${3:get_data}\n        return query("SELECT * FROM ${4:table}")', insertTextRules: 4, detail: 'Service declaration' },
+    { label: 'pipeline',      kind: _CK.Snippet, insertText: 'pipeline ${1:name}\n    stage ${2:extract}\n        ${3:// fetch data}\n\n    stage ${4:transform}(${5:data})\n        ${6:// process}', insertTextRules: 4, detail: 'Pipeline declaration' },
+    { label: 'agent',         kind: _CK.Snippet, insertText: 'agent ${1:name}\n    model "${2:claude-3-5-sonnet}"\n    tools ${3:fetch, ai}\n\n    task ${4:run}(${5:input})\n        return ai(${5:input})', insertTextRules: 4, detail: 'Agent declaration' },
+    { label: 'component',     kind: _CK.Snippet, insertText: 'component ${1:Name}\n    state ${2:value} = ${3:""}\n\n    render\n        card\n            input bind=${2:value} label="${4:Label}"\n            button "Submit"', insertTextRules: 4, detail: 'UI Component' },
+    { label: 'prompt',        kind: _CK.Snippet, insertText: 'prompt ${1:name}\n    system "${2:You are a helpful assistant.}"\n    user "${3:{input}}"\n    format text', insertTextRules: 4, detail: 'Prompt declaration' },
+    { label: 'test',          kind: _CK.Snippet, insertText: 'test "${1:description}"\n    assert ${2:condition}, "${3:message}"', insertTextRules: 4, detail: 'Test declaration' },
+  ]
+
+  monaco.languages.registerCompletionItemProvider('mcn', {
+    triggerCharacters: ['.', ' ', '('],
+    provideCompletionItems(model, position) {
+      const word = model.getWordUntilPosition(position)
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber:   position.lineNumber,
+        startColumn:     word.startColumn,
+        endColumn:       word.endColumn,
+      }
+
+      const suggestions = []
+
+      // Built-in functions
+      for (const b of _mcnBuiltins) {
+        suggestions.push({ ...b, range,
+          insertText: b.insertText || b.label,
+          sortText: '0' + b.label,
+        })
+      }
+
+      // Keywords
+      for (const kw of _mcnKeywords) {
+        suggestions.push({
+          label: kw, kind: _CK.Keyword, insertText: kw, range,
+          sortText: '1' + kw,
+        })
+      }
+
+      // Snippets
+      for (const s of _mcnSnippets) {
+        suggestions.push({ ...s, range, sortText: '2' + s.label })
+      }
+
+      return { suggestions }
+    }
+  })
+
+  // Hover provider — show doc strings on hover
+  monaco.languages.registerHoverProvider('mcn', {
+    provideHover(model, position) {
+      const word = model.getWordAtPosition(position)
+      if (!word) return null
+      const fn = _mcnBuiltins.find(b => b.label === word.word)
+      if (!fn) return null
+      return {
+        range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+        contents: [
+          { value: '**`' + fn.detail + '`**' },
+          { value: fn.documentation },
+        ]
+      }
     }
   })
 
@@ -722,7 +1037,7 @@ async function initApp() {
 // ── File tree ────────────────────────────────────────────────────────────
 async function loadFileTree() {
   try {
-    const r = await fetch('/api/workspace/files')
+    const r = await apiFetch('/api/workspace/files')
     const d = await r.json()
     renderFileTree(d.files || [])
   } catch (_) {}
@@ -778,14 +1093,15 @@ function makeFileItem(path) {
 // ── Examples ─────────────────────────────────────────────────────────────
 async function loadExamples() {
   try {
-    const r = await fetch('/api/examples')
+    const r = await apiFetch('/api/examples')
     const d = await r.json()
     const ct = document.getElementById('examples-list')
     ct.innerHTML = ''
     for (const ex of d) {
       const el = document.createElement('div')
       el.className = 'tree-item'
-      el.innerHTML = `<span class="tree-icon">📌</span><span>${ex.name}</span>`
+      const icon = ex.project ? '🗂' : ex.id === 'tests' ? '⚗' : ex.id === 'pipeline' ? '⛓' : '▸'
+      el.innerHTML = `<span class="tree-icon">${icon}</span><span>${ex.name}</span>`
       el.onclick = () => loadExample(ex)
       ct.appendChild(el)
     }
@@ -793,23 +1109,53 @@ async function loadExamples() {
 }
 
 async function loadExample(ex) {
-  await fetch('/api/workspace/file', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: ex.file, content: ex.code })
-  })
-  if (_models.has(ex.file)) {
-    _models.get(ex.file).setValue(ex.code)
-    if (_tabState.has(ex.file)) _tabState.get(ex.file).dirty = false
+  if (ex.project && ex.files) {
+    // Multi-file project template — reset workspace and write all files
+    if (!confirm(`Load "${ex.name}" project?\nThis will replace current workspace files.`)) return
+    setStatus('Loading project…')
+    // Close all open tabs first
+    for (const [path, model] of _models.entries()) { model.dispose() }
+    _models.clear(); _tabState.clear(); _openTabs = []; _active = null
+    renderTabs()
+    const r = await apiFetch('/api/workspace/reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: ex.files })
+    })
+    const d = await r.json()
+    if (!d.success) { appendLog('error', '✗ ' + d.error); return }
+    // Server stopped dev server on reset — update UI state
+    _devOn = false
+    _built = false
+    document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+    document.getElementById('btnDownload').disabled = true
+    document.getElementById('server-badge').textContent = 'No dev server'
+    document.getElementById('server-badge').className = ''
+    document.getElementById('status-srv').textContent = ''
+    hidePreview()
+    await loadFileTree()
+    await openFile(ex.open || ex.files[0].path)
+    setStatus('Project loaded — click ⚡ Build', 'ok')
+    appendLog('success', `✓ Loaded "${ex.name}" — ${d.written.length} files written. Click ⚡ Build to compile.`)
+  } else {
+    // Single-file snippet — just write and open one file
+    await apiFetch('/api/workspace/file', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: ex.file, content: ex.code })
+    })
+    if (_models.has(ex.file)) {
+      _models.get(ex.file).setValue(ex.code)
+      if (_tabState.has(ex.file)) _tabState.get(ex.file).dirty = false
+    }
+    await openFile(ex.file)
+    renderTabs()
   }
-  await openFile(ex.file)
-  renderTabs()
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 async function openFile(path) {
   if (!_models.has(path)) {
     try {
-      const r = await fetch(`/api/workspace/file?path=${encodeURIComponent(path)}`)
+      const r = await apiFetch(`/api/workspace/file?path=${encodeURIComponent(path)}`)
       const d = await r.json()
       if (d.error) { appendLog('error', d.error); return }
       const ext = path.endsWith('.mcn') ? 'mcn'
@@ -878,7 +1224,7 @@ async function saveActiveTab() {
   if (!_active) return
   const model = _models.get(_active)
   if (!model) return
-  await fetch('/api/workspace/file', {
+  await apiFetch('/api/workspace/file', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: _active, content: model.getValue() })
   })
@@ -890,7 +1236,7 @@ async function saveAllTabs() {
   for (const [path, model] of _models.entries()) {
     const st = _tabState.get(path)
     if (st?.dirty) {
-      await fetch('/api/workspace/file', {
+      await apiFetch('/api/workspace/file', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, content: model.getValue() })
       })
@@ -909,7 +1255,7 @@ async function runActiveFile() {
   switchPanel('output', document.querySelector('[data-panel="output"]'))
   appendLog('info', '▶ Run: ' + _active)
   try {
-    const r = await fetch('/api/execute', {
+    const r = await apiFetch('/api/execute', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: model.getValue() })
     })
@@ -920,6 +1266,115 @@ async function runActiveFile() {
   } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
 }
 
+// ── Format / Check / Test / Clear ────────────────────────────────────────
+async function formatActiveFile() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  try {
+    const r = await apiFetch('/api/format', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    if (d.formatted) {
+      model.setValue(d.formatted)
+      if (_tabState.has(_active)) _tabState.get(_active).dirty = true
+      renderTabs()
+      appendLog('success', '✓ Formatted')
+      setStatus('Formatted', 'ok')
+    } else {
+      appendLog('error', '✗ ' + (d.error || 'Format failed'))
+      setStatus('Format error', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function checkActiveFile() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '✓ Checking ' + _active)
+  try {
+    const r = await apiFetch('/api/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      appendLog('success', '✓ No issues found')
+      setStatus('Check passed', 'ok')
+    } else {
+      for (const e of (d.errors || [])) appendLog('error', '✗ ' + e)
+      setStatus('Check failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function runTests() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '⚗ Testing ' + _active)
+  setStatus('Testing…')
+  const code = model.getValue()
+
+  // Use SSE streaming endpoint so results appear as each test completes
+  try {
+    const resp = await apiFetch('/api/test/stream', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })
+    if (!resp.ok) { appendLog('error', '✗ Server error ' + resp.status); return }
+    const reader  = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let   buf     = ''
+    let   passed  = 0, failed = 0, total = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const chunks = buf.split('\n\n')
+      buf = chunks.pop()
+      for (const chunk of chunks) {
+        const line = chunk.replace(/^data: /, '').trim()
+        if (!line) continue
+        try {
+          const ev = JSON.parse(line)
+          if (ev.type === 'start') {
+            total = ev.total
+            appendLog('dim', `Running ${total} test(s)…`)
+          } else if (ev.type === 'result') {
+            const icon = ev.passed ? '✓' : '✗'
+            const cls  = ev.passed ? 'success' : 'error'
+            appendLog(cls, `${icon} ${ev.description}  (${ev.elapsed_ms}ms)`)
+            if (!ev.passed && ev.error) appendLog('error', '  ' + ev.error)
+            if (ev.passed) passed++; else failed++
+            setStatus(`${passed}/${total} passed`, failed ? 'err' : 'ok')
+          } else if (ev.type === 'done') {
+            const msg = `${ev.passed} passed, ${ev.failed} failed`
+            appendLog(ev.failed ? 'error' : 'success', (ev.failed ? '✗ ' : '✓ ') + msg)
+            setStatus(msg, ev.failed ? 'err' : 'ok')
+          } else if (ev.type === 'error') {
+            appendLog('error', '✗ ' + ev.message)
+            setStatus('Error', 'err')
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+function clearOutput() {
+  document.getElementById('output-log').innerHTML = ''
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  setStatus('Ready')
+}
+
 // ── Build ─────────────────────────────────────────────────────────────────
 async function buildProject() {
   await saveAllTabs()
@@ -927,7 +1382,7 @@ async function buildProject() {
   switchPanel('output', document.querySelector('[data-panel="output"]'))
   appendLog('info', '⚡ Building UI from ui/app.mcn…')
   try {
-    const r = await fetch('/api/build', {
+    const r = await apiFetch('/api/build', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
     })
     const d = await r.json()
@@ -941,7 +1396,7 @@ async function buildProject() {
       renderBuildFiles(d.files || [])
       await loadFileTree()
     } else {
-      appendLog('error', '✗ ' + data.error)
+      appendLog('error', '✗ ' + d.error)
       setStatus('Build failed', 'err')
     }
   } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
@@ -973,15 +1428,17 @@ async function toggleDevServer() {
 async function startDevServer() {
   setStatus('Starting dev server…')
   try {
-    const r = await fetch('/api/devserver/start', { method: 'POST' })
+    const r = await apiFetch('/api/devserver/start', { method: 'POST' })
     const d = await r.json()
     if (d.success) {
       _devOn = true
-      setStatus(`Dev server :${d.port}`, 'ok')
+      const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
+      setStatus(`UI :${d.port}${beInfo}`, 'ok')
       document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-      document.getElementById('server-badge').textContent = `● :${d.port}`
+      document.getElementById('server-badge').textContent = `● UI :${d.port}${beInfo}`
       document.getElementById('server-badge').className = 'running'
       document.getElementById('status-srv').textContent = `:${d.port}`
+      if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
       showPreview()
     } else {
       appendLog('error', '✗ ' + d.error)
@@ -991,7 +1448,7 @@ async function startDevServer() {
 }
 
 async function stopDevServer() {
-  await fetch('/api/devserver/stop', { method: 'POST' })
+  await apiFetch('/api/devserver/stop', { method: 'POST' })
   _devOn = false
   document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
   document.getElementById('server-badge').textContent = 'No dev server'
@@ -1024,7 +1481,7 @@ function refreshPreview() {
 async function pollDevStatus() {
   while (true) {
     try {
-      const r = await fetch('/api/devserver/status')
+      const r = await apiFetch('/api/devserver/status')
       const d = await r.json()
       if (d.running !== _devOn) {
         _devOn = d.running
@@ -1097,7 +1554,7 @@ async function submitGenerate() {
   document.getElementById('gen-status-text').textContent = 'Connecting…'
 
   try {
-    const r = await fetch('/api/generate', {
+    const r = await apiFetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description: desc, api_key: apiKey })
     })
@@ -1130,7 +1587,7 @@ async function submitGenerate() {
         } else if (ev.type === 'done') {
           document.getElementById('gen-status-text').textContent = '✓ Generation complete!'
           if (ev.backend) {
-            await fetch('/api/workspace/file', {
+            await apiFetch('/api/workspace/file', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ path: 'backend/main.mcn', content: ev.backend })
             })
@@ -1140,7 +1597,7 @@ async function submitGenerate() {
             }
           }
           if (ev.ui) {
-            await fetch('/api/workspace/file', {
+            await apiFetch('/api/workspace/file', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ path: 'ui/app.mcn', content: ev.ui })
             })
@@ -1167,6 +1624,188 @@ async function submitGenerate() {
 
 document.getElementById('gen-modal').addEventListener('click', function(e) {
   if (e.target === this) closeGenerateModal()
+})
+
+// ── Deploy modal ────────────────────────────────────────────────────────────
+
+function openDeployModal() {
+  const m = document.getElementById('deploy-modal')
+  m.classList.remove('hidden')
+  document.getElementById('deploy-status').classList.add('hidden')
+  document.getElementById('deploy-result').classList.add('hidden')
+  document.getElementById('deploy-submit').disabled = false
+  document.getElementById('deploy-submit').textContent = '⬇ Build & Download'
+}
+
+function closeDeployModal() {
+  document.getElementById('deploy-modal').classList.add('hidden')
+}
+
+async function submitDeploy() {
+  const appName = document.getElementById('deploy-name').value.trim() || 'mcn-app'
+  const target  = document.getElementById('deploy-target').value
+
+  const statusEl = document.getElementById('deploy-status')
+  const statusTxt = document.getElementById('deploy-status-text')
+  const resultEl  = document.getElementById('deploy-result')
+  const submitBtn = document.getElementById('deploy-submit')
+
+  statusEl.classList.remove('hidden')
+  resultEl.classList.add('hidden')
+  statusTxt.textContent = 'Building deployment package…'
+  submitBtn.disabled = true
+
+  try {
+    const resp = await apiFetch('/api/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_name: appName, target })
+    })
+
+    const data = await resp.json()
+    if (!resp.ok) throw new Error(data.error || resp.statusText)
+
+    // Trigger browser download of the zip
+    const zipBytes = Uint8Array.from(atob(data.zip_b64), c => c.charCodeAt(0))
+    const blob = new Blob([zipBytes], { type: 'application/zip' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `${appName}.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    // Show result panel
+    statusEl.classList.add('hidden')
+    document.getElementById('deploy-docker-cmd').textContent = data.docker_cmd
+    document.getElementById('deploy-files').textContent =
+      (data.files_included || []).map(f => '• ' + f).join('\n')
+    resultEl.classList.remove('hidden')
+    submitBtn.disabled = false
+    submitBtn.textContent = '⬇ Download Again'
+  } catch (e) {
+    statusEl.classList.add('hidden')
+    submitBtn.disabled = false
+    alert('Deploy failed: ' + e.message)
+  }
+}
+
+document.getElementById('deploy-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeployModal()
+})
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+
+let _authToken = localStorage.getItem('mcn_token') || ''
+let _authUser  = null
+
+try { _authUser = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch(e) {}
+
+function _getAuthHeaders() {
+  return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {}
+}
+
+// Thin wrapper — adds auth headers to every API call automatically
+async function apiFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers || {}, _getAuthHeaders())
+  return fetch(url, opts)
+}
+
+function _updateAuthUI() {
+  const user = _authUser
+  document.getElementById('btn-signin').style.display   = user ? 'none' : ''
+  document.getElementById('auth-user').style.display    = user ? '' : 'none'
+  document.getElementById('btn-signout').style.display  = user ? '' : 'none'
+  if (user) {
+    document.getElementById('auth-user').textContent = '● ' + (user.email || 'signed in')
+  }
+}
+
+_updateAuthUI()
+
+let _authTab = 'login'
+
+function switchAuthTab(tab) {
+  _authTab = tab
+  document.getElementById('auth-modal-title').textContent = tab === 'login' ? 'Sign In' : 'Create Account'
+  document.getElementById('auth-submit').textContent      = tab === 'login' ? 'Sign In' : 'Create Account'
+  document.getElementById('auth-tab-login').style.opacity    = tab === 'login' ? '1' : '0.5'
+  document.getElementById('auth-tab-register').style.opacity = tab === 'register' ? '1' : '0.5'
+  document.getElementById('auth-error').style.display = 'none'
+}
+
+function openAuthModal() {
+  if (_authUser) {
+    // Already signed in — show account info or nothing
+    return
+  }
+  document.getElementById('auth-modal').classList.remove('hidden')
+  document.getElementById('auth-email').value    = ''
+  document.getElementById('auth-password').value = ''
+  document.getElementById('auth-error').style.display = 'none'
+  switchAuthTab('login')
+  setTimeout(() => document.getElementById('auth-email').focus(), 50)
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').classList.add('hidden')
+}
+
+async function submitAuth() {
+  const email    = document.getElementById('auth-email').value.trim()
+  const password = document.getElementById('auth-password').value
+  const errEl    = document.getElementById('auth-error')
+  const btn      = document.getElementById('auth-submit')
+
+  if (!email || !password) { errEl.textContent = 'Email and password required'; errEl.style.display = ''; return }
+
+  btn.disabled = true
+  btn.textContent = _authTab === 'login' ? 'Signing in…' : 'Creating account…'
+  errEl.style.display = 'none'
+
+  try {
+    const endpoint = _authTab === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+    const d = await r.json()
+    if (!r.ok || d.error) throw new Error(d.error || r.statusText)
+
+    _authToken = d.token
+    _authUser  = d.user
+    localStorage.setItem('mcn_token', _authToken)
+    localStorage.setItem('mcn_user', JSON.stringify(_authUser))
+    _updateAuthUI()
+    closeAuthModal()
+    // Reload workspace for the new user
+    await loadFileTree()
+    appendLog('info', `✓ Signed in as ${_authUser.email}`)
+  } catch (e) {
+    errEl.textContent   = e.message
+    errEl.style.display = ''
+  } finally {
+    btn.disabled    = false
+    btn.textContent = _authTab === 'login' ? 'Sign In' : 'Create Account'
+  }
+}
+
+function signOut() {
+  _authToken = ''
+  _authUser  = null
+  localStorage.removeItem('mcn_token')
+  localStorage.removeItem('mcn_user')
+  _updateAuthUI()
+  loadFileTree()
+  appendLog('info', 'Signed out')
+}
+
+document.getElementById('auth-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAuthModal()
+})
+document.getElementById('auth-password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') submitAuth()
 })
 </script>
 </body>
