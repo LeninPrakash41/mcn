@@ -383,7 +383,33 @@ class AgentDecl(Node):
     tasks:  List[AgentTaskDecl] = field(default_factory=list)
 
 
-# ── UI / Frontend Primitives ───────────────────────────────────────────────────
+@dataclass
+class MCPToolDecl(Node):
+    """A tool declaration inside an mcp server block."""
+    name:   str       = ""
+    params: List[str] = field(default_factory=list)
+
+
+@dataclass
+class MCPServerDecl(Node):
+    """
+    mcp filesystem_server
+        transport "stdio"
+        command   "npx"
+        args      ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+        tool read_file(path)
+        tool write_file(path, content)
+    """
+    name:      str              = ""
+    transport: str              = "stdio"   # "stdio" | "sse" | "http"
+    command:   str              = ""
+    args:      List[str]        = field(default_factory=list)
+    url:       str              = ""        # for sse/http transport
+    tools:     List[MCPToolDecl] = field(default_factory=list)
+
+
+
 
 @dataclass
 class UIAttr(Node):
@@ -522,7 +548,7 @@ Stmt = Union[
     TaskStmt, UseStmt, FunctionDecl, ReturnStmt, ExprStmt,
     BreakStmt, ContinueStmt, AssertStmt, TestDecl,
     PipelineDecl, ServiceDecl, WorkflowDecl, ContractDecl,
-    PromptDecl, AgentDecl,
+    PromptDecl, AgentDecl, MCPServerDecl,
     ComponentDecl, AppDecl, IncludeStmt,
 ]
 

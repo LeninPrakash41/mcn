@@ -163,6 +163,16 @@ _mcn_backend: subprocess.Popen | None = None
 _DEV_PORT     = 5174
 _BACKEND_PORT = 8080
 
+# ── npm availability check ────────────────────────────────────────────────────
+def _npm_available() -> bool:
+    try:
+        subprocess.run(["npm", "--version"], capture_output=True, timeout=5)
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+_NPM_AVAILABLE = _npm_available()
+
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -233,11 +243,14 @@ def auth_register():
     try:
         user  = auth_create_user(email, password)
         token = auth_login(email, password)
-        # Seed workspace with default file
-        ws = _WORKSPACES_DIR / user["id"]
+        # Decode token to get user id for workspace dir
+        payload = auth_verify_token(token) or {}
+        user_id = payload.get("sub") or user.get("id") or email
+        ws = _WORKSPACES_DIR / str(user_id)
         ws.mkdir(parents=True, exist_ok=True)
         _seed_workspace(ws)
-        return jsonify({"success": True, "token": token, "user": user})
+        safe_user = {"id": user_id, "email": email, "roles": payload.get("roles", [])}
+        return jsonify({"success": True, "token": token, "user": safe_user})
     except ValueError as e:
         return jsonify({"error": str(e)}), 409
 
@@ -252,11 +265,20 @@ def auth_login_endpoint():
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
     try:
-        token = auth_login(email, password)
-        user  = auth_verify_token(token) or {}
-        return jsonify({"success": True, "token": token,
-                        "user": {"id": user.get("sub"), "email": user.get("email"),
-                                 "roles": user.get("roles", [])}})
+        token   = auth_login(email, password)
+        payload = auth_verify_token(token) or {}
+        user_id = payload.get("sub") or email
+        # Ensure workspace exists for returning users
+        ws = _WORKSPACES_DIR / str(user_id)
+        if not ws.exists():
+            ws.mkdir(parents=True, exist_ok=True)
+            _seed_workspace(ws)
+        return jsonify({
+            "success": True,
+            "token":   token,
+            "user":    {"id": user_id, "email": payload.get("email", email),
+                        "roles": payload.get("roles", [])},
+        })
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
 
@@ -266,8 +288,18 @@ def auth_me():
     user = _current_user()
     if not user:
         return jsonify({"error": "Not authenticated"}), 401
-    full = auth_get_user(user["sub"]) if _AUTH_AVAILABLE else user
-    return jsonify({"success": True, "user": full})
+    try:
+        full = auth_get_user(user["sub"]) if _AUTH_AVAILABLE else user
+    except Exception:
+        full = user
+    safe = {
+        "id":    user.get("sub"),
+        "email": user.get("email", ""),
+        "roles": user.get("roles", []),
+    }
+    if isinstance(full, dict):
+        safe.update({k: v for k, v in full.items() if k not in ("password", "hash")})
+    return jsonify({"success": True, "user": safe})
 
 
 # ── Workspace endpoints ───────────────────────────────────────────────────────
@@ -659,29 +691,38 @@ def test_mcn_stream():
 def generate_mcn():
     data        = request.get_json(silent=True) or {}
     description = data.get("description", "").strip()
-    api_key     = data.get("api_key", "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
+    api_key     = (data.get("api_key") or "").strip() \
+                  or _load_config().get("api_key") \
+                  or os.getenv("ANTHROPIC_API_KEY") \
+                  or os.getenv("OPENAI_API_KEY")
 
     if not description:
         return jsonify({"error": "Missing 'description'"}), 400
     if not api_key:
-        return jsonify({"error": "No Claude API key. Set it via mcn config set api_key ..."}), 400
+        return jsonify({"error": "No API key found. Enter your Claude API key in the modal or run: mcn config set api_key sk-ant-..."}), 400
 
+    ws = _request_workspace()
     token_queue: queue.Queue = queue.Queue()
-    result_box  = [None]   # {"backend": ..., "ui": ..., "attempts": N} or {"error": ...}
+    result_box = [None]  # filled by thread: {backend, ui, attempts} or {error}
 
     def _agent_thread():
         try:
-            from mcn.ai.mcn_agent import MCNAgent, _extract_blocks, _validate_mcn
-            from mcn.ai.mcn_spec  import MCN_SYSTEM_PROMPT, MCN_FIX_PROMPT
+            try:
+                from mcn.ai.mcn_agent import MCNAgent
+                from mcn.ai.mcn_spec  import MCN_SYSTEM_PROMPT
+            except ImportError:
+                from ai.mcn_agent import MCNAgent          # type: ignore
+                from ai.mcn_spec  import MCN_SYSTEM_PROMPT  # type: ignore
 
-            client_kw = dict(api_key=api_key, model="claude-opus-4-6")
-            agent = MCNAgent(**client_kw)
+            agent = MCNAgent(api_key=api_key, model="claude-opus-4-6")
 
-            # Override _call_claude to pipe tokens into the queue
-            def _streaming_call(prompt, system, verbose):
+            # ── Patch _call_claude so every token goes into the SSE queue ──
+            original_call = agent._call_claude.__func__  # unbound method
+
+            def _streaming_call(self_inner, prompt, system, verbose):
                 chunks = []
-                with agent.client.messages.stream(
-                    model=agent.model,
+                with self_inner.client.messages.stream(
+                    model=self_inner.model,
                     max_tokens=8192,
                     system=system,
                     messages=[{"role": "user", "content": prompt}],
@@ -691,25 +732,29 @@ def generate_mcn():
                         token_queue.put({"type": "token", "text": text})
                 return "".join(chunks)
 
-            agent._call_claude = _streaming_call
+            import types
+            agent._call_claude = types.MethodType(_streaming_call, agent)
 
-            token_queue.put({"type": "status", "text": "Generating MCN…"})
+            token_queue.put({"type": "status", "text": "Generating MCN app…"})
+
             result = agent.generate(
                 description=description,
-                output_dir=str(WORKSPACE),
+                output_dir=str(ws),
                 verbose=False,
             )
 
-            token_queue.put({"type": "status", "text": f"Validated in {result['attempts']} attempt(s)"})
+            token_queue.put({"type": "status",
+                             "text": f"✓ Validated in {result['attempts']} attempt(s)"})
             result_box[0] = {
                 "backend":  result["backend_mcn"],
                 "ui":       result["ui_mcn"],
                 "attempts": result["attempts"],
             }
-        except Exception as e:
-            result_box[0] = {"error": str(e)}
+        except Exception as exc:
+            import traceback as _tb
+            result_box[0] = {"error": str(exc), "trace": _tb.format_exc()}
         finally:
-            token_queue.put(None)   # sentinel
+            token_queue.put(None)  # sentinel — always sent
 
     threading.Thread(target=_agent_thread, daemon=True).start()
 
@@ -718,22 +763,19 @@ def generate_mcn():
             try:
                 item = token_queue.get(timeout=120)
             except queue.Empty:
-                yield _sse({"type": "error", "message": "Generation timed out"})
+                yield _sse({"type": "error", "message": "Generation timed out after 120s"})
                 return
-
             if item is None:
-                # Generation done
                 r = result_box[0] or {}
                 if "error" in r:
                     yield _sse({"type": "error", "message": r["error"]})
                 else:
                     yield _sse({"type": "done", **r})
                 return
-
             yield _sse(item)
 
     resp = Response(stream_with_context(_stream()), mimetype="text/event-stream")
-    resp.headers["Cache-Control"]    = "no-cache"
+    resp.headers["Cache-Control"]     = "no-cache"
     resp.headers["X-Accel-Buffering"] = "no"
     return resp
 
@@ -861,8 +903,9 @@ def _stop_process(proc):
 @app.route("/api/devserver/start", methods=["POST"])
 def devserver_start():
     global _dev_server, _mcn_backend
-    frontend = WORKSPACE / "frontend"
-    backend_file = WORKSPACE / "backend" / "main.mcn"
+    ws           = _request_workspace()
+    frontend     = ws / "frontend"
+    backend_file = ws / "backend" / "main.mcn"
 
     if not (frontend / "package.json").exists():
         return jsonify({"success": False, "error": "frontend/package.json not found. Run ⚡ Build first."}), 400
@@ -870,31 +913,50 @@ def devserver_start():
     if _dev_server and _dev_server.poll() is None:
         return jsonify({"success": True, "port": _DEV_PORT, "pid": _dev_server.pid, "already_running": True})
 
-    # ── 1. npm install if needed ──────────────────────────────────────────────
-    if not (frontend / "node_modules").exists():
-        proc = subprocess.run(["npm", "install"], cwd=str(frontend),
-                              capture_output=True, text=True, timeout=180)
-        if proc.returncode != 0:
-            return jsonify({"success": False, "error": f"npm install failed:\n{proc.stderr}"}), 500
-
-    # ── 2. Start MCN backend (if backend/main.mcn has a service declaration) ─
+    # ── 1. Start MCN backend (if backend/main.mcn has a service declaration) ─
     if backend_file.exists():
         backend_src = backend_file.read_text(encoding="utf-8")
         if "service " in backend_src:
             _stop_process(_mcn_backend)
             try:
                 _mcn_backend = subprocess.Popen(
-                    [sys.executable, "-m", "mcn.core_engine.mcn_cli", "run",
-                     str(backend_file), "--serve", "--port", str(_BACKEND_PORT)],
+                    [sys.executable, "-m", "mcn.core_engine.mcn_cli", "serve",
+                     "--file", str(backend_file), "--host", "0.0.0.0",
+                     "--port", str(_BACKEND_PORT)],
                     cwd=str(_ROOT_DIR),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
                 import time; time.sleep(1)
             except Exception:
-                pass  # Non-fatal; frontend can still render static UI
+                pass  # Non-fatal
 
-    # ── 3. Start Vite dev server ──────────────────────────────────────────────
+    # ── 2. npm not available → serve built files via Flask static ─────────────
+    if not _NPM_AVAILABLE:
+        # Serve the built frontend/dist or frontend/src statically via Flask
+        dist = frontend / "dist"
+        serve_dir = dist if dist.exists() else frontend
+        app.static_folder = str(serve_dir)
+        app.static_url_path = "/preview"
+        return jsonify({
+            "success":      True,
+            "port":         None,
+            "mode":         "static",
+            "preview_url":  "/preview/index.html",
+            "backend_port": _BACKEND_PORT if (_mcn_backend and _mcn_backend.poll() is None) else None,
+            "npm_missing":  True,
+            "message":      "npm not found — serving built files statically at /preview/index.html",
+        })
+
+    # ── 3. npm install if needed ──────────────────────────────────────────────
+    if not (frontend / "node_modules").exists():
+        proc = subprocess.run(["npm", "install"], cwd=str(frontend),
+                              capture_output=True, text=True, timeout=180)
+        if proc.returncode != 0:
+            return jsonify({"success": False,
+                            "error": f"npm install failed:\n{proc.stderr[-2000:]}"}), 500
+
+    # ── 4. Start Vite dev server ──────────────────────────────────────────────
     try:
         _dev_server = subprocess.Popen(
             ["npm", "run", "dev", "--", "--port", str(_DEV_PORT), "--host"],
@@ -903,12 +965,20 @@ def devserver_start():
             stderr=subprocess.PIPE,
         )
         import time; time.sleep(2)
+        if _dev_server.poll() is not None:
+            stderr = _dev_server.stderr.read().decode(errors="replace")
+            return jsonify({"success": False, "error": f"Vite failed to start:\n{stderr[-1000:]}"}), 500
         return jsonify({
-            "success": True, "port": _DEV_PORT, "pid": _dev_server.pid,
+            "success":      True,
+            "port":         _DEV_PORT,
+            "pid":          _dev_server.pid,
+            "mode":         "vite",
+            "preview_url":  f"http://localhost:{_DEV_PORT}",
             "backend_port": _BACKEND_PORT if (_mcn_backend and _mcn_backend.poll() is None) else None,
         })
     except FileNotFoundError:
-        return jsonify({"success": False, "error": "npm not found. Install Node.js to use the live preview."}), 500
+        return jsonify({"success": False,
+                        "error": "npm not found. Install Node.js or use the static preview."}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -926,14 +996,15 @@ def devserver_stop():
 @app.route("/api/devserver/status")
 def devserver_status():
     global _dev_server, _mcn_backend
-    running = _dev_server is not None and _dev_server.poll() is None
+    running         = _dev_server is not None and _dev_server.poll() is None
     backend_running = _mcn_backend is not None and _mcn_backend.poll() is None
     return jsonify({
-        "running": running,
-        "port":    _DEV_PORT if running else None,
-        "pid":     _dev_server.pid if running else None,
+        "running":         running,
+        "port":            _DEV_PORT if running else None,
+        "pid":             _dev_server.pid if running else None,
         "backend_running": backend_running,
         "backend_port":    _BACKEND_PORT if backend_running else None,
+        "npm_available":   _NPM_AVAILABLE,
     })
 
 

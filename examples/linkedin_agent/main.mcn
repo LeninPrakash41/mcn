@@ -1,0 +1,194 @@
+// LinkedIn Lead Gen Agent — Backend
+// main.mcn
+
+use "db"
+use "ai"
+use "http"
+
+// ── Database setup ─────────────────────────────────────────────────────────────
+
+query("CREATE TABLE IF NOT EXISTS leads (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    title      TEXT,
+    company    TEXT,
+    linkedin   TEXT,
+    email      TEXT,
+    status     TEXT DEFAULT 'pending',
+    message    TEXT,
+    reply      TEXT,
+    intent     TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+)")
+
+query("CREATE TABLE IF NOT EXISTS campaigns (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    industry   TEXT,
+    tone       TEXT,
+    total_sent INTEGER DEFAULT 0,
+    replies    INTEGER DEFAULT 0,
+    meetings   INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+)")
+
+// ── Prompts ────────────────────────────────────────────────────────────────────
+
+prompt outreach_message
+    system "You are an expert B2B sales copywriter. Write short, human LinkedIn messages."
+    user   "Write a personalized LinkedIn connection message for {{name}}, {{title}} at {{company}}. Tone: {{tone}}. Max 280 chars. No emojis."
+    format text
+
+prompt classify_reply
+    system "You are a sales intent classifier."
+    user   "Classify this LinkedIn reply as exactly one of: interested / not_interested / needs_info. Reply: {{reply}}"
+    format text
+
+prompt followup_message
+    system "You are a warm B2B sales rep."
+    user   "Write a helpful follow-up reply to: {{question}}. Keep it under 200 chars."
+    format text
+
+// ── Agent ─────────────────────────────────────────────────────────────────────
+
+agent lead_gen_agent
+    model  "gpt-4o"
+    tools  query, trigger, ai
+    memory session
+
+    task run_campaign(campaign_id, industry, tone)
+        var leads = trigger("https://leads-api.example.com/search", {
+            "industry": industry,
+            "title":    "CTO,VP Engineering,Head of Product",
+            "limit":    20
+        })
+
+        var i = 0
+        while i < leads.length
+            var lead = leads[i]
+
+            var msg = ai(
+                "Write a personalized LinkedIn connection message for " +
+                lead.name + ", " + lead.title + " at " + lead.company +
+                ". Tone: " + tone + ". Max 280 chars. No emojis."
+            )
+
+            trigger("https://api.phantombuster.com/api/v2/agents/launch", {
+                "profile_url": lead.linkedin_url,
+                "message":     msg,
+                "campaign_id": campaign_id
+            })
+
+            query(
+                "INSERT INTO leads (name, title, company, linkedin, email, status, message) VALUES (?, ?, ?, ?, ?, 'sent', ?)",
+                (lead.name, lead.title, lead.company, lead.linkedin_url, lead.email, msg)
+            )
+
+            i = i + 1
+
+        query(
+            "UPDATE campaigns SET total_sent = total_sent + ? WHERE id = ?",
+            (leads.length, campaign_id)
+        )
+
+        return {"sent": leads.length, "campaign_id": campaign_id}
+
+    task process_replies()
+        var replies = trigger("https://api.phantombuster.com/replies", {"status": "unread"})
+
+        var booked = 0
+        var i = 0
+        while i < replies.length
+            var r = replies[i]
+
+            var intent = ai(
+                "Classify this LinkedIn reply as exactly one of: interested / not_interested / needs_info. Reply: " + r.text
+            )
+
+            if intent.contains("interested")
+                var booking_msg = ai(
+                    "Write a reply to schedule a 15-min discovery call. Their name: " +
+                    r.sender_name + ". Keep it under 200 chars."
+                )
+                trigger("https://api.phantombuster.com/reply", {
+                    "thread_id": r.thread_id,
+                    "message":   booking_msg
+                })
+                query(
+                    "UPDATE leads SET status = 'meeting_booked', reply = ?, intent = 'interested' WHERE linkedin = ?",
+                    (r.text, r.profile_url)
+                )
+                booked = booked + 1
+
+            if intent.contains("needs_info")
+                var answer = ai(
+                    "Write a helpful follow-up reply to: " + r.text + ". Keep it under 200 chars."
+                )
+                trigger("https://api.phantombuster.com/reply", {
+                    "thread_id": r.thread_id,
+                    "message":   answer
+                })
+                query(
+                    "UPDATE leads SET status = 'nurturing', reply = ?, intent = 'needs_info' WHERE linkedin = ?",
+                    (r.text, r.profile_url)
+                )
+
+            if intent.contains("not_interested")
+                query(
+                    "UPDATE leads SET status = 'rejected', reply = ?, intent = 'not_interested' WHERE linkedin = ?",
+                    (r.text, r.profile_url)
+                )
+
+            i = i + 1
+
+        return {"processed": replies.length, "meetings_booked": booked}
+
+    task get_stats()
+        var leads_summary = query("SELECT status, COUNT(*) as count FROM leads GROUP BY status")
+        var campaigns     = query("SELECT * FROM campaigns ORDER BY created_at DESC LIMIT 5")
+        var recent_leads  = query("SELECT * FROM leads ORDER BY created_at DESC LIMIT 10")
+
+        var insights = ai(
+            "Analyze this LinkedIn outreach data and give 3 actionable insights. " +
+            "Lead statuses: " + leads_summary +
+            ", Recent campaigns: " + campaigns
+        )
+
+        return {
+            "summary":      leads_summary,
+            "campaigns":    campaigns,
+            "recent_leads": recent_leads,
+            "ai_insights":  insights
+        }
+
+// ── Service (REST API) ─────────────────────────────────────────────────────────
+
+service linkedin_api
+    port 8080
+
+    endpoint run_campaign(campaign_id, industry, tone)
+        var result = lead_gen_agent.run_campaign(campaign_id, industry, tone)
+        return {"status": "ok", "data": result}
+
+    endpoint process_replies()
+        var result = lead_gen_agent.process_replies()
+        return {"status": "ok", "data": result}
+
+    endpoint get_stats()
+        var result = lead_gen_agent.get_stats()
+        return {"status": "ok", "data": result}
+
+    endpoint list_leads(status)
+        if status == null
+            var leads = query("SELECT * FROM leads ORDER BY created_at DESC")
+        else
+            var leads = query("SELECT * FROM leads WHERE status = ? ORDER BY created_at DESC", (status))
+        return {"status": "ok", "data": leads}
+
+    endpoint create_campaign(name, industry, tone)
+        query(
+            "INSERT INTO campaigns (name, industry, tone) VALUES (?, ?, ?)",
+            (name, industry, tone)
+        )
+        var campaign = query("SELECT * FROM campaigns ORDER BY id DESC LIMIT 1")
+        return {"status": "ok", "data": campaign[0]}

@@ -85,7 +85,7 @@ class Parser:
         _STMT_STARTERS = {
             TT.VAR, TT.FUNCTION, TT.IF, TT.FOR, TT.WHILE, TT.RETURN,
             TT.TRY, TT.THROW, TT.USE, TT.PIPELINE, TT.SERVICE,
-            TT.WORKFLOW, TT.CONTRACT, TT.PROMPT, TT.AGENT,
+            TT.WORKFLOW, TT.CONTRACT, TT.PROMPT, TT.AGENT, TT.MCP,
             TT.TEST, TT.COMPONENT, TT.APP, TT.TASK,
         }
         depth = 0
@@ -130,6 +130,7 @@ class Parser:
         # AI / intelligent primitives
         if tok.type == TT.PROMPT:   return self._prompt_decl()
         if tok.type == TT.AGENT:    return self._agent_decl()
+        if tok.type == TT.MCP:      return self._mcp_decl()
         # Loop control
         if tok.type == TT.BREAK:    return self._break_stmt()
         if tok.type == TT.CONTINUE: return self._continue_stmt()
@@ -1038,6 +1039,100 @@ class Parser:
         body = self._block()
         return ast.AgentTaskDecl(name=name_tok.value, params=params, defaults=defaults,
                                  body=body, line=tok.line, col=tok.col)
+
+
+    def _mcp_decl(self) -> ast.MCPServerDecl:
+        """
+        mcp server_name
+            transport "stdio"
+            command   "npx"
+            args      ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+            url       "http://localhost:3000/sse"   # for sse/http transport
+
+            tool read_file(path)
+            tool write_file(path, content)
+        """
+        tok      = self._advance()   # consume MCP
+        name_tok = self._consume(TT.IDENTIFIER, "Expected MCP server name")
+        self._consume_end()
+
+        transport = "stdio"
+        command   = ""
+        args:  List[str]         = []
+        url    = ""
+        tools: List[ast.MCPToolDecl] = []
+
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()          # consume INDENT
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+
+                if self._check(TT.TOOL):
+                    tools.append(self._mcp_tool_decl())
+                    continue
+
+                if self._check(TT.IDENTIFIER):
+                    key_tok = self._advance()
+                    key     = key_tok.value
+
+                    if key == "transport":
+                        transport = self._consume(TT.STRING, "Expected transport string").value
+                        self._consume_end()
+
+                    elif key == "command":
+                        command = self._consume(TT.STRING, "Expected command string").value
+                        self._consume_end()
+
+                    elif key == "url":
+                        url = self._consume(TT.STRING, "Expected URL string").value
+                        self._consume_end()
+
+                    elif key == "args":
+                        # args ["a", "b", "c"]
+                        if self._match(TT.LBRACKET):
+                            self._skip_whitespace()
+                            while not self._check(TT.RBRACKET) and not self._at_end():
+                                if self._check(TT.STRING):
+                                    args.append(self._advance().value)
+                                self._skip_whitespace()
+                                self._match(TT.COMMA)
+                                self._skip_whitespace()
+                            self._consume(TT.RBRACKET, "Expected ']' after args")
+                        self._consume_end()
+
+                    else:
+                        while not self._at_end() and not self._check(TT.NEWLINE):
+                            self._advance()
+                        self._consume_end()
+                else:
+                    self._advance()
+
+            if self._check(TT.DEDENT):
+                self._advance()      # consume DEDENT
+
+        return ast.MCPServerDecl(
+            name=name_tok.value, transport=transport, command=command,
+            args=args, url=url, tools=tools,
+            line=tok.line, col=tok.col,
+        )
+
+    def _mcp_tool_decl(self) -> ast.MCPToolDecl:
+        """tool name(param1, param2)"""
+        tok      = self._advance()   # consume TOOL
+        name_tok = self._consume(TT.IDENTIFIER, "Expected tool name")
+        params: List[str] = []
+        if self._match(TT.LPAREN):
+            if not self._check(TT.RPAREN):
+                params.append(self._consume(TT.IDENTIFIER, "Expected param name").value)
+                while self._match(TT.COMMA):
+                    params.append(self._consume(TT.IDENTIFIER, "Expected param name").value)
+            self._consume(TT.RPAREN, "Expected ')' after tool parameters")
+        self._consume_end()
+        return ast.MCPToolDecl(name=name_tok.value, params=params,
+                               line=tok.line, col=tok.col)
 
 
     # ── UI / Frontend Parsers ──────────────────────────────────────────────────

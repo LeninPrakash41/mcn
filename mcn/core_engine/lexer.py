@@ -88,6 +88,8 @@ class TT(Enum):
     # AI / intelligent primitives (Layer 1 + Layer 2)
     PROMPT   = auto()   # prompt  (prompt template declaration)
     AGENT    = auto()   # agent   (agent declaration)
+    MCP      = auto()   # mcp     (Model Context Protocol server declaration)
+    TOOL     = auto()   # tool    (tool declaration inside mcp)
 
     # Loop control
     BREAK    = auto()   # break
@@ -148,6 +150,8 @@ KEYWORDS: dict[str, TT] = {
     # AI / intelligent primitives
     "prompt":   TT.PROMPT,
     "agent":    TT.AGENT,
+    "mcp":      TT.MCP,
+    "tool":     TT.TOOL,
     # Loop control
     "break":    TT.BREAK,
     "continue": TT.CONTINUE,

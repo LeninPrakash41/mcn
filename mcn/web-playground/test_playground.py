@@ -328,10 +328,15 @@ def test_examples(r):
         r.check(isinstance(data, list), "returns list")
         r.check(len(data) > 0, "at least one example")
         for ex in data:
-            r.check("id"   in ex, f"example has id")
-            r.check("name" in ex, f"example has name")
-            r.check("code" in ex, f"example has code")
-            r.check("file" in ex, f"example has file")
+            r.check("id"   in ex, "example has id")
+            r.check("name" in ex, "example has name")
+            # project templates use 'files', snippets use 'code' + 'file'
+            is_project = ex.get("project", False)
+            if is_project:
+                r.check("files" in ex, f"{ex['id']}: project has files list")
+            else:
+                r.check("code" in ex, f"{ex['id']}: snippet has code")
+                r.check("file" in ex, f"{ex['id']}: snippet has file")
 
 
 def test_build_no_ui_file(r):

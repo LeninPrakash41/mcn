@@ -342,6 +342,96 @@ class MCNContract:
         return f"MCNContract(name={self.name!r}, fields=[{field_str}])"
 
 
+# ── MCNMCPServer ──────────────────────────────────────────────────────────────
+
+class MCNMCPServer:
+    """
+    A declared MCP (Model Context Protocol) server connection.
+
+    Usage (from MCN):
+        mcp filesystem_server
+            transport "stdio"
+            command   "npx"
+            args      ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+            tool read_file(path)
+            tool write_file(path, content)
+
+        var contents = filesystem_server.call("read_file", "/etc/hosts")
+    """
+
+    def __init__(self, name: str, transport: str = "stdio",
+                 command: str = "", args: Optional[List[str]] = None,
+                 url: str = "", tools: Optional[List[str]] = None):
+        self.name      = name
+        self.transport = transport
+        self.command   = command
+        self.args      = args or []
+        self.url       = url
+        self.tools     = tools or []
+        self._proc     = None
+
+    def call(self, tool_name: str, *args: Any) -> Any:
+        """Invoke a tool on the MCP server via JSON-RPC 2.0."""
+        if self.transport == "stdio":
+            return self._call_stdio(tool_name, args)
+        if self.transport in ("sse", "http"):
+            return self._call_http(tool_name, args)
+        raise RuntimeError(f"MCP server '{self.name}': unknown transport '{self.transport}'")
+
+    def _call_stdio(self, tool_name: str, args: tuple) -> Any:
+        import subprocess, json as _json, shlex
+        if self._proc is None or self._proc.poll() is not None:
+            cmd = ([self.command] + self.args) if self.command else shlex.split(" ".join(self.args))
+            self._proc = subprocess.Popen(
+                cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True,
+            )
+        request = {
+            "jsonrpc": "2.0", "id": 1,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": list(args)},
+        }
+        self._proc.stdin.write(_json.dumps(request) + "\n")
+        self._proc.stdin.flush()
+        response = _json.loads(self._proc.stdout.readline())
+        if "error" in response:
+            raise RuntimeError(f"MCP tool '{tool_name}' error: {response['error']}")
+        return response.get("result")
+
+    def _call_http(self, tool_name: str, args: tuple) -> Any:
+        import urllib.request, json as _json
+        payload = _json.dumps({
+            "jsonrpc": "2.0", "id": 1,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": list(args)},
+        }).encode()
+        req = urllib.request.Request(
+            self.url, data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req) as resp:
+            response = _json.loads(resp.read())
+        if "error" in response:
+            raise RuntimeError(f"MCP tool '{tool_name}' error: {response['error']}")
+        return response.get("result")
+
+    def stop(self):
+        if self._proc and self._proc.poll() is None:
+            self._proc.terminate()
+            self._proc = None
+
+    @property
+    def tool_names(self) -> List[str]:
+        return list(self.tools)
+
+    def __repr__(self) -> str:
+        return (
+            f"MCNMCPServer(name={self.name!r}, transport={self.transport!r}, "
+            f"tools={self.tool_names})"
+        )
+
+
 # ── MCNPrompt ──────────────────────────────────────────────────────────────────
 
 import re as _re

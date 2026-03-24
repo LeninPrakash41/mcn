@@ -1,0 +1,138 @@
+// LinkedIn Lead Gen Agent — Frontend UI
+// app.mcn
+
+// ── Stats Dashboard ────────────────────────────────────────────────────────────
+
+component StatsPanel
+    state summary      = []
+    state ai_insights  = ""
+    state campaigns    = []
+
+    on load
+        var res = get_stats()
+        summary     = res.data.summary
+        ai_insights = res.data.ai_insights
+        campaigns   = res.data.campaigns
+
+    render
+        div
+            div grid_cols=4
+                stat_card label="Total Sent"      value=summary icon="Send"       color="blue"
+                stat_card label="Meetings Booked" value=summary icon="Calendar"   color="green"
+                stat_card label="Nurturing"        value=summary icon="MessageSquare" color="amber"
+                stat_card label="Rejected"         value=summary icon="XCircle"   color="red"
+
+            card
+                card_header "AI Insights"
+                card_content
+                    p text=ai_insights
+
+// ── New Campaign Form ──────────────────────────────────────────────────────────
+
+component CampaignForm
+    state camp_name = ""
+    state industry  = ""
+    state tone      = "professional"
+    state result    = ""
+    state loading   = false
+
+    on submit
+        loading = true
+        var camp = create_campaign(camp_name, industry, tone)
+        var run  = run_campaign(camp.data.id, industry, tone)
+        result  = "Campaign launched! Sent to " + run.data.sent + " leads."
+        loading = false
+
+    render
+        card
+            card_header "Launch New Campaign"
+            card_content
+                form on_submit=submit
+                    input  bind=camp_name  label="Campaign Name"  placeholder="Q2 SaaS Outreach"
+                    input  bind=industry   label="Target Industry" placeholder="SaaS, Fintech..."
+                    select bind=tone label="Message Tone" options=["professional", "casual", "direct", "friendly"]
+                    button "Launch Campaign"
+                    alert text=result show=result
+
+// ── Leads Table ───────────────────────────────────────────────────────────────
+
+component LeadsTable
+    state items       = []
+    state filter      = "all"
+    state edit_item   = null
+    state edit_name   = ""
+    state edit_status = ""
+    state show_edit_modal = false
+
+    on load
+        var res = list_leads()
+        items = res.data
+
+    on filter_change
+        if filter == "all"
+            var res = list_leads()
+        else
+            var res = list_leads(filter)
+        items = res.data
+
+    render
+        card
+            card_header "Leads"
+            card_content
+                div
+                    select bind=filter label="Filter by Status" options=["all", "sent", "meeting_booked", "nurturing", "rejected"] on_change=filter_change
+                    table
+                        table_header
+                            table_row
+                                table_head "Name"
+                                table_head "Title"
+                                table_head "Company"
+                                table_head "Status"
+                                table_head "Intent"
+                                table_head "Sent At"
+                        table_body
+
+        modal show=show_edit_modal
+            card_header "Edit Lead"
+            card_content
+                input bind=edit_name   label="Name"
+                input bind=edit_status label="Status"
+                button "Save"
+
+// ── Reply Processor ───────────────────────────────────────────────────────────
+
+component ReplyProcessor
+    state result  = ""
+    state loading = false
+
+    on process
+        loading = true
+        var res = process_replies()
+        result  = "Processed " + res.data.processed + " replies. Meetings booked: " + res.data.meetings_booked
+        loading = false
+
+    render
+        card
+            card_header "Process LinkedIn Replies"
+            card_content
+                p "Fetch unread replies, classify intent with AI, and auto-respond."
+                button "Run Reply Agent" on_click=process
+                alert text=result show=result
+
+// ── App Shell ─────────────────────────────────────────────────────────────────
+
+app LinkedInLeadGen
+    title "LinkedIn Lead Gen Agent"
+    theme "professional"
+
+    layout
+        sidebar
+            nav "Dashboard"  icon="layout-dashboard" component=StatsPanel
+            nav "Campaigns"  icon="rocket"            component=CampaignForm
+            nav "Leads"      icon="users"             component=LeadsTable
+            nav "Replies"    icon="message-square"    component=ReplyProcessor
+        main
+            StatsPanel
+            CampaignForm
+            LeadsTable
+            ReplyProcessor

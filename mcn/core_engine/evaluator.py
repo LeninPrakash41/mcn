@@ -366,6 +366,9 @@ class Evaluator:
         if isinstance(stmt, ast.AgentDecl):
             return self._exec_agent_decl(stmt, env)
 
+        if isinstance(stmt, ast.MCPServerDecl):
+            return self._exec_mcp_decl(stmt, env)
+
         # ── UI / Frontend primitives (registered for mcn build; no-op at runtime) ─
         if isinstance(stmt, ast.ComponentDecl):
             self.components[stmt.name] = stmt
@@ -841,7 +844,44 @@ class Evaluator:
         self.functions[stmt.name] = agent
         return agent
 
-    # ── Operators ──────────────────────────────────────────────────────────────
+    def _exec_mcp_decl(self, stmt: ast.MCPServerDecl,
+                        env: Environment) -> Any:
+        """
+        Build an MCNMCPServer and bind it in the environment by name.
+        Each declared tool is also exposed as a top-level callable:
+            filesystem_server.call("read_file", path)
+            read_file(path)   ← shorthand
+        """
+        from .runtime_types import MCNMCPServer
+        server = MCNMCPServer(
+            name      = stmt.name,
+            transport = stmt.transport,
+            command   = stmt.command,
+            args      = stmt.args,
+            url       = stmt.url,
+            tools     = [t.name for t in stmt.tools],
+        )
+
+        # Expose each declared tool as a top-level function shorthand
+        for tool in stmt.tools:
+            _server    = server
+            _tool_name = tool.name
+
+            def make_tool_fn(s, n):
+                def tool_fn(*args: Any) -> Any:
+                    return s.call(n, *args)
+                tool_fn.__name__ = n
+                return tool_fn
+
+            fn = make_tool_fn(_server, _tool_name)
+            env.define(_tool_name, fn)
+            self.functions[_tool_name] = fn
+
+        env.define(stmt.name, server)
+        self.functions[stmt.name] = server
+        return server
+
+    # ── Operators ──────────────────────────────────────────────────────────────────────────────
 
     def _apply_binary(self, op: str, left: Any, right: Any,
                       line: int, col: int) -> Any:

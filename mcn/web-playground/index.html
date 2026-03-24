@@ -107,6 +107,15 @@
     }
     .btn-gradient:hover:not(:disabled) { opacity: 0.92; }
 
+    .btn-si {
+      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+      color: white;
+      border: none;
+      padding: 7px 14px;
+      box-shadow: 0 1px 3px rgba(14,165,233,.3);
+    }
+    .btn-si:hover:not(:disabled) { opacity: 0.92; }
+
     .btn-sm { padding: 4px 10px; font-size: 12px; }
     .btn-icon { padding: 6px 8px; }
 
@@ -383,6 +392,88 @@
     #status-dot.err { background: #fca5a5; }
     .status-div { opacity: .4; }
 
+    /* ── SI Wizard ───────────────────────────────────────────────────── */
+    .si-steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .si-step-tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: default;
+      position: relative;
+      user-select: none;
+    }
+    .si-step-tab.active { color: #0ea5e9; font-weight: 600; }
+    .si-step-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 2px;
+      background: #0ea5e9;
+    }
+    .si-step-tab.done { color: #16a34a; }
+    .si-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--surface2);
+      font-size: 10px;
+      margin-right: 5px;
+      font-weight: 700;
+    }
+    .si-step-tab.active .si-step-num { background: #0ea5e9; color: white; }
+    .si-step-tab.done .si-step-num   { background: #16a34a; color: white; }
+    .si-page { display: none; flex-direction: column; gap: 14px; }
+    .si-page.active { display: flex; }
+    .si-trigger-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .si-trigger-card {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .si-trigger-card:hover  { border-color: #0ea5e9; background: #f0f9ff; }
+    .si-trigger-card.selected { border-color: #0ea5e9; background: #e0f2fe; }
+    .si-trigger-icon  { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .si-trigger-label { font-size: 13px; font-weight: 600; }
+    .si-trigger-desc  { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .si-add-btn {
+      padding: 8px 12px;
+      border-radius: 7px;
+      border: 1.5px dashed var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+      width: 100%;
+      text-align: center;
+    }
+    .si-add-btn:hover { border-color: #0ea5e9; color: #0ea5e9; background: #f0f9ff; }
+    .si-row { display: flex; gap: 8px; align-items: center; }
+    .si-row .form-input { flex: 1; }
+    .si-row select.form-input { flex: 0 0 130px; }
+    .si-remove-btn {
+      padding: 5px 8px; border: none; background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 16px;
+      border-radius: 5px; line-height: 1;
+    }
+    .si-remove-btn:hover { background: #fee2e2; color: #dc2626; }
+
     /* ── Generate Modal ──────────────────────────────────────────────── */
     .modal-overlay {
       position: fixed;
@@ -505,6 +596,7 @@
   </div>
 
   <button class="btn btn-gradient" onclick="openGenerateModal()">✦ Generate AI App</button>
+  <button class="btn btn-si" onclick="openSIModal()">⚡ Wire a Process</button>
   <button class="btn" onclick="runActiveFile()" title="Run active file (Ctrl+Enter)">▶ Run</button>
   <button class="btn btn-sm" onclick="formatActiveFile()" title="Format active file">⌥ Format</button>
   <button class="btn btn-sm" onclick="checkActiveFile()" title="Type-check active file">✓ Check</button>
@@ -600,6 +692,87 @@
   <span id="status-ws" style="opacity:.7">~/.mcn/playground</span>
   <div style="flex:1"></div>
   <span id="status-srv" style="opacity:.7"></span>
+</div>
+
+<!-- ── SI Wizard Modal ─────────────────────────────────────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="si-modal">
+  <div class="modal-card" style="width:620px">
+    <div class="modal-hdr">
+      <div class="modal-title">⚡ Wire a Process</div>
+      <div class="modal-sub">Answer 3 questions — MCN generates the integration for you</div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Step tabs -->
+      <div class="si-steps">
+        <div class="si-step-tab active" id="si-tab-1"><span class="si-step-num">1</span>Trigger</div>
+        <div class="si-step-tab"        id="si-tab-2"><span class="si-step-num">2</span>Data &amp; Tools</div>
+        <div class="si-step-tab"        id="si-tab-3"><span class="si-step-num">3</span>Actions</div>
+      </div>
+
+      <!-- Page 1: Trigger -->
+      <div class="si-page active" id="si-page-1">
+        <div class="form-label">What starts this process?</div>
+        <div class="si-trigger-grid">
+          <div class="si-trigger-card" data-trigger="webhook" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">🔗</div>
+            <div><div class="si-trigger-label">Webhook / API call</div><div class="si-trigger-desc">Another system calls your endpoint</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="schedule" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">⏰</div>
+            <div><div class="si-trigger-label">Schedule</div><div class="si-trigger-desc">Run every hour, day, or custom interval</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="manual" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">👋</div>
+            <div><div class="si-trigger-label">Manual / Button</div><div class="si-trigger-desc">Someone clicks a button in the UI</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="event" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">⚡</div>
+            <div><div class="si-trigger-label">Event / Message</div><div class="si-trigger-desc">Triggered by an internal event or queue</div></div>
+          </div>
+        </div>
+        <div class="form-group" id="si-trigger-detail" style="display:none">
+          <label class="form-label" id="si-trigger-detail-label">Details</label>
+          <input class="form-input" id="si-trigger-detail-input" placeholder="" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Describe what this process does <span>(in plain English)</span></label>
+          <textarea class="form-textarea" id="si-process-desc" rows="2"
+            placeholder="e.g. When a new order comes in, save it to the database and notify the team on Slack"></textarea>
+        </div>
+      </div>
+
+      <!-- Page 2: Data & Tools -->
+      <div class="si-page" id="si-page-2">
+        <div class="form-label">What data or tools does this process need?</div>
+        <div id="si-sources-list"></div>
+        <button class="si-add-btn" onclick="siAddSource()">+ Add data source or tool</button>
+      </div>
+
+      <!-- Page 3: Actions -->
+      <div class="si-page" id="si-page-3">
+        <div class="form-label">What should happen after the data is fetched?</div>
+        <div id="si-actions-list"></div>
+        <button class="si-add-btn" onclick="siAddAction()">+ Add action</button>
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label">Claude API key <span>(optional if set via mcn config)</span></label>
+          <input class="form-input" type="password" id="si-api-key" placeholder="sk-ant-..." autocomplete="off" />
+        </div>
+        <div id="si-error" style="display:none;color:#f87171;font-size:13px;padding:6px 0;"></div>
+        <div class="gen-status hidden" id="si-gen-status">
+          <div class="spinner"></div>
+          <span id="si-gen-status-text">Generating…</span>
+        </div>
+        <pre class="gen-stream hidden" id="si-gen-stream"></pre>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeSIModal()">Cancel</button>
+      <button class="btn" id="si-btn-back" onclick="siBack()" style="display:none">← Back</button>
+      <button class="btn btn-si" id="si-btn-next" onclick="siNext()">Next →</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Generate Modal ──────────────────────────────────────────────────── -->
@@ -1432,14 +1605,28 @@ async function startDevServer() {
     const d = await r.json()
     if (d.success) {
       _devOn = true
-      const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
-      setStatus(`UI :${d.port}${beInfo}`, 'ok')
-      document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-      document.getElementById('server-badge').textContent = `● UI :${d.port}${beInfo}`
-      document.getElementById('server-badge').className = 'running'
-      document.getElementById('status-srv').textContent = `:${d.port}`
-      if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
-      showPreview()
+      if (d.mode === 'static') {
+        // npm not available — serve built files via Flask static route
+        const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
+        setStatus(`Static preview${beInfo}`, 'ok')
+        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+        document.getElementById('server-badge').textContent = `● Static preview${beInfo}`
+        document.getElementById('server-badge').className = 'running'
+        document.getElementById('status-srv').textContent = 'static'
+        appendLog('warn', '⚠ npm not found — serving built files statically.')
+        appendLog('info', 'Install Node.js for full Vite hot-reload support.')
+        if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
+        showPreview(d.preview_url)
+      } else {
+        const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
+        setStatus(`UI :${d.port}${beInfo}`, 'ok')
+        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+        document.getElementById('server-badge').textContent = `● UI :${d.port}${beInfo}`
+        document.getElementById('server-badge').className = 'running'
+        document.getElementById('status-srv').textContent = `:${d.port}`
+        if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
+        showPreview(d.preview_url || `http://localhost:${d.port}`)
+      }
     } else {
       appendLog('error', '✗ ' + d.error)
       setStatus('Server failed', 'err')
@@ -1458,13 +1645,15 @@ async function stopDevServer() {
   setStatus('Dev server stopped')
 }
 
-function showPreview() {
+function showPreview(url) {
   const iframe = document.getElementById('preview-iframe')
-  iframe.src = 'http://localhost:5174'
+  iframe.src = url || `http://localhost:${_DEV_PORT}`
   iframe.classList.remove('hidden')
   document.getElementById('preview-ph').classList.add('hidden')
   switchPanel('preview', document.querySelector('[data-panel="preview"]'))
 }
+
+const _DEV_PORT = 5174
 
 function hidePreview() {
   const iframe = document.getElementById('preview-iframe')
@@ -1475,7 +1664,7 @@ function hidePreview() {
 
 function refreshPreview() {
   const iframe = document.getElementById('preview-iframe')
-  if (_devOn) iframe.src = iframe.src
+  if (_devOn) { const s = iframe.src; iframe.src = ''; iframe.src = s }
 }
 
 async function pollDevStatus() {
@@ -1486,13 +1675,14 @@ async function pollDevStatus() {
       if (d.running !== _devOn) {
         _devOn = d.running
         if (_devOn) {
+          const label = d.port ? `:${d.port}` : 'static'
           document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-          document.getElementById('server-badge').textContent = `● :${d.port}`
+          document.getElementById('server-badge').textContent = `● ${label}`
           document.getElementById('server-badge').className = 'running'
-          document.getElementById('status-srv').textContent = `:${d.port}`
+          document.getElementById('status-srv').textContent = label
         } else {
           document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
-          document.getElementById('server-badge').textContent = 'No dev server'
+          document.getElementById('server-badge').textContent = d.npm_available ? 'No dev server' : 'npm not installed'
           document.getElementById('server-badge').className = ''
           document.getElementById('status-srv').textContent = ''
         }
@@ -1806,6 +1996,240 @@ document.getElementById('auth-modal').addEventListener('click', function(e) {
 })
 document.getElementById('auth-password').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') submitAuth()
+})
+
+// ── SI Wizard ──────────────────────────────────────────────────────────────────────────────────────
+let _siStep    = 1
+let _siTrigger = ''
+let _siSources = []
+let _siActions = []
+
+const _SI_SOURCE_TYPES = [
+  { value: 'api',      label: 'REST API' },
+  { value: 'database', label: 'Database query' },
+  { value: 'file',     label: 'Read file' },
+  { value: 'ai',       label: 'AI / LLM call' },
+  { value: 'mcp',      label: 'MCP tool' },
+]
+const _SI_ACTION_TYPES = [
+  { value: 'save_db',    label: 'Save to database' },
+  { value: 'call_api',   label: 'Call an API' },
+  { value: 'notify',     label: 'Send notification' },
+  { value: 'slack',      label: 'Post to Slack' },
+  { value: 'email',      label: 'Send email' },
+  { value: 'ai',         label: 'AI processing' },
+  { value: 'write_file', label: 'Write to file' },
+]
+
+function openSIModal() {
+  _siStep = 1; _siTrigger = ''; _siSources = []; _siActions = []
+  document.getElementById('si-modal').classList.remove('hidden')
+  siRenderStep()
+  siRenderSources()
+  siRenderActions()
+  document.getElementById('si-process-desc').value = ''
+  document.getElementById('si-trigger-detail').style.display = 'none'
+  document.querySelectorAll('.si-trigger-card').forEach(c => c.classList.remove('selected'))
+  document.getElementById('si-gen-status').classList.add('hidden')
+  document.getElementById('si-gen-stream').classList.add('hidden')
+  document.getElementById('si-gen-stream').textContent = ''
+  document.getElementById('si-error').style.display = 'none'
+  document.getElementById('si-error').textContent = ''
+}
+
+function closeSIModal() {
+  document.getElementById('si-modal').classList.add('hidden')
+}
+
+function siSelectTrigger(card) {
+  document.querySelectorAll('.si-trigger-card').forEach(c => c.classList.remove('selected'))
+  card.classList.add('selected')
+  _siTrigger = card.dataset.trigger
+  const detail = document.getElementById('si-trigger-detail')
+  const label  = document.getElementById('si-trigger-detail-label')
+  const input  = document.getElementById('si-trigger-detail-input')
+  const configs = {
+    webhook:  { label: 'Endpoint path',      placeholder: '/api/order-placed' },
+    schedule: { label: 'Run every',          placeholder: 'e.g. 1h, 30m, daily at 9am' },
+    manual:   { label: 'Button label',       placeholder: 'e.g. Sync Now' },
+    event:    { label: 'Event / queue name', placeholder: 'e.g. order.created' },
+  }
+  const cfg = configs[_siTrigger]
+  if (cfg) { label.textContent = cfg.label; input.placeholder = cfg.placeholder; detail.style.display = '' }
+}
+
+function siRenderSources() {
+  const ct = document.getElementById('si-sources-list')
+  ct.innerHTML = ''
+  _siSources.forEach((src, i) => {
+    const row = document.createElement('div')
+    row.className = 'si-row'
+    row.style.marginBottom = '8px'
+    row.innerHTML = `
+      <select class="form-input" style="flex:0 0 140px" onchange="_siSources[${i}].type=this.value">
+        ${_SI_SOURCE_TYPES.map(t => `<option value="${t.value}" ${src.type===t.value?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+      <input class="form-input" placeholder="URL, table name, prompt, or tool name"
+        value="${src.value}" oninput="_siSources[${i}].value=this.value" />
+      <button class="si-remove-btn" onclick="siRemoveSource(${i})">&#x2715;</button>`
+    ct.appendChild(row)
+  })
+}
+
+function siAddSource()    { _siSources.push({ type: 'api', value: '' }); siRenderSources() }
+function siRemoveSource(i){ _siSources.splice(i, 1); siRenderSources() }
+
+function siRenderActions() {
+  const ct = document.getElementById('si-actions-list')
+  ct.innerHTML = ''
+  _siActions.forEach((act, i) => {
+    const row = document.createElement('div')
+    row.className = 'si-row'
+    row.style.marginBottom = '8px'
+    row.innerHTML = `
+      <select class="form-input" style="flex:0 0 160px" onchange="_siActions[${i}].type=this.value">
+        ${_SI_ACTION_TYPES.map(t => `<option value="${t.value}" ${act.type===t.value?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+      <input class="form-input" placeholder="Destination, message, or details"
+        value="${act.value}" oninput="_siActions[${i}].value=this.value" />
+      <button class="si-remove-btn" onclick="siRemoveAction(${i})">&#x2715;</button>`
+    ct.appendChild(row)
+  })
+}
+
+function siAddAction()    { _siActions.push({ type: 'save_db', value: '' }); siRenderActions() }
+function siRemoveAction(i){ _siActions.splice(i, 1); siRenderActions() }
+
+function siRenderStep() {
+  for (let n = 1; n <= 3; n++) {
+    const tab  = document.getElementById(`si-tab-${n}`)
+    const page = document.getElementById(`si-page-${n}`)
+    tab.classList.toggle('active', n === _siStep)
+    tab.classList.toggle('done',   n < _siStep)
+    page.classList.toggle('active', n === _siStep)
+  }
+  document.getElementById('si-btn-back').style.display = _siStep > 1 ? '' : 'none'
+  const nextBtn = document.getElementById('si-btn-next')
+  nextBtn.textContent = _siStep === 3 ? '⚡ Generate MCN' : 'Next →'
+  nextBtn.className   = _siStep === 3 ? 'btn btn-gradient' : 'btn btn-si'
+}
+
+function siBack() { if (_siStep > 1) { _siStep--; siRenderStep() } }
+
+async function siNext() {
+  if (_siStep === 1) {
+    if (!_siTrigger) { alert('Please select a trigger.'); return }
+    if (!document.getElementById('si-process-desc').value.trim()) { alert('Please describe what this process does.'); return }
+    _siStep = 2; siRenderStep(); return
+  }
+  if (_siStep === 2) {
+    _siStep = 3; siRenderStep()
+    if (_siActions.length === 0) siAddAction()
+    return
+  }
+  await siGenerate()
+}
+
+function siBuildPrompt() {
+  const desc   = document.getElementById('si-process-desc').value.trim()
+  const detail = document.getElementById('si-trigger-detail-input').value.trim()
+  const triggerLabels = { webhook: 'Webhook', schedule: 'Schedule', manual: 'Manual button', event: 'Event/queue' }
+  const triggerStr  = (triggerLabels[_siTrigger] || _siTrigger) + (detail ? ` (${detail})` : '')
+  const sourcesStr  = _siSources.length
+    ? _siSources.map(s => `- ${s.type}: ${s.value || '(unspecified)'}`).join('\n')
+    : '- No external data sources'
+  const actionsStr  = _siActions.length
+    ? _siActions.map(a => `- ${a.type}: ${a.value || '(unspecified)'}`).join('\n')
+    : '- No specific actions'
+  return `Build a complete MCN application for the following integration process.
+
+Process description: ${desc}
+Trigger: ${triggerStr}
+
+Data sources / tools needed:
+${sourcesStr}
+
+Actions to perform:
+${actionsStr}
+
+IMPORTANT: You MUST output exactly two XML blocks:
+<backend>...backend/main.mcn content here...</backend>
+<ui>...ui/app.mcn content here...</ui>
+
+Requirements:
+- backend/main.mcn: use agent and service blocks for the integration logic
+- ui/app.mcn: simple UI to trigger and monitor the process with status display
+- Keep code minimal and readable for a non-developer
+- Use descriptive variable names matching the business domain
+- Add brief inline comments explaining each step in plain English`
+}
+
+async function siGenerate() {
+  const apiKey = document.getElementById('si-api-key').value.trim()
+  const prompt = siBuildPrompt()
+  const errEl  = document.getElementById('si-error')
+  errEl.style.display = 'none'
+  document.getElementById('si-btn-next').disabled = true
+  document.getElementById('si-gen-status').classList.remove('hidden')
+  document.getElementById('si-gen-stream').classList.remove('hidden')
+  document.getElementById('si-gen-stream').textContent = ''
+  document.getElementById('si-gen-status-text').textContent = 'Generating your MCN integration…'
+  try {
+    const r = await apiFetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: prompt, api_key: apiKey })
+    })
+    if (!r.ok) {
+      const e = await r.json()
+      errEl.textContent = e.error || 'Generation failed'
+      errEl.style.display = ''
+      document.getElementById('si-gen-status').classList.add('hidden')
+      document.getElementById('si-gen-stream').classList.add('hidden')
+      return
+    }
+    const reader = r.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split('\n\n'); buf = parts.pop()
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue
+        const ev = JSON.parse(part.slice(5).trim())
+        if (ev.type === 'token') {
+          const s = document.getElementById('si-gen-stream')
+          s.textContent += ev.text; s.scrollTop = s.scrollHeight
+        } else if (ev.type === 'status') {
+          document.getElementById('si-gen-status-text').textContent = ev.text
+        } else if (ev.type === 'done') {
+          document.getElementById('si-gen-status-text').textContent = '✓ Integration generated!'
+          const writes = []
+          if (ev.backend) writes.push(apiFetch('/api/workspace/file', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: 'backend/main.mcn', content: ev.backend }) }))
+          if (ev.ui)      writes.push(apiFetch('/api/workspace/file', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: 'ui/app.mcn',       content: ev.ui      }) }))
+          await Promise.all(writes)
+          if (ev.backend && _models.has('backend/main.mcn')) { _models.get('backend/main.mcn').setValue(ev.backend); if (_tabState.has('backend/main.mcn')) _tabState.get('backend/main.mcn').dirty = false }
+          if (ev.ui      && _models.has('ui/app.mcn'))       { _models.get('ui/app.mcn').setValue(ev.ui);           if (_tabState.has('ui/app.mcn'))       _tabState.get('ui/app.mcn').dirty       = false }
+          await loadFileTree()
+          setTimeout(() => { closeSIModal(); openFile('backend/main.mcn') }, 1200)
+        } else if (ev.type === 'error') {
+          errEl.textContent = ev.message || 'Generation error'
+          errEl.style.display = ''
+          document.getElementById('si-gen-status').classList.add('hidden')
+        }
+      }
+    }
+  } catch (e) {
+    errEl.textContent = e.message
+    errEl.style.display = ''
+    document.getElementById('si-gen-status').classList.add('hidden')
+  }
+  finally { document.getElementById('si-btn-next').disabled = false }
+}
+
+document.getElementById('si-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSIModal()
 })
 </script>
 </body>
