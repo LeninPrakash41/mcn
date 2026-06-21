@@ -1,0 +1,49 @@
+// ── Layer 1: AI built-in functions ────────────────────────────────────────────
+
+// ai() — universal call (mock without API key)
+var answer = ai("What is 2 + 2? Answer in one word.")
+log("ai() result: " + answer)
+
+// llm() — explicit model
+var haiku = llm("claude-3-5-sonnet", "Write a one-line haiku about code.")
+log("llm() result: " + haiku)
+
+// classify() — zero-shot
+var intent = classify("I want to return this product", ["purchase", "return", "complaint", "inquiry"])
+log("classify() result: " + intent)
+
+// embed() — returns vector (mock without OPENAI_API_KEY)
+var vec = embed("cloud infrastructure")
+log("embed() length: " + vec)
+
+// extract() — structured extraction with contract
+contract OrderInfo
+    product:  str
+    quantity: int
+
+var order = extract("I need 3 units of Widget Pro please", OrderInfo)
+log("extract() result: " + order)
+
+// ── Layer 2: prompt template ───────────────────────────────────────────────────
+
+prompt quick_summary
+    system "You are a concise summariser. One sentence only."
+    user   "Summarise: {{text}}"
+    format text
+
+var summary = quick_summary.run({text: "MCN is a scripting language with first-class AI primitives."})
+log("prompt.run() result: " + summary)
+
+// ── Layer 2: agent declaration ─────────────────────────────────────────────────
+
+agent analyst
+    model  "claude-3-5-sonnet"
+    tools  fetch, ai
+    memory session
+
+    task describe(topic)
+        var result = ai("Describe in one sentence: " + topic)
+        return result
+
+var description = analyst.describe("quantum entanglement")
+log("agent.task() result: " + description)

@@ -6,7 +6,7 @@ Main components of the MCN interpreter and runtime
 from .mcn_interpreter import MCNInterpreter
 from .mcn_runtime import MCNRuntime
 from .mcn_logger import mcn_logger, log_error, log_step, log_performance
-from .mcn_server import MCNServer, serve_script, serve_directory
+from .mcn_server import serve_script, serve_directory
 from .mcn_extensions import (
     MCNAIContext,
     MCNPackageManager,
@@ -23,7 +23,6 @@ __version__ = "2.0.0"
 __all__ = [
     "MCNInterpreter",
     "MCNRuntime",
-    "MCNServer",
     "serve_script",
     "serve_directory",
     "mcn_logger",

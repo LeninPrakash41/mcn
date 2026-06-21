@@ -1,52 +1,63 @@
 # MCN Developer Guide
 
 ## Table of Contents
-1. [Getting Started](#getting-started)
-2. [Language Syntax](#language-syntax)
-3. [Built-in Functions](#built-in-functions)
-4. [MCN 2.0 Features](#mcn-20-features)
-5. [Package System](#package-system)
-6. [Server Runtime](#server-runtime)
-7. [Extending MCN](#extending-mcn)
-8. [Best Practices](#best-practices)
 
-## Getting Started
+1. [Installation](#1-installation)
+2. [Language Syntax](#2-language-syntax)
+3. [Built-in Functions & Packages](#3-built-in-functions--packages)
+4. [Agentic System Primitives](#4-agentic-system-primitives)
+5. [Frontend UI Primitives](#5-frontend-ui-primitives)
+6. [Building a Full-Stack Agentic App](#6-building-a-full-stack-agentic-app)
+7. [CLI Reference](#7-cli-reference)
+8. [Running the Application](#8-running-the-application)
+9. [Configuration & API Keys](#9-configuration--api-keys)
+10. [Best Practices](#10-best-practices)
+11. [Troubleshooting](#11-troubleshooting)
 
-### Installation
+---
+
+## 1. Installation
+
 ```bash
 git clone <repository>
-cd mcn
+cd mt-mcn
 pip install -r requirements.txt
 ```
 
-### Your First MCN Script
-Create `hello.mcn`:
-```mcn
-var name = "World"
-log "Hello " + name + "!"
-```
+Verify the install:
 
-Run it:
 ```bash
-python mcn_cli.py hello.mcn
+python -m mcn --version
+# MCN 2.0
 ```
 
-### REPL Mode
-```bash
-python mcn_cli.py --repl
-```
+---
 
-## Language Syntax
+## 2. Language Syntax
 
 ### Variables
+
 ```mcn
-var name = "Alice"
-var age = 25
-var is_active = true
-var scores = [85, 92, 78]
+var name     = "Alice"
+var age      = 25
+var active   = true
+var scores   = [85, 92, 78]
+var profile  = {"role": "engineer", "level": 3}
+```
+
+### Type Hints (optional)
+
+```mcn
+type "user_id" "number"
+type "email"   "string"
+type "tags"    "array"
+
+var user_id = 123
+var email   = "alice@example.com"
 ```
 
 ### Conditionals
+
 ```mcn
 if age >= 18
     log "Adult"
@@ -55,339 +66,803 @@ else
 ```
 
 ### Loops
+
 ```mcn
-var counter = 0
-while counter < 5
-    log "Count: " + counter
-    counter = counter + 1
+var i = 0
+while i < 5
+    log "Count: " + i
+    i = i + 1
+
+for item in scores
+    log "Score: " + item
+```
+
+### Functions
+
+```mcn
+function greet(name, role)
+    var msg = "Hello " + name + ", you are a " + role
+    return msg
+
+var result = greet("Alice", "engineer")
+log result
 ```
 
 ### Error Handling
+
 ```mcn
 try
-    var result = risky_operation()
+    var result = trigger("https://api.example.com/data")
 catch
-    log "Error occurred: " + error
+    log "Failed: " + error
+    var result = {"data": "fallback"}
 ```
 
-## Built-in Functions
+### Parallel Tasks
 
-### Core Functions
-- `log(message)` - Print with timestamp
-- `query(sql, params)` - Database operations
-- `trigger(url, data, method)` - HTTP requests
-- `ai(prompt, model, tokens)` - AI integration
-- `workflow(name, params)` - Execute workflows
-
-### Example Usage
 ```mcn
-// Database
+task "email"    "trigger" "https://mail.api.com/send"  {"to": "user@example.com"}
+task "log_db"   "query"   "INSERT INTO logs VALUES (?)" ("sent")
+task "ai_reply" "ai"      "Generate a follow-up message"
+
+var results = await "email" "log_db" "ai_reply"
+log "All done: " + results
+```
+
+---
+
+## 3. Built-in Functions & Packages
+
+### Core Built-ins
+
+| Function | Description |
+|---|---|
+| `log(msg)` | Print with timestamp |
+| `query(sql, params)` | SQLite database operations |
+| `trigger(url, data, method)` | HTTP requests to any API |
+| `ai(prompt, model, tokens)` | LLM call (OpenAI / Anthropic / Ollama) |
+
+```mcn
+// Database — parameterized query
 var users = query("SELECT * FROM users WHERE age > ?", (18,))
 
-// API Call
-var response = trigger("https://api.example.com/data", {"key": "value"})
+// HTTP — POST to external API
+var res = trigger("https://api.example.com/data", {"key": "value"})
 
-// AI
-var summary = ai("Summarize this data: " + users)
+// AI — call LLM
+var summary = ai("Summarize this: " + users)
 ```
 
-## MCN 2.0 Features
+### Package System
 
-### 1. Type Hints (Optional)
+Load packages at the top of any `.mcn` file:
+
 ```mcn
-type "username" "string"
-type "age" "number"
-type "is_admin" "boolean"
-
-var username = "alice"  // ✓ Valid
-var age = "25"          // ✗ Type error if strict mode
-```
-
-### 2. Package System
-```mcn
-// Load packages
 use "db"
 use "http"
 use "ai"
-
-// Use package functions
-var data = get_json("https://api.example.com/users")
-var result = batch_insert("users", data)
 ```
 
-### 3. Parallel Tasks
-```mcn
-// Create tasks
-task "email" "trigger" "https://mail.api.com/send" {"to": "user@example.com"}
-task "log" "query" "INSERT INTO logs VALUES (?)" ("User registered")
+#### `db` package
 
-// Wait for completion
-var results = await "email" "log"
-log "All tasks completed: " + results
-```
-
-### 4. Enhanced AI Context
-```mcn
-var user_name = "Alice"
-var department = "Engineering"
-
-// AI automatically includes context variables
-var recommendation = ai("Suggest training programs for this user")
-```
-
-## Package System
-
-### Built-in Packages
-
-#### Database Package (`db`)
 ```mcn
 use "db"
 batch_insert("users", [{"name": "Alice"}, {"name": "Bob"}])
 backup_table("users")
 ```
 
-#### HTTP Package (`http`)
+#### `http` package
+
 ```mcn
 use "http"
-var data = get_json("https://api.example.com/data")
+var data = get_json("https://api.example.com/users")
 post_form("https://forms.example.com", {"name": "Alice"})
 ```
 
-#### AI Package (`ai`)
+#### `ai` package
+
 ```mcn
 use "ai"
 var sentiment = analyze_sentiment("I love this product!")
-var summary = summarize("Long text here...")
-var trend = predict_trend([1, 2, 3, 4, 5])
+var summary   = summarize("Long text here...")
+var trend     = predict_trend([1, 2, 3, 4, 5])
 ```
 
-### Creating Custom Packages
-```python
-# my_package.py
-def custom_function(param):
-    return f"Processed: {param}"
+---
 
-def another_function():
-    return "Hello from package"
+## 4. Agentic System Primitives
 
-# Register in MCN
-interpreter = MCNInterpreter()
-interpreter.package_manager.add_package('my_package', {
-    'custom_function': custom_function,
-    'another_function': another_function
-})
-```
+MCN has four first-class primitives for building agentic systems: `prompt`, `agent`, `pipeline`, and `service`.
 
-## Server Runtime
+### `prompt` — Reusable AI prompt templates
 
-### Serve Single Script
-```bash
-python mcn_cli.py api_service.mcn --serve --port 8000
-```
+Define prompts once, reference them anywhere. Supports `{{variable}}` placeholders.
 
-### Serve Directory
-```bash
-python mcn_cli.py --serve-dir examples/ --port 8000
-```
-
-### API Script Example
 ```mcn
-// api_endpoint.mcn
-var user_id = request_data.user_id
-var user = query("SELECT * FROM users WHERE id = ?", (user_id,))
+prompt outreach_message
+    system "You are an expert B2B sales copywriter."
+    user   "Write a LinkedIn message for {{name}}, {{title}} at {{company}}. Tone: {{tone}}. Max 280 chars."
+    format text
 
-if user
-    var response = {"status": "success", "user": user[0]}
-else
-    var response = {"status": "error", "message": "User not found"}
-
-response  // Automatically returned as JSON
+prompt classify_intent
+    system "You are a sales intent classifier."
+    user   "Classify this reply as: interested / not_interested / needs_info. Reply: {{reply}}"
+    format text
 ```
 
-### Making API Calls
+`format` can be `text` or `json`.
+
+---
+
+### `agent` — AI agent with tools and memory
+
+An agent groups related AI tasks under a single model + toolset. Each `task` inside an agent is a callable function.
+
+```mcn
+agent lead_gen_agent
+    model  "gpt-4o"
+    tools  query, trigger, ai
+    memory session
+
+    task run_campaign(campaign_id, industry, tone)
+        var leads = trigger("https://leads-api.example.com/search", {
+            "industry": industry,
+            "limit":    20
+        })
+
+        var i = 0
+        while i < leads.length
+            var msg = ai(
+                "Write a LinkedIn message for " + leads[i].name +
+                ", " + leads[i].title + " at " + leads[i].company +
+                ". Tone: " + tone + ". Max 280 chars."
+            )
+            trigger("https://api.phantombuster.com/launch", {
+                "profile_url": leads[i].linkedin_url,
+                "message":     msg
+            })
+            query(
+                "INSERT INTO leads (name, company, message, status) VALUES (?, ?, ?, 'sent')",
+                (leads[i].name, leads[i].company, msg)
+            )
+            i = i + 1
+
+        return {"sent": leads.length}
+
+    task process_replies()
+        var replies = trigger("https://api.phantombuster.com/replies", {"status": "unread"})
+
+        var i = 0
+        while i < replies.length
+            var intent = ai("Classify: interested / not_interested / needs_info. Reply: " + replies[i].text)
+
+            if intent.contains("interested")
+                var booking = ai("Write a reply to book a 15-min call. Name: " + replies[i].sender_name)
+                trigger("https://api.phantombuster.com/reply", {
+                    "thread_id": replies[i].thread_id,
+                    "message":   booking
+                })
+                query("UPDATE leads SET status = 'meeting_booked' WHERE linkedin = ?", (replies[i].profile_url))
+
+            if intent.contains("needs_info")
+                var answer = ai("Answer helpfully: " + replies[i].text)
+                trigger("https://api.phantombuster.com/reply", {
+                    "thread_id": replies[i].thread_id,
+                    "message":   answer
+                })
+                query("UPDATE leads SET status = 'nurturing' WHERE linkedin = ?", (replies[i].profile_url))
+
+            i = i + 1
+
+        return {"processed": replies.length}
+```
+
+**Agent options:**
+
+| Option | Values | Description |
+|---|---|---|
+| `model` | `"gpt-4o"`, `"claude-3-5-sonnet"`, `"ollama/llama3"` | LLM to use |
+| `tools` | `query, trigger, ai, fetch` | Built-ins the agent can call |
+| `memory` | `"session"`, `"persistent"`, `""` | Context retention scope |
+
+---
+
+### `pipeline` — Multi-stage data pipelines
+
+```mcn
+pipeline data_pipeline
+    stage extract
+        var raw = get_json("https://api.example.com/data")
+        return raw
+
+    stage transform(data)
+        var cleaned = ai("Clean and normalize this JSON: " + data)
+        return cleaned
+
+    stage load(data)
+        batch_insert("processed_data", data)
+        return {"loaded": true}
+```
+
+---
+
+### `service` — REST API server
+
+A `service` block exposes functions as HTTP endpoints. MCN's server runtime reads this block and starts an HTTP server automatically.
+
+```mcn
+service linkedin_api
+    port 8080
+
+    endpoint run_campaign(campaign_id, industry, tone)
+        var result = lead_gen_agent.run_campaign(campaign_id, industry, tone)
+        return {"status": "ok", "data": result}
+
+    endpoint process_replies()
+        var result = lead_gen_agent.process_replies()
+        return {"status": "ok", "data": result}
+
+    endpoint list_leads(status)
+        if status == null
+            var leads = query("SELECT * FROM leads ORDER BY created_at DESC")
+        else
+            var leads = query("SELECT * FROM leads WHERE status = ? ORDER BY created_at DESC", (status))
+        return {"status": "ok", "data": leads}
+
+    endpoint create_campaign(name, industry, tone)
+        query("INSERT INTO campaigns (name, industry, tone) VALUES (?, ?, ?)", (name, industry, tone))
+        var campaign = query("SELECT * FROM campaigns ORDER BY id DESC LIMIT 1")
+        return {"status": "ok", "data": campaign[0]}
+```
+
+Endpoint HTTP method is inferred automatically:
+- Names starting with `get_`, `list_`, `fetch_`, `search_` → `GET` + `POST`
+- All others → `POST`
+
+---
+
+## 5. Frontend UI Primitives
+
+MCN compiles `component` and `app` blocks into a full React + shadcn/ui + Tailwind project via `mcn build`.
+
+### `component` — React component
+
+A component has three sections: `state`, `on` (event handlers), and `render` (UI tree).
+
+```mcn
+component CampaignForm
+    state camp_name = ""
+    state industry  = ""
+    state tone      = "professional"
+    state result    = ""
+
+    on submit
+        var camp = create_campaign(camp_name, industry, tone)
+        var run  = run_campaign(camp.data.id, industry, tone)
+        result   = "Launched! Sent to " + run.data.sent + " leads."
+
+    render
+        card
+            card_header "Launch Campaign"
+            card_content
+                form on_submit=submit
+                    input  bind=camp_name label="Campaign Name"
+                    input  bind=industry  label="Target Industry"
+                    select bind=tone label="Tone" options=["professional", "casual", "direct"]
+                    button "Launch"
+                    alert text=result show=result
+```
+
+**State** — reactive variables, map to React `useState`:
+
+```mcn
+state items   = []
+state loading = false
+state query   = ""
+```
+
+**On handlers** — map to React event handlers or `useEffect`:
+
+| Event | React equivalent |
+|---|---|
+| `on load` | `useEffect(() => {}, [])` |
+| `on submit` | `onSubmit` on a `<form>` |
+| `on search` | `useCallback` handler |
+| `on filter_change` | `useCallback` handler |
+
+**Render tree** — UI elements:
+
+| MCN tag | Renders as |
+|---|---|
+| `card` | shadcn `<Card>` |
+| `card_header "Title"` | `<CardHeader><h2>Title</h2></CardHeader>` |
+| `input bind=x label="L"` | shadcn `<Input>` with `<Label>` + two-way binding |
+| `button "Text"` | shadcn `<Button>` |
+| `select bind=x options=[...]` | shadcn `<Select>` |
+| `table` | shadcn `<Table>` with auto-generated body rows |
+| `stat_card` | KPI card with icon, value, trend |
+| `alert text=x show=x` | shadcn `<Alert>` with conditional render |
+| `modal show=x` | shadcn `<Dialog>` |
+| `bar_chart data=x x_key="k" y_key="v"` | Recharts `<BarChart>` |
+| `line_chart` | Recharts `<LineChart>` |
+| `pie_chart` | Recharts `<PieChart>` |
+| `badge`, `separator`, `progress`, `avatar` | shadcn equivalents |
+| `tabs`, `tab_trigger`, `tab_content` | shadcn `<Tabs>` |
+| `accordion`, `accordion_item` | shadcn `<Accordion>` |
+| `dropdown_menu` | shadcn `<DropdownMenu>` |
+| `sheet` | shadcn `<Sheet>` |
+| `checkbox`, `switch`, `radio_group` | shadcn form controls |
+
+**CRUD table** — add `edit_item` state to get Edit/Delete buttons auto-injected:
+
+```mcn
+component LeadsTable
+    state items     = []
+    state edit_item = null
+    state edit_name = ""
+    state show_edit_modal = false
+
+    on load
+        var res = list_leads()
+        items = res.data
+
+    render
+        card
+            card_header "Leads"
+            card_content
+                table
+                    table_header
+                        table_row
+                            table_head "Name"
+                            table_head "Company"
+                            table_head "Status"
+                    table_body
+
+        modal show=show_edit_modal
+            card_header "Edit Lead"
+            card_content
+                input bind=edit_name label="Name"
+                button "Save"
+```
+
+The compiler auto-injects Edit/Delete buttons in the table body and wires `handleEdit`, `handleDelete`, `handleSave` handlers.
+
+---
+
+### `app` — App shell with layout
+
+```mcn
+app LinkedInLeadGen
+    title "LinkedIn Lead Gen Agent"
+    theme "professional"
+
+    layout
+        sidebar
+            nav "Dashboard"  icon="layout-dashboard" component=StatsPanel
+            nav "Campaigns"  icon="rocket"            component=CampaignForm
+            nav "Leads"      icon="users"             component=LeadsTable
+            nav "Replies"    icon="message-square"    component=ReplyProcessor
+        main
+            StatsPanel
+            CampaignForm
+            LeadsTable
+            ReplyProcessor
+```
+
+**Theme options:** `"professional"`, `"modern"`, `"minimal"`, `"default"`
+
+**Layout options:**
+
+```mcn
+// Sidebar navigation
+layout
+    sidebar
+        nav "Label" icon="icon-name" component=ComponentName
+
+// Tab navigation
+layout
+    tabs
+        tab "Label" component=ComponentName
+
+// URL routing (react-router-dom)
+layout
+    routes
+        route "/" Dashboard
+        route "/leads" LeadsTable
+        route "/settings" Settings
+```
+
+---
+
+## 6. Building a Full-Stack Agentic App
+
+A complete MCN app has two files:
+
+```
+my_app/
+├── main.mcn    ← backend: db setup, prompts, agent, service
+└── app.mcn     ← frontend: components, app shell
+```
+
+### `main.mcn` structure
+
+```mcn
+// 1. Packages
+use "db"
+use "ai"
+use "http"
+
+// 2. Database schema
+query("CREATE TABLE IF NOT EXISTS ...")
+
+// 3. Prompts
+prompt my_prompt
+    system "..."
+    user   "... {{variable}} ..."
+    format text
+
+// 4. Agent with tasks
+agent my_agent
+    model  "gpt-4o"
+    tools  query, trigger, ai
+    memory session
+
+    task do_something(param)
+        // logic using query(), trigger(), ai()
+        return result
+
+// 5. Service (REST API)
+service my_api
+    port 8080
+
+    endpoint my_endpoint(param)
+        var result = my_agent.do_something(param)
+        return {"status": "ok", "data": result}
+```
+
+### `app.mcn` structure
+
+```mcn
+// 1. Components
+component MyComponent
+    state data = []
+
+    on load
+        var res = my_endpoint()
+        data = res.data
+
+    render
+        card
+            card_header "Title"
+            card_content
+                // UI elements
+
+// 2. App shell
+app MyApp
+    title "My App"
+    theme "professional"
+
+    layout
+        sidebar
+            nav "Home" component=MyComponent
+        main
+            MyComponent
+```
+
+---
+
+## 7. CLI Reference
+
+| Command | Description |
+|---|---|
+| `mcn run <file>` | Execute a `.mcn` script |
+| `mcn serve --file <file> --port N` | Start HTTP server from a `service` block |
+| `mcn build <file> --out <dir>` | Compile `component`/`app` blocks → React project |
+| `mcn check <file>` | Static type-check without running |
+| `mcn check <file> --strict` | Treat warnings as errors |
+| `mcn fmt <file>` | Format MCN source |
+| `mcn fmt <file> --write` | Format and rewrite in place |
+| `mcn test <file>` | Run `test` blocks |
+| `mcn repl` | Interactive REPL |
+| `mcn init <name>` | Scaffold a new project |
+| `mcn generate "<description>"` | AI-generate a full app from natural language |
+| `mcn config set api_key <key>` | Save Claude/OpenAI API key |
+| `mcn config show` | Show saved config |
+| `mcn install <package>` | Install a MCN package |
+| `mcn packages list` | List installed packages |
+| `mcn deploy --target zip` | Package app for deployment |
+
+---
+
+## 8. Running the Application
+
+### Step 1 — Start the backend
+
+The `mcn serve` command reads the `service` block in `main.mcn` and exposes each `endpoint` as an HTTP route.
+
 ```bash
-curl -X POST http://localhost:8000/api_endpoint \
+cd mt-mcn
+
+python -m mcn serve --file examples/linkedin_agent/main.mcn --host 0.0.0.0 --port 8080
+```
+
+Expected output:
+
+```
+Loading: examples/linkedin_agent/main.mcn
+
+MCN server running on http://localhost:8080
+Endpoints:
+  POST /run_campaign      ← campaign_id, industry, tone
+  POST /process_replies   ← (no params)
+  POST /get_stats         ← (no params)
+  POST /list_leads        ← status
+  POST /create_campaign   ← name, industry, tone
+
+Press Ctrl+C to stop.
+```
+
+Test an endpoint:
+
+```bash
+curl -X POST http://localhost:8080/list_leads \
   -H "Content-Type: application/json" \
-  -d '{"user_id": 1}'
+  -d '{}'
 ```
 
-## Extending MCN
+---
 
-### Register Custom Functions
-```python
-from mcn_interpreter import MCNInterpreter
+### Step 2 — Build the frontend
 
-def my_custom_function(param1, param2):
-    return param1 * param2
+The `mcn build` command runs the UI compiler. It reads all `component` and `app` blocks from `app.mcn` and generates a complete React + shadcn/ui + Tailwind project.
 
-interpreter = MCNInterpreter()
-interpreter.register_function("multiply", my_custom_function)
+```bash
+python -m mcn build examples/linkedin_agent/app.mcn --out examples/linkedin_agent/frontend
 ```
 
-### Register Workflows
-```python
-from mcn_runtime import MCNRuntime
+Expected output:
 
-def approval_workflow(params):
-    # Custom logic
-    return {"approved": True, "id": params.get("request_id")}
+```
+Building: LinkedInLeadGen
+Components: StatsPanel, CampaignForm, LeadsTable, ReplyProcessor
+Output:    examples/linkedin_agent/frontend/
 
-runtime = MCNRuntime()
-runtime.register_workflow("approval", approval_workflow)
+  write  frontend/src/lib/utils.ts
+  write  frontend/src/components/StatsPanel.tsx
+  write  frontend/src/components/CampaignForm.tsx
+  write  frontend/src/components/LeadsTable.tsx
+  write  frontend/src/components/ReplyProcessor.tsx
+  write  frontend/src/services/api.ts
+  write  frontend/src/App.tsx
+  write  frontend/src/main.tsx
+  write  frontend/src/globals.css
+  write  frontend/package.json
+  write  frontend/tailwind.config.ts
+  write  frontend/vite.config.ts
+  write  frontend/index.html
+
+  shadcn  npx shadcn@latest add card input button select table alert dialog badge
+
+✓ Frontend generated in frontend/
+
+Next steps:
+  cd frontend
+  npm install
+  npx shadcn@latest add card input button select table alert dialog badge
+  npm run dev
 ```
 
-### Custom AI Models
-```python
-def custom_ai_handler(prompt, model="custom", max_tokens=100):
-    # Your AI integration
-    return "Custom AI response"
+---
 
-interpreter.register_function("custom_ai", custom_ai_handler)
+### Step 3 — Install and run the frontend
+
+```bash
+cd examples/linkedin_agent/frontend
+
+npm install
+
+npx shadcn@latest add card input button select table alert dialog badge separator
+
+npm run dev
 ```
 
-## Best Practices
+Frontend runs on `http://localhost:5173`. It connects to the MCN backend at `http://localhost:8080` via the auto-generated `src/services/api.ts`.
 
-### 1. Code Organization
+---
+
+### Step 4 — Set your AI API key
+
+The `ai()` calls in the agent need an API key. Set it once and MCN stores it in `~/.mcn/config.json`.
+
+```bash
+# OpenAI
+python -m mcn config set api_key sk-...your-openai-key...
+
+# Anthropic
+python -m mcn config set api_key sk-ant-...your-anthropic-key...
+```
+
+Or use environment variables:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+---
+
+### Full architecture
+
+```
+app.mcn  ──[mcn build]──►  React + shadcn/ui  (npm run dev → :5173)
+                                    │
+                              src/services/api.ts
+                              (fetch POST to :8080)
+                                    │
+main.mcn ──[mcn serve]──►  MCN HTTP Server (:8080)
+                                    │
+                    ┌───────────────┼───────────────┐
+                  agent           query()        trigger()
+                tasks             SQLite       External APIs
+                  │                              (LinkedIn,
+                ai()                           Phantombuster)
+              OpenAI/Anthropic
+```
+
+---
+
+### Running both together
+
+Terminal 1 — backend:
+
+```bash
+python -m mcn serve --file examples/linkedin_agent/main.mcn --port 8080
+```
+
+Terminal 2 — frontend:
+
+```bash
+cd examples/linkedin_agent/frontend && npm run dev
+```
+
+Or add to the project `Makefile`:
+
+```makefile
+run:
+	python -m mcn serve --file examples/linkedin_agent/main.mcn --port 8080 &
+	cd examples/linkedin_agent/frontend && npm run dev
+```
+
+---
+
+## 9. Configuration & API Keys
+
+```bash
+# Save key
+python -m mcn config set api_key sk-...
+
+# View saved config (keys are masked)
+python -m mcn config show
+
+# Get a specific value
+python -m mcn config get api_key
+```
+
+Config is stored at `~/.mcn/config.json`. Key resolution order for `ai()` calls:
+
+1. `--api-key` flag (CLI only)
+2. `~/.mcn/config.json`
+3. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` env var
+
+---
+
+## 10. Best Practices
+
+### Always use parameterized queries
+
 ```mcn
-// Good: Clear variable names
-var user_email = "alice@example.com"
-var is_verified = true
+// Good
+var user = query("SELECT * FROM users WHERE id = ?", (user_id))
 
-// Bad: Unclear names
-var e = "alice@example.com"
-var v = true
+// Bad — SQL injection risk
+var user = query("SELECT * FROM users WHERE id = " + user_id)
 ```
 
-### 2. Error Handling
+### Wrap external calls in try/catch
+
 ```mcn
-// Always handle potential errors
 try
-    var api_result = trigger("https://external-api.com/data")
-    log "Success: " + api_result.data
+    var res = trigger("https://api.example.com/data")
 catch
-    log "API call failed: " + error
-    var api_result = {"data": "fallback_data"}
+    log "API failed: " + error
+    var res = {"data": []}
 ```
 
-### 3. Database Operations
-```mcn
-// Use parameterized queries
-var user_id = 123
-var user = query("SELECT * FROM users WHERE id = ?", (user_id,))
+### Use parallel tasks for independent operations
 
-// Avoid string concatenation
-// Bad: query("SELECT * FROM users WHERE id = " + user_id)
+```mcn
+// Good — runs concurrently
+task "notify" "trigger" "https://notify.com/send" {"msg": "Done"}
+task "log"    "query"   "INSERT INTO logs VALUES (?)" ("completed")
+var results = await "notify" "log"
+
+// Bad — sequential when they don't depend on each other
+trigger("https://notify.com/send", {"msg": "Done"})
+query("INSERT INTO logs VALUES (?)", ("completed"))
 ```
 
-### 4. AI Integration
-```mcn
-// Provide context for better AI responses
-var context = "User: " + user_name + ", Role: " + user_role
-var ai_response = ai("Generate welcome message. Context: " + context)
-```
+### Load packages at the top
 
-### 5. Async Tasks
 ```mcn
-// Use tasks for independent operations
-task "notification" "trigger" "https://notify.com/send" {"message": "Welcome"}
-task "analytics" "trigger" "https://analytics.com/track" {"event": "signup"}
-
-// Don't await if you don't need the results immediately
-```
-
-### 6. Package Usage
-```mcn
-// Load packages at the top
+// Always at the top of the file
 use "db"
 use "http"
 use "ai"
-
-// Group related operations
-var user_data = get_json("https://api.com/user/123")
-batch_insert("users", [user_data])
-var insights = analyze_sentiment(user_data.bio)
 ```
 
-### 7. Type Safety
+### Keep agent tasks focused
+
+Each `task` inside an `agent` should do one thing. Compose them in the `service` endpoints.
+
 ```mcn
-// Use type hints for critical variables
-type "user_id" "number"
-type "email" "string"
-type "permissions" "array"
+agent my_agent
+    task fetch_leads(industry)      // only fetches
+    task generate_message(lead)     // only generates
+    task send_outreach(lead, msg)   // only sends
 
-var user_id = 123
-var email = "user@example.com"
-var permissions = ["read", "write"]
+service my_api
+    endpoint run_campaign(industry)
+        var leads = my_agent.fetch_leads(industry)
+        // compose tasks here
 ```
 
-## Development Workflow
+---
 
-### 1. Development
+## 11. Troubleshooting
+
+**`ModuleNotFoundError` on serve/build**
+
 ```bash
-# Start REPL for testing
-python mcn_cli.py --repl
-
-# Test script
-python mcn_cli.py my_script.mcn
+pip install -r requirements.txt
 ```
 
-### 2. Testing
+**`No component or app declarations found`**
+
+The `build` command requires at least one `component` or `app` block in the file. Check that `app.mcn` contains these blocks, not `main.mcn`.
+
+**CORS errors in the browser**
+
+The MCN server sends `Access-Control-Allow-Origin: *` by default. If you still see CORS errors, confirm the frontend is calling the correct port (`8080`) and the backend is running with `--host 0.0.0.0`.
+
+**`ai()` returns empty or errors**
+
 ```bash
-# Run test suite
-python test_mcn.py
+# Check your key is saved
+python -m mcn config show
 
-# Test specific features
-python mcn_cli.py examples/v2_features_demo.mcn
+# Or set it explicitly
+python -m mcn config set api_key sk-...
 ```
 
-### 3. Deployment
+**Frontend can't reach backend**
+
+The generated `src/services/api.ts` reads `VITE_API_URL` from the environment. Create a `.env` file in the frontend directory:
+
 ```bash
-# Serve as API
-python mcn_cli.py my_api.mcn --serve --host 0.0.0.0 --port 8000
-
-# Serve multiple scripts
-python mcn_cli.py --serve-dir ./api_scripts/ --port 8000
+# frontend/.env
+VITE_API_URL=http://localhost:8080
 ```
 
-## Troubleshooting
+**Static type errors before running**
 
-### Common Issues
+```bash
+python -m mcn check examples/linkedin_agent/main.mcn
+python -m mcn check examples/linkedin_agent/app.mcn --strict
+```
 
-1. **Import Errors**: Ensure all dependencies are installed
-   ```bash
-   pip install -r requirements.txt
-   ```
+**View runtime logs**
 
-2. **Database Errors**: Check if SQLite database is accessible
-   ```mcn
-   try
-       var result = query("SELECT 1")
-   catch
-       log "Database connection failed: " + error
-   ```
-
-3. **API Timeouts**: Add error handling for external calls
-   ```mcn
-   try
-       var response = trigger("https://slow-api.com/data")
-   catch
-       log "API timeout: " + error
-       var response = {"data": "cached_data"}
-   ```
-
-4. **Type Errors**: Check variable types when using type hints
-   ```mcn
-   type "count" "number"
-   var count = 10  // ✓ Correct
-   // var count = "10"  // ✗ Type error
-   ```
-
-## Next Steps
-
-1. **Learn Advanced Features**: Explore async tasks and package system
-2. **Build APIs**: Create MCN scripts that serve as REST endpoints
-3. **Integrate AI**: Use AI functions for intelligent automation
-4. **Extend MCN**: Create custom packages and functions
-5. **Deploy**: Serve MCN scripts in production environments
-
-For more examples, check the `examples/` directory in the MCN repository.
+```bash
+python -m mcn logs --type errors
+python -m mcn logs --type debug
+```

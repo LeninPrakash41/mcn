@@ -1,539 +1,2236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCN Playground</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e1e; color: #fff; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCN Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .header { background: #2d2d30; padding: 1rem; border-bottom: 1px solid #3e3e42; }
-        .header h1 { color: #fff; font-size: 1.5rem; }
+    :root {
+      --bg:          #ffffff;
+      --surface:     #f8f9fb;
+      --surface2:    #f1f3f6;
+      --border:      #e4e8ef;
+      --accent:      #7c3aed;
+      --accent-bg:   #ede9fe;
+      --accent-h:    #6d28d9;
+      --green:       #16a34a;
+      --red:         #dc2626;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --header-h:    52px;
+      --sidebar-w:   224px;
+      --preview-w:   390px;
+      --status-h:    24px;
+    }
 
-        .container { display: flex; height: calc(100vh - 70px); }
-        .editor-panel { flex: 1; display: flex; flex-direction: column; }
-        .output-panel { width: 400px; background: #252526; border-left: 1px solid #3e3e42; display: flex; flex-direction: column; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+    }
 
-        .toolbar { background: #2d2d30; padding: 0.5rem; border-bottom: 1px solid #3e3e42; }
-        .btn { background: #0e639c; color: white; border: none; padding: 0.5rem 1rem; border-radius: 3px; cursor: pointer; margin-right: 0.5rem; }
-        .btn:hover { background: #1177bb; }
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      height: var(--header-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 6px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
 
-        #editor { flex: 1; }
-        .output { flex: 1; padding: 1rem; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; }
-        .output .log { color: #4fc1ff; margin-bottom: 0.5rem; }
-        .output .error { color: #f48771; margin-bottom: 0.5rem; }
-        .output .success { color: #89d185; margin-bottom: 0.5rem; }
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 6px;
+    }
+    .logo-gem {
+      width: 24px; height: 24px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 12px; font-weight: 700;
+    }
+    .logo-ver { font-size: 11px; color: var(--muted); font-weight: 400; }
 
-        .status-bar { background: #007acc; color: white; padding: 0.3rem 1rem; font-size: 12px; }
-        .help-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
-        .help-content { background: #2d2d30; margin: 5% auto; padding: 20px; width: 80%; max-width: 800px; border-radius: 5px; color: #fff; max-height: 80vh; overflow-y: auto; }
-        .help-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .help-close:hover { color: #fff; }
-        .help-section { margin-bottom: 20px; }
-        .help-section h3 { color: #4fc1ff; margin-bottom: 10px; }
-        .help-code { background: #1e1e1e; padding: 10px; border-radius: 3px; font-family: monospace; margin: 10px 0; }
-    </style>
+    .hdr-sep { flex: 1; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn:hover:not(:disabled) { background: var(--surface); border-color: #c1c9d8; }
+    .btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); border-color: var(--accent-h); }
+
+    .btn-gradient {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: white;
+      border: none;
+      padding: 7px 14px;
+      box-shadow: 0 1px 3px rgba(124,58,237,.3);
+    }
+    .btn-gradient:hover:not(:disabled) { opacity: 0.92; }
+
+    .btn-si {
+      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+      color: white;
+      border: none;
+      padding: 7px 14px;
+      box-shadow: 0 1px 3px rgba(14,165,233,.3);
+    }
+    .btn-si:hover:not(:disabled) { opacity: 0.92; }
+
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-icon { padding: 6px 8px; }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .workspace { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+    .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 12px 12px 4px;
+    }
+
+    .tree-folder {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      user-select: none;
+      cursor: default;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 4px 24px;
+      font-size: 12.5px;
+      cursor: pointer;
+      color: var(--text);
+      border-radius: 5px;
+      margin: 0 4px;
+      user-select: none;
+      transition: background .1s;
+    }
+    .tree-item:hover { background: var(--surface2); }
+    .tree-item.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .tree-icon { font-size: 13px; flex-shrink: 0; line-height: 1; }
+
+    .sidebar-div { height: 1px; background: var(--border); margin: 6px 12px; }
+
+    /* ── Editor ──────────────────────────────────────────────────────── */
+    .editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+      position: relative;
+    }
+
+    .tab-bar {
+      height: 36px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .tab-bar::-webkit-scrollbar { height: 3px; }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      font-size: 12.5px;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      color: var(--muted);
+      position: relative;
+      user-select: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+    .tab-close {
+      font-size: 14px;
+      opacity: 0;
+      line-height: 1;
+      padding: 0 1px;
+      border-radius: 3px;
+    }
+    .tab:hover .tab-close { opacity: 0.5; }
+    .tab-close:hover { opacity: 1 !important; }
+    .tab.dirty .tab-label::after { content: '•'; color: var(--accent); margin-left: 3px; }
+
+    #monaco-container { flex: 1; overflow: hidden; }
+
+    .no-file-open {
+      position: absolute;
+      inset: 36px 0 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--muted);
+      gap: 10px;
+      pointer-events: none;
+    }
+    .no-file-open .nfo-icon { font-size: 40px; opacity: 0.18; }
+    .no-file-open p { font-size: 13px; }
+
+    /* ── Preview panel ───────────────────────────────────────────────── */
+    .preview-panel {
+      width: var(--preview-w);
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .panel-tabs {
+      height: 36px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+    .panel-tab {
+      padding: 0 16px;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+      user-select: none;
+      position: relative;
+    }
+    .panel-tab:hover { color: var(--text); }
+    .panel-tab.active { background: var(--bg); color: var(--text); font-weight: 500; }
+    .panel-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .panel-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .panel-section { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .panel-section.active { display: flex; }
+
+    /* Preview placeholder */
+    .preview-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .preview-placeholder .ph-icon { font-size: 52px; opacity: 0.1; }
+    .preview-placeholder h3 { font-size: 16px; font-weight: 600; }
+    .preview-placeholder p { font-size: 13px; color: var(--muted); max-width: 230px; line-height: 1.6; }
+
+    #preview-iframe {
+      flex: 1;
+      border: none;
+      background: white;
+    }
+
+    /* Build files */
+    .build-files-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .build-file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .build-file-item:hover { background: var(--surface); color: var(--text); }
+
+    /* Output log */
+    #output-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      background: #1a1b26;
+      color: #c0caf5;
+    }
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-line.success { color: #9ece6a; }
+    .log-line.error   { color: #f7768e; }
+    .log-line.info    { color: #7dcfff; }
+    .log-line.warn    { color: #e0af68; }
+    .log-line.dim     { color: #565f89; }
+
+    /* Preview actions */
+    .preview-actions {
+      padding: 7px 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    #server-badge {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+    #server-badge.running { color: var(--green); font-weight: 500; }
+
+    /* ── Status bar ──────────────────────────────────────────────────── */
+    .status-bar {
+      height: var(--status-h);
+      background: var(--accent);
+      color: rgba(255,255,255,.85);
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 14px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    #status-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); }
+    #status-dot.ok { background: #86efac; }
+    #status-dot.err { background: #fca5a5; }
+    .status-div { opacity: .4; }
+
+    /* ── SI Wizard ───────────────────────────────────────────────────── */
+    .si-steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .si-step-tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: default;
+      position: relative;
+      user-select: none;
+    }
+    .si-step-tab.active { color: #0ea5e9; font-weight: 600; }
+    .si-step-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 2px;
+      background: #0ea5e9;
+    }
+    .si-step-tab.done { color: #16a34a; }
+    .si-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--surface2);
+      font-size: 10px;
+      margin-right: 5px;
+      font-weight: 700;
+    }
+    .si-step-tab.active .si-step-num { background: #0ea5e9; color: white; }
+    .si-step-tab.done .si-step-num   { background: #16a34a; color: white; }
+    .si-page { display: none; flex-direction: column; gap: 14px; }
+    .si-page.active { display: flex; }
+    .si-trigger-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .si-trigger-card {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .si-trigger-card:hover  { border-color: #0ea5e9; background: #f0f9ff; }
+    .si-trigger-card.selected { border-color: #0ea5e9; background: #e0f2fe; }
+    .si-trigger-icon  { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .si-trigger-label { font-size: 13px; font-weight: 600; }
+    .si-trigger-desc  { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .si-add-btn {
+      padding: 8px 12px;
+      border-radius: 7px;
+      border: 1.5px dashed var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+      width: 100%;
+      text-align: center;
+    }
+    .si-add-btn:hover { border-color: #0ea5e9; color: #0ea5e9; background: #f0f9ff; }
+    .si-row { display: flex; gap: 8px; align-items: center; }
+    .si-row .form-input { flex: 1; }
+    .si-row select.form-input { flex: 0 0 130px; }
+    .si-remove-btn {
+      padding: 5px 8px; border: none; background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 16px;
+      border-radius: 5px; line-height: 1;
+    }
+    .si-remove-btn:hover { background: #fee2e2; color: #dc2626; }
+
+    /* ── Generate Modal ──────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal-card {
+      background: var(--bg);
+      border-radius: 16px;
+      width: 580px;
+      max-width: 92vw;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 48px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .modal-hdr {
+      padding: 22px 24px 0;
+    }
+    .modal-title { font-size: 19px; font-weight: 700; }
+    .modal-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 18px; }
+
+    .modal-body {
+      padding: 0 24px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-footer {
+      padding: 14px 24px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 13px; font-weight: 500; }
+    .form-label span { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      transition: border-color .15s;
+      outline: none;
+    }
+    .form-input:focus, .form-textarea:focus { border-color: var(--accent); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    .gen-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 2px 0;
+    }
+    .gen-status.hidden { display: none; }
+
+    .gen-stream {
+      background: #1a1b26;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      color: #c0caf5;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.65;
+    }
+    .gen-stream.hidden { display: none; }
+
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbars ──────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #dde2ea; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b8c0cc; }
+
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>MCN Playground</h1>
-        <button class="btn" onclick="showHelp()" style="float: right; margin-top: -35px;">? Help</button>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-gem">M</div>
+    MCN
+    <span class="logo-ver">v2.2</span>
+  </div>
+
+  <button class="btn btn-gradient" onclick="openGenerateModal()">✦ Generate AI App</button>
+  <button class="btn btn-si" onclick="openSIModal()">⚡ Wire a Process</button>
+  <button class="btn" onclick="runActiveFile()" title="Run active file (Ctrl+Enter)">▶ Run</button>
+  <button class="btn btn-sm" onclick="formatActiveFile()" title="Format active file">⌥ Format</button>
+  <button class="btn btn-sm" onclick="checkActiveFile()" title="Type-check active file">✓ Check</button>
+  <button class="btn btn-sm" onclick="runTests()" title="Run tests in active file">⚗ Test</button>
+  <button class="btn btn-primary" onclick="buildProject()">⚡ Build</button>
+
+  <div class="hdr-sep"></div>
+
+  <button class="btn btn-sm" onclick="clearOutput()" title="Clear output log">⌫ Clear</button>
+  <button class="btn" id="btnDownload" onclick="downloadProject()" disabled title="Download built project as zip">⬇ Download</button>
+  <button class="btn" onclick="openDeployModal()" title="Package workspace for deployment">☁ Deploy</button>
+  <button class="btn" id="btnLaunch" onclick="toggleDevServer()">🚀 Launch Preview</button>
+
+  <div class="hdr-sep"></div>
+
+  <div id="auth-area">
+    <button class="btn btn-sm" onclick="openAuthModal()" id="btn-signin">⚿ Sign In</button>
+    <span id="auth-user" style="display:none;font-size:13px;color:var(--fg-dim);cursor:pointer;" onclick="openAuthModal()"></span>
+    <button class="btn btn-sm" onclick="signOut()" id="btn-signout" style="display:none;">Sign Out</button>
+  </div>
+</header>
+
+<!-- ── Workspace ───────────────────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="section-label">Project</div>
+      <div id="file-tree"></div>
+
+      <div class="sidebar-div"></div>
+      <div class="section-label">Examples</div>
+      <div id="examples-list"></div>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-area">
+    <div class="tab-bar" id="tab-bar"></div>
+    <div id="monaco-container" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
+    <div class="no-file-open" id="no-file-msg">
+      <div class="nfo-icon">📝</div>
+      <p>Select a file to start editing</p>
+    </div>
+  </div>
+
+  <!-- Preview panel -->
+  <div class="preview-panel">
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-panel="preview" onclick="switchPanel('preview', this)">Preview</div>
+      <div class="panel-tab" data-panel="output" onclick="switchPanel('output', this)">Output</div>
+      <div class="panel-tab" data-panel="files" onclick="switchPanel('files', this)">Files</div>
+    </div>
+    <div class="panel-content">
+
+      <!-- Preview -->
+      <div class="panel-section active" id="panel-preview">
+        <div class="preview-placeholder" id="preview-ph">
+          <div class="ph-icon">🖥️</div>
+          <h3>No Preview</h3>
+          <p>Build your app then click <b>Launch Preview</b> to see it live here.</p>
+        </div>
+        <iframe id="preview-iframe" class="hidden" allow="same-origin"></iframe>
+      </div>
+
+      <!-- Output log -->
+      <div class="panel-section" id="panel-output">
+        <div id="output-log"></div>
+      </div>
+
+      <!-- Build files -->
+      <div class="panel-section" id="panel-files">
+        <div class="build-files-list" id="build-files-list">
+          <div style="padding:24px;text-align:center;color:var(--muted)">No build yet — click ⚡ Build</div>
+        </div>
+      </div>
     </div>
 
-    <div class="container">
-        <div class="editor-panel">
-            <div class="toolbar">
-                <button class="btn" onclick="runCode()">▶ Run</button>
-                <button class="btn" onclick="runCLI('run')">CLI Run</button>
-                <button class="btn" onclick="runCLI('serve')">Serve API</button>
-                <button class="btn" onclick="runCLI('init')">Init Project</button>
-                <button class="btn" onclick="runCLI('generate')">Generate</button>
-                <button class="btn" onclick="clearOutput()">Clear</button>
-                <select id="exampleSelect" onchange="loadSelectedExample()" class="btn" style="margin-right: 10px;">
-                    <option value="">Select Example...</option>
-                    <option value="hello">Hello World</option>
-                    <option value="business">Business Logic</option>
-                    <option value="api_server">API Server</option>
-                    <option value="ecommerce">E-commerce</option>
-                    <option value="crm_system">CRM System</option>
-                    <option value="async">Async Tasks</option>
-                    <option value="ai_integration">AI Integration</option>
-                    <option value="iot_automation">IoT Automation</option>
-                    <option value="data_pipeline">Data Pipeline</option>
-                    <option value="ml_training">ML Training</option>
-                    <option value="natural_lang">Natural Language</option>
-                    <option value="agent_system">Agent System</option>
-                </select>
-                <button class="btn" onclick="showSessionInfo()">Session Info</button>
-                <button class="btn" onclick="clearSession()">Reset Session</button>
-            </div>
-            <div id="editor"></div>
-            <div class="status-bar">
-                <span id="status">Ready</span>
-            </div>
-        </div>
-
-        <div class="output-panel">
-            <div class="toolbar">
-                <h3 style="color: #fff; margin: 0; flex: 1;">Output</h3>
-                <span id="sessionId" style="font-size: 10px; color: #ccc;">No Session</span>
-            </div>
-            <div class="output" id="output">
-                <div class="log">MCN Playground Ready - Enhanced with Real-time Features</div>
-                <div class="log">Click Help (?) for usage guide or select an example to get started!</div>
-            </div>
-            <div class="status-panel" style="background: #1e1e1e; padding: 10px; border-top: 1px solid #3e3e42; font-size: 12px;">
-                <div>Variables: <span id="varCount">0</span> | Execution Time: <span id="execTime">0ms</span> | Status: <span id="connectionStatus">Connecting...</span></div>
-            </div>
-        </div>
+    <div class="preview-actions">
+      <button class="btn btn-sm" onclick="refreshPreview()" title="Reload iframe">↻ Refresh</button>
+      <div style="flex:1"></div>
+      <span id="server-badge">No dev server</span>
     </div>
+  </div>
+</div>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="help-modal">
-        <div class="help-content">
-            <span class="help-close" onclick="closeHelp()">&times;</span>
-            <h2>MCN Playground Guide</h2>
-            
-            <div class="help-section">
-                <h3>Quick Start</h3>
-                <p>1. Select an example from dropdown or write your own MCN code</p>
-                <p>2. Click <strong>Run</strong> for interpreter mode or <strong>CLI Run</strong> for real execution</p>
-                <p>3. Try <strong>Serve API</strong> to create real REST endpoints from your functions</p>
-            </div>
+<!-- ── Status bar ───────────────────────────────────────────────────────── -->
+<div class="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">Ready</span>
+  <span class="status-div">|</span>
+  <span id="status-ws" style="opacity:.7">~/.mcn/playground</span>
+  <div style="flex:1"></div>
+  <span id="status-srv" style="opacity:.7"></span>
+</div>
 
-            <div class="help-section">
-                <h3>Button Functions</h3>
-                <p><strong>▶ Run</strong> - Execute in playground interpreter</p>
-                <p><strong>CLI Run</strong> - Execute with real MCN CLI (python run_mcn.py run)</p>
-                <p><strong>Serve API</strong> - Start API server, functions become endpoints</p>
-                <p><strong>Init Project</strong> - Create new MCN project with frontend</p>
-                <p><strong>Generate</strong> - Generate API docs, Postman collections, etc.</p>
-            </div>
-
-            <div class="help-section">
-                <h3>MCN Syntax Examples</h3>
-                <div class="help-code">// Variables and Functions
-var name = "MCN"
-log "Hello " + name
-
-function greet(user)
-    return "Welcome " + user
-
-echo greet("Developer")</div>
-                
-                <div class="help-code">// Async Tasks
-task "email" send_email "user@example.com"
-task "db" query "SELECT * FROM users"
-var results = await "email" "db"</div>
-                
-                <div class="help-code">// AI Integration
-use "ai_v3"
-register "my-model" "openai"
-var response = run "my-model" "Analyze data"</div>
-            </div>
-
-            <div class="help-section">
-                <h3>Real API Creation</h3>
-                <p>Write functions in MCN, then click <strong>Serve API</strong>:</p>
-                <div class="help-code">function get_users()
-    return [{"id": 1, "name": "John"}]
-
-function create_user(name, email)
-    return {"id": 2, "name": name, "email": email}</div>
-                <p>These become: <code>GET /get_users</code> and <code>POST /create_user</code></p>
-            </div>
-
-            <div class="help-section">
-                <h3>Business Examples</h3>
-                <p><strong>E-commerce</strong> - Order processing, payments, shipping</p>
-                <p><strong>CRM</strong> - Customer management, interactions</p>
-                <p><strong>ML Training</strong> - Model training and deployment</p>
-                <p><strong>IoT</strong> - Device control and automation</p>
-            </div>
-
-            <div class="help-section">
-                <h3>Tips</h3>
-                <p>- Use <strong>Session Info</strong> to see variables</p>
-                <p>- <strong>Reset Session</strong> clears all variables</p>
-                <p>- Functions you write become API endpoints when served</p>
-                <p>- Try different examples to see MCN capabilities</p>
-                <p>- CLI buttons show real MCN command execution</p>
-            </div>
-        </div>
+<!-- ── SI Wizard Modal ─────────────────────────────────────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="si-modal">
+  <div class="modal-card" style="width:620px">
+    <div class="modal-hdr">
+      <div class="modal-title">⚡ Wire a Process</div>
+      <div class="modal-sub">Answer 3 questions — MCN generates the integration for you</div>
     </div>
+    <div class="modal-body">
 
-    <script>
-        let editor;
-        let socket;
-        let currentSessionId = null;
-        let examples = {};
+      <!-- Step tabs -->
+      <div class="si-steps">
+        <div class="si-step-tab active" id="si-tab-1"><span class="si-step-num">1</span>Trigger</div>
+        <div class="si-step-tab"        id="si-tab-2"><span class="si-step-num">2</span>Data &amp; Tools</div>
+        <div class="si-step-tab"        id="si-tab-3"><span class="si-step-num">3</span>Actions</div>
+      </div>
 
-        // Initialize WebSocket connection
-        function initializeSocket() {
-            if (typeof io !== 'undefined') {
-                socket = io();
-            
-            socket.on('connect', function() {
-                updateStatus('Connected');
-                console.log('Connected to MCN Playground server');
-            });
-            
-            socket.on('connected', function(data) {
-                currentSessionId = data.session_id;
-                document.getElementById('sessionId').textContent = `Session: ${currentSessionId.substring(0, 8)}...`;
-            });
-            
-            socket.on('output', function(data) {
-                if (data.session_id === currentSessionId) {
-                    addOutput(data.message, data.type);
-                }
-            });
-            
-            socket.on('disconnect', function() {
-                updateStatus('Disconnected');
-            });
-            } else {
-                console.log('Socket.IO not available, using HTTP only');
-                updateStatus('HTTP Mode');
+      <!-- Page 1: Trigger -->
+      <div class="si-page active" id="si-page-1">
+        <div class="form-label">What starts this process?</div>
+        <div class="si-trigger-grid">
+          <div class="si-trigger-card" data-trigger="webhook" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">🔗</div>
+            <div><div class="si-trigger-label">Webhook / API call</div><div class="si-trigger-desc">Another system calls your endpoint</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="schedule" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">⏰</div>
+            <div><div class="si-trigger-label">Schedule</div><div class="si-trigger-desc">Run every hour, day, or custom interval</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="manual" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">👋</div>
+            <div><div class="si-trigger-label">Manual / Button</div><div class="si-trigger-desc">Someone clicks a button in the UI</div></div>
+          </div>
+          <div class="si-trigger-card" data-trigger="event" onclick="siSelectTrigger(this)">
+            <div class="si-trigger-icon">⚡</div>
+            <div><div class="si-trigger-label">Event / Message</div><div class="si-trigger-desc">Triggered by an internal event or queue</div></div>
+          </div>
+        </div>
+        <div class="form-group" id="si-trigger-detail" style="display:none">
+          <label class="form-label" id="si-trigger-detail-label">Details</label>
+          <input class="form-input" id="si-trigger-detail-input" placeholder="" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Describe what this process does <span>(in plain English)</span></label>
+          <textarea class="form-textarea" id="si-process-desc" rows="2"
+            placeholder="e.g. When a new order comes in, save it to the database and notify the team on Slack"></textarea>
+        </div>
+      </div>
+
+      <!-- Page 2: Data & Tools -->
+      <div class="si-page" id="si-page-2">
+        <div class="form-label">What data or tools does this process need?</div>
+        <div id="si-sources-list"></div>
+        <button class="si-add-btn" onclick="siAddSource()">+ Add data source or tool</button>
+      </div>
+
+      <!-- Page 3: Actions -->
+      <div class="si-page" id="si-page-3">
+        <div class="form-label">What should happen after the data is fetched?</div>
+        <div id="si-actions-list"></div>
+        <button class="si-add-btn" onclick="siAddAction()">+ Add action</button>
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label">Claude API key <span>(optional if set via mcn config)</span></label>
+          <input class="form-input" type="password" id="si-api-key" placeholder="sk-ant-..." autocomplete="off" />
+        </div>
+        <div id="si-error" style="display:none;color:#f87171;font-size:13px;padding:6px 0;"></div>
+        <div class="gen-status hidden" id="si-gen-status">
+          <div class="spinner"></div>
+          <span id="si-gen-status-text">Generating…</span>
+        </div>
+        <pre class="gen-stream hidden" id="si-gen-stream"></pre>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeSIModal()">Cancel</button>
+      <button class="btn" id="si-btn-back" onclick="siBack()" style="display:none">← Back</button>
+      <button class="btn btn-si" id="si-btn-next" onclick="siNext()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Generate Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="gen-modal">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <div class="modal-title">✦ Generate AI App</div>
+      <div class="modal-sub">Describe your app in plain English — Claude generates the MCN backend &amp; UI</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">App description</label>
+        <textarea class="form-textarea" id="gen-desc" rows="3"
+          placeholder="e.g. A CRM with deals, contacts, companies, and activities. Sidebar navigation. CRUD for each section."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          Claude API key
+          <span>(optional if set via <code>mcn config set api_key</code>)</span>
+        </label>
+        <input class="form-input" type="password" id="gen-key" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+      <div class="gen-status hidden" id="gen-status">
+        <div class="spinner"></div>
+        <span id="gen-status-text">Connecting…</span>
+      </div>
+      <pre class="gen-stream hidden" id="gen-stream"></pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeGenerateModal()">Cancel</button>
+      <button class="btn btn-gradient" id="gen-submit" onclick="submitGenerate()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Auth Modal ───────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="auth-modal">
+  <div class="modal-card" style="max-width:400px">
+    <div class="modal-hdr">
+      <div class="modal-title" id="auth-modal-title">Sign In</div>
+      <div class="modal-sub">Your workspace is saved between sessions</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="btn btn-sm" id="auth-tab-login" onclick="switchAuthTab('login')" style="flex:1">Sign In</button>
+        <button class="btn btn-sm" id="auth-tab-register" onclick="switchAuthTab('register')" style="flex:1">Register</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="auth-email" placeholder="you@example.com" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div id="auth-error" style="display:none;color:#f87171;font-size:13px;margin-top:4px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeAuthModal()">Cancel</button>
+      <button class="btn btn-primary" id="auth-submit" onclick="submitAuth()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Deploy Modal ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="deploy-modal">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <div class="modal-title">☁ Deploy MCN App</div>
+      <div class="modal-sub">Package your workspace as a Docker-ready zip for any cloud platform</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">App name</label>
+        <input class="form-input" type="text" id="deploy-name" value="mcn-app" placeholder="my-app" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target</label>
+        <select class="form-input" id="deploy-target">
+          <option value="zip">Zip only (download)</option>
+          <option value="docker">Zip + Docker command</option>
+        </select>
+      </div>
+      <div class="gen-status hidden" id="deploy-status">
+        <div class="spinner"></div>
+        <span id="deploy-status-text">Building…</span>
+      </div>
+      <div class="hidden" id="deploy-result">
+        <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✓ Deployment package ready!</div>
+        <div class="form-label">Run with Docker:</div>
+        <pre id="deploy-docker-cmd" style="background:var(--bg-deep);padding:10px;border-radius:6px;font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:4px;"></pre>
+        <div class="form-label" style="margin-top:10px;">Files included:</div>
+        <div id="deploy-files" style="font-size:12px;color:var(--fg-dim);line-height:1.7;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDeployModal()">Close</button>
+      <button class="btn btn-primary" id="deploy-submit" onclick="submitDeploy()">⬇ Build &amp; Download</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────── -->
+<script>
+// ── Monaco init ─────────────────────────────────────────────────────────
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } })
+require(['vs/editor/editor.main'], function () {
+
+  monaco.languages.register({ id: 'mcn' })
+  monaco.languages.setMonarchTokensProvider('mcn', {
+    keywords: ['var','function','return','if','else','for','in','while','break','continue',
+               'try','catch','throw','true','false','null','and','or','not',
+               'contract','service','endpoint','agent','task','pipeline','stage',
+               'workflow','step','prompt','system','user','format','memory',
+               'component','state','on','render','app','title','theme','layout',
+               'tabs','tab','sidebar','nav','route','test','assert'],
+    builtins: ['log','echo','fetch','http_get','http_post','http_put','http_delete',
+               'query','query_one','execute','db_insert','db_update','db_delete',
+               'ai','llm','embed','extract','classify','checkpoint','rag',
+               'session_set','session_get','session_delete','session_clear',
+               'cache_set','cache_get','cache_delete',
+               'memory_add','memory_search','memory_clear',
+               'vector_add','vector_search','vector_delete',
+               'auth_hash_password','auth_verify_password','auth_create_token','auth_verify_token',
+               'to_upper','to_lower','trim','split','join','replace','starts_with','ends_with',
+               'contains','str_len','substr','format_str','regex_match','regex_find','regex_replace',
+               'to_str','to_int','to_float','to_bool',
+               'len','push','pop','shift','unshift','slice','map','filter','reduce','find',
+               'sort','reverse','unique','flat','zip','range','sum','avg','min','max',
+               'count','group_by','keys','values','has_key','merge',
+               'json_parse','json_str','pick','omit',
+               'abs','ceil','floor','round','sqrt','pow','random','random_int',
+               'now','date_parse','date_format','date_add','date_diff',
+               'queue_push','queue_pop','queue_peek','queue_len',
+               'uuid','hash_sha256','hash_md5','base64_encode','base64_decode',
+               'trigger','wait','read_file','write_file','env'],
+    tokenizer: {
+      root: [
+        [/\/\/.*$/, 'comment'],
+        [/"""[\s\S]*?"""/, 'string'],
+        [/"(?:[^"\\]|\\.)*"/, 'string'],
+        [/\b(true|false|null)\b/, 'constant.language'],
+        [/\b\d+(\.\d+)?\b/, 'number'],
+        [/\b(var|function|return|if|else|for|in|while|break|continue|try|catch|finally|throw|and|or|not|use)\b/, 'keyword'],
+        [/\b(contract|service|endpoint|agent|task|pipeline|stage|workflow|step|prompt)\b/, 'keyword.declaration'],
+        [/\b(component|state|on|render|app|title|theme|layout|tabs|tab|sidebar|nav|route)\b/, 'keyword.control'],
+        [/\b(test|assert)\b/, 'keyword.other'],
+        [/\b(log|echo|fetch|http_get|http_post|http_put|http_delete|query|query_one|execute|db_insert|db_update|db_delete|ai|llm|embed|extract|classify|checkpoint|rag|session_set|session_get|session_delete|session_clear|cache_set|cache_get|cache_delete|memory_add|memory_search|memory_clear|vector_add|vector_search|vector_delete|auth_hash_password|auth_verify_password|auth_create_token|auth_verify_token|to_upper|to_lower|trim|split|join|replace|starts_with|ends_with|contains|str_len|substr|format_str|regex_match|regex_find|regex_replace|to_str|to_int|to_float|to_bool|len|push|pop|shift|unshift|slice|map|filter|reduce|find|sort|reverse|unique|flat|zip|range|sum|avg|min|max|count|group_by|keys|values|has_key|merge|json_parse|json_str|pick|omit|abs|ceil|floor|round|sqrt|pow|random|random_int|now|date_parse|date_format|date_add|date_diff|queue_push|queue_pop|queue_peek|queue_len|uuid|hash_sha256|hash_md5|base64_encode|base64_decode|trigger|wait|read_file|write_file|env)\b/, 'support.function'],
+        [/[a-zA-Z_]\w*/, 'identifier'],
+      ]
+    }
+  })
+
+  // ── IntelliSense: completion items ──────────────────────────────────────
+  const _CK = monaco.languages.CompletionItemKind
+  const _mcnBuiltins = [
+    // Core I/O
+    { label: 'log',         kind: _CK.Function, detail: 'log(value)',               documentation: 'Print value to console/output' },
+    { label: 'echo',        kind: _CK.Function, detail: 'echo(value)',              documentation: 'Alias for log()' },
+    { label: 'read_file',   kind: _CK.Function, detail: 'read_file(path)',          documentation: 'Read text file contents' },
+    { label: 'write_file',  kind: _CK.Function, detail: 'write_file(path, content)', documentation: 'Write text to file' },
+    { label: 'env',         kind: _CK.Function, detail: 'env(key)',                 documentation: 'Read environment variable' },
+    // HTTP
+    { label: 'fetch',       kind: _CK.Function, detail: 'fetch(url, options?)',     documentation: 'HTTP GET/POST request' },
+    { label: 'http_get',    kind: _CK.Function, detail: 'http_get(url, headers?)', documentation: 'HTTP GET' },
+    { label: 'http_post',   kind: _CK.Function, detail: 'http_post(url, body?, headers?)', documentation: 'HTTP POST' },
+    { label: 'http_put',    kind: _CK.Function, detail: 'http_put(url, body?, headers?)',  documentation: 'HTTP PUT' },
+    { label: 'http_delete', kind: _CK.Function, detail: 'http_delete(url, headers?)',      documentation: 'HTTP DELETE' },
+    // DB
+    { label: 'query',       kind: _CK.Function, detail: 'query(sql, params?)',      documentation: 'Run SQL query, returns list of rows' },
+    { label: 'query_one',   kind: _CK.Function, detail: 'query_one(sql, params?)', documentation: 'Run SQL, return first row or null' },
+    { label: 'execute',     kind: _CK.Function, detail: 'execute(sql, params?)',   documentation: 'Run SQL INSERT/UPDATE/DELETE' },
+    { label: 'db_insert',   kind: _CK.Function, detail: 'db_insert(table, row)',   documentation: 'Insert a dict into a table' },
+    { label: 'db_update',   kind: _CK.Function, detail: 'db_update(table, row, where)', documentation: 'Update rows in a table' },
+    { label: 'db_delete',   kind: _CK.Function, detail: 'db_delete(table, where)', documentation: 'Delete rows from a table' },
+    // AI
+    { label: 'ai',          kind: _CK.Function, detail: 'ai(prompt, options?)',     documentation: 'Call AI with a prompt. Options: {model, temperature, system}' },
+    { label: 'llm',         kind: _CK.Function, detail: 'llm(model, prompt, opts?)', documentation: 'Explicit model call: llm("claude-3-5-sonnet", prompt)' },
+    { label: 'embed',       kind: _CK.Function, detail: 'embed(text)',              documentation: 'Generate text embedding vector' },
+    { label: 'extract',     kind: _CK.Function, detail: 'extract(text, contract)',  documentation: 'Extract structured data matching a contract' },
+    { label: 'classify',    kind: _CK.Function, detail: 'classify(text, labels)',   documentation: 'Classify text into one of the labels' },
+    { label: 'checkpoint',  kind: _CK.Function, detail: 'checkpoint(label, data)',  documentation: 'Human-in-the-loop approval step' },
+    { label: 'rag',         kind: _CK.Function, detail: 'rag(query, docs?, template?)', documentation: 'Retrieval-augmented generation' },
+    // Session
+    { label: 'session_set', kind: _CK.Function, detail: 'session_set(key, value)', documentation: 'Store value in current session' },
+    { label: 'session_get', kind: _CK.Function, detail: 'session_get(key)',        documentation: 'Read value from current session' },
+    { label: 'session_delete', kind: _CK.Function, detail: 'session_delete(key)', documentation: 'Remove key from current session' },
+    { label: 'session_clear', kind: _CK.Function, detail: 'session_clear()',      documentation: 'Clear all session data' },
+    // Cache
+    { label: 'cache_set',   kind: _CK.Function, detail: 'cache_set(key, value, ttl?)', documentation: 'Cache a value with optional TTL (seconds)' },
+    { label: 'cache_get',   kind: _CK.Function, detail: 'cache_get(key)',           documentation: 'Get cached value (null if expired/absent)' },
+    { label: 'cache_delete', kind: _CK.Function, detail: 'cache_delete(key)',       documentation: 'Remove item from cache' },
+    // Memory
+    { label: 'memory_add',  kind: _CK.Function, detail: 'memory_add(text, meta?)', documentation: 'Add text to long-term memory store' },
+    { label: 'memory_search', kind: _CK.Function, detail: 'memory_search(query, n?)', documentation: 'Semantic search across memory store' },
+    { label: 'memory_clear', kind: _CK.Function, detail: 'memory_clear()',         documentation: 'Clear all memory entries' },
+    // Vector / RAG
+    { label: 'vector_add',  kind: _CK.Function, detail: 'vector_add(id, text, meta?)', documentation: 'Add document to vector store' },
+    { label: 'vector_search', kind: _CK.Function, detail: 'vector_search(query, n?)',  documentation: 'Semantic similarity search' },
+    { label: 'vector_delete', kind: _CK.Function, detail: 'vector_delete(id)',         documentation: 'Remove document from vector store' },
+    // Auth
+    { label: 'auth_hash_password', kind: _CK.Function, detail: 'auth_hash_password(password)', documentation: 'Bcrypt-style password hash' },
+    { label: 'auth_verify_password', kind: _CK.Function, detail: 'auth_verify_password(password, hash)', documentation: 'Verify password against hash' },
+    { label: 'auth_create_token', kind: _CK.Function, detail: 'auth_create_token(payload, secret, ttl?)', documentation: 'Create JWT-style token' },
+    { label: 'auth_verify_token', kind: _CK.Function, detail: 'auth_verify_token(token, secret)', documentation: 'Verify and decode token' },
+    // Strings
+    { label: 'to_upper',    kind: _CK.Function, detail: 'to_upper(s)',             documentation: 'Uppercase string' },
+    { label: 'to_lower',    kind: _CK.Function, detail: 'to_lower(s)',             documentation: 'Lowercase string' },
+    { label: 'trim',        kind: _CK.Function, detail: 'trim(s)',                 documentation: 'Strip whitespace from both ends' },
+    { label: 'split',       kind: _CK.Function, detail: 'split(s, sep)',           documentation: 'Split string by separator' },
+    { label: 'join',        kind: _CK.Function, detail: 'join(list, sep)',         documentation: 'Join list into string' },
+    { label: 'replace',     kind: _CK.Function, detail: 'replace(s, old, new)',    documentation: 'Replace all occurrences' },
+    { label: 'starts_with', kind: _CK.Function, detail: 'starts_with(s, prefix)', documentation: 'Check if string starts with prefix' },
+    { label: 'ends_with',   kind: _CK.Function, detail: 'ends_with(s, suffix)',   documentation: 'Check if string ends with suffix' },
+    { label: 'contains',    kind: _CK.Function, detail: 'contains(s, sub)',        documentation: 'Check if string/list contains value' },
+    { label: 'str_len',     kind: _CK.Function, detail: 'str_len(s)',              documentation: 'String length' },
+    { label: 'substr',      kind: _CK.Function, detail: 'substr(s, start, end?)', documentation: 'Substring extraction' },
+    { label: 'format_str',  kind: _CK.Function, detail: 'format_str(template, args)', documentation: 'Format string with values' },
+    { label: 'regex_match', kind: _CK.Function, detail: 'regex_match(s, pattern)', documentation: 'Test regex match' },
+    { label: 'regex_find',  kind: _CK.Function, detail: 'regex_find(s, pattern)', documentation: 'Find first regex match' },
+    { label: 'regex_replace', kind: _CK.Function, detail: 'regex_replace(s, pattern, repl)', documentation: 'Replace via regex' },
+    { label: 'to_str',      kind: _CK.Function, detail: 'to_str(v)',              documentation: 'Convert value to string' },
+    { label: 'to_int',      kind: _CK.Function, detail: 'to_int(v)',              documentation: 'Convert value to integer' },
+    { label: 'to_float',    kind: _CK.Function, detail: 'to_float(v)',            documentation: 'Convert value to float' },
+    { label: 'to_bool',     kind: _CK.Function, detail: 'to_bool(v)',             documentation: 'Convert value to bool' },
+    // Arrays
+    { label: 'len',         kind: _CK.Function, detail: 'len(list)',              documentation: 'Length of list or string' },
+    { label: 'push',        kind: _CK.Function, detail: 'push(list, value)',      documentation: 'Append value to list (mutates)' },
+    { label: 'pop',         kind: _CK.Function, detail: 'pop(list)',              documentation: 'Remove and return last element' },
+    { label: 'shift',       kind: _CK.Function, detail: 'shift(list)',            documentation: 'Remove and return first element' },
+    { label: 'unshift',     kind: _CK.Function, detail: 'unshift(list, value)',   documentation: 'Prepend value to list' },
+    { label: 'slice',       kind: _CK.Function, detail: 'slice(list, start, end?)', documentation: 'Extract sub-list' },
+    { label: 'map',         kind: _CK.Function, detail: 'map(list, fn)',          documentation: 'Transform list elements' },
+    { label: 'filter',      kind: _CK.Function, detail: 'filter(list, fn)',       documentation: 'Keep elements matching predicate' },
+    { label: 'reduce',      kind: _CK.Function, detail: 'reduce(list, fn, init)', documentation: 'Accumulate list into single value' },
+    { label: 'find',        kind: _CK.Function, detail: 'find(list, fn)',         documentation: 'Find first matching element' },
+    { label: 'sort',        kind: _CK.Function, detail: 'sort(list, key?)',       documentation: 'Sort list (returns sorted copy)' },
+    { label: 'reverse',     kind: _CK.Function, detail: 'reverse(list)',          documentation: 'Reverse list (returns reversed copy)' },
+    { label: 'unique',      kind: _CK.Function, detail: 'unique(list)',           documentation: 'Remove duplicate elements' },
+    { label: 'flat',        kind: _CK.Function, detail: 'flat(list)',             documentation: 'Flatten one level of nesting' },
+    { label: 'zip',         kind: _CK.Function, detail: 'zip(a, b)',              documentation: 'Zip two lists into list of pairs' },
+    { label: 'range',       kind: _CK.Function, detail: 'range(n) / range(start, end)', documentation: 'Generate integer range list' },
+    { label: 'sum',         kind: _CK.Function, detail: 'sum(list)',              documentation: 'Sum numeric list' },
+    { label: 'avg',         kind: _CK.Function, detail: 'avg(list)',              documentation: 'Average of numeric list' },
+    { label: 'min',         kind: _CK.Function, detail: 'min(list)',              documentation: 'Minimum value in list' },
+    { label: 'max',         kind: _CK.Function, detail: 'max(list)',              documentation: 'Maximum value in list' },
+    { label: 'count',       kind: _CK.Function, detail: 'count(list, val?)',      documentation: 'Count elements (or occurrences of val)' },
+    { label: 'group_by',    kind: _CK.Function, detail: 'group_by(list, key)',    documentation: 'Group list items by key into dict' },
+    // Object / dict
+    { label: 'keys',        kind: _CK.Function, detail: 'keys(obj)',              documentation: 'List of dict keys' },
+    { label: 'values',      kind: _CK.Function, detail: 'values(obj)',            documentation: 'List of dict values' },
+    { label: 'has_key',     kind: _CK.Function, detail: 'has_key(obj, key)',      documentation: 'Check if dict has key' },
+    { label: 'merge',       kind: _CK.Function, detail: 'merge(obj1, obj2)',      documentation: 'Merge two dicts (obj2 wins)' },
+    { label: 'json_parse',  kind: _CK.Function, detail: 'json_parse(s)',          documentation: 'Parse JSON string to object' },
+    { label: 'json_str',    kind: _CK.Function, detail: 'json_str(obj)',          documentation: 'Serialize object to JSON string' },
+    { label: 'pick',        kind: _CK.Function, detail: 'pick(obj, keys)',        documentation: 'Select subset of object keys' },
+    { label: 'omit',        kind: _CK.Function, detail: 'omit(obj, keys)',        documentation: 'Exclude keys from object' },
+    // Math
+    { label: 'abs',         kind: _CK.Function, detail: 'abs(n)',                documentation: 'Absolute value' },
+    { label: 'ceil',        kind: _CK.Function, detail: 'ceil(n)',               documentation: 'Round up' },
+    { label: 'floor',       kind: _CK.Function, detail: 'floor(n)',              documentation: 'Round down' },
+    { label: 'round',       kind: _CK.Function, detail: 'round(n, places?)',     documentation: 'Round to decimal places' },
+    { label: 'sqrt',        kind: _CK.Function, detail: 'sqrt(n)',               documentation: 'Square root' },
+    { label: 'pow',         kind: _CK.Function, detail: 'pow(base, exp)',        documentation: 'Power: base ^ exp' },
+    { label: 'random',      kind: _CK.Function, detail: 'random()',             documentation: 'Random float 0.0–1.0' },
+    { label: 'random_int',  kind: _CK.Function, detail: 'random_int(min, max)', documentation: 'Random integer in [min, max]' },
+    // Date / time
+    { label: 'now',         kind: _CK.Function, detail: 'now()',                 documentation: 'Current UTC timestamp (ISO string)' },
+    { label: 'date_parse',  kind: _CK.Function, detail: 'date_parse(s)',         documentation: 'Parse date string to timestamp dict' },
+    { label: 'date_format', kind: _CK.Function, detail: 'date_format(ts, fmt)',  documentation: 'Format timestamp with strftime pattern' },
+    { label: 'date_add',    kind: _CK.Function, detail: 'date_add(ts, n, unit)', documentation: 'Add time to timestamp' },
+    { label: 'date_diff',   kind: _CK.Function, detail: 'date_diff(a, b, unit)', documentation: 'Difference between two timestamps' },
+    // Queue
+    { label: 'queue_push',  kind: _CK.Function, detail: 'queue_push(name, msg)', documentation: 'Enqueue a message' },
+    { label: 'queue_pop',   kind: _CK.Function, detail: 'queue_pop(name)',       documentation: 'Dequeue the next message' },
+    { label: 'queue_peek',  kind: _CK.Function, detail: 'queue_peek(name)',      documentation: 'Peek at next message without removing' },
+    { label: 'queue_len',   kind: _CK.Function, detail: 'queue_len(name)',       documentation: 'Number of messages in queue' },
+    // Crypto / ID
+    { label: 'uuid',        kind: _CK.Function, detail: 'uuid()',               documentation: 'Generate UUID v4' },
+    { label: 'hash_sha256', kind: _CK.Function, detail: 'hash_sha256(s)',       documentation: 'SHA-256 hex digest' },
+    { label: 'hash_md5',    kind: _CK.Function, detail: 'hash_md5(s)',          documentation: 'MD5 hex digest' },
+    { label: 'base64_encode', kind: _CK.Function, detail: 'base64_encode(s)',   documentation: 'Base64 encode' },
+    { label: 'base64_decode', kind: _CK.Function, detail: 'base64_decode(s)',   documentation: 'Base64 decode' },
+    // Workflow
+    { label: 'trigger',     kind: _CK.Function, detail: 'trigger(event, data?)', documentation: 'Emit an event to trigger a handler' },
+    { label: 'wait',        kind: _CK.Function, detail: 'wait(ms)',              documentation: 'Pause execution for ms milliseconds' },
+  ]
+
+  const _mcnKeywords = [
+    'var','function','return','if','else','for','in','while','break','continue',
+    'try','catch','finally','throw','true','false','null','and','or','not','use',
+    'contract','service','endpoint','agent','task','pipeline','stage',
+    'workflow','step','prompt','memory','component','state','on','render',
+    'app','title','theme','layout','tabs','tab','sidebar','nav','route',
+    'test','assert',
+  ]
+
+  const _mcnSnippets = [
+    { label: 'function',      kind: _CK.Snippet, insertText: 'function ${1:name}(${2:params})\n    ${3:// body}', insertTextRules: 4, detail: 'Function declaration' },
+    { label: 'if',            kind: _CK.Snippet, insertText: 'if ${1:condition}\n    ${2:// then}', insertTextRules: 4, detail: 'If statement' },
+    { label: 'if-else',       kind: _CK.Snippet, insertText: 'if ${1:condition}\n    ${2:// then}\nelse\n    ${3:// else}', insertTextRules: 4, detail: 'If-else statement' },
+    { label: 'for',           kind: _CK.Snippet, insertText: 'for ${1:item} in ${2:list}\n    ${3:log(item)}', insertTextRules: 4, detail: 'For-in loop' },
+    { label: 'for-enum',      kind: _CK.Snippet, insertText: 'for ${1:i}, ${2:item} in ${3:list}\n    ${4:log(item)}', insertTextRules: 4, detail: 'For-in with index' },
+    { label: 'while',         kind: _CK.Snippet, insertText: 'while ${1:condition}\n    ${2:// body}', insertTextRules: 4, detail: 'While loop' },
+    { label: 'try',           kind: _CK.Snippet, insertText: 'try\n    ${1:// body}\ncatch ${2:e}\n    log(${2:e}.message)', insertTextRules: 4, detail: 'Try-catch' },
+    { label: 'var',           kind: _CK.Snippet, insertText: 'var ${1:name} = ${2:value}', insertTextRules: 4, detail: 'Variable declaration' },
+    { label: 'contract',      kind: _CK.Snippet, insertText: 'contract ${1:Name}\n    ${2:field}: ${3:str}', insertTextRules: 4, detail: 'Contract declaration' },
+    { label: 'service',       kind: _CK.Snippet, insertText: 'service ${1:name}\n    port ${2:8080}\n\n    endpoint ${3:get_data}\n        return query("SELECT * FROM ${4:table}")', insertTextRules: 4, detail: 'Service declaration' },
+    { label: 'pipeline',      kind: _CK.Snippet, insertText: 'pipeline ${1:name}\n    stage ${2:extract}\n        ${3:// fetch data}\n\n    stage ${4:transform}(${5:data})\n        ${6:// process}', insertTextRules: 4, detail: 'Pipeline declaration' },
+    { label: 'agent',         kind: _CK.Snippet, insertText: 'agent ${1:name}\n    model "${2:claude-3-5-sonnet}"\n    tools ${3:fetch, ai}\n\n    task ${4:run}(${5:input})\n        return ai(${5:input})', insertTextRules: 4, detail: 'Agent declaration' },
+    { label: 'component',     kind: _CK.Snippet, insertText: 'component ${1:Name}\n    state ${2:value} = ${3:""}\n\n    render\n        card\n            input bind=${2:value} label="${4:Label}"\n            button "Submit"', insertTextRules: 4, detail: 'UI Component' },
+    { label: 'prompt',        kind: _CK.Snippet, insertText: 'prompt ${1:name}\n    system "${2:You are a helpful assistant.}"\n    user "${3:{input}}"\n    format text', insertTextRules: 4, detail: 'Prompt declaration' },
+    { label: 'test',          kind: _CK.Snippet, insertText: 'test "${1:description}"\n    assert ${2:condition}, "${3:message}"', insertTextRules: 4, detail: 'Test declaration' },
+  ]
+
+  monaco.languages.registerCompletionItemProvider('mcn', {
+    triggerCharacters: ['.', ' ', '('],
+    provideCompletionItems(model, position) {
+      const word = model.getWordUntilPosition(position)
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber:   position.lineNumber,
+        startColumn:     word.startColumn,
+        endColumn:       word.endColumn,
+      }
+
+      const suggestions = []
+
+      // Built-in functions
+      for (const b of _mcnBuiltins) {
+        suggestions.push({ ...b, range,
+          insertText: b.insertText || b.label,
+          sortText: '0' + b.label,
+        })
+      }
+
+      // Keywords
+      for (const kw of _mcnKeywords) {
+        suggestions.push({
+          label: kw, kind: _CK.Keyword, insertText: kw, range,
+          sortText: '1' + kw,
+        })
+      }
+
+      // Snippets
+      for (const s of _mcnSnippets) {
+        suggestions.push({ ...s, range, sortText: '2' + s.label })
+      }
+
+      return { suggestions }
+    }
+  })
+
+  // Hover provider — show doc strings on hover
+  monaco.languages.registerHoverProvider('mcn', {
+    provideHover(model, position) {
+      const word = model.getWordAtPosition(position)
+      if (!word) return null
+      const fn = _mcnBuiltins.find(b => b.label === word.word)
+      if (!fn) return null
+      return {
+        range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+        contents: [
+          { value: '**`' + fn.detail + '`**' },
+          { value: fn.documentation },
+        ]
+      }
+    }
+  })
+
+  monaco.editor.defineTheme('mcn-light', {
+    base: 'vs', inherit: true,
+    rules: [
+      { token: 'comment',            foreground: '6a9955', fontStyle: 'italic' },
+      { token: 'keyword',            foreground: '0000ff' },
+      { token: 'keyword.declaration',foreground: '795e26', fontStyle: 'bold' },
+      { token: 'keyword.control',    foreground: '267f99' },
+      { token: 'keyword.other',      foreground: '811f3f' },
+      { token: 'support.function',   foreground: '795e26' },
+      { token: 'string',             foreground: 'a31515' },
+      { token: 'number',             foreground: '098658' },
+      { token: 'constant.language',  foreground: '0070c1' },
+    ],
+    colors: {
+      'editor.background': '#ffffff',
+      'editor.lineHighlightBackground': '#f8f9fb',
+      'editorLineNumber.foreground': '#adb5bd',
+    }
+  })
+
+  window._editor = monaco.editor.create(document.getElementById('monaco-container'), {
+    theme:             'mcn-light',
+    language:          'mcn',
+    automaticLayout:   true,
+    fontSize:          13.5,
+    fontFamily:        '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
+    lineNumbers:       'on',
+    minimap:           { enabled: false },
+    scrollBeyondLastLine: false,
+    wordWrap:          'on',
+    padding:           { top: 12, bottom: 12 },
+    renderWhitespace:  'selection',
+    bracketPairColorization: { enabled: true },
+  })
+
+  window._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runActiveFile)
+  window._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveActiveTab)
+
+  window._editor.onDidChangeModelContent(() => {
+    const m = window._editor.getModel()
+    if (!m) return
+    const p = m.uri.path.slice(1)
+    if (_tabState.has(p)) { _tabState.get(p).dirty = true; renderTabs() }
+  })
+
+  initApp()
+})
+
+// ── State ────────────────────────────────────────────────────────────────
+let _openTabs  = []       // [{path}]
+let _models    = new Map() // path → monaco model
+let _tabState  = new Map() // path → {dirty}
+let _active    = null
+let _devOn     = false
+let _built     = false
+
+// ── Init ─────────────────────────────────────────────────────────────────
+async function initApp() {
+  await loadFileTree()
+  await loadExamples()
+  await openFile('backend/main.mcn')
+  pollDevStatus()
+}
+
+// ── File tree ────────────────────────────────────────────────────────────
+async function loadFileTree() {
+  try {
+    const r = await apiFetch('/api/workspace/files')
+    const d = await r.json()
+    renderFileTree(d.files || [])
+  } catch (_) {}
+}
+
+function fileIcon(path) {
+  const ext = path.split('.').pop()
+  if (ext === 'mcn')  return '📄'
+  if (ext === 'tsx' || ext === 'ts') return '⚛'
+  if (ext === 'json') return '{}'
+  if (ext === 'css')  return '🎨'
+  if (ext === 'html') return '🌐'
+  return '📄'
+}
+
+function renderFileTree(files) {
+  const ct = document.getElementById('file-tree')
+  ct.innerHTML = ''
+  const folders = {}
+  for (const f of files) {
+    if (f.path.includes('node_modules')) continue
+    const parts = f.path.split('/')
+    const folder = parts.length > 1 ? parts[0] : '__root__'
+    if (!folders[folder]) folders[folder] = []
+    folders[folder].push(f)
+  }
+  const folderOrder = ['backend', 'ui', 'frontend', '__root__']
+  const allFolders = [...new Set([...folderOrder, ...Object.keys(folders)])]
+  for (const folder of allFolders) {
+    if (!folders[folder]) continue
+    if (folder !== '__root__') {
+      const el = document.createElement('div')
+      el.className = 'tree-folder'
+      el.innerHTML = `<span class="tree-icon">📁</span>${folder}/`
+      ct.appendChild(el)
+    }
+    for (const f of folders[folder]) {
+      ct.appendChild(makeFileItem(f.path))
+    }
+  }
+}
+
+function makeFileItem(path) {
+  const el = document.createElement('div')
+  el.className = 'tree-item' + (_active === path ? ' active' : '')
+  el.dataset.path = path
+  const name = path.split('/').pop()
+  el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${name}</span>`
+  el.onclick = () => openFile(path)
+  return el
+}
+
+// ── Examples ─────────────────────────────────────────────────────────────
+async function loadExamples() {
+  try {
+    const r = await apiFetch('/api/examples')
+    const d = await r.json()
+    const ct = document.getElementById('examples-list')
+    ct.innerHTML = ''
+    for (const ex of d) {
+      const el = document.createElement('div')
+      el.className = 'tree-item'
+      const icon = ex.project ? '🗂' : ex.id === 'tests' ? '⚗' : ex.id === 'pipeline' ? '⛓' : '▸'
+      el.innerHTML = `<span class="tree-icon">${icon}</span><span>${ex.name}</span>`
+      el.onclick = () => loadExample(ex)
+      ct.appendChild(el)
+    }
+  } catch (_) {}
+}
+
+async function loadExample(ex) {
+  if (ex.project && ex.files) {
+    // Multi-file project template — reset workspace and write all files
+    if (!confirm(`Load "${ex.name}" project?\nThis will replace current workspace files.`)) return
+    setStatus('Loading project…')
+    // Close all open tabs first
+    for (const [path, model] of _models.entries()) { model.dispose() }
+    _models.clear(); _tabState.clear(); _openTabs = []; _active = null
+    renderTabs()
+    const r = await apiFetch('/api/workspace/reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: ex.files })
+    })
+    const d = await r.json()
+    if (!d.success) { appendLog('error', '✗ ' + d.error); return }
+    // Server stopped dev server on reset — update UI state
+    _devOn = false
+    _built = false
+    document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+    document.getElementById('btnDownload').disabled = true
+    document.getElementById('server-badge').textContent = 'No dev server'
+    document.getElementById('server-badge').className = ''
+    document.getElementById('status-srv').textContent = ''
+    hidePreview()
+    await loadFileTree()
+    await openFile(ex.open || ex.files[0].path)
+    setStatus('Project loaded — click ⚡ Build', 'ok')
+    appendLog('success', `✓ Loaded "${ex.name}" — ${d.written.length} files written. Click ⚡ Build to compile.`)
+  } else {
+    // Single-file snippet — just write and open one file
+    await apiFetch('/api/workspace/file', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: ex.file, content: ex.code })
+    })
+    if (_models.has(ex.file)) {
+      _models.get(ex.file).setValue(ex.code)
+      if (_tabState.has(ex.file)) _tabState.get(ex.file).dirty = false
+    }
+    await openFile(ex.file)
+    renderTabs()
+  }
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+async function openFile(path) {
+  if (!_models.has(path)) {
+    try {
+      const r = await apiFetch(`/api/workspace/file?path=${encodeURIComponent(path)}`)
+      const d = await r.json()
+      if (d.error) { appendLog('error', d.error); return }
+      const ext = path.endsWith('.mcn') ? 'mcn'
+                : path.endsWith('.tsx') || path.endsWith('.ts') ? 'typescript'
+                : path.endsWith('.json') ? 'json'
+                : path.endsWith('.css') ? 'css'
+                : 'plaintext'
+      const uri   = monaco.Uri.parse('file:///' + path)
+      const model = monaco.editor.createModel(d.content, ext, uri)
+      _models.set(path, model)
+      _tabState.set(path, { dirty: false })
+    } catch (e) { appendLog('error', 'Cannot open ' + path); return }
+  }
+  if (!_openTabs.find(t => t.path === path)) _openTabs.push({ path })
+  _active = path
+  const model = _models.get(path)
+  window._editor.setModel(model)
+  window._editor.updateOptions({ readOnly: path.startsWith('frontend/') })
+  const msg = document.getElementById('no-file-msg')
+  msg && msg.classList.add('hidden')
+  renderTabs()
+  syncTreeActive()
+}
+
+function closeTab(path, e) {
+  if (e) e.stopPropagation()
+  const idx = _openTabs.findIndex(t => t.path === path)
+  if (idx < 0) return
+  _openTabs.splice(idx, 1)
+  if (_models.has(path)) { _models.get(path).dispose(); _models.delete(path) }
+  _tabState.delete(path)
+  if (_active === path) {
+    const next = _openTabs[Math.min(idx, _openTabs.length - 1)]
+    if (next) openFile(next.path)
+    else {
+      _active = null
+      window._editor.setModel(null)
+      document.getElementById('no-file-msg')?.classList.remove('hidden')
+      renderTabs()
+    }
+  } else { renderTabs() }
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tab-bar')
+  bar.innerHTML = ''
+  for (const t of _openTabs) {
+    const dirty    = _tabState.get(t.path)?.dirty
+    const isActive = t.path === _active
+    const el = document.createElement('div')
+    el.className = 'tab' + (isActive ? ' active' : '') + (dirty ? ' dirty' : '')
+    el.onclick = () => openFile(t.path)
+    const name = t.path.split('/').pop()
+    el.innerHTML = `<span class="tree-icon" style="font-size:11px">${fileIcon(t.path)}</span><span class="tab-label">${name}</span><span class="tab-close" onclick="closeTab('${t.path}', event)">×</span>`
+    bar.appendChild(el)
+  }
+}
+
+function syncTreeActive() {
+  document.querySelectorAll('.tree-item[data-path]').forEach(el =>
+    el.classList.toggle('active', el.dataset.path === _active))
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────
+async function saveActiveTab() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  await apiFetch('/api/workspace/file', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: _active, content: model.getValue() })
+  })
+  if (_tabState.has(_active)) _tabState.get(_active).dirty = false
+  renderTabs()
+}
+
+async function saveAllTabs() {
+  for (const [path, model] of _models.entries()) {
+    const st = _tabState.get(path)
+    if (st?.dirty) {
+      await apiFetch('/api/workspace/file', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content: model.getValue() })
+      })
+      st.dirty = false
+    }
+  }
+  renderTabs()
+}
+
+// ── Run MCN ──────────────────────────────────────────────────────────────
+async function runActiveFile() {
+  if (!_active) { appendLog('warn', 'No file open'); return }
+  const model = _models.get(_active)
+  if (!model) return
+  setStatus('Running…')
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '▶ Run: ' + _active)
+  try {
+    const r = await apiFetch('/api/execute', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    for (const l of (d.output || [])) appendLog('', l)
+    if (!d.success) { appendLog('error', '✗ ' + d.error); setStatus('Error', 'err') }
+    else setStatus('Done', 'ok')
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+// ── Format / Check / Test / Clear ────────────────────────────────────────
+async function formatActiveFile() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  try {
+    const r = await apiFetch('/api/format', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    if (d.formatted) {
+      model.setValue(d.formatted)
+      if (_tabState.has(_active)) _tabState.get(_active).dirty = true
+      renderTabs()
+      appendLog('success', '✓ Formatted')
+      setStatus('Formatted', 'ok')
+    } else {
+      appendLog('error', '✗ ' + (d.error || 'Format failed'))
+      setStatus('Format error', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function checkActiveFile() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '✓ Checking ' + _active)
+  try {
+    const r = await apiFetch('/api/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: model.getValue() })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      appendLog('success', '✓ No issues found')
+      setStatus('Check passed', 'ok')
+    } else {
+      for (const e of (d.errors || [])) appendLog('error', '✗ ' + e)
+      setStatus('Check failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function runTests() {
+  if (!_active) return
+  const model = _models.get(_active)
+  if (!model) return
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '⚗ Testing ' + _active)
+  setStatus('Testing…')
+  const code = model.getValue()
+
+  // Use SSE streaming endpoint so results appear as each test completes
+  try {
+    const resp = await apiFetch('/api/test/stream', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })
+    if (!resp.ok) { appendLog('error', '✗ Server error ' + resp.status); return }
+    const reader  = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let   buf     = ''
+    let   passed  = 0, failed = 0, total = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const chunks = buf.split('\n\n')
+      buf = chunks.pop()
+      for (const chunk of chunks) {
+        const line = chunk.replace(/^data: /, '').trim()
+        if (!line) continue
+        try {
+          const ev = JSON.parse(line)
+          if (ev.type === 'start') {
+            total = ev.total
+            appendLog('dim', `Running ${total} test(s)…`)
+          } else if (ev.type === 'result') {
+            const icon = ev.passed ? '✓' : '✗'
+            const cls  = ev.passed ? 'success' : 'error'
+            appendLog(cls, `${icon} ${ev.description}  (${ev.elapsed_ms}ms)`)
+            if (!ev.passed && ev.error) appendLog('error', '  ' + ev.error)
+            if (ev.passed) passed++; else failed++
+            setStatus(`${passed}/${total} passed`, failed ? 'err' : 'ok')
+          } else if (ev.type === 'done') {
+            const msg = `${ev.passed} passed, ${ev.failed} failed`
+            appendLog(ev.failed ? 'error' : 'success', (ev.failed ? '✗ ' : '✓ ') + msg)
+            setStatus(msg, ev.failed ? 'err' : 'ok')
+          } else if (ev.type === 'error') {
+            appendLog('error', '✗ ' + ev.message)
+            setStatus('Error', 'err')
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+function clearOutput() {
+  document.getElementById('output-log').innerHTML = ''
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  setStatus('Ready')
+}
+
+// ── Build ─────────────────────────────────────────────────────────────────
+async function buildProject() {
+  await saveAllTabs()
+  setStatus('Building…')
+  switchPanel('output', document.querySelector('[data-panel="output"]'))
+  appendLog('info', '⚡ Building UI from ui/app.mcn…')
+  try {
+    const r = await apiFetch('/api/build', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    })
+    const d = await r.json()
+    if (d.stdout) appendLog('dim', d.stdout)
+    if (d.stderr) appendLog('warn', d.stderr)
+    if (d.success) {
+      appendLog('success', `✓ Build complete — ${d.files?.length || 0} files generated`)
+      setStatus('Build complete', 'ok')
+      _built = true
+      document.getElementById('btnDownload').disabled = false
+      renderBuildFiles(d.files || [])
+      await loadFileTree()
+    } else {
+      appendLog('error', '✗ ' + d.error)
+      setStatus('Build failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+function renderBuildFiles(files) {
+  const ct = document.getElementById('build-files-list')
+  ct.innerHTML = ''
+  for (const f of files) {
+    const el = document.createElement('div')
+    el.className = 'build-file-item'
+    el.innerHTML = `<span>${fileIcon(f)}</span><span>${f}</span>`
+    el.onclick = () => openFile(f)
+    ct.appendChild(el)
+  }
+  switchPanel('files', document.querySelector('[data-panel="files"]'))
+}
+
+// ── Download ──────────────────────────────────────────────────────────────
+function downloadProject() {
+  window.location.href = '/api/download'
+}
+
+// ── Dev server ────────────────────────────────────────────────────────────
+async function toggleDevServer() {
+  if (_devOn) await stopDevServer(); else await startDevServer()
+}
+
+async function startDevServer() {
+  setStatus('Starting dev server…')
+  try {
+    const r = await apiFetch('/api/devserver/start', { method: 'POST' })
+    const d = await r.json()
+    if (d.success) {
+      _devOn = true
+      if (d.mode === 'static') {
+        // npm not available — serve built files via Flask static route
+        const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
+        setStatus(`Static preview${beInfo}`, 'ok')
+        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+        document.getElementById('server-badge').textContent = `● Static preview${beInfo}`
+        document.getElementById('server-badge').className = 'running'
+        document.getElementById('status-srv').textContent = 'static'
+        appendLog('warn', '⚠ npm not found — serving built files statically.')
+        appendLog('info', 'Install Node.js for full Vite hot-reload support.')
+        if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
+        showPreview(d.preview_url)
+      } else {
+        const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
+        setStatus(`UI :${d.port}${beInfo}`, 'ok')
+        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+        document.getElementById('server-badge').textContent = `● UI :${d.port}${beInfo}`
+        document.getElementById('server-badge').className = 'running'
+        document.getElementById('status-srv').textContent = `:${d.port}`
+        if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
+        showPreview(d.preview_url || `http://localhost:${d.port}`)
+      }
+    } else {
+      appendLog('error', '✗ ' + d.error)
+      setStatus('Server failed', 'err')
+    }
+  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+async function stopDevServer() {
+  await apiFetch('/api/devserver/stop', { method: 'POST' })
+  _devOn = false
+  document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+  document.getElementById('server-badge').textContent = 'No dev server'
+  document.getElementById('server-badge').className = ''
+  document.getElementById('status-srv').textContent = ''
+  hidePreview()
+  setStatus('Dev server stopped')
+}
+
+function showPreview(url) {
+  const iframe = document.getElementById('preview-iframe')
+  iframe.src = url || `http://localhost:${_DEV_PORT}`
+  iframe.classList.remove('hidden')
+  document.getElementById('preview-ph').classList.add('hidden')
+  switchPanel('preview', document.querySelector('[data-panel="preview"]'))
+}
+
+const _DEV_PORT = 5174
+
+function hidePreview() {
+  const iframe = document.getElementById('preview-iframe')
+  iframe.src = 'about:blank'
+  iframe.classList.add('hidden')
+  document.getElementById('preview-ph').classList.remove('hidden')
+}
+
+function refreshPreview() {
+  const iframe = document.getElementById('preview-iframe')
+  if (_devOn) { const s = iframe.src; iframe.src = ''; iframe.src = s }
+}
+
+async function pollDevStatus() {
+  while (true) {
+    try {
+      const r = await apiFetch('/api/devserver/status')
+      const d = await r.json()
+      if (d.running !== _devOn) {
+        _devOn = d.running
+        if (_devOn) {
+          const label = d.port ? `:${d.port}` : 'static'
+          document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
+          document.getElementById('server-badge').textContent = `● ${label}`
+          document.getElementById('server-badge').className = 'running'
+          document.getElementById('status-srv').textContent = label
+        } else {
+          document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+          document.getElementById('server-badge').textContent = d.npm_available ? 'No dev server' : 'npm not installed'
+          document.getElementById('server-badge').className = ''
+          document.getElementById('status-srv').textContent = ''
+        }
+      }
+    } catch (_) {}
+    await new Promise(r => setTimeout(r, 5000))
+  }
+}
+
+// ── Panel switching ────────────────────────────────────────────────────────
+function switchPanel(name, tabEl) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'))
+  if (tabEl) tabEl.classList.add('active')
+  const sec = document.getElementById('panel-' + name)
+  if (sec) sec.classList.add('active')
+}
+
+// ── Output log ────────────────────────────────────────────────────────────
+function appendLog(type, text) {
+  const ct = document.getElementById('output-log')
+  const el = document.createElement('div')
+  el.className = 'log-line ' + (type || '')
+  el.textContent = text
+  ct.appendChild(el)
+  ct.scrollTop = ct.scrollHeight
+}
+
+// ── Status ────────────────────────────────────────────────────────────────
+function setStatus(text, state) {
+  document.getElementById('status-text').textContent = text
+  const dot = document.getElementById('status-dot')
+  dot.className = state === 'ok' ? 'ok' : state === 'err' ? 'err' : ''
+}
+
+// ── Generate modal ────────────────────────────────────────────────────────
+function openGenerateModal() {
+  document.getElementById('gen-modal').classList.remove('hidden')
+  document.getElementById('gen-desc').focus()
+}
+
+function closeGenerateModal() {
+  document.getElementById('gen-modal').classList.add('hidden')
+  document.getElementById('gen-stream').textContent = ''
+  document.getElementById('gen-stream').classList.add('hidden')
+  document.getElementById('gen-status').classList.add('hidden')
+  document.getElementById('gen-submit').disabled = false
+}
+
+async function submitGenerate() {
+  const desc   = document.getElementById('gen-desc').value.trim()
+  const apiKey = document.getElementById('gen-key').value.trim()
+  if (!desc) { alert('Please enter a description.'); return }
+
+  document.getElementById('gen-submit').disabled = true
+  document.getElementById('gen-status').classList.remove('hidden')
+  document.getElementById('gen-stream').classList.remove('hidden')
+  document.getElementById('gen-stream').textContent = ''
+  document.getElementById('gen-status-text').textContent = 'Connecting…'
+
+  try {
+    const r = await apiFetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc, api_key: apiKey })
+    })
+    if (!r.ok) {
+      const err = await r.json()
+      alert(err.error || 'Generation failed')
+      closeGenerateModal(); return
+    }
+
+    const reader  = r.body.getReader()
+    const decoder = new TextDecoder()
+    let   buf     = ''
+    document.getElementById('gen-status-text').textContent = 'Generating…'
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split('\n\n')
+      buf = parts.pop()
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue
+        const ev = JSON.parse(part.slice(5).trim())
+        if (ev.type === 'token') {
+          const s = document.getElementById('gen-stream')
+          s.textContent += ev.text
+          s.scrollTop = s.scrollHeight
+        } else if (ev.type === 'status') {
+          document.getElementById('gen-status-text').textContent = ev.text
+        } else if (ev.type === 'done') {
+          document.getElementById('gen-status-text').textContent = '✓ Generation complete!'
+          if (ev.backend) {
+            await apiFetch('/api/workspace/file', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: 'backend/main.mcn', content: ev.backend })
+            })
+            if (_models.has('backend/main.mcn')) {
+              _models.get('backend/main.mcn').setValue(ev.backend)
+              if (_tabState.has('backend/main.mcn')) _tabState.get('backend/main.mcn').dirty = false
             }
-        }
-
-        // Load examples from server
-        async function loadExamples() {
-            try {
-                const response = await fetch('/api/examples');
-                examples = await response.json();
-                console.log('Examples loaded:', Object.keys(examples));
-            } catch (error) {
-                console.error('Failed to load examples:', error);
-                examples = {};
+          }
+          if (ev.ui) {
+            await apiFetch('/api/workspace/file', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: 'ui/app.mcn', content: ev.ui })
+            })
+            if (_models.has('ui/app.mcn')) {
+              _models.get('ui/app.mcn').setValue(ev.ui)
+              if (_tabState.has('ui/app.mcn')) _tabState.get('ui/app.mcn').dirty = false
             }
+          }
+          await loadFileTree()
+          setTimeout(() => { closeGenerateModal(); openFile('ui/app.mcn') }, 1500)
+        } else if (ev.type === 'error') {
+          appendLog('error', '✗ Generation error: ' + ev.message)
+          alert('Error: ' + ev.message)
+          closeGenerateModal()
         }
+      }
+    }
+  } catch (e) {
+    appendLog('error', '✗ ' + e.message)
+    alert('Error: ' + e.message)
+    closeGenerateModal()
+  }
+}
 
-        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
-        require(['vs/editor/editor.main'], function () {
-            monaco.languages.register({ id: 'mcn' });
-            monaco.languages.setMonarchTokensProvider('mcn', {
-                tokenizer: {
-                    root: [
-                        [/\b(var|if|else|for|while|function|try|catch|task|await|use|type|register|set_model|run|device|on|trigger|pipeline)\b/, 'keyword'],
-                        [/\b(log|echo|query|ai|workflow)\b/, 'keyword.function'],
-                        [/".*?"/, 'string'],
-                        [/\d+/, 'number'],
-                        [/\/\/.*$/, 'comment'],
-                    ]
-                }
-            });
+document.getElementById('gen-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeGenerateModal()
+})
 
-            editor = monaco.editor.create(document.getElementById('editor'), {
-                value: `// MCN Playground v3.0 - Real Development Environment
-// Click Help (?) for usage guide!
+// ── Deploy modal ────────────────────────────────────────────────────────────
 
-log "Hello MCN World!"
-var name = "Developer"
-log "Welcome " + name + " to MCN Playground!"
+function openDeployModal() {
+  const m = document.getElementById('deploy-modal')
+  m.classList.remove('hidden')
+  document.getElementById('deploy-status').classList.add('hidden')
+  document.getElementById('deploy-result').classList.add('hidden')
+  document.getElementById('deploy-submit').disabled = false
+  document.getElementById('deploy-submit').textContent = '⬇ Build & Download'
+}
 
-// Real business function - becomes API endpoint when served
-function process_order(customer_id, amount)
-    log "Processing order for customer: " + customer_id
-    var tax = amount * 0.08
-    var total = amount + tax
-    return "Order processed. Total: $" + total
+function closeDeployModal() {
+  document.getElementById('deploy-modal').classList.add('hidden')
+}
 
-// Test the function
-var order_result = process_order("CUST001", 100)
-echo order_result
+async function submitDeploy() {
+  const appName = document.getElementById('deploy-name').value.trim() || 'mcn-app'
+  const target  = document.getElementById('deploy-target').value
 
-// Try: Serve API to create real endpoints!`,
-                language: 'mcn',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false },
-                fontSize: 14,
-                wordWrap: 'on'
-            });
-            
-            // Initialize after editor is ready
-            loadExamples().then(() => {
-                initializeSocket();
-            });
-        });
+  const statusEl = document.getElementById('deploy-status')
+  const statusTxt = document.getElementById('deploy-status-text')
+  const resultEl  = document.getElementById('deploy-result')
+  const submitBtn = document.getElementById('deploy-submit')
 
-        async function runCode() {
-            const code = editor.getValue();
-            clearOutput();
-            addOutput('Executing MCN code...', 'log');
-            updateStatus('Running...');
+  statusEl.classList.remove('hidden')
+  resultEl.classList.add('hidden')
+  statusTxt.textContent = 'Building deployment package…'
+  submitBtn.disabled = true
 
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        code: code,
-                        session_id: currentSessionId,
-                        mode: 'interpreter'
-                    })
-                });
+  try {
+    const resp = await apiFetch('/api/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_name: appName, target })
+    })
 
-                const result = await response.json();
-                if (result.success) {
-                    // Update session info
-                    currentSessionId = result.session_id;
-                    document.getElementById('varCount').textContent = result.variables_count || 0;
-                    document.getElementById('execTime').textContent = `${result.execution_time || 0}ms`;
-                    
-                    // Display output
-                    result.output?.forEach(item => {
-                        if (typeof item === 'object') {
-                            addOutput(item.message, item.type);
-                        } else {
-                            addOutput(item, 'log');
-                        }
-                    });
-                    
-                    if (result.result !== undefined && result.result !== null) {
-                        addOutput(`Result: ${result.result}`, 'success');
-                    }
-                    
-                    updateStatus('Success');
-                } else {
-                    addOutput(`Error: ${result.error}`, 'error');
-                    updateStatus('Error');
-                }
-            } catch (error) {
-                addOutput(`Network Error: ${error.message}`, 'error');
-                updateStatus('Network Error');
-            }
+    const data = await resp.json()
+    if (!resp.ok) throw new Error(data.error || resp.statusText)
+
+    // Trigger browser download of the zip
+    const zipBytes = Uint8Array.from(atob(data.zip_b64), c => c.charCodeAt(0))
+    const blob = new Blob([zipBytes], { type: 'application/zip' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `${appName}.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    // Show result panel
+    statusEl.classList.add('hidden')
+    document.getElementById('deploy-docker-cmd').textContent = data.docker_cmd
+    document.getElementById('deploy-files').textContent =
+      (data.files_included || []).map(f => '• ' + f).join('\n')
+    resultEl.classList.remove('hidden')
+    submitBtn.disabled = false
+    submitBtn.textContent = '⬇ Download Again'
+  } catch (e) {
+    statusEl.classList.add('hidden')
+    submitBtn.disabled = false
+    alert('Deploy failed: ' + e.message)
+  }
+}
+
+document.getElementById('deploy-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeployModal()
+})
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+
+let _authToken = localStorage.getItem('mcn_token') || ''
+let _authUser  = null
+
+try { _authUser = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch(e) {}
+
+function _getAuthHeaders() {
+  return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {}
+}
+
+// Thin wrapper — adds auth headers to every API call automatically
+async function apiFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers || {}, _getAuthHeaders())
+  return fetch(url, opts)
+}
+
+function _updateAuthUI() {
+  const user = _authUser
+  document.getElementById('btn-signin').style.display   = user ? 'none' : ''
+  document.getElementById('auth-user').style.display    = user ? '' : 'none'
+  document.getElementById('btn-signout').style.display  = user ? '' : 'none'
+  if (user) {
+    document.getElementById('auth-user').textContent = '● ' + (user.email || 'signed in')
+  }
+}
+
+_updateAuthUI()
+
+let _authTab = 'login'
+
+function switchAuthTab(tab) {
+  _authTab = tab
+  document.getElementById('auth-modal-title').textContent = tab === 'login' ? 'Sign In' : 'Create Account'
+  document.getElementById('auth-submit').textContent      = tab === 'login' ? 'Sign In' : 'Create Account'
+  document.getElementById('auth-tab-login').style.opacity    = tab === 'login' ? '1' : '0.5'
+  document.getElementById('auth-tab-register').style.opacity = tab === 'register' ? '1' : '0.5'
+  document.getElementById('auth-error').style.display = 'none'
+}
+
+function openAuthModal() {
+  if (_authUser) {
+    // Already signed in — show account info or nothing
+    return
+  }
+  document.getElementById('auth-modal').classList.remove('hidden')
+  document.getElementById('auth-email').value    = ''
+  document.getElementById('auth-password').value = ''
+  document.getElementById('auth-error').style.display = 'none'
+  switchAuthTab('login')
+  setTimeout(() => document.getElementById('auth-email').focus(), 50)
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').classList.add('hidden')
+}
+
+async function submitAuth() {
+  const email    = document.getElementById('auth-email').value.trim()
+  const password = document.getElementById('auth-password').value
+  const errEl    = document.getElementById('auth-error')
+  const btn      = document.getElementById('auth-submit')
+
+  if (!email || !password) { errEl.textContent = 'Email and password required'; errEl.style.display = ''; return }
+
+  btn.disabled = true
+  btn.textContent = _authTab === 'login' ? 'Signing in…' : 'Creating account…'
+  errEl.style.display = 'none'
+
+  try {
+    const endpoint = _authTab === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+    const d = await r.json()
+    if (!r.ok || d.error) throw new Error(d.error || r.statusText)
+
+    _authToken = d.token
+    _authUser  = d.user
+    localStorage.setItem('mcn_token', _authToken)
+    localStorage.setItem('mcn_user', JSON.stringify(_authUser))
+    _updateAuthUI()
+    closeAuthModal()
+    // Reload workspace for the new user
+    await loadFileTree()
+    appendLog('info', `✓ Signed in as ${_authUser.email}`)
+  } catch (e) {
+    errEl.textContent   = e.message
+    errEl.style.display = ''
+  } finally {
+    btn.disabled    = false
+    btn.textContent = _authTab === 'login' ? 'Sign In' : 'Create Account'
+  }
+}
+
+function signOut() {
+  _authToken = ''
+  _authUser  = null
+  localStorage.removeItem('mcn_token')
+  localStorage.removeItem('mcn_user')
+  _updateAuthUI()
+  loadFileTree()
+  appendLog('info', 'Signed out')
+}
+
+document.getElementById('auth-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAuthModal()
+})
+document.getElementById('auth-password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') submitAuth()
+})
+
+// ── SI Wizard ──────────────────────────────────────────────────────────────────────────────────────
+let _siStep    = 1
+let _siTrigger = ''
+let _siSources = []
+let _siActions = []
+
+const _SI_SOURCE_TYPES = [
+  { value: 'api',      label: 'REST API' },
+  { value: 'database', label: 'Database query' },
+  { value: 'file',     label: 'Read file' },
+  { value: 'ai',       label: 'AI / LLM call' },
+  { value: 'mcp',      label: 'MCP tool' },
+]
+const _SI_ACTION_TYPES = [
+  { value: 'save_db',    label: 'Save to database' },
+  { value: 'call_api',   label: 'Call an API' },
+  { value: 'notify',     label: 'Send notification' },
+  { value: 'slack',      label: 'Post to Slack' },
+  { value: 'email',      label: 'Send email' },
+  { value: 'ai',         label: 'AI processing' },
+  { value: 'write_file', label: 'Write to file' },
+]
+
+function openSIModal() {
+  _siStep = 1; _siTrigger = ''; _siSources = []; _siActions = []
+  document.getElementById('si-modal').classList.remove('hidden')
+  siRenderStep()
+  siRenderSources()
+  siRenderActions()
+  document.getElementById('si-process-desc').value = ''
+  document.getElementById('si-trigger-detail').style.display = 'none'
+  document.querySelectorAll('.si-trigger-card').forEach(c => c.classList.remove('selected'))
+  document.getElementById('si-gen-status').classList.add('hidden')
+  document.getElementById('si-gen-stream').classList.add('hidden')
+  document.getElementById('si-gen-stream').textContent = ''
+  document.getElementById('si-error').style.display = 'none'
+  document.getElementById('si-error').textContent = ''
+}
+
+function closeSIModal() {
+  document.getElementById('si-modal').classList.add('hidden')
+}
+
+function siSelectTrigger(card) {
+  document.querySelectorAll('.si-trigger-card').forEach(c => c.classList.remove('selected'))
+  card.classList.add('selected')
+  _siTrigger = card.dataset.trigger
+  const detail = document.getElementById('si-trigger-detail')
+  const label  = document.getElementById('si-trigger-detail-label')
+  const input  = document.getElementById('si-trigger-detail-input')
+  const configs = {
+    webhook:  { label: 'Endpoint path',      placeholder: '/api/order-placed' },
+    schedule: { label: 'Run every',          placeholder: 'e.g. 1h, 30m, daily at 9am' },
+    manual:   { label: 'Button label',       placeholder: 'e.g. Sync Now' },
+    event:    { label: 'Event / queue name', placeholder: 'e.g. order.created' },
+  }
+  const cfg = configs[_siTrigger]
+  if (cfg) { label.textContent = cfg.label; input.placeholder = cfg.placeholder; detail.style.display = '' }
+}
+
+function siRenderSources() {
+  const ct = document.getElementById('si-sources-list')
+  ct.innerHTML = ''
+  _siSources.forEach((src, i) => {
+    const row = document.createElement('div')
+    row.className = 'si-row'
+    row.style.marginBottom = '8px'
+    row.innerHTML = `
+      <select class="form-input" style="flex:0 0 140px" onchange="_siSources[${i}].type=this.value">
+        ${_SI_SOURCE_TYPES.map(t => `<option value="${t.value}" ${src.type===t.value?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+      <input class="form-input" placeholder="URL, table name, prompt, or tool name"
+        value="${src.value}" oninput="_siSources[${i}].value=this.value" />
+      <button class="si-remove-btn" onclick="siRemoveSource(${i})">&#x2715;</button>`
+    ct.appendChild(row)
+  })
+}
+
+function siAddSource()    { _siSources.push({ type: 'api', value: '' }); siRenderSources() }
+function siRemoveSource(i){ _siSources.splice(i, 1); siRenderSources() }
+
+function siRenderActions() {
+  const ct = document.getElementById('si-actions-list')
+  ct.innerHTML = ''
+  _siActions.forEach((act, i) => {
+    const row = document.createElement('div')
+    row.className = 'si-row'
+    row.style.marginBottom = '8px'
+    row.innerHTML = `
+      <select class="form-input" style="flex:0 0 160px" onchange="_siActions[${i}].type=this.value">
+        ${_SI_ACTION_TYPES.map(t => `<option value="${t.value}" ${act.type===t.value?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+      <input class="form-input" placeholder="Destination, message, or details"
+        value="${act.value}" oninput="_siActions[${i}].value=this.value" />
+      <button class="si-remove-btn" onclick="siRemoveAction(${i})">&#x2715;</button>`
+    ct.appendChild(row)
+  })
+}
+
+function siAddAction()    { _siActions.push({ type: 'save_db', value: '' }); siRenderActions() }
+function siRemoveAction(i){ _siActions.splice(i, 1); siRenderActions() }
+
+function siRenderStep() {
+  for (let n = 1; n <= 3; n++) {
+    const tab  = document.getElementById(`si-tab-${n}`)
+    const page = document.getElementById(`si-page-${n}`)
+    tab.classList.toggle('active', n === _siStep)
+    tab.classList.toggle('done',   n < _siStep)
+    page.classList.toggle('active', n === _siStep)
+  }
+  document.getElementById('si-btn-back').style.display = _siStep > 1 ? '' : 'none'
+  const nextBtn = document.getElementById('si-btn-next')
+  nextBtn.textContent = _siStep === 3 ? '⚡ Generate MCN' : 'Next →'
+  nextBtn.className   = _siStep === 3 ? 'btn btn-gradient' : 'btn btn-si'
+}
+
+function siBack() { if (_siStep > 1) { _siStep--; siRenderStep() } }
+
+async function siNext() {
+  if (_siStep === 1) {
+    if (!_siTrigger) { alert('Please select a trigger.'); return }
+    if (!document.getElementById('si-process-desc').value.trim()) { alert('Please describe what this process does.'); return }
+    _siStep = 2; siRenderStep(); return
+  }
+  if (_siStep === 2) {
+    _siStep = 3; siRenderStep()
+    if (_siActions.length === 0) siAddAction()
+    return
+  }
+  await siGenerate()
+}
+
+function siBuildPrompt() {
+  const desc   = document.getElementById('si-process-desc').value.trim()
+  const detail = document.getElementById('si-trigger-detail-input').value.trim()
+  const triggerLabels = { webhook: 'Webhook', schedule: 'Schedule', manual: 'Manual button', event: 'Event/queue' }
+  const triggerStr  = (triggerLabels[_siTrigger] || _siTrigger) + (detail ? ` (${detail})` : '')
+  const sourcesStr  = _siSources.length
+    ? _siSources.map(s => `- ${s.type}: ${s.value || '(unspecified)'}`).join('\n')
+    : '- No external data sources'
+  const actionsStr  = _siActions.length
+    ? _siActions.map(a => `- ${a.type}: ${a.value || '(unspecified)'}`).join('\n')
+    : '- No specific actions'
+  return `Build a complete MCN application for the following integration process.
+
+Process description: ${desc}
+Trigger: ${triggerStr}
+
+Data sources / tools needed:
+${sourcesStr}
+
+Actions to perform:
+${actionsStr}
+
+IMPORTANT: You MUST output exactly two XML blocks:
+<backend>...backend/main.mcn content here...</backend>
+<ui>...ui/app.mcn content here...</ui>
+
+Requirements:
+- backend/main.mcn: use agent and service blocks for the integration logic
+- ui/app.mcn: simple UI to trigger and monitor the process with status display
+- Keep code minimal and readable for a non-developer
+- Use descriptive variable names matching the business domain
+- Add brief inline comments explaining each step in plain English`
+}
+
+async function siGenerate() {
+  const apiKey = document.getElementById('si-api-key').value.trim()
+  const prompt = siBuildPrompt()
+  const errEl  = document.getElementById('si-error')
+  errEl.style.display = 'none'
+  document.getElementById('si-btn-next').disabled = true
+  document.getElementById('si-gen-status').classList.remove('hidden')
+  document.getElementById('si-gen-stream').classList.remove('hidden')
+  document.getElementById('si-gen-stream').textContent = ''
+  document.getElementById('si-gen-status-text').textContent = 'Generating your MCN integration…'
+  try {
+    const r = await apiFetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: prompt, api_key: apiKey })
+    })
+    if (!r.ok) {
+      const e = await r.json()
+      errEl.textContent = e.error || 'Generation failed'
+      errEl.style.display = ''
+      document.getElementById('si-gen-status').classList.add('hidden')
+      document.getElementById('si-gen-stream').classList.add('hidden')
+      return
+    }
+    const reader = r.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split('\n\n'); buf = parts.pop()
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue
+        const ev = JSON.parse(part.slice(5).trim())
+        if (ev.type === 'token') {
+          const s = document.getElementById('si-gen-stream')
+          s.textContent += ev.text; s.scrollTop = s.scrollHeight
+        } else if (ev.type === 'status') {
+          document.getElementById('si-gen-status-text').textContent = ev.text
+        } else if (ev.type === 'done') {
+          document.getElementById('si-gen-status-text').textContent = '✓ Integration generated!'
+          const writes = []
+          if (ev.backend) writes.push(apiFetch('/api/workspace/file', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: 'backend/main.mcn', content: ev.backend }) }))
+          if (ev.ui)      writes.push(apiFetch('/api/workspace/file', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: 'ui/app.mcn',       content: ev.ui      }) }))
+          await Promise.all(writes)
+          if (ev.backend && _models.has('backend/main.mcn')) { _models.get('backend/main.mcn').setValue(ev.backend); if (_tabState.has('backend/main.mcn')) _tabState.get('backend/main.mcn').dirty = false }
+          if (ev.ui      && _models.has('ui/app.mcn'))       { _models.get('ui/app.mcn').setValue(ev.ui);           if (_tabState.has('ui/app.mcn'))       _tabState.get('ui/app.mcn').dirty       = false }
+          await loadFileTree()
+          setTimeout(() => { closeSIModal(); openFile('backend/main.mcn') }, 1200)
+        } else if (ev.type === 'error') {
+          errEl.textContent = ev.message || 'Generation error'
+          errEl.style.display = ''
+          document.getElementById('si-gen-status').classList.add('hidden')
         }
+      }
+    }
+  } catch (e) {
+    errEl.textContent = e.message
+    errEl.style.display = ''
+    document.getElementById('si-gen-status').classList.add('hidden')
+  }
+  finally { document.getElementById('si-btn-next').disabled = false }
+}
 
-        async function runCLI(command) {
-            const code = editor.getValue();
-            clearOutput();
-            addOutput(`Executing MCN CLI: ${command}...`, 'log');
-            updateStatus('Running CLI...');
-
-            let requestBody = {
-                code: code,
-                session_id: currentSessionId,
-                mode: 'cli',
-                command: command
-            };
-
-            // Add command-specific parameters
-            if (command === 'serve') {
-                const port = prompt('Enter port number (default: 8080):', '8080');
-                if (port) requestBody.port = port;
-            } else if (command === 'init') {
-                const projectName = prompt('Enter project name:', 'my-mcn-app');
-                const frontend = prompt('Enter frontend type (react/vue/angular):', 'react');
-                if (projectName) requestBody.project_name = projectName;
-                if (frontend) requestBody.frontend = frontend;
-            } else if (command === 'generate') {
-                const genType = prompt('Generate type (api/frontend/docs/postman):', 'api');
-                if (genType) requestBody.generate_type = genType;
-            }
-
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    addOutput(`Command: ${result.command}`, 'success');
-                    result.output?.forEach(item => {
-                        addOutput(item.message, item.type);
-                    });
-                    updateStatus('CLI Success');
-                } else {
-                    addOutput(`CLI Error: ${result.error}`, 'error');
-                    updateStatus('CLI Error');
-                }
-            } catch (error) {
-                addOutput(`Network Error: ${error.message}`, 'error');
-                updateStatus('Network Error');
-            }
-        }
-
-        function mockExecute(code) {
-            const lines = code.split('\n');
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.startsWith('log ')) {
-                    const message = line.substring(4).replace(/"/g, '');
-                    addOutput(message, 'success');
-                } else if (line.startsWith('var ')) {
-                    const varName = line.split('=')[0].replace('var ', '').trim();
-                    addOutput(`${varName} declared`, 'log');
-                }
-            });
-            updateStatus('Mock execution complete');
-        }
-
-        function addOutput(message, type = 'log') {
-            const output = document.getElementById('output');
-            const div = document.createElement('div');
-            div.className = type;
-            div.textContent = message;
-            output.appendChild(div);
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function clearOutput() {
-            document.getElementById('output').innerHTML = '';
-        }
-
-        function updateStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
-
-        function loadSelectedExample() {
-            const select = document.getElementById('exampleSelect');
-            const exampleKey = select.value;
-            if (exampleKey) {
-                if (examples[exampleKey]) {
-                    editor.setValue(examples[exampleKey].code);
-                    addOutput(`Loaded example: ${examples[exampleKey].name}`, 'log');
-                    if (examples[exampleKey].description) {
-                        addOutput(`Description: ${examples[exampleKey].description}`, 'log');
-                    }
-                } else {
-                    // Fallback examples if server examples not loaded
-                    const fallbackExamples = {
-                        'hello': `// Hello World Example
-log "Hello, MCN World!"
-var greeting = "Welcome to MCN"
-log greeting`,
-                        'variables': `// Variables and Math
-var x = 10
-var y = 5
-var sum = x + y
-log "Sum: " + sum
-var name = "MCN"
-echo("Hello " + name)`,
-                        'async': `// Async Task Operations
-log "Starting async operations..."
-
-task "email_task" log "Email sent successfully"
-task "db_task" log "Database updated"
-task "ai_task" log "AI processing completed"
-
-var results = await "email_task" "db_task" "ai_task"
-log "All tasks completed"
-echo(results)`,
-                        'ai_integration': `// AI Integration v3.0
-use "ai_v3"
-
-register("my-gpt4", "openai", {"temperature": 0.7})
-set_model("my-gpt4")
-
-var summary = run("my-gpt4", "Summarize: MCN is a powerful scripting language")
-log "AI Response: " + summary`,
-                        'iot_automation': `// IoT Automation v3.0
-use "iot"
-use "events"
-
-device("register", "temp_sensor", {"type": "temperature_sensor"})
-device("register", "smart_light", {"type": "smart_light"})
-
-on "high_temperature" "handle_cooling"
-
-var temp = device("read", "temp_sensor")
-log "Current temperature: " + temp.value + temp.unit
-
-if temp.value > 25
-    trigger("high_temperature", {"temperature": temp.value})`,
-                        'data_pipeline': `// AI-Powered Data Pipeline v3.0
-use "pipeline"
-
-pipeline("create", "feedback_processor", [
-    {"type": "clean", "params": {"remove_special_chars": true}},
-    {"type": "ai_classify", "params": {"categories": ["positive", "negative"]}}
-])
-
-var result = pipeline("run", "feedback_processor", "Great product! Love it!")
-log "Pipeline result:"
-echo(result)`
-                    };
-                    if (fallbackExamples[exampleKey]) {
-                        editor.setValue(fallbackExamples[exampleKey]);
-                        addOutput(`Loaded example: ${exampleKey}`, 'log');
-                    }
-                }
-            }
-        }
-
-        async function showSessionInfo() {
-            if (!currentSessionId) {
-                addOutput('No active session', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/session/${currentSessionId}/variables`);
-                const data = await response.json();
-                
-                if (data.variables) {
-                    addOutput('Session Variables:', 'log');
-                    Object.entries(data.variables).forEach(([key, value]) => {
-                        addOutput(`  ${key}: ${JSON.stringify(value)}`, 'log');
-                    });
-                } else {
-                    addOutput('No variables in current session', 'log');
-                }
-            } catch (error) {
-                addOutput(`Failed to get session info: ${error.message}`, 'error');
-            }
-        }
-
-        async function clearSession() {
-            if (!currentSessionId) {
-                addOutput('No active session to clear', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/session/${currentSessionId}/clear`, {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    addOutput('Session cleared successfully', 'success');
-                    document.getElementById('varCount').textContent = '0';
-                } else {
-                    addOutput(`Failed to clear session: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                addOutput(`Failed to clear session: ${error.message}`, 'error');
-            }
-        }
-
-        function updateStatus(message) {
-            document.getElementById('connectionStatus').textContent = message;
-        }
-
-        function showHelp() {
-            document.getElementById('helpModal').style.display = 'block';
-        }
-
-        function closeHelp() {
-            document.getElementById('helpModal').style.display = 'none';
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('helpModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
-        }
-    </script>
+document.getElementById('si-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSIModal()
+})
+</script>
 </body>
 </html>

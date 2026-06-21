@@ -6,57 +6,51 @@ import {
   DidChangeConfigurationNotification,
   CompletionItem,
   CompletionItemKind,
+  InsertTextFormat,
   TextDocumentPositionParams,
   TextDocumentSyncKind,
   InitializeResult,
   DocumentDiagnosticReportKind,
+  DiagnosticSeverity,
+  Hover,
+  MarkupKind,
   type DocumentDiagnosticReport
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import * as cp from 'child_process';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-let hasConfigurationCapability = false;
+let hasConfigurationCapability   = false;
 let hasWorkspaceFolderCapability = false;
-let hasDiagnosticRelatedInformationCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
-  const capabilities = params.capabilities;
-
-  hasConfigurationCapability = !!(
-    capabilities.workspace && !!capabilities.workspace.configuration
-  );
-  hasWorkspaceFolderCapability = !!(
-    capabilities.workspace && !!capabilities.workspace.workspaceFolders
-  );
-  hasDiagnosticRelatedInformationCapability = !!(
-    capabilities.textDocument &&
-    capabilities.textDocument.publishDiagnostics &&
-    capabilities.textDocument.publishDiagnostics.relatedInformation
-  );
+  const caps = params.capabilities;
+  hasConfigurationCapability   = !!(caps.workspace?.configuration);
+  hasWorkspaceFolderCapability = !!(caps.workspace?.workspaceFolders);
 
   const result: InitializeResult = {
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
+      textDocumentSync:   TextDocumentSyncKind.Incremental,
       completionProvider: {
-        resolveProvider: true,
-        triggerCharacters: ['.', '"', '(']
+        resolveProvider:   true,
+        triggerCharacters: ['.', '"', '(', '{', ' ']
       },
+      hoverProvider: true,
       diagnosticProvider: {
         interFileDependencies: false,
-        workspaceDiagnostics: false
+        workspaceDiagnostics:  false
       }
     }
   };
 
   if (hasWorkspaceFolderCapability) {
-    result.capabilities.workspace = {
-      workspaceFolders: {
-        supported: true
-      }
-    };
+    result.capabilities.workspace = { workspaceFolders: { supported: true } };
   }
   return result;
 });
@@ -65,486 +59,608 @@ connection.onInitialized(() => {
   if (hasConfigurationCapability) {
     connection.client.register(DidChangeConfigurationNotification.type, undefined);
   }
-  if (hasWorkspaceFolderCapability) {
-    connection.workspace.onDidChangeWorkspaceFolders(_event => {
-      connection.console.log('Workspace folder change event received.');
-    });
-  }
 });
 
-// MCN built-in functions for completion
-const mcnBuiltins: CompletionItem[] = [
-  {
-    label: 'log',
+
+// ── Completion items ──────────────────────────────────────────────────────────
+
+function fn(
+  label: string,
+  detail: string,
+  doc: string,
+  insert: string
+): CompletionItem {
+  return {
+    label,
     kind: CompletionItemKind.Function,
-    data: 1,
-    detail: 'log(message)',
-    documentation: 'Print message to console with timestamp'
+    detail,
+    documentation: { kind: MarkupKind.Markdown, value: doc },
+    insertText: insert,
+    insertTextFormat: InsertTextFormat.Snippet
+  };
+}
+
+function kw(label: string, insert?: string): CompletionItem {
+  return {
+    label,
+    kind: CompletionItemKind.Keyword,
+    insertText: insert ?? label,
+    insertTextFormat: InsertTextFormat.Snippet
+  };
+}
+
+// ── AI primitives ─────────────────────────────────────────────────────────────
+const AI_BUILTINS: CompletionItem[] = [
+  fn('ai',         'ai(prompt, opts?) → str',
+     'Universal AI call (Anthropic / OpenAI / Ollama).\n\n```mcn\nvar reply = ai("Summarize: " + text)\nvar reply = ai("Translate", {model: "claude-3-5-sonnet-20241022", temperature: 0.3})\n```',
+     'ai("$1")'),
+  fn('llm',        'llm(model, prompt, opts?) → str',
+     'AI call with explicit model. Prefix routes to provider.\n\n```mcn\nvar r = llm("claude-3-5-sonnet-20241022", "Summarize: " + text)\nvar r = llm("llama3", prompt)  // → Ollama\n```',
+     'llm("$1", "$2")'),
+  fn('embed',      'embed(text) → float[]',
+     'Vector embedding for semantic search.\n\n```mcn\nvar vec = embed("customer query")\n```',
+     'embed("$1")'),
+  fn('extract',    'extract(text, Contract) → object',
+     'Structured AI extraction matching a contract schema.\n\n```mcn\ncontract Order\n    id:   int\n    item: str\nvar order = extract(raw, Order)\n```',
+     'extract($1, $2)'),
+  fn('classify',   'classify(text, labels) → str',
+     'Zero-shot classification — returns the best label.\n\n```mcn\nvar intent = classify(msg, ["buy", "return", "support"])\n```',
+     'classify($1, [$2])'),
+  fn('checkpoint', 'checkpoint(message, data?)',
+     'Human-in-the-loop pause. Prompts [y/n/edit].\n\n```mcn\ncheckpoint("Review before sending", reply)\n```',
+     'checkpoint("$1")'),
+  fn('rag',        'rag(query, docs?, template?) → str',
+     'Retrieval-augmented generation.\n\n```mcn\nvar answer = rag(user_query)\n```',
+     'rag($1)'),
+];
+
+// ── Core I/O & DB ─────────────────────────────────────────────────────────────
+const CORE_BUILTINS: CompletionItem[] = [
+  fn('log',        'log(value)',              'Print to console with timestamp.\n\n```mcn\nlog("Hello {name}")\n```',            'log($1)'),
+  fn('echo',       'echo(value)',             'Alias for `log()`.',                                                               'echo($1)'),
+  fn('fetch',      'fetch(url, opts?) → obj', 'HTTP GET/POST.\n\n```mcn\nvar data = fetch("https://api.example.com/users")\n```', 'fetch("$1")'),
+  fn('trigger',    'trigger(url, payload, method?) → obj', 'HTTP POST.\n\n```mcn\ntrigger("https://api.example.com/orders", {id: id})\n```', 'trigger("$1", {$2})'),
+  fn('http_get',   'http_get(url, headers?) → obj',  'HTTP GET with headers.',  'http_get("$1")'),
+  fn('http_post',  'http_post(url, body?, headers?) → obj', 'HTTP POST.', 'http_post("$1", {$2})'),
+  fn('http_put',   'http_put(url, body?, headers?) → obj',  'HTTP PUT.',  'http_put("$1", {$2})'),
+  fn('http_delete','http_delete(url, headers?) → obj', 'HTTP DELETE.', 'http_delete("$1")'),
+  fn('query',      'query(sql, params?) → list',  'SQL query.\n\n```mcn\nvar rows = query("SELECT * FROM users WHERE active = ?", (true,))\n```', 'query("$1")'),
+  fn('query_one',  'query_one(sql, params?) → obj|null', 'SQL — first row or null.', 'query_one("$1")'),
+  fn('execute',    'execute(sql, params?)',    'SQL INSERT/UPDATE/DELETE.',  'execute("$1")'),
+  fn('db_insert',  'db_insert(table, row)',    'Insert dict into table.',    'db_insert("$1", $2)'),
+  fn('db_update',  'db_update(table, row, where)', 'Update rows.',           'db_update("$1", $2, $3)'),
+  fn('db_delete',  'db_delete(table, where)',  'Delete rows.',               'db_delete("$1", $2)'),
+  fn('env',        'env(key) → str',           'Read environment variable.\n\n```mcn\nvar key = env("STRIPE_SECRET_KEY")\n```', 'env("$1")'),
+  fn('read_file',  'read_file(path) → str',    'Read text file.',            'read_file("$1")'),
+  fn('write_file', 'write_file(path, content)','Write text file.',           'write_file("$1", $2)'),
+  fn('append_file','append_file(path, content)','Append to file.',           'append_file("$1", $2)'),
+  fn('wait',       'wait(ms)',                 'Pause execution (milliseconds).', 'wait($1)'),
+];
+
+// ── Session & Cache ───────────────────────────────────────────────────────────
+const SESSION_CACHE_BUILTINS: CompletionItem[] = [
+  fn('session_set',   'session_set(key, value)',      'Store in current session.',          'session_set("$1", $2)'),
+  fn('session_get',   'session_get(key) → any',       'Read from current session.',         'session_get("$1")'),
+  fn('session_delete','session_delete(key)',           'Remove key from session.',           'session_delete("$1")'),
+  fn('session_clear', 'session_clear()',               'Clear all session data.',            'session_clear()'),
+  fn('cache_set',     'cache_set(key, value, ttl?)',   'Cache value with optional TTL (s).', 'cache_set("$1", $2)'),
+  fn('cache_get',     'cache_get(key) → any|null',    'Get cached value (null if expired).','cache_get("$1")'),
+  fn('cache_delete',  'cache_delete(key)',             'Remove item from cache.',            'cache_delete("$1")'),
+  fn('memory_add',    'memory_add(text, meta?)',       'Add text to long-term memory.',      'memory_add($1)'),
+  fn('memory_search', 'memory_search(query, n?) → list', 'Semantic search across memory.',  'memory_search("$1")'),
+  fn('memory_clear',  'memory_clear()',                'Clear all memory entries.',          'memory_clear()'),
+];
+
+// ── Vector store ──────────────────────────────────────────────────────────────
+const VECTOR_BUILTINS: CompletionItem[] = [
+  fn('vector_add',    'vector_add(id, text, meta?)',   'Add document to vector store.',      'vector_add("$1", $2)'),
+  fn('vector_search', 'vector_search(query, n?) → list', 'Semantic similarity search.',     'vector_search("$1")'),
+  fn('vector_delete', 'vector_delete(id)',             'Remove document from vector store.', 'vector_delete("$1")'),
+];
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+const AUTH_BUILTINS: CompletionItem[] = [
+  fn('auth_hash_password',   'auth_hash_password(password) → str',        'Bcrypt-style password hash.',        'auth_hash_password($1)'),
+  fn('auth_verify_password', 'auth_verify_password(password, hash) → bool','Verify password against hash.',     'auth_verify_password($1, $2)'),
+  fn('auth_create_token',    'auth_create_token(payload, secret, ttl?) → str', 'Create JWT-style token.',       'auth_create_token($1, "$2")'),
+  fn('auth_verify_token',    'auth_verify_token(token, secret) → obj|null', 'Verify and decode token.',        'auth_verify_token($1, "$2")'),
+];
+
+// ── Strings ───────────────────────────────────────────────────────────────────
+const STRING_BUILTINS: CompletionItem[] = [
+  fn('to_upper',    'to_upper(s) → str',          'Uppercase string.',                    'to_upper($1)'),
+  fn('to_lower',    'to_lower(s) → str',          'Lowercase string.',                    'to_lower($1)'),
+  fn('trim',        'trim(s) → str',              'Strip whitespace.',                    'trim($1)'),
+  fn('split',       'split(s, sep) → list',       'Split string by separator.',           'split($1, "$2")'),
+  fn('join',        'join(list, sep) → str',      'Join list into string.',               'join($1, "$2")'),
+  fn('replace',     'replace(s, old, new) → str', 'Replace all occurrences.',             'replace($1, "$2", "$3")'),
+  fn('starts_with', 'starts_with(s, prefix) → bool', 'Check if string starts with prefix.', 'starts_with($1, "$2")'),
+  fn('ends_with',   'ends_with(s, suffix) → bool',   'Check if string ends with suffix.',   'ends_with($1, "$2")'),
+  fn('contains',    'contains(s, sub) → bool',    'Check if string/list contains value.', 'contains($1, $2)'),
+  fn('str_len',     'str_len(s) → int',           'String length.',                       'str_len($1)'),
+  fn('substr',      'substr(s, start, end?) → str','Substring extraction.',               'substr($1, $2)'),
+  fn('format_str',  'format_str(template, args) → str', 'Format string with values.',     'format_str("$1", $2)'),
+  fn('regex_match', 'regex_match(s, pattern) → bool', 'Test regex match.',                'regex_match($1, "$2")'),
+  fn('regex_find',  'regex_find(s, pattern) → str|null', 'Find first regex match.',       'regex_find($1, "$2")'),
+  fn('regex_replace','regex_replace(s, pattern, repl) → str', 'Replace via regex.',       'regex_replace($1, "$2", "$3")'),
+  fn('to_str',      'to_str(v) → str',            'Convert value to string.',             'to_str($1)'),
+  fn('to_int',      'to_int(v) → int',            'Convert value to integer.',            'to_int($1)'),
+  fn('to_float',    'to_float(v) → float',        'Convert value to float.',              'to_float($1)'),
+  fn('to_bool',     'to_bool(v) → bool',          'Convert value to bool.',               'to_bool($1)'),
+];
+
+// ── Arrays ────────────────────────────────────────────────────────────────────
+const ARRAY_BUILTINS: CompletionItem[] = [
+  fn('len',     'len(list) → int',              'Length of list or string.',              'len($1)'),
+  fn('push',    'push(list, value)',             'Append value to list.',                  'push($1, $2)'),
+  fn('pop',     'pop(list) → any',              'Remove and return last element.',        'pop($1)'),
+  fn('shift',   'shift(list) → any',            'Remove and return first element.',       'shift($1)'),
+  fn('unshift', 'unshift(list, value)',          'Prepend value to list.',                 'unshift($1, $2)'),
+  fn('slice',   'slice(list, start, end?) → list', 'Extract sub-list.',                   'slice($1, $2)'),
+  fn('map',     'map(list, fn) → list',         'Transform list elements.\n\n```mcn\nvar doubled = map(nums, n => n * 2)\n```', 'map($1, $2 => $3)'),
+  fn('filter',  'filter(list, fn) → list',      'Keep elements matching predicate.\n\n```mcn\nvar evens = filter(nums, n => n % 2 == 0)\n```', 'filter($1, $2 => $3)'),
+  fn('reduce',  'reduce(list, fn, init) → any', 'Accumulate list into single value.',     'reduce($1, ($2, $3) => $4, $5)'),
+  fn('find',    'find(list, fn) → any|null',    'Find first matching element.',            'find($1, $2 => $3)'),
+  fn('sort',    'sort(list, key?) → list',      'Sort list (returns sorted copy).',        'sort($1)'),
+  fn('reverse', 'reverse(list) → list',         'Reverse list.',                           'reverse($1)'),
+  fn('unique',  'unique(list) → list',          'Remove duplicates.',                      'unique($1)'),
+  fn('flat',    'flat(list) → list',            'Flatten one level of nesting.',           'flat($1)'),
+  fn('zip',     'zip(a, b) → list',             'Zip two lists into list of pairs.',       'zip($1, $2)'),
+  fn('range',   'range(n) / range(start, end) → list', 'Generate integer range.',         'range($1)'),
+  fn('sum',     'sum(list) → number',           'Sum numeric list.',                       'sum($1)'),
+  fn('avg',     'avg(list) → number',           'Average of numeric list.',                'avg($1)'),
+  fn('min',     'min(list) → number',           'Minimum value.',                          'min($1)'),
+  fn('max',     'max(list) → number',           'Maximum value.',                          'max($1)'),
+  fn('count',   'count(list, val?) → int',      'Count elements.',                         'count($1)'),
+  fn('group_by','group_by(list, key) → obj',    'Group items by key into dict.',           'group_by($1, "$2")'),
+];
+
+// ── Objects / Dict ────────────────────────────────────────────────────────────
+const OBJECT_BUILTINS: CompletionItem[] = [
+  fn('keys',      'keys(obj) → list',          'List of dict keys.',                      'keys($1)'),
+  fn('values',    'values(obj) → list',        'List of dict values.',                    'values($1)'),
+  fn('has_key',   'has_key(obj, key) → bool',  'Check if dict has key.',                  'has_key($1, "$2")'),
+  fn('merge',     'merge(obj1, obj2) → obj',   'Merge two dicts (obj2 wins).',            'merge($1, $2)'),
+  fn('json_parse','json_parse(s) → obj',       'Parse JSON string.',                      'json_parse($1)'),
+  fn('json_str',  'json_str(obj) → str',       'Serialize to JSON string.',               'json_str($1)'),
+  fn('pick',      'pick(obj, keys) → obj',     'Select subset of keys.',                  'pick($1, [$2])'),
+  fn('omit',      'omit(obj, keys) → obj',     'Exclude keys from object.',               'omit($1, [$2])'),
+];
+
+// ── Math ──────────────────────────────────────────────────────────────────────
+const MATH_BUILTINS: CompletionItem[] = [
+  fn('abs',        'abs(n) → number',          'Absolute value.',       'abs($1)'),
+  fn('ceil',       'ceil(n) → int',            'Round up.',             'ceil($1)'),
+  fn('floor',      'floor(n) → int',           'Round down.',           'floor($1)'),
+  fn('round',      'round(n, places?) → number', 'Round to decimal places.', 'round($1)'),
+  fn('sqrt',       'sqrt(n) → float',          'Square root.',          'sqrt($1)'),
+  fn('pow',        'pow(base, exp) → number',  'Power: base^exp.',      'pow($1, $2)'),
+  fn('random',     'random() → float',         'Random float 0.0–1.0.','random()'),
+  fn('random_int', 'random_int(min, max) → int','Random integer.',      'random_int($1, $2)'),
+];
+
+// ── Date / Time ───────────────────────────────────────────────────────────────
+const DATE_BUILTINS: CompletionItem[] = [
+  fn('now',         'now() → str',                'Current UTC timestamp (ISO 8601).', 'now()'),
+  fn('date_parse',  'date_parse(s) → obj',        'Parse date string.',               'date_parse($1)'),
+  fn('date_format', 'date_format(ts, fmt) → str', 'Format timestamp.',                'date_format($1, "$2")'),
+  fn('date_add',    'date_add(ts, n, unit) → str','Add time to timestamp.',           'date_add($1, $2, "$3")'),
+  fn('date_diff',   'date_diff(a, b, unit) → num','Difference between timestamps.',   'date_diff($1, $2, "$3")'),
+];
+
+// ── Queue ─────────────────────────────────────────────────────────────────────
+const QUEUE_BUILTINS: CompletionItem[] = [
+  fn('queue_push', 'queue_push(name, msg)',      'Enqueue a message.',                  'queue_push("$1", $2)'),
+  fn('queue_pop',  'queue_pop(name) → any|null','Dequeue the next message.',            'queue_pop("$1")'),
+  fn('queue_peek', 'queue_peek(name) → any|null','Peek at next message.',              'queue_peek("$1")'),
+  fn('queue_len',  'queue_len(name) → int',     'Number of messages in queue.',        'queue_len("$1")'),
+];
+
+// ── Crypto / UUID ─────────────────────────────────────────────────────────────
+const CRYPTO_BUILTINS: CompletionItem[] = [
+  fn('uuid',          'uuid() → str',            'Generate UUID v4.',     'uuid()'),
+  fn('hash_sha256',   'hash_sha256(s) → str',    'SHA-256 hex digest.',   'hash_sha256($1)'),
+  fn('hash_md5',      'hash_md5(s) → str',       'MD5 hex digest.',       'hash_md5($1)'),
+  fn('base64_encode', 'base64_encode(s) → str',  'Base64 encode.',        'base64_encode($1)'),
+  fn('base64_decode', 'base64_decode(s) → str',  'Base64 decode.',        'base64_decode($1)'),
+];
+
+// ── Keywords ──────────────────────────────────────────────────────────────────
+const KEYWORDS: CompletionItem[] = [
+  kw('var',      'var $1 = $2'),
+  kw('if',       'if $1\n    $2'),
+  kw('else'),
+  kw('else if',  'else if $1\n    $2'),
+  kw('for',      'for $1 in $2\n    $3'),
+  kw('while',    'while $1\n    $2'),
+  kw('function', 'function $1($2)\n    $3'),
+  kw('return',   'return $1'),
+  kw('break'),
+  kw('continue'),
+  kw('try',      'try\n    $1\ncatch $2\n    $3'),
+  kw('catch'),
+  kw('finally'),
+  kw('throw',    'throw "$1"'),
+  kw('use',      'use "$1"'),
+  kw('and'),
+  kw('or'),
+  kw('not'),
+  kw('in'),
+  { label: 'true',  kind: CompletionItemKind.Constant },
+  { label: 'false', kind: CompletionItemKind.Constant },
+  { label: 'null',  kind: CompletionItemKind.Constant },
+];
+
+// ── Domain snippets ───────────────────────────────────────────────────────────
+const DOMAIN_SNIPPETS: CompletionItem[] = [
+  {
+    label: 'contract',
+    kind: CompletionItemKind.Class,
+    detail: 'contract — define a typed schema',
+    insertText: 'contract ${1:Name}\n    ${2:field}: ${3:str}',
+    insertTextFormat: InsertTextFormat.Snippet
   },
   {
-    label: 'echo',
-    kind: CompletionItemKind.Function,
-    data: 2,
-    detail: 'echo(message)',
-    documentation: 'Output message without timestamp'
+    label: 'pipeline',
+    kind: CompletionItemKind.Module,
+    detail: 'pipeline — data pipeline with stages',
+    insertText: 'pipeline ${1:name}\n    stage ${2:extract}\n        $3\n\n    stage ${4:transform}(${5:data})\n        $6',
+    insertTextFormat: InsertTextFormat.Snippet
   },
   {
-    label: 'query',
-    kind: CompletionItemKind.Function,
-    data: 3,
-    detail: 'query(sql, params)',
-    documentation: 'Execute SQL query on database'
+    label: 'service',
+    kind: CompletionItemKind.Module,
+    detail: 'service — HTTP API service',
+    insertText: 'service ${1:name}\n    port ${2:8080}\n\n    endpoint ${3:get_data}(${4:id})\n        $5',
+    insertTextFormat: InsertTextFormat.Snippet
   },
   {
-    label: 'trigger',
-    kind: CompletionItemKind.Function,
-    data: 4,
-    detail: 'trigger(url, payload, method, headers)',
-    documentation: 'Make HTTP request to API endpoint'
+    label: 'workflow',
+    kind: CompletionItemKind.Module,
+    detail: 'workflow — multi-step process orchestration',
+    insertText: 'workflow ${1:name}\n    step ${2:validate}(${3:input})\n        $4\n\n    step ${5:process}(${6:data})\n        $7',
+    insertTextFormat: InsertTextFormat.Snippet
   },
   {
-    label: 'ai',
-    kind: CompletionItemKind.Function,
-    data: 5,
-    detail: 'ai(prompt, model, options)',
-    documentation: 'Call AI model for text generation'
+    label: 'prompt',
+    kind: CompletionItemKind.Module,
+    detail: 'prompt — reusable AI prompt template',
+    insertText: 'prompt ${1:name}\n    system "${2:You are a helpful assistant.}"\n    user   "${3:{{message}}}"\n    format ${4:text}',
+    insertTextFormat: InsertTextFormat.Snippet
+  },
+  {
+    label: 'agent',
+    kind: CompletionItemKind.Module,
+    detail: 'agent — AI agent with model, tools, memory',
+    insertText: 'agent ${1:name}\n    model  "${2:claude-3-5-sonnet-20241022}"\n    tools  ${3:ai, fetch}\n    memory ${4:session}\n\n    task ${5:run}(${6:input})\n        $7',
+    insertTextFormat: InsertTextFormat.Snippet
+  },
+  {
+    label: 'component',
+    kind: CompletionItemKind.Module,
+    detail: 'component — UI component with state and render',
+    insertText: 'component ${1:Name}\n    state ${2:value} = ${3:""}\n\n    on ${4:submit}\n        $5\n\n    render\n        card\n            input bind=${2:value} label="${6:Label}"\n            button "Submit"',
+    insertTextFormat: InsertTextFormat.Snippet
+  },
+  {
+    label: 'app',
+    kind: CompletionItemKind.Module,
+    detail: 'app — full application declaration',
+    insertText: 'app ${1:AppName}\n    title  "${2:My App}"\n    theme  "${3:default}"\n\n    layout\n        main\n            ${4:MyComponent}',
+    insertTextFormat: InsertTextFormat.Snippet
+  },
+  {
+    label: 'test',
+    kind: CompletionItemKind.Module,
+    detail: 'test — test block',
+    insertText: 'test "${1:description}"\n    assert $2',
+    insertTextFormat: InsertTextFormat.Snippet
+  },
+  {
+    label: 'assert',
+    kind: CompletionItemKind.Keyword,
+    detail: 'assert condition [, message]',
+    insertText: 'assert $1',
+    insertTextFormat: InsertTextFormat.Snippet
   },
   {
     label: 'use',
-    kind: CompletionItemKind.Function,
-    data: 6,
-    detail: 'use("package")',
-    documentation: 'Load MCN package functions'
+    kind: CompletionItemKind.Keyword,
+    detail: 'use "package" — import a package',
+    insertText: 'use "$1"',
+    insertTextFormat: InsertTextFormat.Snippet
   },
-  {
-    label: 'task',
-    kind: CompletionItemKind.Function,
-    data: 7,
-    detail: 'task(name, func, args)',
-    documentation: 'Create async task'
-  },
-  {
-    label: 'await',
-    kind: CompletionItemKind.Function,
-    data: 8,
-    detail: 'await(tasks...)',
-    documentation: 'Wait for task completion'
-  },
-  {
-    label: 'type',
-    kind: CompletionItemKind.Function,
-    data: 9,
-    detail: 'type(var, type)',
-    documentation: 'Set type hint for variable'
-  },
-  // v3.0 AI Functions
-  {
-    label: 'register',
-    kind: CompletionItemKind.Function,
-    data: 10,
-    detail: 'register(name, provider, config)',
-    documentation: 'Register AI model with configuration'
-  },
-  {
-    label: 'set_model',
-    kind: CompletionItemKind.Function,
-    data: 11,
-    detail: 'set_model(model_name)',
-    documentation: 'Set active AI model'
-  },
-  {
-    label: 'run',
-    kind: CompletionItemKind.Function,
-    data: 12,
-    detail: 'run(model, prompt, options)',
-    documentation: 'Execute AI model with prompt'
-  },
-  // IoT Functions
-  {
-    label: 'device',
-    kind: CompletionItemKind.Function,
-    data: 13,
-    detail: 'device(action, device_id, params)',
-    documentation: 'Interact with IoT devices'
-  },
-  // Event System
-  {
-    label: 'on',
-    kind: CompletionItemKind.Function,
-    data: 14,
-    detail: 'on event "event_name" handler_function',
-    documentation: 'Register event handler'
-  },
-  // Pipeline Functions
-  {
-    label: 'pipeline',
-    kind: CompletionItemKind.Function,
-    data: 15,
-    detail: 'pipeline(action, name, config)',
-    documentation: 'Create and manage data pipelines'
-  },
-  // Agent Functions
-  {
-    label: 'agent',
-    kind: CompletionItemKind.Function,
-    data: 16,
-    detail: 'agent(action, name, config)',
-    documentation: 'Create and manage autonomous agents'
-  },
-  // Natural Language
-  {
-    label: 'translate',
-    kind: CompletionItemKind.Function,
-    data: 17,
-    detail: 'translate(text, execute)',
-    documentation: 'Translate natural language to MCN code'
-  }
 ];
 
-// MCN keywords
-const mcnKeywords: CompletionItem[] = [
-  {
-    label: 'var',
-    kind: CompletionItemKind.Keyword,
-    data: 20,
-    detail: 'var name = value',
-    documentation: 'Declare a variable'
-  },
-  {
-    label: 'if',
-    kind: CompletionItemKind.Keyword,
-    data: 21,
-    detail: 'if condition',
-    documentation: 'Conditional statement'
-  },
-  {
-    label: 'else',
-    kind: CompletionItemKind.Keyword,
-    data: 22,
-    detail: 'else',
-    documentation: 'Alternative branch'
-  },
-  {
-    label: 'while',
-    kind: CompletionItemKind.Keyword,
-    data: 23,
-    detail: 'while condition',
-    documentation: 'Loop statement'
-  },
-  {
-    label: 'for',
-    kind: CompletionItemKind.Keyword,
-    data: 24,
-    detail: 'for item in collection',
-    documentation: 'For loop statement'
-  },
-  {
-    label: 'function',
-    kind: CompletionItemKind.Keyword,
-    data: 25,
-    detail: 'function name(params)',
-    documentation: 'Function declaration'
-  },
-  {
-    label: 'try',
-    kind: CompletionItemKind.Keyword,
-    data: 26,
-    detail: 'try',
-    documentation: 'Error handling block'
-  },
-  {
-    label: 'catch',
-    kind: CompletionItemKind.Keyword,
-    data: 27,
-    detail: 'catch error',
-    documentation: 'Error catch block'
-  },
-  {
-    label: 'return',
-    kind: CompletionItemKind.Keyword,
-    data: 28,
-    detail: 'return value',
-    documentation: 'Return value from function'
-  },
-  {
-    label: 'event',
-    kind: CompletionItemKind.Keyword,
-    data: 29,
-    detail: 'event "event_name"',
-    documentation: 'Event declaration for handlers'
-  }
+// ── MCN v3.0 & Machine Learning built-ins ───────────────────────────────────────────
+const V3_BUILTINS: CompletionItem[] = [
+  fn('train',               'train(model_type, dataset_name, target_column, opts?) → obj',
+     'Train a Machine Learning model.',
+     'train("$1", "$2", "$3")'),
+  fn('predict',             'predict(model_id, input_data) → obj',
+     'Make a prediction using a trained ML model.',
+     'predict("$1", $2)'),
+  fn('load_dataset',        'load_dataset(name, file_path, opts?) → obj',
+     'Load dataset for machine learning operations.',
+     'load_dataset("$1", "$2")'),
+  fn('preprocess',          'preprocess(dataset_name, operations) → obj',
+     'Apply preprocessing operations (scaling, encoding, etc.) to a dataset.',
+     'preprocess("$1", [$2])'),
+  fn('deploy_model',        'deploy_model(model_id, endpoint_name?) → obj',
+     'Deploy a trained ML model as an API endpoint.',
+     'deploy_model("$1")'),
+  fn('batch_predict',       'batch_predict(model_id, data_file, output_file?) → obj',
+     'Run batch predictions on a dataset.',
+     'batch_predict("$1", "$2")'),
+  fn('compare_models',      'compare_models(dataset_name, target_column, models?) → obj',
+     'Train and compare multiple models to find the best candidate.',
+     'compare_models("$1", "$2")'),
+  fn('export_model',        'export_model(model_id, format_type?) → obj',
+     'Export a trained model to ONNX, JSON, etc.',
+     'export_model("$1")'),
+  fn('fine_tune',           'fine_tune(base_model, training_data, new_model_name, opts?) → obj',
+     'Fine-tune an existing base model.',
+     'fine_tune("$1", "$2", "$3")'),
+  fn('get_training_status', 'get_training_status(job_id) → obj',
+     'Get status of a running training job.',
+     'get_training_status("$1")'),
+  fn('generate_postman',    'generate_postman(output_dir?) → obj',
+     'Generate Postman collection for MCN API endpoints.',
+     'generate_postman()'),
+  fn('device',              'device(operation, device_id?, config?) → obj',
+     'IoT device operation.',
+     'device("$1", "$2")'),
+  fn('on',                  'on(event_name, handler_fn) → obj',
+     'Register event listener / handler.',
+     'on("$1", $2)'),
+  fn('agent',               'agent(operation, name?, config?) → obj',
+     'Autonomous AI agent management.',
+     'agent("$1", "$2")'),
+  fn('pipeline',            'pipeline(operation, name?, config?) → obj',
+     'Create/manage data processing pipelines.',
+     'pipeline("$1", "$2")'),
+  fn('translate',           'translate(natural_text, execute?) → obj',
+     'Translate natural language instructions to MCN code.',
+     'translate("$1")'),
+  fn('ui',                  'ui(operation, text_or_format?) → obj',
+     'Perform UI design or compilation operation.',
+     'ui("$1")'),
 ];
 
-// MCN packages for completion
-const mcnPackages: CompletionItem[] = [
-  {
-    label: '"ai_v3"',
-    kind: CompletionItemKind.Module,
-    data: 30,
-    detail: 'use "ai_v3"',
-    documentation: 'AI v3.0 features: register, set_model, run'
-  },
-  {
-    label: '"iot"',
-    kind: CompletionItemKind.Module,
-    data: 31,
-    detail: 'use "iot"',
-    documentation: 'IoT device management and automation'
-  },
-  {
-    label: '"events"',
-    kind: CompletionItemKind.Module,
-    data: 32,
-    detail: 'use "events"',
-    documentation: 'Event-driven programming support'
-  },
-  {
-    label: '"pipeline"',
-    kind: CompletionItemKind.Module,
-    data: 33,
-    detail: 'use "pipeline"',
-    documentation: 'Data processing pipelines'
-  },
-  {
-    label: '"agents"',
-    kind: CompletionItemKind.Module,
-    data: 34,
-    detail: 'use "agents"',
-    documentation: 'Autonomous agent management'
-  },
-  {
-    label: '"natural"',
-    kind: CompletionItemKind.Module,
-    data: 35,
-    detail: 'use "natural"',
-    documentation: 'Natural language processing'
-  },
-  {
-    label: '"db"',
-    kind: CompletionItemKind.Module,
-    data: 36,
-    detail: 'use "db"',
-    documentation: 'Database operations and connectivity'
-  },
-  {
-    label: '"http"',
-    kind: CompletionItemKind.Module,
-    data: 37,
-    detail: 'use "http"',
-    documentation: 'HTTP client and API integration'
-  }
+const ALL_COMPLETIONS: CompletionItem[] = [
+  ...AI_BUILTINS,
+  ...CORE_BUILTINS,
+  ...SESSION_CACHE_BUILTINS,
+  ...VECTOR_BUILTINS,
+  ...AUTH_BUILTINS,
+  ...STRING_BUILTINS,
+  ...ARRAY_BUILTINS,
+  ...OBJECT_BUILTINS,
+  ...MATH_BUILTINS,
+  ...DATE_BUILTINS,
+  ...QUEUE_BUILTINS,
+  ...CRYPTO_BUILTINS,
+  ...KEYWORDS,
+  ...DOMAIN_SNIPPETS,
+  ...V3_BUILTINS,
 ];
 
-connection.onCompletion(
-  (params: TextDocumentPositionParams): CompletionItem[] => {
-    const document = documents.get(params.textDocument.uri);
-    if (!document) {
-      return [];
-    }
 
-    const text = document.getText();
-    const position = params.position;
-    const line = text.split('\n')[position.line];
-    const beforeCursor = line.substring(0, position.character);
+// ── Completion handler ────────────────────────────────────────────────────────
 
-    // Context-aware completions
-    if (beforeCursor.includes('use ')) {
-      return mcnPackages;
-    }
-    
-    if (beforeCursor.includes('on event ')) {
-      return [
-        {
-          label: '"sensor_reading"',
-          kind: CompletionItemKind.Event,
-          detail: 'IoT sensor reading event'
-        },
-        {
-          label: '"user_action"',
-          kind: CompletionItemKind.Event,
-          detail: 'User interaction event'
-        },
-        {
-          label: '"system_alert"',
-          kind: CompletionItemKind.Event,
-          detail: 'System alert event'
-        }
-      ];
-    }
-
-    return [...mcnBuiltins, ...mcnKeywords];
-  }
-);
-
-connection.onCompletionResolve(
-  (item: CompletionItem): CompletionItem => {
-    // Enhanced documentation for MCN functions
-    const docs = {
-      1: { detail: 'MCN logging function', doc: 'Prints message to console with timestamp. Usage: log "message"' },
-      2: { detail: 'MCN output function', doc: 'Outputs message without timestamp. Usage: echo "message"' },
-      10: { detail: 'AI model registration', doc: 'Register AI model with provider and configuration. Usage: register("model-name", "provider", {config})' },
-      11: { detail: 'AI model selection', doc: 'Set the active AI model for subsequent operations. Usage: set_model("model-name")' },
-      12: { detail: 'AI model execution', doc: 'Execute AI model with prompt and options. Usage: run("model", "prompt", {options})' },
-      13: { detail: 'IoT device interaction', doc: 'Interact with IoT devices. Usage: device("action", "device_id", {params})' },
-      15: { detail: 'Data pipeline management', doc: 'Create and manage data processing pipelines. Usage: pipeline("create", "name", [steps])' },
-      16: { detail: 'Autonomous agent management', doc: 'Create and manage AI agents. Usage: agent("create", "name", {config})' },
-      17: { detail: 'Natural language translation', doc: 'Translate natural language to MCN code. Usage: translate("description", execute_flag)' }
-    };
-
-    if (item.data && docs[item.data as number]) {
-      const info = docs[item.data as number];
-      item.detail = info.detail;
-      item.documentation = info.doc;
-    }
-    
-    return item;
-  }
-);
-
-connection.languages.onDocumentDiagnostic(async (params) => {
-  const document = documents.get(params.textDocument.uri);
-  if (document !== undefined) {
-    return {
-      kind: DocumentDiagnosticReportKind.Full,
-      items: validateMCNDocument(document)
-    } satisfies DocumentDiagnosticReport;
-  } else {
-    return {
-      kind: DocumentDiagnosticReportKind.Full,
-      items: []
-    } satisfies DocumentDiagnosticReport;
-  }
+connection.onCompletion((_pos: TextDocumentPositionParams): CompletionItem[] => {
+  return ALL_COMPLETIONS;
 });
 
-function validateMCNDocument(textDocument: TextDocument) {
-  const text = textDocument.getText();
-  const diagnostics = [];
-  const lines = text.split('\n');
-  const usedPackages = new Set<string>();
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => item);
 
-  // Extract used packages
-  for (const line of lines) {
-    const useMatch = line.match(/use\s+"([^"]+)"/);
-    if (useMatch) {
-      usedPackages.add(useMatch[1]);
+
+// ── Hover handler ─────────────────────────────────────────────────────────────
+
+const HOVER_DOCS: Record<string, string> = {
+  // AI
+  ai:         '**ai(prompt, opts?)** → `str`\n\nUniversal AI call. Auto-detects provider from `MCN_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `OLLAMA_URL`.',
+  llm:        '**llm(model, prompt, opts?)** → `str`\n\nAI call with explicit model. `claude-*` → Anthropic, `gpt-*` → OpenAI, `llama*`/`mistral*` → Ollama.',
+  embed:      '**embed(text)** → `float[]`\n\nVector embedding for semantic search.',
+  extract:    '**extract(text, Contract)** → `object`\n\nStructured AI extraction matching a contract schema.',
+  classify:   '**classify(text, labels)** → `str`\n\nZero-shot classification — returns the best label.',
+  checkpoint: '**checkpoint(msg, data?)**\n\nHuman-in-the-loop pause. Prompts [y/n/edit].',
+  rag:        '**rag(query, docs?, template?)** → `str`\n\nRetrieval-augmented generation. Searches vector store then calls AI.',
+  // Core
+  log:        '**log(message)**\n\nPrint to console with timestamp.',
+  echo:       '**echo(message)**\n\nAlias for `log()`.',
+  fetch:      '**fetch(url, opts?)** → `object`\n\nHTTP GET/POST request.',
+  trigger:    '**trigger(url, payload, method?)** → `object`\n\nHTTP POST (default) to a URL.',
+  query:      '**query(sql, params?)** → `list`\n\nSQL query. Use tuple params to prevent injection.',
+  query_one:  '**query_one(sql, params?)** → `object|null`\n\nSQL — returns first row or null.',
+  execute:    '**execute(sql, params?)**\n\nSQL INSERT/UPDATE/DELETE.',
+  env:        '**env(key)** → `str`\n\nRead environment variable.',
+  // Strings
+  to_str:     '**to_str(v)** → `str`\n\nConvert any value to string.',
+  to_int:     '**to_int(v)** → `int`\n\nConvert to integer.',
+  to_float:   '**to_float(v)** → `float`\n\nConvert to float.',
+  to_bool:    '**to_bool(v)** → `bool`\n\nConvert to boolean.',
+  split:      '**split(s, sep)** → `list`\n\nSplit string by separator.',
+  join:       '**join(list, sep)** → `str`\n\nJoin list elements into a string.',
+  replace:    '**replace(s, old, new)** → `str`\n\nReplace all occurrences.',
+  trim:       '**trim(s)** → `str`\n\nStrip leading/trailing whitespace.',
+  // Arrays
+  len:        '**len(list)** → `int`\n\nLength of list or string.',
+  map:        '**map(list, fn)** → `list`\n\nTransform elements: `map(nums, n => n * 2)`',
+  filter:     '**filter(list, fn)** → `list`\n\nKeep matching elements: `filter(items, x => x.active)`',
+  reduce:     '**reduce(list, fn, init)** → `any`\n\nAccumulate into single value.',
+  sort:       '**sort(list, key?)** → `list`\n\nSort list, returns sorted copy.',
+  range:      '**range(n)** or **range(start, end)** → `list`\n\nGenerate integer range.',
+  sum:        '**sum(list)** → `number`\n\nSum a numeric list.',
+  // Math
+  abs:        '**abs(n)** → `number`\n\nAbsolute value.',
+  round:      '**round(n, places?)** → `number`\n\nRound to decimal places.',
+  random:     '**random()** → `float`\n\nRandom float in [0, 1).',
+  random_int: '**random_int(min, max)** → `int`\n\nRandom integer in [min, max].',
+  // Date
+  now:        '**now()** → `str`\n\nCurrent UTC timestamp as ISO 8601 string.',
+  // Crypto
+  uuid:       '**uuid()** → `str`\n\nGenerate a UUID v4.',
+  hash_sha256:'**hash_sha256(s)** → `str`\n\nSHA-256 hex digest.',
+  base64_encode: '**base64_encode(s)** → `str`\n\nBase64-encode a string.',
+  base64_decode: '**base64_decode(s)** → `str`\n\nBase64-decode a string.',
+  // Auth
+  auth_create_token:  '**auth_create_token(payload, secret, ttl?)** → `str`\n\nCreate JWT-style signed token.',
+  auth_verify_token:  '**auth_verify_token(token, secret)** → `object|null`\n\nVerify and decode token.',
+  // ML / v3.0 / IoT / Event / Pipeline
+  train:               '**train(model_type, dataset_name, target_column, opts?)** → `object`\n\nTrain a Machine Learning model (e.g., "regression", "classification").',
+  predict:             '**predict(model_id, input_data)** → `object`\n\nRun inference on a trained ML model.',
+  load_dataset:        '**load_dataset(name, file_path, opts?)** → `object`\n\nLoad a dataset into memory or system.',
+  preprocess:          '**preprocess(dataset_name, operations)** → `object`\n\nPreprocess ML dataset with given operations list.',
+  deploy_model:        '**deploy_model(model_id, endpoint_name?)** → `object`\n\nDeploy a trained model as an active HTTP endpoint.',
+  batch_predict:       '**batch_predict(model_id, data_file, output_file?)** → `object`\n\nRun bulk inference on a data file.',
+  compare_models:      '**compare_models(dataset_name, target_column, models?)** → `object`\n\nCompare multiple models on a target dataset.',
+  export_model:        '**export_model(model_id, format_type?)** → `object`\n\nExport model in standard formats like ONNX, PMML.',
+  fine_tune:           '**fine_tune(base_model, training_data, new_model_name, opts?)** → `object`\n\nFine-tune a pre-trained base model.',
+  get_training_status: '**get_training_status(job_id)** → `object`\n\nRetrieve status of an asynchronous training job.',
+  generate_postman:    '**generate_postman(output_dir?)** → `object`\n\nGenerate Postman configuration/collection from endpoints.',
+  device:              '**device(operation, device_id?, config?)** → `object`\n\nControl or query IoT devices.',
+  on:                  '**on(event_name, handler_fn)** → `object`\n\nBind a handler function to a real-time event.',
+  // Domain
+  contract:   '**contract** — Typed schema definition. Used with `extract()` for structured AI output.',
+  pipeline:   '**pipeline** — Data pipeline with named stages. Each stage\'s return feeds the next.',
+  service:    '**service** — HTTP API service. Declares endpoints served on the given port.',
+  workflow:   '**workflow** — Multi-step process orchestration.',
+  prompt:     '**prompt** — Reusable AI prompt template with `{{variable}}` interpolation.',
+  agent:      '**agent** — AI agent with model, tools, memory, and callable tasks.',
+  component:  '**component** — UI component with reactive state, event handlers, and a render block.',
+  app:        '**app** — Full application declaration with layout, navigation and routing.',
+  use:        '**use "package"** — Import a package. Built-ins: `stripe`, `twilio`, `resend`, `slack`, `openai`, `ollama`, `healthcare`, `finance`.',
+};
+
+connection.onHover((params): Hover | null => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return null;
+
+  const text   = doc.getText();
+  const offset = doc.offsetAt(params.position);
+
+  let start = offset;
+  while (start > 0 && /[a-zA-Z0-9_]/.test(text[start - 1])) start--;
+  let end = offset;
+  while (end < text.length && /[a-zA-Z0-9_]/.test(text[end])) end++;
+
+  const word = text.slice(start, end);
+  const docs = HOVER_DOCS[word];
+  if (!docs) return null;
+
+  return { contents: { kind: MarkupKind.Markdown, value: docs } };
+});
+
+
+// ── Diagnostics ───────────────────────────────────────────────────────────────
+
+/** Run `mcn check` as subprocess, parse output. Resolves quickly. */
+async function validateWithCLI(doc: TextDocument): Promise<any[]> {
+  return new Promise((resolve) => {
+    const tmp = path.join(os.tmpdir(), `mcn_check_${Date.now()}.mcn`);
+    try {
+      fs.writeFileSync(tmp, doc.getText(), 'utf8');
+    } catch {
+      resolve(validateDocument(doc));
+      return;
     }
-  }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const originalLine = lines[i];
+    cp.exec(`mcn check "${tmp}"`, { timeout: 10000 }, (err, stdout, stderr) => {
+      try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+      const output = stdout + '\n' + (stderr || '');
+      const diags: any[] = [];
 
-    // Skip comments
-    if (line.startsWith('//')) continue;
+      for (const line of output.split('\n')) {
+        // Match:  path:[line:col] error   message
+        //      or path:[line:col] warning  message
+        const m = line.match(/\[(\d+):(\d+)\]\s+(error|warning)\s+(.*)/i);
+        if (m) {
+          const [, lineStr, colStr, sev, msg] = m;
+          const ln  = Math.max(0, parseInt(lineStr, 10) - 1);
+          const col = Math.max(0, parseInt(colStr, 10) - 1);
+          diags.push({
+            severity: sev.toLowerCase() === 'error'
+              ? DiagnosticSeverity.Error
+              : DiagnosticSeverity.Warning,
+            range: {
+              start: { line: ln, character: col },
+              end:   { line: ln, character: 1000 }
+            },
+            message: msg.trim(),
+            source: 'mcn'
+          });
+        }
+      }
 
-    // Check for common MCN syntax errors
-    if (line.includes('var ') && !line.includes('=') && !line.endsWith('{')) {
-      diagnostics.push({
-        severity: 1, // Error
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Variable declaration missing assignment',
-        source: 'mcn'
-      });
-    }
-
-    // Check for unmatched quotes
-    const quotes = (line.match(/"/g) || []).length;
-    if (quotes % 2 !== 0) {
-      diagnostics.push({
-        severity: 1, // Error
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Unmatched quotes',
-        source: 'mcn'
-      });
-    }
-
-    // Check for missing package imports
-    if ((line.includes('register(') || line.includes('set_model(') || line.includes('run(')) && !usedPackages.has('ai_v3')) {
-      diagnostics.push({
-        severity: 2, // Warning
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'AI v3 functions require: use "ai_v3"',
-        source: 'mcn'
-      });
-    }
-
-    if (line.includes('device(') && !usedPackages.has('iot')) {
-      diagnostics.push({
-        severity: 2, // Warning
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'IoT functions require: use "iot"',
-        source: 'mcn'
-      });
-    }
-
-    if (line.includes('pipeline(') && !usedPackages.has('pipeline')) {
-      diagnostics.push({
-        severity: 2, // Warning
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Pipeline functions require: use "pipeline"',
-        source: 'mcn'
-      });
-    }
-
-    if (line.includes('agent(') && !usedPackages.has('agents')) {
-      diagnostics.push({
-        severity: 2, // Warning
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Agent functions require: use "agents"',
-        source: 'mcn'
-      });
-    }
-
-    // Check for function syntax
-    if (line.startsWith('function ') && !line.includes('(')) {
-      diagnostics.push({
-        severity: 1, // Error
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Function declaration missing parentheses',
-        source: 'mcn'
-      });
-    }
-
-    // Check for event handler syntax
-    if (line.includes('on event') && !line.includes('"')) {
-      diagnostics.push({
-        severity: 1, // Error
-        range: {
-          start: { line: i, character: 0 },
-          end: { line: i, character: originalLine.length }
-        },
-        message: 'Event name must be in quotes',
-        source: 'mcn'
-      });
-    }
-  }
-
-  return diagnostics;
+      // If CLI succeeded but produced no parseable diagnostics, fall back to
+      // lightweight regex checks so the server still gives useful feedback.
+      resolve(diags.length > 0 ? diags : validateDocument(doc));
+    });
+  });
 }
 
-documents.onDidChangeContent(change => {
-  // Validate document on change
+/** Lightweight regex-based validation (fallback when `mcn` is not on PATH). */
+function validateDocument(doc: TextDocument): any[] {
+  const text  = doc.getText();
+  const lines = text.split('\n');
+  const diags: any[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw     = lines[i];
+    const trimmed = raw.trimStart();
+    const indent  = raw.length - trimmed.length;
+
+    if (trimmed.startsWith('//') || trimmed === '') continue;
+
+    // var without assignment
+    if (/^var\s+\w+\s*$/.test(trimmed)) {
+      diags.push({
+        severity: DiagnosticSeverity.Error,
+        range:    { start: { line: i, character: indent }, end: { line: i, character: raw.length } },
+        message:  'Variable declaration requires an assignment: `var name = value`',
+        source:   'mcn'
+      });
+    }
+
+    // function body indentation
+    if (/^function\s+\w+/.test(trimmed)) {
+      let next = i + 1;
+      while (next < lines.length && lines[next].trim() === '') next++;
+      if (next < lines.length) {
+        const ni = lines[next].length - lines[next].trimStart().length;
+        if (ni <= indent && lines[next].trim() !== '') {
+          diags.push({
+            severity: DiagnosticSeverity.Warning,
+            range:    { start: { line: i, character: indent }, end: { line: i, character: raw.length } },
+            message:  'Function body should be indented',
+            source:   'mcn'
+          });
+        }
+      }
+    }
+
+    // top-level assert
+    if (/^assert\b/.test(trimmed) && indent === 0) {
+      diags.push({
+        severity: DiagnosticSeverity.Warning,
+        range:    { start: { line: i, character: 0 }, end: { line: i, character: raw.length } },
+        message:  '`assert` at top level — did you mean to put this inside a `test` block?',
+        source:   'mcn'
+      });
+    }
+  }
+
+  return diags;
+}
+
+connection.languages.diagnostics.on(async (params) => {
+  const doc = documents.get(params.textDocument.uri);
+  const items = doc ? await validateWithCLI(doc) : [];
+  return {
+    kind:  DocumentDiagnosticReportKind.Full,
+    items
+  } satisfies DocumentDiagnosticReport;
 });
 
 documents.listen(connection);

@@ -1,0 +1,33 @@
+{
+  "comments": {
+    "lineComment": "//"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}", "notIn": ["string", "comment"] },
+    { "open": "[", "close": "]", "notIn": ["string", "comment"] },
+    { "open": "(", "close": ")", "notIn": ["string", "comment"] },
+    { "open": "\"", "close": "\"", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^((?!.*\\/\\/).*)(contract|service|pipeline|workflow|agent|function|if|else|for|while|try|catch|finally|component|prompt|test|render|on|stage|endpoint|step|task|app|layout)\\b.*$",
+    "decreaseIndentPattern": "^\\s*(else|catch|finally)\\b"
+  },
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*(contract|service|pipeline|workflow|agent|function|if|else|for|while|try|catch|finally|component|stage|endpoint|step|task|prompt|test|render|on|app|layout|sidebar|tabs)\\b.*$",
+      "action": { "indentAction": "indent" }
+    }
+  ],
+  "wordPattern": "[a-zA-Z_][a-zA-Z0-9_]*"
+}

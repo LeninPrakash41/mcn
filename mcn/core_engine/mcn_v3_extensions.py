@@ -488,8 +488,12 @@ class MCNNaturalLanguage:
 def create_v3_ai_package(model_registry: MCNModelRegistry):
     """Enhanced AI package with v3.0 features"""
     
-    def run_model(model_name: str, prompt: str, **kwargs):
-        """Run specific AI model"""
+    def run_model(model_name: str, prompt: str = None, **kwargs):
+        """Run specific AI model, falling back to active model if only prompt is provided"""
+        if prompt is None:
+            prompt = model_name
+            model_name = model_registry.active_model or "gpt-3.5-turbo"
+            
         model = model_registry.get_model(model_name)
         if not model:
             raise Exception(f"Model '{model_name}' not found")
@@ -505,9 +509,12 @@ def create_v3_ai_package(model_registry: MCNModelRegistry):
         """Set active model"""
         return model_registry.set_active_model(model_name)
     
-    def register_model(name: str, provider: str, **config):
+    def register_model(name: str, provider: str, config: dict = None, **kwargs):
         """Register new model"""
-        return model_registry.register_model(name, provider, **config)
+        cfg = config or {}
+        if kwargs:
+            cfg.update(kwargs)
+        return model_registry.register_model(name, provider, **cfg)
     
     return {
         "run": run_model,
@@ -520,17 +527,23 @@ def create_v3_ai_package(model_registry: MCNModelRegistry):
 def create_v3_iot_package(iot_connector: MCNIoTConnector):
     """IoT and device integration package"""
     
-    def register_device(device_id: str, device_type: str, **connection_info):
+    def register_device(device_id: str, device_type: str, connection_info: dict = None, **kwargs):
         """Register IoT device"""
-        return iot_connector.register_device(device_id, device_type, connection_info)
+        info = connection_info or {}
+        if kwargs:
+            info.update(kwargs)
+        return iot_connector.register_device(device_id, device_type, info)
     
     def read_sensor(device_id: str):
         """Read from sensor"""
         return iot_connector.read_device(device_id)
     
-    def send_command(device_id: str, command: str, **params):
+    def send_command(device_id: str, command: str, params: dict = None, **kwargs):
         """Send command to device"""
-        return iot_connector.send_command(device_id, command, params)
+        p = params or {}
+        if kwargs:
+            p.update(kwargs)
+        return iot_connector.send_command(device_id, command, p)
     
     return {
         "register": register_device,

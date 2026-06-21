@@ -1,0 +1,97 @@
+// ── String interpolation ──────────────────────────────────────────────────────
+var name  = "Lenin"
+var score = 42
+log("Hello {name}, your score is {score}")
+
+// ── Multi-line strings ────────────────────────────────────────────────────────
+var prompt_text = """
+You are a helpful assistant.
+The user's name is {name}.
+Answer concisely.
+"""
+log("Multi-line OK, length: " + prompt_text)
+
+// ── and/or now return values (null-coalescing) ────────────────────────────────
+var user = null
+var display = user or "Anonymous"
+log("Display name: " + display)
+
+var config = {debug: true}
+var flag = config.debug and "debug-mode"
+log("Flag: " + flag)
+
+// ── break / continue ──────────────────────────────────────────────────────────
+var nums = [1, 2, 3, 4, 5, 6]
+var evens = []
+for n in nums
+    if n == 5
+        break
+    if n == 2
+        continue
+    log("  num: " + n)
+
+// ── Null-safe ?. operator ─────────────────────────────────────────────────────
+var maybe_user = null
+var safe_name = maybe_user?.name
+log("Safe name: " + safe_name)
+
+var real_user = {name: "Lenin", email: "l@test.com"}
+var real_name = real_user?.name
+log("Real name: " + real_name)
+
+// ── Default function parameters ───────────────────────────────────────────────
+function greet(person, greeting = "Hello")
+    return "{greeting}, {person}!"
+
+log(greet("Lenin"))
+log(greet("World", "Hi"))
+
+// ── test blocks (run with: mcn test enhancements_test.mcn) ───────────────────
+
+test "string interpolation works"
+    var x = 10
+    var s = "value is {x}"
+    assert s == "value is 10"
+
+test "or returns first truthy value"
+    var a = null
+    var b = a or "fallback"
+    assert b == "fallback"
+
+test "and returns second value when first is truthy"
+    var result = "hello" and "world"
+    assert result == "world"
+
+test "break exits loop early"
+    var items = [1, 2, 3, 4, 5]
+    var count = 0
+    for i in items
+        if i == 3
+            break
+        count = count + 1
+    assert count == 2
+
+test "continue skips iterations"
+    var items = [1, 2, 3, 4]
+    var total = 0
+    for i in items
+        if i == 2
+            continue
+        total = total + i
+    assert total == 8
+
+test "null-safe access returns null for null object"
+    var obj = null
+    var val = obj?.missing
+    assert val == null
+
+test "default parameters work"
+    function add(a, b = 10)
+        return a + b
+    assert add(5) == 15
+    assert add(5, 3) == 8
+
+test "multi-line strings tokenise correctly"
+    var ml = """hello
+world"""
+    assert ml == "hello\nworld"

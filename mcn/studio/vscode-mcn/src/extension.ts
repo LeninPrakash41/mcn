@@ -1,448 +1,533 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import * as cp from 'child_process';
+import {
+  LanguageClient,
+  LanguageClientOptions,
+  ServerOptions,
+  TransportKind
+} from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
-export function activate(context: vscode.ExtensionContext) {
-    // Language Server setup
-    const serverModule = context.asAbsolutePath(path.join('..', 'mcn-language-server', 'out', 'server.js'));
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-    const serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
-        debug: { module: serverModule, transport: TransportKind.ipc }
-    };
-
-    const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'mcn' }],
-        synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/.mcn')
-        }
-    };
-
-    client = new LanguageClient('mcnLanguageServer', 'MCN Language Server', serverOptions, clientOptions);
-    client.start();
-
-    // Register commands
-    const runScript = vscode.commands.registerCommand('mcn.runScript', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN Runner');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} "${editor.document.fileName}"`);
-    });
-
-    const openRepl = vscode.commands.registerCommand('mcn.openRepl', () => {
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN REPL');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} --repl`);
-    });
-
-    const serveAsApi = vscode.commands.registerCommand('mcn.serveAsApi', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const port = await vscode.window.showInputBox({
-            prompt: 'Enter port number',
-            value: '8000',
-            validateInput: (value: any) => {
-                const num = parseInt(value);
-                return (isNaN(num) || num < 1 || num > 65535) ? 'Invalid port number' : null;
-            }
-        });
-
-        if (!port) return;
-
-        const config = vscode.workspace.getConfiguration('mcn');
-        const pythonPath = config.get<string>('pythonPath', 'python');
-        const mcnPath = config.get<string>('mcnPath') || 'mcn_cli.py';
-
-        const terminal = vscode.window.createTerminal('MCN API Server');
-        terminal.show();
-        terminal.sendText(`${pythonPath} ${mcnPath} "${editor.document.fileName}" --serve --port ${port}`);
-
-        vscode.window.showInformationMessage(`MCN API server starting on port ${port}`);
-    });
-
-    // AI Assistant Panel
-    const aiAssistant = vscode.commands.registerCommand('mcn.aiAssistant', () => {
-        const panel = vscode.window.createWebviewPanel(
-            'mcnAiAssistant',
-            'MCN AI Assistant',
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [vscode.Uri.file(context.extensionPath)]
-            }
-        );
-
-        panel.webview.html = getAiAssistantHtml();
-
-        panel.webview.onDidReceiveMessage(async (message: any) => {
-            switch (message.command) {
-                case 'generateCode':
-                    const code = await generateMcnCode(message.prompt);
-                    panel.webview.postMessage({ command: 'codeGenerated', code });
-                    break;
-                case 'insertCode':
-                    const editor = vscode.window.activeTextEditor;
-                    if (editor) {
-                        const position = editor.selection.active;
-                        editor.edit(editBuilder => {
-                            editBuilder.insert(position, message.code);
-                        });
-                    }
-                    break;
-                case 'explainCode':
-                    const explanation = await explainMcnCode(message.code);
-                    panel.webview.postMessage({ command: 'codeExplained', explanation });
-                    break;
-            }
-        });
-    });
-
-    // New commands for enhanced functionality
-    const validateScript = vscode.commands.registerCommand('mcn.validateScript', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const diagnostics = await validateMcnScript(editor.document.getText());
-        if (diagnostics.length === 0) {
-            vscode.window.showInformationMessage('MCN script is valid!');
-        } else {
-            vscode.window.showWarningMessage(`Found ${diagnostics.length} issues in MCN script`);
-        }
-    });
-
-    const generateTests = vscode.commands.registerCommand('mcn.generateTests', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'mcn') {
-            vscode.window.showErrorMessage('No MCN file is currently open');
-            return;
-        }
-
-        const tests = await generateMcnTests(editor.document.getText());
-        const testUri = vscode.Uri.file(editor.document.fileName.replace('.mcn', '_test.mcn'));
-        
-        const testDoc = await vscode.workspace.openTextDocument(testUri.with({ scheme: 'untitled' }));
-        const testEditor = await vscode.window.showTextDocument(testDoc);
-        
-        testEditor.edit(editBuilder => {
-            editBuilder.insert(new vscode.Position(0, 0), tests);
-        });
-    });
-
-    context.subscriptions.push(runScript, openRepl, serveAsApi, aiAssistant, validateScript, generateTests);
+function mcnCmd(): string {
+  const cfg = vscode.workspace.getConfiguration('mcn');
+  return cfg.get<string>('cliPath', 'mcn');
 }
+
+function pythonCmd(): string {
+  const cfg = vscode.workspace.getConfiguration('mcn');
+  return cfg.get<string>('pythonPath', 'python3');
+}
+
+/** Run `mcn <args>` in a terminal with a given name. */
+function runInTerminal(name: string, args: string): vscode.Terminal {
+  const terminal = vscode.window.createTerminal(name);
+  terminal.show(true);
+  terminal.sendText(`${mcnCmd()} ${args}`);
+  return terminal;
+}
+
+/** Return the file path of the active editor if it's a .mcn/.mx file. */
+function activeFilePath(): string | null {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return null;
+  const lang = editor.document.languageId;
+  const ext  = path.extname(editor.document.fileName);
+  if (lang !== 'mcn' && ext !== '.mcn' && ext !== '.mx') return null;
+  return editor.document.fileName;
+}
+
+
+// ── Activate ──────────────────────────────────────────────────────────────────
+
+export function activate(context: vscode.ExtensionContext) {
+
+  // ── Language Server ─────────────────────────────────────────────────────────
+  const serverModule = context.asAbsolutePath(
+    path.join('..', 'mcn-language-server', 'out', 'server.js')
+  );
+
+  const serverOptions: ServerOptions = {
+    run:   { module: serverModule, transport: TransportKind.ipc },
+    debug: { module: serverModule, transport: TransportKind.ipc }
+  };
+
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [{ scheme: 'file', language: 'mcn' }],
+    synchronize: {
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{mcn,mx}')
+    }
+  };
+
+  client = new LanguageClient(
+    'mcnLanguageServer', 'MCN Language Server',
+    serverOptions, clientOptions
+  );
+  client.start();
+
+
+  // ── Commands ────────────────────────────────────────────────────────────────
+
+  /** mcn run <file> */
+  const cmdRun = vscode.commands.registerCommand('mcn.runScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Run', `run "${file}"`);
+  });
+
+  /** mcn test <file> */
+  const cmdTest = vscode.commands.registerCommand('mcn.testScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Test', `test "${file}" --verbose`);
+  });
+
+  /** mcn fmt --write <file> */
+  const cmdFmt = vscode.commands.registerCommand('mcn.formatDocument', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    // Run format and reload
+    cp.exec(`${mcnCmd()} fmt --write "${file}"`, (err, stdout, stderr) => {
+      if (err) {
+        vscode.window.showErrorMessage(`mcn fmt failed: ${stderr || err.message}`);
+        return;
+      }
+      // Reload the file in the editor
+      vscode.commands.executeCommand('workbench.action.revertFile');
+      vscode.window.setStatusBarMessage('MCN: formatted', 3000);
+    });
+  });
+
+  /** mcn check <file> */
+  const cmdCheck = vscode.commands.registerCommand('mcn.checkScript', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+    runInTerminal('MCN: Check', `check "${file}"`);
+  });
+
+  /** mcn repl */
+  const cmdRepl = vscode.commands.registerCommand('mcn.openRepl', () => {
+    runInTerminal('MCN: REPL', 'repl');
+  });
+
+  /** mcn serve --file <file> --port <N> */
+  const cmdServe = vscode.commands.registerCommand('mcn.serveAsApi', async () => {
+    await vscode.window.activeTextEditor?.document.save();
+    const file = activeFilePath();
+    if (!file) { vscode.window.showErrorMessage('No MCN file is open'); return; }
+
+    const port = await vscode.window.showInputBox({
+      prompt: 'Port to serve on',
+      value:  '8080',
+      validateInput: v => (isNaN(+v) || +v < 1 || +v > 65535) ? 'Enter a valid port (1–65535)' : null
+    });
+    if (!port) return;
+
+    runInTerminal('MCN: Serve', `serve --file "${file}" --port ${port}`);
+    vscode.window.showInformationMessage(`MCN serving ${path.basename(file)} on port ${port}`);
+  });
+
+  /** Open the web playground in the browser */
+  const cmdPlayground = vscode.commands.registerCommand('mcn.openPlayground', () => {
+    const cfg  = vscode.workspace.getConfiguration('mcn');
+    const port = cfg.get<number>('playgroundPort', 5000);
+    vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
+  });
+
+  /** AI assistant side panel */
+  const cmdAi = vscode.commands.registerCommand('mcn.aiAssistant', () => {
+    const panel = vscode.window.createWebviewPanel(
+      'mcnAiAssistant', 'MCN AI Assistant',
+      vscode.ViewColumn.Beside,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    panel.webview.html = getAiAssistantHtml();
+
+    panel.webview.onDidReceiveMessage(async (message: any) => {
+      switch (message.command) {
+        case 'generateCode':
+          const code = await generateMcnCode(message.prompt);
+          panel.webview.postMessage({ command: 'codeGenerated', code });
+          break;
+        case 'insertCode':
+          const editor = vscode.window.activeTextEditor;
+          if (editor) {
+            const position = editor.selection.active;
+            editor.edit(editBuilder => {
+              editBuilder.insert(position, message.code);
+            });
+          }
+          break;
+        case 'explainCode':
+          const explanation = await explainMcnCode(message.code);
+          panel.webview.postMessage({ command: 'codeExplained', explanation });
+          break;
+      }
+    });
+  });
+
+  /** Validate MCN script using diagnostics rules */
+  const cmdValidate = vscode.commands.registerCommand('mcn.validateScript', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || (editor.document.languageId !== 'mcn' && !editor.document.fileName.endsWith('.mx'))) {
+      vscode.window.showErrorMessage('No MCN file is currently open');
+      return;
+    }
+
+    const diagnostics = await validateMcnScript(editor.document.getText());
+    if (diagnostics.length === 0) {
+      vscode.window.showInformationMessage('MCN script is valid!');
+    } else {
+      vscode.window.showWarningMessage(`Found ${diagnostics.length} issues in MCN script`);
+    }
+  });
+
+  /** Generate template-based tests for functions and features */
+  const cmdGenerateTests = vscode.commands.registerCommand('mcn.generateTests', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || (editor.document.languageId !== 'mcn' && !editor.document.fileName.endsWith('.mx'))) {
+      vscode.window.showErrorMessage('No MCN file is currently open');
+      return;
+    }
+
+    const tests = await generateMcnTests(editor.document.getText());
+    const testUri = vscode.Uri.file(editor.document.fileName.replace('.mcn', '_test.mcn'));
+    
+    const testDoc = await vscode.workspace.openTextDocument(testUri.with({ scheme: 'untitled' }));
+    const testEditor = await vscode.window.showTextDocument(testDoc);
+    
+    testEditor.edit(editBuilder => {
+      editBuilder.insert(new vscode.Position(0, 0), tests);
+    });
+  });
+
+  context.subscriptions.push(
+    cmdRun, cmdTest, cmdFmt, cmdCheck,
+    cmdRepl, cmdServe, cmdPlayground, cmdAi,
+    cmdValidate, cmdGenerateTests
+  );
+
+  // Status bar item — shows "MCN" when editing an MCN file
+  const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+  statusItem.text    = '$(zap) MCN';
+  statusItem.tooltip = 'MCN: click to run';
+  statusItem.command = 'mcn.runScript';
+  context.subscriptions.push(statusItem);
+
+  const updateStatus = (editor?: vscode.TextEditor) => {
+    if (editor && (editor.document.languageId === 'mcn' ||
+                   editor.document.fileName.endsWith('.mx'))) {
+      statusItem.show();
+    } else {
+      statusItem.hide();
+    }
+  };
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(updateStatus)
+  );
+  updateStatus(vscode.window.activeTextEditor);
+}
+
 
 export function deactivate(): Thenable<void> | undefined {
-    if (!client) {
-        return undefined;
-    }
-    return client.stop();
+  return client?.stop();
 }
+
+
+// ── AI Assistant webview HTML ─────────────────────────────────────────────────
 
 function getAiAssistantHtml(): string {
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>MCN AI Assistant</title>
-        <style>
-            body { 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                padding: 0; margin: 0; 
-                background: var(--vscode-editor-background);
-                color: var(--vscode-editor-foreground);
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
-            }
-            .header {
-                background: var(--vscode-titleBar-activeBackground);
-                padding: 10px 15px;
-                border-bottom: 1px solid var(--vscode-panel-border);
-                font-weight: bold;
-            }
-            .chat-container { 
-                flex: 1;
-                overflow-y: auto; 
-                padding: 15px; 
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-            .input-container { 
-                padding: 15px;
-                border-top: 1px solid var(--vscode-panel-border);
-                background: var(--vscode-input-background);
-            }
-            .input-row {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 8px;
-            }
-            input { 
-                flex: 1; 
-                padding: 8px 12px;
-                background: var(--vscode-input-background);
-                color: var(--vscode-input-foreground);
-                border: 1px solid var(--vscode-input-border);
-                border-radius: 4px;
-            }
-            button { 
-                padding: 8px 16px;
-                background: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            button:hover {
-                background: var(--vscode-button-hoverBackground);
-            }
-            .message { 
-                padding: 12px;
-                border-radius: 8px;
-                margin-bottom: 8px;
-                max-width: 85%;
-            }
-            .user { 
-                background: var(--vscode-textBlockQuote-background);
-                align-self: flex-end;
-                border-left: 4px solid var(--vscode-textLink-foreground);
-            }
-            .ai { 
-                background: var(--vscode-textCodeBlock-background);
-                align-self: flex-start;
-                border-left: 4px solid var(--vscode-debugTokenExpression-name);
-            }
-            .code { 
-                background: var(--vscode-textPreformat-background);
-                font-family: var(--vscode-editor-font-family);
-                white-space: pre-wrap;
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 4px;
-                position: relative;
-                padding-top: 30px;
-            }
-            .code-header {
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                background: var(--vscode-tab-activeBackground);
-                padding: 4px 8px;
-                font-size: 12px;
-                border-bottom: 1px solid var(--vscode-panel-border);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .code-actions {
-                display: flex;
-                gap: 5px;
-            }
-            .code-btn {
-                padding: 2px 6px;
-                font-size: 11px;
-                background: var(--vscode-button-secondaryBackground);
-                color: var(--vscode-button-secondaryForeground);
-            }
-            .templates {
-                display: flex;
-                gap: 5px;
-                flex-wrap: wrap;
-                margin-bottom: 8px;
-            }
-            .template-btn {
-                padding: 4px 8px;
-                font-size: 12px;
-                background: var(--vscode-badge-background);
-                color: var(--vscode-badge-foreground);
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            🤖 MCN AI Assistant - Enhanced with v3.0 Features
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MCN AI Assistant</title>
+  <style>
+    body { 
+      font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif); 
+      padding: 0; margin: 0; 
+      background: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: var(--vscode-titleBar-activeBackground);
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      font-weight: bold;
+    }
+    .chat-container { 
+      flex: 1;
+      overflow-y: auto; 
+      padding: 15px; 
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .input-container { 
+      padding: 15px;
+      border-top: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-input-background);
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    input { 
+      flex: 1; 
+      padding: 8px 12px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 4px;
+    }
+    button { 
+      padding: 8px 16px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .message { 
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      max-width: 85%;
+    }
+    .user { 
+      background: var(--vscode-textBlockQuote-background);
+      align-self: flex-end;
+      border-left: 4px solid var(--vscode-textLink-foreground);
+    }
+    .ai { 
+      background: var(--vscode-textCodeBlock-background);
+      align-self: flex-start;
+      border-left: 4px solid var(--vscode-debugTokenExpression-name);
+    }
+    .code { 
+      background: var(--vscode-textPreformat-background);
+      font-family: var(--vscode-editor-font-family, monospace);
+      white-space: pre-wrap;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      position: relative;
+      padding-top: 30px;
+      margin-top: 10px;
+    }
+    .code-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--vscode-tab-activeBackground);
+      padding: 4px 8px;
+      font-size: 12px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .code-actions {
+      display: flex;
+      gap: 5px;
+    }
+    .code-btn {
+      padding: 2px 6px;
+      font-size: 11px;
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+    .templates {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .template-btn {
+      padding: 4px 8px;
+      font-size: 12px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    🤖 MCN AI Assistant - Enhanced with v3.0 Features
+  </div>
+  
+  <div id="chat" class="chat-container">
+    <div class="message ai">
+      Welcome! I can help you with MCN code generation, explanation, and best practices. Try asking me to:
+      <ul>
+        <li>Generate MCN code for specific tasks</li>
+        <li>Explain existing MCN code</li>
+        <li>Create AI integrations, IoT automations, or data pipelines</li>
+        <li>Suggest improvements and optimizations</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="input-container">
+    <div class="templates">
+      <button class="template-btn" onclick="useTemplate('ai')">AI Integration</button>
+      <button class="template-btn" onclick="useTemplate('iot')">IoT Automation</button>
+      <button class="template-btn" onclick="useTemplate('pipeline')">Data Pipeline</button>
+      <button class="template-btn" onclick="useTemplate('api')">API Integration</button>
+    </div>
+    <div class="input-row">
+      <input type="text" id="prompt" placeholder="Describe what you want to build in MCN..." />
+      <button onclick="generateCode()">Generate</button>
+      <button onclick="explainCurrentCode()">Explain</button>
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    let messageId = 0;
+
+    function generateCode() {
+      const prompt = document.getElementById('prompt').value;
+      if (!prompt) return;
+
+      addMessage('user', prompt);
+      document.getElementById('prompt').value = '';
+      
+      addMessage('ai', 'Generating MCN code...');
+
+      vscode.postMessage({
+        command: 'generateCode',
+        prompt: prompt
+      });
+    }
+    
+    function explainCurrentCode() {
+      addMessage('user', 'Please explain the current MCN code');
+      vscode.postMessage({
+        command: 'explainCode',
+        code: 'current'
+      });
+    }
+    
+    function useTemplate(type) {
+      const templates = {
+        'ai': 'Create an AI-powered customer service chatbot that can classify intents and generate responses',
+        'iot': 'Build an IoT automation system that monitors temperature and controls smart lights',
+        'pipeline': 'Create a data pipeline that processes customer feedback and extracts sentiment',
+        'api': 'Build an API integration that fetches user data and processes it with AI'
+      };
+      
+      document.getElementById('prompt').value = templates[type] || '';
+    }
+
+    function addMessage(type, content) {
+      const chat = document.getElementById('chat');
+      const message = document.createElement('div');
+      message.className = 'message ' + type;
+      message.textContent = content;
+      chat.appendChild(message);
+      chat.scrollTop = chat.scrollHeight;
+      return message;
+    }
+    
+    function addCodeMessage(code, language = 'mcn') {
+      const chat = document.getElementById('chat');
+      const container = document.createElement('div');
+      container.className = 'message ai';
+      
+      const codeDiv = document.createElement('div');
+      codeDiv.className = 'code';
+      
+      const header = document.createElement('div');
+      header.className = 'code-header';
+      header.innerHTML = `
+        <span>Generated MCN Code</span>
+        <div class="code-actions">
+          <button class="code-btn" onclick="insertCode('${messageId}')">Insert</button>
+          <button class="code-btn" onclick="copyCode('${messageId}')">Copy</button>
         </div>
-        
-        <div id="chat" class="chat-container">
-            <div class="message ai">
-                Welcome! I can help you with MCN code generation, explanation, and best practices. Try asking me to:
-                <ul>
-                    <li>Generate MCN code for specific tasks</li>
-                    <li>Explain existing MCN code</li>
-                    <li>Create AI integrations, IoT automations, or data pipelines</li>
-                    <li>Suggest improvements and optimizations</li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="input-container">
-            <div class="templates">
-                <button class="template-btn" onclick="useTemplate('ai')">AI Integration</button>
-                <button class="template-btn" onclick="useTemplate('iot')">IoT Automation</button>
-                <button class="template-btn" onclick="useTemplate('pipeline')">Data Pipeline</button>
-                <button class="template-btn" onclick="useTemplate('api')">API Integration</button>
-            </div>
-            <div class="input-row">
-                <input type="text" id="prompt" placeholder="Describe what you want to build in MCN..." />
-                <button onclick="generateCode()">Generate</button>
-                <button onclick="explainCurrentCode()">Explain</button>
-            </div>
-        </div>
+      `;
+      
+      const codeContent = document.createElement('div');
+      codeContent.textContent = code;
+      codeContent.id = 'code-' + messageId;
+      
+      codeDiv.appendChild(header);
+      codeDiv.appendChild(codeContent);
+      container.appendChild(codeDiv);
+      chat.appendChild(container);
+      chat.scrollTop = chat.scrollHeight;
+      
+      messageId++;
+    }
+    
+    function insertCode(id) {
+      const codeElement = document.getElementById('code-' + id);
+      if (codeElement) {
+        vscode.postMessage({
+          command: 'insertCode',
+          code: codeElement.textContent
+        });
+      }
+    }
+    
+    function copyCode(id) {
+      const codeElement = document.getElementById('code-' + id);
+      if (codeElement) {
+        navigator.clipboard.writeText(codeElement.textContent);
+      }
+    }
 
-        <script>
-            const vscode = acquireVsCodeApi();
-            let messageId = 0;
+    window.addEventListener('message', event => {
+      const message = event.data;
+      switch (message.command) {
+        case 'codeGenerated':
+          // Remove loading message
+          const messages = document.querySelectorAll('.message.ai');
+          const lastMessage = messages[messages.length - 1];
+          if (lastMessage && lastMessage.textContent.includes('Generating')) {
+            lastMessage.remove();
+          }
+          
+          addMessage('ai', 'Here\'s your generated MCN code:');
+          addCodeMessage(message.code);
+          break;
+        case 'codeExplained':
+          addMessage('ai', message.explanation);
+          break;
+      }
+    });
 
-            function generateCode() {
-                const prompt = document.getElementById('prompt').value;
-                if (!prompt) return;
-
-                addMessage('user', prompt);
-                document.getElementById('prompt').value = '';
-                
-                addMessage('ai', 'Generating MCN code...');
-
-                vscode.postMessage({
-                    command: 'generateCode',
-                    prompt: prompt
-                });
-            }
-            
-            function explainCurrentCode() {
-                addMessage('user', 'Please explain the current MCN code');
-                vscode.postMessage({
-                    command: 'explainCode',
-                    code: 'current'
-                });
-            }
-            
-            function useTemplate(type) {
-                const templates = {
-                    'ai': 'Create an AI-powered customer service chatbot that can classify intents and generate responses',
-                    'iot': 'Build an IoT automation system that monitors temperature and controls smart lights',
-                    'pipeline': 'Create a data pipeline that processes customer feedback and extracts sentiment',
-                    'api': 'Build an API integration that fetches user data and processes it with AI'
-                };
-                
-                document.getElementById('prompt').value = templates[type] || '';
-            }
-
-            function addMessage(type, content) {
-                const chat = document.getElementById('chat');
-                const message = document.createElement('div');
-                message.className = 'message ' + type;
-                message.textContent = content;
-                chat.appendChild(message);
-                chat.scrollTop = chat.scrollHeight;
-                return message;
-            }
-            
-            function addCodeMessage(code, language = 'mcn') {
-                const chat = document.getElementById('chat');
-                const container = document.createElement('div');
-                container.className = 'message ai';
-                
-                const codeDiv = document.createElement('div');
-                codeDiv.className = 'code';
-                
-                const header = document.createElement('div');
-                header.className = 'code-header';
-                header.innerHTML = \`
-                    <span>Generated MCN Code</span>
-                    <div class="code-actions">
-                        <button class="code-btn" onclick="insertCode('\${messageId}')">Insert</button>
-                        <button class="code-btn" onclick="copyCode('\${messageId}')">Copy</button>
-                    </div>
-                \`;
-                
-                const codeContent = document.createElement('div');
-                codeContent.textContent = code;
-                codeContent.id = 'code-' + messageId;
-                
-                codeDiv.appendChild(header);
-                codeDiv.appendChild(codeContent);
-                container.appendChild(codeDiv);
-                chat.appendChild(container);
-                chat.scrollTop = chat.scrollHeight;
-                
-                messageId++;
-            }
-            
-            function insertCode(id) {
-                const codeElement = document.getElementById('code-' + id);
-                if (codeElement) {
-                    vscode.postMessage({
-                        command: 'insertCode',
-                        code: codeElement.textContent
-                    });
-                }
-            }
-            
-            function copyCode(id) {
-                const codeElement = document.getElementById('code-' + id);
-                if (codeElement) {
-                    navigator.clipboard.writeText(codeElement.textContent);
-                }
-            }
-
-            window.addEventListener('message', event => {
-                const message = event.data;
-                switch (message.command) {
-                    case 'codeGenerated':
-                        // Remove loading message
-                        const messages = document.querySelectorAll('.message.ai');
-                        const lastMessage = messages[messages.length - 1];
-                        if (lastMessage && lastMessage.textContent.includes('Generating')) {
-                            lastMessage.remove();
-                        }
-                        
-                        addMessage('ai', 'Here\'s your generated MCN code:');
-                        addCodeMessage(message.code);
-                        break;
-                    case 'codeExplained':
-                        addMessage('ai', message.explanation);
-                        break;
-                }
-            });
-
-            document.getElementById('prompt').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    generateCode();
-                }
-            });
-        </script>
-    </body>
-    </html>`;
+    document.getElementById('prompt').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        generateCode();
+      }
+    });
+  </script>
+</body>
+</html>`;
 }
 
+
+// ── Code Generators & Explainers ──────────────────────────────────────────────
+
 async function generateMcnCode(prompt: string): Promise<string> {
-    const templates = {
-        'ai': `use "ai_v3"
+  const templates = {
+    'ai': `use "ai_v3"
 
 // AI-powered solution
 register("gpt-3.5", "openai", {"temperature": 0.7})
@@ -454,7 +539,7 @@ var ai_response = run("gpt-3.5", "Process this request: " + user_input)
 log "AI Response: " + ai_response
 ai_response`,
 
-        'iot': `use "iot"
+    'iot': `use "iot"
 use "events"
 
 // IoT automation system
@@ -476,7 +561,7 @@ function handle_sensor_data(data) {
 var reading = device("read", "sensor_1")
 trigger("sensor_reading", {"value": reading, "sensor": "sensor_1"})`,
 
-        'pipeline': `use "pipeline"
+    'pipeline': `use "pipeline"
 use "ai_v3"
 
 // Data processing pipeline
@@ -498,7 +583,7 @@ var result = pipeline("run", "data_processor", input_data)
 log "Pipeline result: " + result.status
 log "Processed data ID: " + result.id`,
 
-        'api': `use "http"
+    'api': `use "http"
 
 // API integration with error handling
 var api_endpoint = "https://api.example.com/data"
@@ -525,7 +610,7 @@ try {
     null
 }`,
 
-        'chatbot': `use "ai_v3"
+    'chatbot': `use "ai_v3"
 use "agents"
 
 // AI-powered chatbot
@@ -553,7 +638,7 @@ var user_input = "I need help with my order"
 var bot_response = process_user_message(user_input)
 log "Final response: " + bot_response`,
 
-        'database': `use "db"
+    'database': `use "db"
 
 // Database operations with transactions
 try {
@@ -580,29 +665,29 @@ try {
     log "Transaction failed: " + error.message
     null
 }`
-    };
+  };
 
-    // Enhanced keyword matching
-    const prompt_lower = prompt.toLowerCase();
-    
-    if (prompt_lower.includes('ai') || prompt_lower.includes('artificial intelligence') || prompt_lower.includes('chatbot') || prompt_lower.includes('chat')) {
-        return prompt_lower.includes('chatbot') || prompt_lower.includes('chat') ? templates.chatbot : templates.ai;
-    }
-    if (prompt_lower.includes('iot') || prompt_lower.includes('sensor') || prompt_lower.includes('device') || prompt_lower.includes('automation')) {
-        return templates.iot;
-    }
-    if (prompt_lower.includes('pipeline') || prompt_lower.includes('data processing') || prompt_lower.includes('etl')) {
-        return templates.pipeline;
-    }
-    if (prompt_lower.includes('api') || prompt_lower.includes('http') || prompt_lower.includes('rest') || prompt_lower.includes('endpoint')) {
-        return templates.api;
-    }
-    if (prompt_lower.includes('database') || prompt_lower.includes('sql') || prompt_lower.includes('query') || prompt_lower.includes('user management')) {
-        return templates.database;
-    }
+  // Enhanced keyword matching
+  const prompt_lower = prompt.toLowerCase();
+  
+  if (prompt_lower.includes('ai') || prompt_lower.includes('artificial intelligence') || prompt_lower.includes('chatbot') || prompt_lower.includes('chat')) {
+    return prompt_lower.includes('chatbot') || prompt_lower.includes('chat') ? templates.chatbot : templates.ai;
+  }
+  if (prompt_lower.includes('iot') || prompt_lower.includes('sensor') || prompt_lower.includes('device') || prompt_lower.includes('automation')) {
+    return templates.iot;
+  }
+  if (prompt_lower.includes('pipeline') || prompt_lower.includes('data processing') || prompt_lower.includes('etl')) {
+    return templates.pipeline;
+  }
+  if (prompt_lower.includes('api') || prompt_lower.includes('http') || prompt_lower.includes('rest') || prompt_lower.includes('endpoint')) {
+    return templates.api;
+  }
+  if (prompt_lower.includes('database') || prompt_lower.includes('sql') || prompt_lower.includes('query') || prompt_lower.includes('user management')) {
+    return templates.database;
+  }
 
-    // Default: AI-powered solution
-    return `// Generated MCN code for: ${prompt}
+  // Default: AI-powered solution
+  return `// Generated MCN code for: ${prompt}
 use "ai_v3"
 
 // Register AI model
@@ -620,119 +705,119 @@ result`;
 }
 
 async function explainMcnCode(code: string): Promise<string> {
-    if (code === 'current') {
-        // Get current editor content
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return "No active MCN file to explain.";
-        }
-        code = editor.document.getText();
+  if (code === 'current') {
+    // Get current editor content
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return "No active MCN file to explain.";
     }
+    code = editor.document.getText();
+  }
 
-    // Simple code analysis for explanation
-    const lines = code.split('\n').filter(line => line.trim());
-    let explanation = "MCN Code Explanation:\n\n";
+  // Simple code analysis for explanation
+  const lines = code.split('\n').filter(line => line.trim());
+  let explanation = "MCN Code Explanation:\n\n";
 
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('//')) {
-            continue; // Skip comments
-        }
-        
-        if (trimmed.startsWith('use ')) {
-            const pkg = trimmed.match(/use "(.+)"/)?.[1];
-            explanation += `• Imports the '${pkg}' package for enhanced functionality\n`;
-        } else if (trimmed.startsWith('var ')) {
-            const varName = trimmed.split('=')[0].replace('var ', '').trim();
-            explanation += `• Declares variable '${varName}'\n`;
-        } else if (trimmed.startsWith('function ')) {
-            const funcName = trimmed.split('(')[0].replace('function ', '').trim();
-            explanation += `• Defines function '${funcName}'\n`;
-        } else if (trimmed.includes('register(')) {
-            explanation += `• Registers an AI model for use\n`;
-        } else if (trimmed.includes('device(')) {
-            explanation += `• Performs IoT device operation\n`;
-        } else if (trimmed.includes('pipeline(')) {
-            explanation += `• Executes data pipeline operation\n`;
-        } else if (trimmed.includes('query(')) {
-            explanation += `• Executes database query\n`;
-        } else if (trimmed.includes('trigger(')) {
-            explanation += `• Makes HTTP API call\n`;
-        } else if (trimmed.includes('log ')) {
-            explanation += `• Outputs log message\n`;
-        }
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('//')) {
+      continue; // Skip comments
     }
+    
+    if (trimmed.startsWith('use ')) {
+      const pkg = trimmed.match(/use "(.+)"/)?.[1];
+      explanation += `• Imports the '${pkg}' package for enhanced functionality\n`;
+    } else if (trimmed.startsWith('var ')) {
+      const varName = trimmed.split('=')[0].replace('var ', '').trim();
+      explanation += `• Declares variable '${varName}'\n`;
+    } else if (trimmed.startsWith('function ')) {
+      const funcName = trimmed.split('(')[0].replace('function ', '').trim();
+      explanation += `• Defines function '${funcName}'\n`;
+    } else if (trimmed.includes('register(')) {
+      explanation += `• Registers an AI model for use\n`;
+    } else if (trimmed.includes('device(')) {
+      explanation += `• Performs IoT device operation\n`;
+    } else if (trimmed.includes('pipeline(')) {
+      explanation += `• Executes data pipeline operation\n`;
+    } else if (trimmed.includes('query(')) {
+      explanation += `• Executes database query\n`;
+    } else if (trimmed.includes('trigger(')) {
+      explanation += `• Makes HTTP API call\n`;
+    } else if (trimmed.includes('log ')) {
+      explanation += `• Outputs log message\n`;
+    }
+  }
 
-    explanation += "\nThis MCN script demonstrates modern features like AI integration, IoT automation, and data processing capabilities.";
-    return explanation;
+  explanation += "\nThis MCN script demonstrates modern features like AI integration, IoT automation, and data processing capabilities.";
+  return explanation;
 }
 
 async function validateMcnScript(code: string): Promise<any[]> {
-    const diagnostics = [];
-    const lines = code.split('\n');
+  const diagnostics = [];
+  const lines = code.split('\n');
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Check for common syntax errors
-        if (line.includes('var ') && !line.includes('=') && !line.endsWith('{')) {
-            diagnostics.push({
-                line: i + 1,
-                message: 'Variable declaration missing assignment',
-                severity: 'error'
-            });
-        }
-        
-        // Check for unmatched quotes
-        const quotes = (line.match(/"/g) || []).length;
-        if (quotes % 2 !== 0) {
-            diagnostics.push({
-                line: i + 1,
-                message: 'Unmatched quotes',
-                severity: 'error'
-            });
-        }
-        
-        // Check for missing 'use' statements for v3 features
-        if ((line.includes('register(') || line.includes('set_model(') || line.includes('run(')) && !code.includes('use "ai_v3"')) {
-            diagnostics.push({
-                line: i + 1,
-                message: 'AI v3 functions require: use "ai_v3"',
-                severity: 'warning'
-            });
-        }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Check for common syntax errors
+    if (line.includes('var ') && !line.includes('=') && !line.endsWith('{')) {
+      diagnostics.push({
+        line: i + 1,
+        message: 'Variable declaration missing assignment',
+        severity: 'error'
+      });
     }
+    
+    // Check for unmatched quotes
+    const quotes = (line.match(/"/g) || []).length;
+    if (quotes % 2 !== 0) {
+      diagnostics.push({
+        line: i + 1,
+        message: 'Unmatched quotes',
+        severity: 'error'
+      });
+    }
+    
+    // Check for missing 'use' statements for v3 features
+    if ((line.includes('register(') || line.includes('set_model(') || line.includes('run(')) && !code.includes('use "ai_v3"')) {
+      diagnostics.push({
+        line: i + 1,
+        message: 'AI v3 functions require: use "ai_v3"',
+        severity: 'warning'
+      });
+    }
+  }
 
-    return diagnostics;
+  return diagnostics;
 }
 
 async function generateMcnTests(code: string): Promise<string> {
-    const lines = code.split('\n');
-    let tests = `// Auto-generated tests for MCN script\n// Generated on ${new Date().toISOString()}\n\n`;
-    
-    // Extract functions for testing
-    const functions = lines.filter(line => line.trim().startsWith('function '))
-                          .map(line => line.trim().split('(')[0].replace('function ', ''));
-    
-    if (functions.length > 0) {
-        tests += `// Function tests\n`;
-        for (const func of functions) {
-            tests += `\n// Test ${func}\ntry {\n    var result = ${func}("test_input")\n    log "${func} test passed: " + result\n} catch error {\n    log "${func} test failed: " + error.message\n}\n`;
-        }
+  const lines = code.split('\n');
+  let tests = `// Auto-generated tests for MCN script\n// Generated on ${new Date().toISOString()}\n\n`;
+  
+  // Extract functions for testing
+  const functions = lines.filter(line => line.trim().startsWith('function '))
+                        .map(line => line.trim().split('(')[0].replace('function ', ''));
+  
+  if (functions.length > 0) {
+    tests += `// Function tests\n`;
+    for (const func of functions) {
+      tests += `\n// Test ${func}\ntry {\n    var result = ${func}("test_input")\n    log "${func} test passed: " + result\n} catch error {\n    log "${func} test failed: " + error.message\n}\n`;
     }
-    
-    // Add integration tests
-    tests += `\n// Integration tests\nlog "Starting integration tests..."\n\n`;
-    
-    if (code.includes('use "ai_v3"')) {
-        tests += `// AI integration test\ntry {\n    var ai_test = ai("test prompt")\n    log "AI integration test passed"\n} catch error {\n    log "AI integration test failed: " + error.message\n}\n\n`;
-    }
-    
-    if (code.includes('query(')) {
-        tests += `// Database test\ntry {\n    var db_test = query("SELECT 1 as test")\n    log "Database test passed"\n} catch error {\n    log "Database test failed: " + error.message\n}\n\n`;
-    }
-    
-    tests += `log "All tests completed"`;
-    
-    return tests;
+  }
+  
+  // Add integration tests
+  tests += `\n// Integration tests\nlog "Starting integration tests..."\n\n`;
+  
+  if (code.includes('use "ai_v3"')) {
+    tests += `// AI integration test\ntry {\n    var ai_test = ai("test prompt")\n    log "AI integration test passed"\n} catch error {\n    log "AI integration test failed: " + error.message\n}\n\n`;
+  }
+  
+  if (code.includes('query(')) {
+    tests += `// Database test\ntry {\n    var db_test = query("SELECT 1 as test")\n    log "Database test passed"\n} catch error {\n    log "Database test failed: " + error.message\n}\n\n`;
+  }
+  
+  tests += `log "All tests completed"`;
+  
+  return tests;
 }

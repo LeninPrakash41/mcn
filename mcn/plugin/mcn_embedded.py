@@ -4,9 +4,20 @@ MCN Embedded Integration - Dynamic integration into existing Python projects
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core_engine'))
 
-from mcn_interpreter import MCNInterpreter
+# Add the repository root and package root to sys.path
+_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+_pkg_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if _pkg_root not in sys.path:
+    sys.path.insert(0, _pkg_root)
+
+try:
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+except ImportError:
+    from core_engine.mcn_interpreter import MCNInterpreter
 # from mcn_dynamic_systems import DynamicSystemsManager
 class DynamicSystemsManager:
     def __init__(self):

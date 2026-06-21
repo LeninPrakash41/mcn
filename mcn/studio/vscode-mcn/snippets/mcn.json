@@ -1,0 +1,166 @@
+{
+  "Variable": {
+    "prefix": "var",
+    "body": ["var ${1:name} = ${2:value}"],
+    "description": "Declare a variable"
+  },
+  "Function": {
+    "prefix": "function",
+    "body": ["function ${1:name}(${2:params})", "\t${3:return $4}"],
+    "description": "Declare a function"
+  },
+  "Function with default": {
+    "prefix": "fndef",
+    "body": ["function ${1:name}(${2:a}, ${3:b} = ${4:0})", "\t${5:return $2 + $3}"],
+    "description": "Function with default parameter"
+  },
+  "If": {
+    "prefix": "if",
+    "body": ["if ${1:condition}", "\t${2:log(\"yes\")}"],
+    "description": "If statement"
+  },
+  "If / Else": {
+    "prefix": "ifelse",
+    "body": ["if ${1:condition}", "\t${2:log(\"yes\")}", "else", "\t${3:log(\"no\")}"],
+    "description": "If/else statement"
+  },
+  "For loop": {
+    "prefix": "for",
+    "body": ["for ${1:item} in ${2:items}", "\t${3:log($1)}"],
+    "description": "For loop"
+  },
+  "While loop": {
+    "prefix": "while",
+    "body": ["while ${1:condition}", "\t${2:count = count + 1}"],
+    "description": "While loop"
+  },
+  "Try / Catch": {
+    "prefix": "try",
+    "body": ["try", "\t${1:var result = fetch(\"$2\")}", "catch", "\tlog(\"Error: {error}\")"],
+    "description": "Try/catch block"
+  },
+  "Contract": {
+    "prefix": "contract",
+    "body": [
+      "contract ${1:Name}",
+      "\t${2:id}:    ${3:int}",
+      "\t${4:name}:  ${5:str}"
+    ],
+    "description": "Contract schema definition"
+  },
+  "Service": {
+    "prefix": "service",
+    "body": [
+      "service ${1:my_api}",
+      "\tport ${2:8080}",
+      "",
+      "\tendpoint ${3:get_item}(${4:id})",
+      "\t\t${5:var item = query(\"SELECT * FROM items WHERE id = ?\", ($4,))}",
+      "\t\treturn ${6:item}"
+    ],
+    "description": "HTTP API service"
+  },
+  "Pipeline": {
+    "prefix": "pipeline",
+    "body": [
+      "pipeline ${1:data_pipeline}",
+      "\tstage ${2:extract}",
+      "\t\t${3:var rows = query(\"SELECT * FROM events\")}",
+      "\t\treturn ${4:rows}",
+      "",
+      "\tstage ${5:transform}(${6:data})",
+      "\t\t${7:var clean = ai(\"Normalize: \" + $6)}",
+      "\t\treturn ${8:clean}",
+      "",
+      "\tstage ${9:load}(${10:data})",
+      "\t\t${11:query(\"INSERT INTO results VALUES ?\", $10)}"
+    ],
+    "description": "Data pipeline with stages"
+  },
+  "Workflow": {
+    "prefix": "workflow",
+    "body": [
+      "workflow ${1:order_processing}",
+      "\tstep ${2:validate}(${3:input})",
+      "\t\t${4:if not $3}",
+      "\t\t\tthrow \"Invalid input\"",
+      "\t\treturn ${5:$3}",
+      "",
+      "\tstep ${6:process}(${7:data})",
+      "\t\t${8:return ai(\"Process: \" + $7)}"
+    ],
+    "description": "Multi-step workflow"
+  },
+  "Prompt template": {
+    "prefix": "prompt",
+    "body": [
+      "prompt ${1:my_prompt}",
+      "\tsystem \"${2:You are a helpful assistant.}\"",
+      "\tuser   \"${3:{{message}}}\"",
+      "\tformat ${4:text}"
+    ],
+    "description": "Reusable AI prompt template"
+  },
+  "Agent": {
+    "prefix": "agent",
+    "body": [
+      "agent ${1:my_agent}",
+      "\tmodel  \"${2:claude-3-5-sonnet-20241022}\"",
+      "\ttools  ${3:ai, fetch}",
+      "\tmemory ${4:session}",
+      "",
+      "\ttask ${5:run}(${6:input})",
+      "\t\t${7:var result = ai(\"Process: \" + $6)}",
+      "\t\treturn ${8:result}"
+    ],
+    "description": "AI agent with tasks"
+  },
+  "Test block": {
+    "prefix": "test",
+    "body": [
+      "test \"${1:description}\"",
+      "\t${2:assert $3 == $4}"
+    ],
+    "description": "Test block with assert"
+  },
+  "Assert": {
+    "prefix": "assert",
+    "body": ["assert ${1:condition}, \"${2:message}\""],
+    "description": "Assert statement"
+  },
+  "AI call": {
+    "prefix": "ai",
+    "body": ["var ${1:result} = ai(\"${2:prompt}\")"],
+    "description": "AI text generation"
+  },
+  "LLM call": {
+    "prefix": "llm",
+    "body": ["var ${1:result} = llm(\"${2:claude-3-5-sonnet-20241022}\", \"${3:prompt}\")"],
+    "description": "AI call with explicit model"
+  },
+  "Extract": {
+    "prefix": "extract",
+    "body": ["var ${1:data} = extract(${2:text}, ${3:Contract})"],
+    "description": "Structured AI extraction"
+  },
+  "Classify": {
+    "prefix": "classify",
+    "body": ["var ${1:intent} = classify(${2:text}, [\"${3:label1}\", \"${4:label2}\"])"],
+    "description": "Zero-shot classification"
+  },
+  "Fetch": {
+    "prefix": "fetch",
+    "body": ["var ${1:data} = fetch(\"${2:https://api.example.com}\")"],
+    "description": "HTTP GET"
+  },
+  "Query": {
+    "prefix": "query",
+    "body": ["var ${1:rows} = query(\"${2:SELECT * FROM ${3:table}}\")"],
+    "description": "SQL query"
+  },
+  "Log interpolated": {
+    "prefix": "log",
+    "body": ["log(\"${1:{var}}\")"],
+    "description": "log with string interpolation"
+  }
+}

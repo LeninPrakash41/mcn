@@ -146,10 +146,15 @@ log("Load test reading: " + reading)
     def test_security_validation(self):
         """Test security measures"""
         # Test code size limit
-        large_code = "log('test')\n" * 10000
-        result = self.runtime.execute_secure(large_code)
-        self.assertFalse(result["success"])
-        self.assertIn("exceeds maximum limit", result["error"])
+        old_limit = self.runtime.security_config["max_file_size"]
+        self.runtime.security_config["max_file_size"] = 50000
+        try:
+            large_code = "log('test')\n" * 10000
+            result = self.runtime.execute_secure(large_code)
+            self.assertFalse(result["success"])
+            self.assertIn("exceeds maximum limit", result["error"])
+        finally:
+            self.runtime.security_config["max_file_size"] = old_limit
         
         # Test dangerous code detection
         dangerous_code = "import os; os.system('rm -rf /')"
@@ -213,7 +218,7 @@ class TestAPIIntegration(unittest.TestCase):
         # Start server in background for testing
         import subprocess
         cls.server_process = subprocess.Popen([
-            'python', '-m', 'mcn.core_engine.mcn_production_server'
+            sys.executable, '-m', 'mcn.core_engine.mcn_production_server'
         ], env={**os.environ, 'MCN_PORT': '8081'})
         time.sleep(2)  # Wait for server to start
     

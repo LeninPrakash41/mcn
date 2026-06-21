@@ -1,85 +1,230 @@
 {
   "name": "mcn-vscode",
   "displayName": "MCN Language Support",
-  "description": "Language support for MCN (Macincode Scripting Language)",
-  "version": "1.0.0",
-  "engines": {
-    "vscode": "^1.74.0"
+  "description": "MCN (Macincode Scripting Language) — syntax highlighting, completions, hover docs, run/test/format/check/serve commands",
+  "version": "2.1.0",
+  "publisher": "macincode",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeroappz/mcn"
   },
-  "categories": ["Programming Languages"],
-  "activationEvents": [
-    "onLanguage:mcn"
-  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages", "Snippets", "Linters", "Formatters"],
+  "keywords": ["mcn", "macincode", "ai", "scripting", "pipeline", "agent"],
+  "icon": "icons/mcn-logo.png",
   "main": "./out/extension.js",
+
   "contributes": {
-    "languages": [{
-      "id": "mcn",
-      "aliases": ["MCN", "mcn"],
-      "extensions": [".mcn"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "mcn",
-      "scopeName": "source.mcn",
-      "path": "./syntaxes/mcn.tmLanguage.json"
-    }],
+
+    "languages": [
+      {
+        "id": "mcn",
+        "aliases": ["MCN", "Macincode"],
+        "extensions": [".mcn", ".mx"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/mcn-light.svg",
+          "dark":  "./icons/mcn-dark.svg"
+        }
+      }
+    ],
+
+    "grammars": [
+      {
+        "language": "mcn",
+        "scopeName": "source.mcn",
+        "path": "./syntaxes/mcn.tmLanguage.json"
+      }
+    ],
+
+    "snippets": [
+      {
+        "language": "mcn",
+        "path": "./snippets/mcn.json"
+      }
+    ],
+
     "commands": [
       {
         "command": "mcn.runScript",
-        "title": "Run MCN Script",
-        "category": "MCN"
+        "title": "Run Script",
+        "category": "MCN",
+        "icon": "$(play)"
       },
       {
-        "command": "mcn.openRepl",
-        "title": "Open MCN REPL",
-        "category": "MCN"
+        "command": "mcn.testScript",
+        "title": "Run Tests",
+        "category": "MCN",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "mcn.formatDocument",
+        "title": "Format Document",
+        "category": "MCN",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "mcn.checkScript",
+        "title": "Type Check",
+        "category": "MCN",
+        "icon": "$(pass)"
       },
       {
         "command": "mcn.serveAsApi",
         "title": "Serve as API",
-        "category": "MCN"
+        "category": "MCN",
+        "icon": "$(server)"
+      },
+      {
+        "command": "mcn.openRepl",
+        "title": "Open REPL",
+        "category": "MCN",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "mcn.openPlayground",
+        "title": "Open Web Playground",
+        "category": "MCN",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "mcn.aiAssistant",
+        "title": "AI Assistant",
+        "category": "MCN",
+        "icon": "$(sparkle)"
       }
     ],
+
     "keybindings": [
       {
         "command": "mcn.runScript",
         "key": "ctrl+f5",
-        "when": "editorTextFocus && resourceExtname == .mcn"
+        "mac": "cmd+f5",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(mcn|mx)$/"
+      },
+      {
+        "command": "mcn.testScript",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(mcn|mx)$/"
+      },
+      {
+        "command": "mcn.formatDocument",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(mcn|mx)$/"
       }
     ],
+
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mcn.runScript",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mcn.testScript",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mcn.serveAsApi",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "navigation@3"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mcn.runScript",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "mcn@1"
+        },
+        {
+          "command": "mcn.testScript",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "mcn@2"
+        },
+        {
+          "command": "mcn.formatDocument",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "mcn@3"
+        },
+        {
+          "command": "mcn.checkScript",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "mcn@4"
+        },
+        {
+          "command": "mcn.aiAssistant",
+          "when": "resourceExtname =~ /\\.(mcn|mx)$/",
+          "group": "mcn@5"
+        }
+      ]
+    },
+
     "configuration": {
       "type": "object",
-      "title": "MCN Configuration",
+      "title": "MCN",
       "properties": {
+        "mcn.cliPath": {
+          "type": "string",
+          "default": "mcn",
+          "description": "Path to the `mcn` CLI executable (default: 'mcn' on PATH)"
+        },
         "mcn.pythonPath": {
           "type": "string",
-          "default": "python",
-          "description": "Path to Python executable"
+          "default": "python3",
+          "description": "Python executable used as fallback when mcn CLI is not installed"
         },
-        "mcn.mcnPath": {
+        "mcn.aiProvider": {
+          "type": "string",
+          "enum": ["anthropic", "openai", "auto"],
+          "default": "auto",
+          "description": "AI provider. 'auto' detects from API keys (Anthropic wins if both present)"
+        },
+        "mcn.anthropicApiKey": {
           "type": "string",
           "default": "",
-          "description": "Path to MCN CLI"
+          "description": "Anthropic API key for AI primitives (ai, llm, extract, classify, embed)"
         },
-        "mcn.aiApiKey": {
+        "mcn.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API Key for AI features"
+          "description": "OpenAI API key (fallback when Anthropic key not set)"
+        },
+        "mcn.playgroundPort": {
+          "type": "number",
+          "default": 5000,
+          "description": "Port the MCN web playground server is running on"
+        },
+        "mcn.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run `mcn fmt` automatically on save"
         }
       }
     }
   },
+
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "compile":           "tsc -p ./",
+    "watch":             "tsc -watch -p ./",
+    "package":           "vsce package"
   },
+
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
-    "@types/node": "16.x",
-    "typescript": "^4.9.4"
+    "@types/vscode":  "^1.85.0",
+    "@types/node":    "^20.0.0",
+    "typescript":     "^5.3.0",
+    "@vscode/vsce":   "^2.22.0"
   },
+
   "dependencies": {
-    "vscode-languageclient": "^8.1.0"
+    "vscode-languageclient": "^9.0.1"
   }
 }

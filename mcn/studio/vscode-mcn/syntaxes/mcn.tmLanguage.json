@@ -2,48 +2,39 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "MCN",
   "patterns": [
-    {
-      "include": "#keywords"
-    },
-    {
-      "include": "#strings"
-    },
-    {
-      "include": "#comments"
-    },
-    {
-      "include": "#numbers"
-    },
-    {
-      "include": "#functions"
-    },
-    {
-      "include": "#operators"
-    }
+    { "include": "#comments" },
+    { "include": "#strings_triple" },
+    { "include": "#strings" },
+    { "include": "#ui_keywords" },
+    { "include": "#domain_keywords" },
+    { "include": "#control_keywords" },
+    { "include": "#ai_builtins" },
+    { "include": "#stdlib_builtins" },
+    { "include": "#builtins" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#safe_nav" }
   ],
   "repository": {
-    "keywords": {
+    "comments": {
       "patterns": [
         {
-          "name": "keyword.control.mcn",
-          "match": "\\b(var|if|else|while|for|in|try|catch|throw|function|return|task|await|use)\\b"
-        },
-        {
-          "name": "keyword.other.mcn",
-          "match": "\\b(event|handle|create|activate|think|register|set_model|run|train|predict)\\b"
-        },
-        {
-          "name": "storage.type.mcn",
-          "match": "\\b(true|false|null|undefined)\\b"
+          "name": "comment.line.double-slash.mcn",
+          "match": "//.*$"
         }
       ]
     },
-    "functions": {
-      "patterns": [{
-        "name": "entity.name.function.mcn",
-        "match": "\\b(log|echo|query|trigger|ai|workflow|use|task|await|type|on|device|agent|pipeline|translate|ui|register|set_model|run|train|predict|load_dataset|preprocess|deploy_model|batch_predict|compare_models|export_model|fine_tune|get_training_status|generate_postman|http|track|get|store|retrieve|create_user|authenticate|analyze_sentiment|summarize|batch_insert|now|format_date|hash_data|encode_base64|decode_base64|send_email|read_file|write_file|append_file|fetch|env|typeof|len|str|int|float|bool|list|dict|abs|min|max|round|sum|range|split|join|replace|upper|lower|trim|push|pop|slice|indexOf|includes|keys|values|hasKey|random|sleep|print)\\b"
-      }]
+
+    "strings_triple": {
+      "name": "string.quoted.triple.mcn",
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "patterns": [
+        { "include": "#interpolation" }
+      ]
     },
+
     "strings": {
       "name": "string.quoted.double.mcn",
       "begin": "\"",
@@ -52,46 +43,102 @@
         {
           "name": "constant.character.escape.mcn",
           "match": "\\\\."
+        },
+        { "include": "#interpolation" }
+      ]
+    },
+
+    "interpolation": {
+      "patterns": [
+        {
+          "name": "variable.other.interpolated.mcn",
+          "match": "\\{[a-zA-Z_][a-zA-Z0-9_.\\[\\]\"']*\\}"
         }
       ]
     },
-    "comments": {
+
+    "domain_keywords": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.mcn",
-          "match": "//.*$"
+          "name": "storage.type.mcn",
+          "match": "\\b(contract|pipeline|service|workflow|prompt|agent|event)\\b"
         },
         {
-          "name": "comment.block.mcn",
-          "begin": "/\\*",
-          "end": "\\*/"
+          "name": "keyword.control.block.mcn",
+          "match": "\\b(stage|endpoint|step|task)\\b"
+        },
+        {
+          "name": "keyword.other.mcn",
+          "match": "\\b(test|assert|use|include)\\b"
         }
       ]
     },
-    "numbers": {
-      "name": "constant.numeric.mcn",
-      "match": "\\b\\d+(\\.\\d+)?\\b"
-    },
-    "operators": {
+
+    "ui_keywords": {
       "patterns": [
         {
-          "name": "keyword.operator.arithmetic.mcn",
-          "match": "(\\+|\\-|\\*|\\/|%)"
+          "name": "keyword.control.ui.mcn",
+          "match": "\\b(component|state|on|render|app|layout|sidebar|nav|route|tab|tabs|title|theme|main|port|model|tools|memory|system|user|format)\\b"
+        }
+      ]
+    },
+
+    "control_keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.mcn",
+          "match": "\\b(if|else|for|while|return|break|continue|try|catch|finally|throw|in)\\b"
         },
         {
-          "name": "keyword.operator.comparison.mcn",
-          "match": "(==|!=|>|<|>=|<=)"
+          "name": "keyword.declaration.mcn",
+          "match": "\\b(var|function)\\b"
         },
         {
           "name": "keyword.operator.logical.mcn",
           "match": "\\b(and|or|not)\\b"
-        },
-        {
-          "name": "keyword.operator.assignment.mcn",
-          "match": "="
         }
       ]
+    },
+
+    "ai_builtins": {
+      "name": "support.function.ai.mcn",
+      "match": "\\b(ai|llm|embed|extract|classify|checkpoint|rag)\\b"
+    },
+
+    "stdlib_builtins": {
+      "name": "support.function.builtin.mcn",
+      "match": "\\b(session_set|session_get|session_delete|session_clear|cache_set|cache_get|cache_delete|memory_add|memory_search|memory_clear|vector_add|vector_search|vector_delete|auth_hash_password|auth_verify_password|auth_create_token|auth_verify_token|to_upper|to_lower|trim|split|join|replace|starts_with|ends_with|contains|str_len|substr|format_str|regex_match|regex_find|regex_replace|to_str|to_int|to_float|to_bool|len|push|pop|shift|unshift|slice|map|filter|reduce|find|sort|reverse|unique|flat|zip|range|sum|avg|min|max|count|group_by|keys|values|has_key|merge|json_parse|json_str|pick|omit|abs|ceil|floor|round|sqrt|pow|random|random_int|now|date_parse|date_format|date_add|date_diff|queue_push|queue_pop|queue_peek|queue_len|uuid|hash_sha256|hash_md5|base64_encode|base64_decode|http_get|http_post|http_put|http_delete|query_one|execute|db_insert|db_update|db_delete|parse_csv|parse_json|to_json|wait|translate|register|set_model|run|train|predict|load_dataset|preprocess|deploy_model|batch_predict|compare_models|export_model|fine_tune|get_training_status|generate_postman|track|get|store|retrieve|create_user|authenticate|analyze_sentiment|summarize|batch_insert|format_date|hash_data|send_email|device|agent|pipeline)\\b"
+    },
+
+    "builtins": {
+      "name": "support.function.builtin.mcn",
+      "match": "\\b(log|echo|fetch|trigger|query|read_file|write_file|append_file|env)\\b"
+    },
+
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.mcn",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+
+    "numbers": {
+      "name": "constant.numeric.mcn",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+
+    "safe_nav": {
+      "name": "keyword.operator.safe-navigation.mcn",
+      "match": "\\?\\."
+    },
+
+    "operators": {
+      "name": "keyword.operator.mcn",
+      "match": "(==|!=|>=|<=|=>|>|<|\\+=|-=|\\*=|\\/=|%=|\\+|-|\\*|\\/|%|=|\\?)"
     }
+
   },
   "scopeName": "source.mcn"
 }
