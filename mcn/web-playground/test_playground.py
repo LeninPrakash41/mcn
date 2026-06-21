@@ -232,7 +232,7 @@ def test_format_code(r):
         data = json.loads(res.data)
         r.eq(res.status_code, 200, "status")
         r.check(data.get("success"), "success")
-        r.check("code" in data, "code field present")
+        r.check("formatted" in data, "formatted field present")
 
 
 def test_format_already_formatted(r):
