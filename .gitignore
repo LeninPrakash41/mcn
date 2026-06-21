@@ -129,7 +129,7 @@ logs/*.log
 *.mcn.compiled
 .mcn_cache/
 mcn_temp/
-
+mcn/test/
 # IDE files
 .vscode/
 .idea/

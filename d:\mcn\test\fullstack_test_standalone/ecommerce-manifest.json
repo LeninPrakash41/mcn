@@ -1,0 +1,103 @@
+{
+  "pages": {
+    "Home": {
+      "name": "Home",
+      "path": "/",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "className": "main-app"
+          },
+          "children": [
+            {
+              "type": "text",
+              "props": {
+                "content": "MCN E-Commerce Store",
+                "tag": "h1",
+                "className": "logo"
+              }
+            },
+            {
+              "type": "input",
+              "props": {
+                "placeholder": "Search products...",
+                "className": "search-bar"
+              },
+              "events": {
+                "onChange": "search_products"
+              }
+            },
+            {
+              "type": "button",
+              "props": {
+                "text": "Cart (0)",
+                "className": "cart-btn"
+              },
+              "events": {
+                "onClick": "view_cart"
+              }
+            },
+            {
+              "type": "table",
+              "props": {
+                "columns": [
+                  "Name",
+                  "Price",
+                  "Stock"
+                ],
+                "dataSource": "products",
+                "className": "product-table"
+              }
+            },
+            {
+              "type": "chart",
+              "props": {
+                "chartType": "bar",
+                "data": "sales_data",
+                "className": "sales-chart"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Admin": {
+      "name": "Admin",
+      "path": "/admin",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "className": "admin-dashboard"
+          },
+          "children": [
+            {
+              "type": "text",
+              "props": {
+                "content": "Admin Dashboard",
+                "tag": "h1"
+              }
+            },
+            {
+              "type": "chart",
+              "props": {
+                "chartType": "line",
+                "data": "analytics_data"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "components": {},
+  "event_handlers": {
+    "search_products": "search_products_function",
+    "view_cart": "view_cart_function"
+  },
+  "data_bindings": {
+    "products": "product_data_source",
+    "sales_data": "sales_analytics_source"
+  }
+}
