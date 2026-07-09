@@ -128,6 +128,8 @@ class Parser:
         if tok.type == TT.SERVICE:  return self._service_decl()
         if tok.type == TT.WORKFLOW: return self._workflow_decl()
         if tok.type == TT.CONTRACT: return self._contract_decl()
+        # Background Jobs
+        if tok.type == TT.SCHEDULE: return self._schedule_decl()
         # AI / intelligent primitives
         if tok.type == TT.PROMPT:   return self._prompt_decl()
         if tok.type == TT.AGENT:    return self._agent_decl()
@@ -302,11 +304,19 @@ class Parser:
         param_types: dict      = {}
 
         def _one_param():
-            p = self._consume(TT.IDENTIFIER, "Expected parameter name").value
+            tok_p = self._current()
+            if tok_p.type == TT.IDENTIFIER or tok_p.type in _KEYWORD_TYPES:
+                p = self._advance().value
+            else:
+                raise ParseError("Expected parameter name", tok_p)
             params.append(p)
             # optional type hint: param: type
             if self._match(TT.COLON):
-                type_tok = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
+                tok_t = self._current()
+                if tok_t.type == TT.IDENTIFIER or tok_t.type in _KEYWORD_TYPES:
+                    type_tok = self._advance()
+                else:
+                    raise ParseError("Expected type name after ':'", tok_t)
                 param_types[p] = type_tok.value
             if self._match(TT.ASSIGN):
                 defaults[p] = self._expression()
@@ -326,8 +336,11 @@ class Parser:
         # optional return type: function foo(x): bool
         return_type: Optional[str] = None
         if self._match(TT.COLON):
-            rt = self._consume(TT.IDENTIFIER, "Expected return type after ':'")
-            return_type = rt.value
+            rt = self._current()
+            if rt.type == TT.IDENTIFIER or rt.type in _KEYWORD_TYPES:
+                return_type = self._advance().value
+            else:
+                raise ParseError("Expected return type after ':'", rt)
         self._consume_end()
         body = self._block()
         return ast.FunctionDecl(name=name_tok.value, params=params,
@@ -518,10 +531,16 @@ class Parser:
         while True:
             if self._match(TT.LPAREN):
                 args: List[ast.Expr] = []
+                self._skip_whitespace()
                 if not self._check(TT.RPAREN):
                     args.append(self._expression())
+                    self._skip_whitespace()
                     while self._match(TT.COMMA):
+                        self._skip_whitespace()
+                        if self._check(TT.RPAREN):
+                            break
                         args.append(self._expression())
+                        self._skip_whitespace()
                 close = self._consume(TT.RPAREN, "Expected ')' after arguments")
                 expr  = ast.Call(callee=expr, arguments=args,
                                  line=close.line, col=close.col)
@@ -595,13 +614,17 @@ class Parser:
         if self._match(TT.LPAREN):
             elements: List[ast.Expr] = []
             trailing_comma = False
+            self._skip_whitespace()
             if not self._check(TT.RPAREN):
                 elements.append(self._expression())
+                self._skip_whitespace()
                 while self._match(TT.COMMA):
+                    self._skip_whitespace()
                     if self._check(TT.RPAREN):   # trailing comma
                         trailing_comma = True
                         break
                     elements.append(self._expression())
+                    self._skip_whitespace()
             self._consume(TT.RPAREN, "Expected ')' after expression")
             # Arrow function: (x, y) => expr  or  (x) => expr
             if self._check(TT.ARROW):
@@ -883,9 +906,18 @@ class Parser:
                 self._skip_newlines()
                 if self._check(TT.DEDENT) or self._at_end():
                     break
-                field_name = self._consume(TT.IDENTIFIER, "Expected field name")
+                tok_field = self._current()
+                if tok_field.type == TT.IDENTIFIER or tok_field.type in _KEYWORD_TYPES:
+                    field_name = self._advance()
+                else:
+                    raise ParseError("Expected field name", tok_field)
                 self._consume(TT.COLON, "Expected ':' after field name")
-                type_tok   = self._consume(TT.IDENTIFIER, "Expected type name")
+                
+                tok_type = self._current()
+                if tok_type.type == TT.IDENTIFIER or tok_type.type in _KEYWORD_TYPES:
+                    type_tok = self._advance()
+                else:
+                    raise ParseError("Expected type name", tok_type)
                 self._consume_end()
                 fields.append(ast.ContractField(
                     name=field_name.value, type_name=type_tok.value,
@@ -1241,7 +1273,11 @@ class Parser:
     def _component_state_decl(self) -> ast.ComponentStateDecl:
         """state name = default_expr"""
         tok      = self._advance()               # consume STATE
-        name_tok = self._consume(TT.IDENTIFIER, "Expected state variable name")
+        cur = self._current()
+        if cur.type == TT.IDENTIFIER or cur.type in _KEYWORD_TYPES:
+            name_tok = self._advance()
+        else:
+            name_tok = self._consume(TT.IDENTIFIER, "Expected state variable name")
         self._consume(TT.ASSIGN, "Expected '=' after state name")
         value    = self._expression()
         self._consume_end()
@@ -1447,6 +1483,8 @@ class Parser:
                                         val = val_tok.value.strip('"')
                                         if key == "icon":      icon = val
                                         if key == "component": comp = val
+                                    elif k.type == TT.IDENTIFIER:
+                                        comp = self._advance().value
                                     else:
                                         break
                                 self._consume_end()

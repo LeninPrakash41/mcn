@@ -163,6 +163,15 @@ _mcn_backend: subprocess.Popen | None = None
 _DEV_PORT     = 5174
 _BACKEND_PORT = 8080
 
+# MCN Simulator States
+_SIMULATED_DEVICES = {
+    "office_temp": {"type": "temperature_sensor", "value": 22.5, "unit": "°C"},
+    "office_occupancy": {"type": "motion_sensor", "value": 0, "unit": "active"},
+    "hvac_system": {"type": "hvac_controller", "value": "idle", "unit": "status"}
+}
+_DEVICE_COMMANDS = []
+_AI_TRACE_LOGS = []
+
 # ── npm availability check ────────────────────────────────────────────────────
 def _npm_available() -> bool:
     try:
@@ -302,9 +311,119 @@ def auth_me():
     return jsonify({"success": True, "user": safe})
 
 
+# ── Secrets endpoints ─────────────────────────────────────────────────────────
+
+_SECRETS_FILE = _WORKSPACES_DIR / ".mcn_secrets.json"
+
+def _load_secrets() -> dict:
+    if _SECRETS_FILE.exists():
+        try: return json.loads(_SECRETS_FILE.read_text(encoding="utf-8"))
+        except Exception: pass
+    return {}
+
+def _save_secrets(data: dict):
+    _SECRETS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+# Inject secrets into the process environment so MCN `env_get` can read them
+_secrets = _load_secrets()
+for k, v in _secrets.items():
+    os.environ[k] = str(v)
+
+@app.route("/api/secrets", methods=["GET"])
+def get_secrets():
+    secrets = _load_secrets()
+    # Mask values for security
+    masked = {k: ("*" * len(str(v)) if len(str(v)) <= 4 else str(v)[:2] + "*" * 6 + str(v)[-2:]) for k, v in secrets.items()}
+    return jsonify({"success": True, "secrets": masked})
+
+@app.route("/api/secrets", methods=["POST"])
+def set_secret():
+    data = request.get_json(silent=True) or {}
+    key = data.get("key", "").strip()
+    value = data.get("value", "")
+    if not key:
+        return jsonify({"error": "Key is required"}), 400
+    secrets = _load_secrets()
+    secrets[key] = value
+    _save_secrets(secrets)
+    os.environ[key] = str(value)  # Inject into current process
+    return jsonify({"success": True})
+
+@app.route("/api/secrets/<key>", methods=["DELETE"])
+def delete_secret(key):
+    secrets = _load_secrets()
+    if key in secrets:
+        del secrets[key]
+        _save_secrets(secrets)
+        os.environ.pop(key, None)
+    return jsonify({"success": True})
+
+
+# ── Version Control endpoints ─────────────────────────────────────────────────
+
+@app.route("/api/git/status", methods=["GET"])
+def git_status():
+    import subprocess
+    try:
+        # Assuming we init git if it doesn't exist
+        if not (_WORKSPACES_DIR / ".git").exists():
+            subprocess.check_call(["git", "init"], cwd=_WORKSPACES_DIR)
+        out = subprocess.check_output(["git", "status", "--porcelain"], cwd=_WORKSPACES_DIR, text=True)
+        return jsonify({"success": True, "status": out.splitlines()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/git/commit", methods=["POST"])
+def git_commit():
+    import subprocess
+    data = request.get_json(silent=True) or {}
+    msg = data.get("message", "Auto-commit from MCN")
+    try:
+        if not (_WORKSPACES_DIR / ".git").exists():
+            subprocess.check_call(["git", "init"], cwd=_WORKSPACES_DIR)
+        subprocess.check_call(["git", "add", "."], cwd=_WORKSPACES_DIR)
+        # ignore errors if nothing to commit
+        subprocess.call(["git", "commit", "-m", msg], cwd=_WORKSPACES_DIR)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/git/push", methods=["POST"])
+def git_push():
+    import subprocess
+    try:
+        subprocess.check_call(["git", "push"], cwd=_WORKSPACES_DIR)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Workspace endpoints ───────────────────────────────────────────────────────
 
 _DEFAULT_BACKEND = '''\
+// MCN Backend — write your services and endpoints here
+service api
+    port 8080
+    endpoint hello()
+        return {message: "Hello World"}
+'''
+
+_DEFAULT_UI = '''\
+// MCN UI — write your components and apps here
+component Home
+    render
+        div
+            h1 "Welcome to MCN"
+            p "Start editing backend/main.mcn and ui/app.mcn to build your app."
+
+app MainApp
+    title "MCN Application"
+    layout
+        main
+            Home
+'''
+
+_ITEM_MANAGER_BACKEND = '''\
 // MCN Backend — edit me and click ⚡ Build
 contract Item
     name: str
@@ -329,7 +448,7 @@ service items_api
         return {success: true}
 '''
 
-_DEFAULT_UI = '''\
+_ITEM_MANAGER_UI = '''\
 component ItemForm
     state name    = ""
     state price   = 0
@@ -499,6 +618,58 @@ def execute_mcn():
             output_lines.append(" ".join(str(a) for a in args))
         interp._functions["log"]  = _capture_log
         interp._functions["echo"] = _capture_log
+
+        # 1. Pre-populate IoT devices with simulated states from playground
+        interp._ensure_v3_systems()
+        for dev_id, dev in _SIMULATED_DEVICES.items():
+            interp.iot_connector.devices[dev_id] = {
+                "type": dev["type"],
+                "connection": {},
+                "override_value": dev["value"],
+                "status": "registered"
+            }
+
+        # 2. Intercept IoT command requests to capture logs
+        _orig_cmd = interp.iot_connector.send_command
+        def _intercept_cmd(device_id, command, params=None):
+            res = _orig_cmd(device_id, command, params)
+            _DEVICE_COMMANDS.append({
+                "device_id": device_id,
+                "command": command,
+                "params": params,
+                "timestamp": time.time()
+            })
+            if device_id in _SIMULATED_DEVICES:
+                _SIMULATED_DEVICES[device_id]["value"] = f"{command} ({json.dumps(params or {})})"
+            return res
+        interp.iot_connector.send_command = _intercept_cmd
+
+        # 3. Intercept AI model execution to trace prompts
+        _orig_ai = interp.runtime.ai
+        def _intercept_ai(prompt, *args, **kwargs):
+            res = _orig_ai(prompt, *args, **kwargs)
+            _AI_TRACE_LOGS.append({
+                "type": "AI Request",
+                "prompt": prompt,
+                "response": res,
+                "timestamp": time.time()
+            })
+            return res
+        interp.runtime.ai = _intercept_ai
+
+        # 4. Intercept RAG queries
+        _orig_rag = interp.datasource_system.query_rag
+        def _intercept_rag(name, query):
+            res = _orig_rag(name, query)
+            _AI_TRACE_LOGS.append({
+                "type": "RAG Query",
+                "prompt": f"DataSource '{name}' query: {query}",
+                "response": res,
+                "timestamp": time.time()
+            })
+            return res
+        interp.datasource_system.query_rag = _intercept_rag
+
         with _capture_stdout() as buf:
             result = interp.execute(code, quiet=True)
             printed = buf.getvalue()
@@ -514,6 +685,165 @@ def execute_mcn():
         return jsonify({"success": False, "error": str(e), "output": output_lines}), 408
     except Exception as e:
         return jsonify({"success": False, "error": str(e), "output": output_lines})
+
+
+# ── DB, IoT, and AI Trace Simulator Endpoints ─────────────────────────────────
+
+def get_sqlite_schema():
+    import sqlite3
+    db_path = WORKSPACE / "mcn_data.db"
+    if not db_path.exists():
+        db_path = Path("mcn_data.db")
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [r[0] for r in cursor.fetchall() if r[0] != "sqlite_sequence"]
+        schema = []
+        for tbl in tables:
+            cursor.execute(f"PRAGMA table_info({tbl})")
+            cols = [f"{c[1]} ({c[2]})" for c in cursor.fetchall()]
+            schema.append({"table": tbl, "columns": cols})
+        conn.close()
+        return schema
+    except Exception as e:
+        return [{"error": str(e)}]
+
+def run_sqlite_query(sql: str):
+    import sqlite3
+    db_path = WORKSPACE / "mcn_data.db"
+    if not db_path.exists():
+        db_path = Path("mcn_data.db")
+    if not db_path.exists():
+        raise Exception("Database file does not exist yet. Run some database operations first.")
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    if sql.strip().upper().startswith("SELECT"):
+        cols = [description[0] for description in cursor.description]
+        rows = cursor.fetchall()
+        result = [dict(zip(cols, row)) for row in rows]
+    else:
+        conn.commit()
+        result = [{"affected_rows": cursor.rowcount}]
+    conn.close()
+    return result
+
+
+@app.route("/api/db/schema", methods=["GET"])
+def get_db_schema():
+    try:
+        schema = get_sqlite_schema()
+        return jsonify({"success": True, "schema": schema})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/db/query", methods=["POST"])
+def exec_db_query():
+    try:
+        data = request.get_json(silent=True) or {}
+        sql = data.get("sql", "")
+        if not sql:
+            return jsonify({"success": False, "error": "No SQL query provided"})
+        result = run_sqlite_query(sql)
+        return jsonify({"success": True, "result": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/iot/devices", methods=["GET"])
+def get_iot_devices():
+    return jsonify({"success": True, "devices": _SIMULATED_DEVICES})
+
+@app.route("/api/iot/device/value", methods=["POST"])
+def set_iot_device_value():
+    try:
+        data = request.get_json(silent=True) or {}
+        device_id = data.get("device_id")
+        val = data.get("value")
+        if not device_id or device_id not in _SIMULATED_DEVICES:
+            return jsonify({"success": False, "error": "Invalid device ID"})
+        
+        dtype = _SIMULATED_DEVICES[device_id]["type"]
+        if dtype == "temperature_sensor" or dtype == "humidity_sensor":
+            _SIMULATED_DEVICES[device_id]["value"] = float(val)
+        elif dtype == "motion_sensor":
+            _SIMULATED_DEVICES[device_id]["value"] = int(val)
+        else:
+            _SIMULATED_DEVICES[device_id]["value"] = val
+            
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/iot/commands", methods=["GET"])
+def get_iot_commands():
+    return jsonify({"success": True, "commands": _DEVICE_COMMANDS})
+
+@app.route("/api/agent/enhance", methods=["POST"])
+def agent_enhance_ui():
+    data    = request.get_json(silent=True) or {}
+    rel_path = data.get("path", "").strip()
+    prompt   = data.get("prompt", "").strip()
+    mode     = data.get("mode", "mcn").strip()
+    
+    api_key  = (data.get("api_key") or "").strip() \
+               or _load_config().get("api_key") \
+               or os.getenv("ANTHROPIC_API_KEY") \
+               or os.getenv("OPENAI_API_KEY")
+               
+    if not rel_path or not prompt:
+        return jsonify({"success": False, "error": "Missing 'path' or 'prompt'"}), 400
+    if not api_key:
+        return jsonify({"success": False, "error": "No API key found. Enter your Claude API key to proceed."}), 400
+        
+    ws = _request_workspace()
+    try:
+        try:
+            from mcn.ai.mcn_coding_agent import MCNCodingAgent
+        except ImportError:
+            from ai.mcn_coding_agent import MCNCodingAgent  # type: ignore
+
+        agent = MCNCodingAgent(api_key=api_key, model="claude-opus-4-6")
+
+        if mode == "generate_backend":
+            # Fresh generation — no existing file required
+            enhanced_code = agent.generate_backend_code(prompt)
+            p = _safe_path_for(rel_path or "backend/main.mcn", ws)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(enhanced_code, encoding="utf-8")
+            return jsonify({
+                "success": True,
+                "content": enhanced_code,
+                "path": rel_path or "backend/main.mcn",
+                "message": f"Backend code generated and written to {p.name}."
+            })
+
+        # All other modes require the target file to exist
+        p = _safe_path_for(rel_path, ws)
+        if not p.exists():
+            return jsonify({"success": False, "error": f"File does not exist: {rel_path}"}), 404
+
+        file_content = p.read_text(encoding="utf-8")
+
+        if mode == "backend":
+            enhanced_code = agent.enhance_backend_code(file_content, prompt)
+        elif mode == "mcn":
+            enhanced_code = agent.enhance_mcn_code(file_content, prompt)
+        else:
+            enhanced_code = agent.enhance_compiled_code(file_content, str(p), prompt)
+
+        # Write back the enhanced code
+        p.write_text(enhanced_code, encoding="utf-8")
+
+        return jsonify({
+            "success": True,
+            "content": enhanced_code,
+            "message": f"Successfully enhanced {rel_path} using MCN Coding Agent."
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/api/format", methods=["POST"])
@@ -811,6 +1141,19 @@ def build_mcn():
         if proc.returncode != 0:
             return jsonify({"success": False, "error": stderr or stdout})
 
+        # Automatically install shadcn components mentioned in stdout
+        import re
+        m = re.search(r"npx shadcn@latest add (.+)", stdout)
+        if m:
+            pkgs = m.group(1).strip().split()
+            if pkgs:
+                subprocess.run(
+                    ["npx", "shadcn@latest", "add", "-y"] + pkgs,
+                    cwd=str(out_path),
+                    capture_output=True,
+                    text=True
+                )
+
         # Collect generated files
         files = []
         if out_path.exists():
@@ -919,14 +1262,18 @@ def devserver_start():
         if "service " in backend_src:
             _stop_process(_mcn_backend)
             try:
+                b_out = open(ws / "backend_stdout.log", "w", encoding="utf-8")
+                b_err = open(ws / "backend_stderr.log", "w", encoding="utf-8")
                 _mcn_backend = subprocess.Popen(
                     [sys.executable, "-m", "mcn.core_engine.mcn_cli", "serve",
                      "--file", str(backend_file), "--host", "0.0.0.0",
                      "--port", str(_BACKEND_PORT)],
                     cwd=str(_ROOT_DIR),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    stdout=b_out,
+                    stderr=b_err,
                 )
+                b_out.close()
+                b_err.close()
                 import time; time.sleep(1)
             except Exception:
                 pass  # Non-fatal
@@ -957,16 +1304,22 @@ def devserver_start():
                             "error": f"npm install failed:\n{proc.stderr[-2000:]}"}), 500
 
     # ── 4. Start Vite dev server ──────────────────────────────────────────────
+    stdout_file = ws / "vite_stdout.log"
+    stderr_file = ws / "vite_stderr.log"
     try:
+        f_out = open(stdout_file, "w", encoding="utf-8")
+        f_err = open(stderr_file, "w", encoding="utf-8")
         _dev_server = subprocess.Popen(
-            ["npm", "run", "dev", "--", "--port", str(_DEV_PORT), "--host"],
+            ["npm", "run", "dev", "--", "--port", str(_DEV_PORT), "--host", "--strictPort"],
             cwd=str(frontend),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=f_out,
+            stderr=f_err,
         )
+        f_out.close()
+        f_err.close()
         import time; time.sleep(2)
         if _dev_server.poll() is not None:
-            stderr = _dev_server.stderr.read().decode(errors="replace")
+            stderr = stderr_file.read_text(encoding="utf-8") if stderr_file.exists() else ""
             return jsonify({"success": False, "error": f"Vite failed to start:\n{stderr[-1000:]}"}), 500
         return jsonify({
             "success":      True,
@@ -1038,6 +1391,17 @@ _CRM_BACKEND = (
 'query("CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, company TEXT, phone TEXT, created_at TEXT DEFAULT (datetime(\'now\')))")\n'
 'query("CREATE TABLE IF NOT EXISTS companies (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, industry TEXT, size TEXT, created_at TEXT DEFAULT (datetime(\'now\')))")\n'
 'query("CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, contact TEXT, due_date TEXT, created_at TEXT DEFAULT (datetime(\'now\')))")\n'
+'\n'
+'var count_deals = query("SELECT COUNT(*) as cnt FROM deals")[0].cnt\n'
+'if count_deals == 0\n'
+'    query("INSERT INTO companies (name, industry, size) VALUES (\'Acme Corp\', \'Tech\', \'11-50\')")\n'
+'    query("INSERT INTO companies (name, industry, size) VALUES (\'Initech\', \'Software\', \'51-200\')")\n'
+'    query("INSERT INTO contacts (name, email, company, phone) VALUES (\'Alice Smith\', \'alice@acme.com\', \'Acme Corp\', \'555-0199\')")\n'
+'    query("INSERT INTO contacts (name, email, company, phone) VALUES (\'Bob Gibbons\', \'bob@initech.com\', \'Initech\', \'555-0288\')")\n'
+'    query("INSERT INTO deals (title, value, stage, contact) VALUES (\'Acme Software Suite\', 25000, \'Proposal\', \'Alice Smith\')")\n'
+'    query("INSERT INTO deals (title, value, stage, contact) VALUES (\'Initech Support Deal\', 8500, \'Negotiation\', \'Bob Gibbons\')")\n'
+'    query("INSERT INTO activities (title, type, contact, due_date) VALUES (\'Follow up call\', \'Call\', \'Alice Smith\', \'2026-07-01\')")\n'
+'    query("INSERT INTO activities (title, type, contact, due_date) VALUES (\'Send proposal\', \'Email\', \'Bob Gibbons\', \'2026-06-30\')")\n'
 '\n'
 'service crm_api\n'
 '    port 8080\n'
@@ -1136,15 +1500,29 @@ _CRM_UI = (
 '                stat_card label="Contacts"        value=contacts.length  icon="Users"        color="green"\n'
 '                stat_card label="Companies"       value=companies.length icon="Building2"    color="purple"\n'
 '                stat_card label="Activities"      value=activities.length icon="Calendar"    color="amber"\n'
+'            div grid_cols=2\n'
+'                card\n'
+'                    card_header "Deals Value Distribution"\n'
+'                    bar_chart data=deals x_key="title" y_key="value" height=300\n'
+'                card\n'
+'                    card_header "Recent Deals"\n'
+'                    table data=deals\n'
+'                        table_header\n'
+'                            table_row\n'
+'                                table_head "title"\n'
+'                                table_head "value"\n'
+'                                table_head "stage"\n'
+'                                table_head "contact"\n'
+'                        table_body\n'
 '            card\n'
-'                card_header "Recent Deals"\n'
-'                table\n'
+'                card_header "Recent Activities"\n'
+'                table data=activities\n'
 '                    table_header\n'
 '                        table_row\n'
 '                            table_head "title"\n'
-'                            table_head "value"\n'
-'                            table_head "stage"\n'
+'                            table_head "type"\n'
 '                            table_head "contact"\n'
+'                            table_head "due_date"\n'
 '                    table_body\n'
 '\n'
 'component DealsTable\n'
@@ -1155,20 +1533,30 @@ _CRM_UI = (
 '    state edit_stage      = ""\n'
 '    state edit_contact    = ""\n'
 '    state show_edit_modal = false\n'
-'    state new_title       = ""\n'
-'    state new_value       = 0\n'
-'    state new_stage       = "Prospecting"\n'
-'    state new_contact     = ""\n'
+'    state title           = ""\n'
+'    state value           = 0\n'
+'    state stage           = "Prospecting"\n'
+'    state contact         = ""\n'
+'    state contact_names   = []\n'
 '\n'
 '    on load\n'
 '        var resp = list_deals()\n'
 '        items = resp.data\n'
+'        var c_resp = list_contacts()\n'
+'        var list = []\n'
+'        for c in c_resp.data\n'
+'            list = list + [c.name]\n'
+'        contact_names = list\n'
 '\n'
 '    on submit\n'
-'        var result = create_deal(new_title, new_value, new_stage, new_contact)\n'
+'        var result = create_deal(title, value, stage, contact)\n'
 '        if result.success\n'
 '            var resp = list_deals()\n'
 '            items = resp.data\n'
+'            title = ""\n'
+'            value = 0\n'
+'            stage = "Prospecting"\n'
+'            contact = ""\n'
 '\n'
 '    render\n'
 '        div\n'
@@ -1176,11 +1564,11 @@ _CRM_UI = (
 '                card_header "Add Deal"\n'
 '                form on_submit=submit\n'
 '                    div grid_cols=2\n'
-'                        input bind=new_title label="Deal Title"\n'
-'                        input bind=new_value label="Value ($)" type="number"\n'
+'                        input bind=title label="Deal Title"\n'
+'                        input bind=value label="Value ($)" type="number"\n'
 '                    div grid_cols=2\n'
-'                        select bind=new_stage options=["Prospecting","Qualification","Proposal","Negotiation","Won","Lost"] label="Stage"\n'
-'                        input bind=new_contact label="Contact Name"\n'
+'                        select bind=stage options=["Prospecting","Qualification","Proposal","Negotiation","Won","Lost"] label="Stage"\n'
+'                        select bind=contact options=contact_names label="Contact Name"\n'
 '                    button "Add Deal" variant="default"\n'
 '            card\n'
 '                card_header "All Deals"\n'
@@ -1198,7 +1586,7 @@ _CRM_UI = (
 '                input bind=edit_title label="Title"\n'
 '                input bind=edit_value label="Value" type="number"\n'
 '                select bind=edit_stage options=["Prospecting","Qualification","Proposal","Negotiation","Won","Lost"] label="Stage"\n'
-'                input bind=edit_contact label="Contact"\n'
+'                select bind=edit_contact options=contact_names label="Contact"\n'
 '                button "Save Changes" variant="default"\n'
 '\n'
 'component ContactsTable\n'
@@ -1209,20 +1597,30 @@ _CRM_UI = (
 '    state edit_company    = ""\n'
 '    state edit_phone      = ""\n'
 '    state show_edit_modal = false\n'
-'    state new_name        = ""\n'
-'    state new_email       = ""\n'
-'    state new_company     = ""\n'
-'    state new_phone       = ""\n'
+'    state name            = ""\n'
+'    state email           = ""\n'
+'    state company         = ""\n'
+'    state phone           = ""\n'
+'    state company_names   = []\n'
 '\n'
 '    on load\n'
 '        var resp = list_contacts()\n'
 '        items = resp.data\n'
+'        var co_resp = list_companies()\n'
+'        var list = []\n'
+'        for co in co_resp.data\n'
+'            list = list + [co.name]\n'
+'        company_names = list\n'
 '\n'
 '    on submit\n'
-'        var result = create_contact(new_name, new_email, new_company, new_phone)\n'
+'        var result = create_contact(name, email, company, phone)\n'
 '        if result.success\n'
 '            var resp = list_contacts()\n'
 '            items = resp.data\n'
+'            name = ""\n'
+'            email = ""\n'
+'            company = ""\n'
+'            phone = ""\n'
 '\n'
 '    render\n'
 '        div\n'
@@ -1230,11 +1628,11 @@ _CRM_UI = (
 '                card_header "Add Contact"\n'
 '                form on_submit=submit\n'
 '                    div grid_cols=2\n'
-'                        input bind=new_name label="Full Name"\n'
-'                        input bind=new_email label="Email" type="email"\n'
+'                        input bind=name label="Full Name"\n'
+'                        input bind=email label="Email" type="email"\n'
 '                    div grid_cols=2\n'
-'                        input bind=new_company label="Company"\n'
-'                        input bind=new_phone label="Phone"\n'
+'                        select bind=company options=company_names label="Company"\n'
+'                        input bind=phone label="Phone"\n'
 '                    button "Add Contact" variant="default"\n'
 '            card\n'
 '                card_header "All Contacts"\n'
@@ -1251,7 +1649,7 @@ _CRM_UI = (
 '            form on_submit=handleSave\n'
 '                input bind=edit_name label="Name"\n'
 '                input bind=edit_email label="Email"\n'
-'                input bind=edit_company label="Company"\n'
+'                select bind=edit_company options=company_names label="Company"\n'
 '                input bind=edit_phone label="Phone"\n'
 '                button "Save Changes" variant="default"\n'
 '\n'
@@ -1262,19 +1660,22 @@ _CRM_UI = (
 '    state edit_industry   = ""\n'
 '    state edit_size       = ""\n'
 '    state show_edit_modal = false\n'
-'    state new_name        = ""\n'
-'    state new_industry    = ""\n'
-'    state new_size        = ""\n'
+'    state name            = ""\n'
+'    state industry        = ""\n'
+'    state size            = "11-50"\n'
 '\n'
 '    on load\n'
 '        var resp = list_companies()\n'
 '        items = resp.data\n'
 '\n'
 '    on submit\n'
-'        var result = create_company(new_name, new_industry, new_size)\n'
+'        var result = create_company(name, industry, size)\n'
 '        if result.success\n'
 '            var resp = list_companies()\n'
 '            items = resp.data\n'
+'            name = ""\n'
+'            industry = ""\n'
+'            size = "11-50"\n'
 '\n'
 '    render\n'
 '        div\n'
@@ -1282,9 +1683,9 @@ _CRM_UI = (
 '                card_header "Add Company"\n'
 '                form on_submit=submit\n'
 '                    div grid_cols=3\n'
-'                        input bind=new_name label="Company Name"\n'
-'                        input bind=new_industry label="Industry"\n'
-'                        select bind=new_size options=["1-10","11-50","51-200","201-500","500+"] label="Size"\n'
+'                        input bind=name label="Company Name"\n'
+'                        input bind=industry label="Industry"\n'
+'                        select bind=size options=["1-10","11-50","51-200","201-500","500+"] label="Size"\n'
 '                    button "Add Company" variant="default"\n'
 '            card\n'
 '                card_header "All Companies"\n'
@@ -1300,7 +1701,7 @@ _CRM_UI = (
 '            form on_submit=handleSave\n'
 '                input bind=edit_name label="Name"\n'
 '                input bind=edit_industry label="Industry"\n'
-'                input bind=edit_size label="Size"\n'
+'                select bind=edit_size options=["1-10","11-50","51-200","201-500","500+"] label="Size"\n'
 '                button "Save Changes" variant="default"\n'
 '\n'
 'component ActivitiesTable\n'
@@ -1311,20 +1712,30 @@ _CRM_UI = (
 '    state edit_contact    = ""\n'
 '    state edit_due_date   = ""\n'
 '    state show_edit_modal = false\n'
-'    state new_title       = ""\n'
-'    state new_type        = "Call"\n'
-'    state new_contact     = ""\n'
-'    state new_due_date    = ""\n'
+'    state title           = ""\n'
+'    state type            = "Call"\n'
+'    state contact         = ""\n'
+'    state due_date        = ""\n'
+'    state contact_names   = []\n'
 '\n'
 '    on load\n'
 '        var resp = list_activities()\n'
 '        items = resp.data\n'
+'        var c_resp = list_contacts()\n'
+'        var list = []\n'
+'        for c in c_resp.data\n'
+'            list = list + [c.name]\n'
+'        contact_names = list\n'
 '\n'
 '    on submit\n'
-'        var result = create_activity(new_title, new_type, new_contact, new_due_date)\n'
+'        var result = create_activity(title, type, contact, due_date)\n'
 '        if result.success\n'
 '            var resp = list_activities()\n'
 '            items = resp.data\n'
+'            title = ""\n'
+'            type = "Call"\n'
+'            contact = ""\n'
+'            due_date = ""\n'
 '\n'
 '    render\n'
 '        div\n'
@@ -1332,11 +1743,11 @@ _CRM_UI = (
 '                card_header "Log Activity"\n'
 '                form on_submit=submit\n'
 '                    div grid_cols=2\n'
-'                        input bind=new_title label="Activity Title"\n'
-'                        select bind=new_type options=["Call","Email","Meeting","Task","Note"] label="Type"\n'
+'                        input bind=title label="Activity Title"\n'
+'                        select bind=type options=["Call","Email","Meeting","Task","Note"] label="Type"\n'
 '                    div grid_cols=2\n'
-'                        input bind=new_contact label="Contact Name"\n'
-'                        input bind=new_due_date label="Due Date" type="date"\n'
+'                        select bind=contact options=contact_names label="Contact Name"\n'
+'                        input bind=due_date label="Due Date" type="date"\n'
 '                    button "Log Activity" variant="default"\n'
 '            card\n'
 '                card_header "All Activities"\n'
@@ -1352,8 +1763,8 @@ _CRM_UI = (
 '            card_header "Edit Activity"\n'
 '            form on_submit=handleSave\n'
 '                input bind=edit_title label="Title"\n'
-'                input bind=edit_type label="Type"\n'
-'                input bind=edit_contact label="Contact"\n'
+'                select bind=edit_type options=["Call","Email","Meeting","Task","Note"] label="Type"\n'
+'                select bind=edit_contact options=contact_names label="Contact"\n'
 '                input bind=edit_due_date label="Due Date"\n'
 '                button "Save Changes" variant="default"\n'
 '\n'
@@ -1368,6 +1779,734 @@ _CRM_UI = (
 '            nav "Companies"  CompaniesTable\n'
 '            nav "Activities" ActivitiesTable\n'
 )
+
+
+_CONSTRUCTION_BACKEND = '''\
+// Construction Management Backend Script
+contract Property
+    name: str
+    location: str
+    units: int
+    status: str
+
+contract Project
+    name: str
+    prop_id: int
+    budget: float
+    status: str
+    start_date: str
+    end_date: str
+
+contract Job
+    project_id: int
+    title: str
+    assigned_to: str
+    status: str
+    progress: int
+    start_day: int
+    duration: int
+
+contract Resource
+    name: str
+    role: str
+    rate: float
+    availability: str
+
+contract Material
+    name: str
+    unit: str
+    stock: int
+    reorder_level: int
+
+contract Asset
+    name: str
+    type: str
+    status: str
+    location: str
+
+contract Incident
+    project_id: int
+    title: str
+    severity: str
+    status: str
+    reported_by: str
+
+contract Document
+    name: str
+    type: str
+    uploaded_at: str
+
+contract Procurement
+    material_id: int
+    qty: int
+    cost: float
+    status: str
+    requested_by: str
+
+contract Approval
+    type: str
+    item_id: int
+    status: str
+    requested_by: str
+
+// Tables initialization
+query("CREATE TABLE IF NOT EXISTS properties (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, location TEXT, units INTEGER, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, prop_id INTEGER, budget REAL, status TEXT, start_date TEXT, end_date TEXT)")
+query("CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, title TEXT, assigned_to TEXT, status TEXT, progress INTEGER, start_day INTEGER, duration INTEGER)")
+query("CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, role TEXT, rate REAL, availability TEXT)")
+query("CREATE TABLE IF NOT EXISTS materials (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, unit TEXT, stock INTEGER, reorder_level INTEGER)")
+query("CREATE TABLE IF NOT EXISTS assets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, status TEXT, location TEXT)")
+query("CREATE TABLE IF NOT EXISTS incidents (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, title TEXT, severity TEXT, status TEXT, reported_by TEXT, reported_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, uploaded_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS procurements (id INTEGER PRIMARY KEY AUTOINCREMENT, material_id INTEGER, qty INTEGER, cost REAL, status TEXT, requested_by TEXT)")
+query("CREATE TABLE IF NOT EXISTS approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, item_id INTEGER, status TEXT, requested_by TEXT)")
+
+// Populate initial data if empty
+var count_projects = query("SELECT COUNT(*) as cnt FROM projects")[0].cnt
+if count_projects == 0
+    query("INSERT INTO properties (name, location, units, status) VALUES ('Skyline Residency', 'Downtown Hub', 120, 'Under Construction')")
+    query("INSERT INTO properties (name, location, units, status) VALUES ('Oakwood Villas', 'West Suburbs', 15, 'Planning')")
+    query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES ('Foundation & Structural Build', 1, 450000.0, 'Active', '2026-01-10', '2026-06-30')")
+    query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES ('Interior Fitouts & Finishing', 1, 150000.0, 'Planning', '2026-07-01', '2026-12-15')")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Excavation & Earthwork', 'Concrete Co', 'Completed', 100, 1, 5)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Steel Reinforcement', 'Apex Builders', 'Active', 60, 6, 8)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Concrete Pouring', 'Apex Builders', 'Active', 40, 10, 12)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Masonry & Walling', 'Civic Contractors', 'Pending', 0, 20, 10)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Roof Framing', 'Civic Contractors', 'Pending', 0, 28, 7)")
+    query("INSERT INTO resources (name, role, rate, availability) VALUES ('John Mason', 'Site Supervisor', 65.0, 'Available')")
+    query("INSERT INTO resources (name, role, rate, availability) VALUES ('Sarah Steel', 'Structural Engineer', 95.0, 'Available')")
+    query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES ('Cement', 'bags', 350, 100)")
+    query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES ('Steel Rebar', 'tons', 12, 5)")
+    query("INSERT INTO assets (name, type, status, location) VALUES ('Caterpillar Excavator', 'Heavy Equipment', 'In Use', 'Skyline Site')")
+    query("INSERT INTO assets (name, type, status, location) VALUES ('Tower Crane A', 'Crane', 'Maintenance', 'Skyline Site')")
+    query("INSERT INTO incidents (project_id, title, severity, status, reported_by) VALUES (1, 'Minor concrete spill at Sector B', 'Low', 'Resolved', 'John Mason')")
+    query("INSERT INTO documents (name, type) VALUES ('skyline_blueprint_v2.pdf', 'Blueprint')")
+    query("INSERT INTO documents (name, type) VALUES ('permit_approval_final.pdf', 'Permit')")
+    query("INSERT INTO procurements (material_id, qty, cost, status, requested_by) VALUES (1, 150, 1500.0, 'Approved', 'John Mason')")
+    query("INSERT INTO approvals (type, item_id, status, requested_by) VALUES ('Procurement Request #1', 1, 'Approved', 'John Mason')")
+
+service construction_api
+    port 8080
+
+    endpoint list_properties()
+        var items = query("SELECT * FROM properties")
+        return {success: true, data: items}
+
+    endpoint create_property(name, location, units, status)
+        query("INSERT INTO properties (name, location, units, status) VALUES (?, ?, ?, ?)", (name, location, units, status))
+        return {success: true}
+
+    endpoint delete_property(id)
+        query("DELETE FROM properties WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_projects()
+        var items = query("SELECT * FROM projects")
+        return {success: true, data: items}
+
+    endpoint create_project(name, prop_id, budget, status, start_date, end_date)
+        query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)", (name, prop_id, budget, status, start_date, end_date))
+        return {success: true}
+
+    endpoint delete_project(id)
+        query("DELETE FROM projects WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_jobs()
+        var items = query("SELECT * FROM jobs")
+        return {success: true, data: items}
+
+    endpoint create_job(project_id, title, assigned_to, status, progress, start_day, duration)
+        query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (?, ?, ?, ?, ?, ?, ?)", (project_id, title, assigned_to, status, progress, start_day, duration))
+        return {success: true}
+
+    endpoint delete_job(id)
+        query("DELETE FROM jobs WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint update_job_progress(id, progress, status)
+        query("UPDATE jobs SET progress=?, status=? WHERE id=?", (progress, status, id))
+        return {success: true}
+
+    endpoint list_resources()
+        var items = query("SELECT * FROM resources")
+        return {success: true, data: items}
+
+    endpoint create_resource(name, role, rate, availability)
+        query("INSERT INTO resources (name, role, rate, availability) VALUES (?, ?, ?, ?)", (name, role, rate, availability))
+        return {success: true}
+
+    endpoint delete_resource(id)
+        query("DELETE FROM resources WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_materials()
+        var items = query("SELECT * FROM materials")
+        return {success: true, data: items}
+
+    endpoint create_material(name, unit, stock, reorder_level)
+        query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES (?, ?, ?, ?)", (name, unit, stock, reorder_level))
+        return {success: true}
+
+    endpoint delete_material(id)
+        query("DELETE FROM materials WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_assets()
+        var items = query("SELECT * FROM assets")
+        return {success: true, data: items}
+
+    endpoint create_asset(name, type, status, location)
+        query("INSERT INTO assets (name, type, status, location) VALUES (?, ?, ?, ?)", (name, type, status, location))
+        return {success: true}
+
+    endpoint delete_asset(id)
+        query("DELETE FROM assets WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_incidents()
+        var items = query("SELECT * FROM incidents")
+        return {success: true, data: items}
+
+    endpoint create_incident(project_id, title, severity, status, reported_by)
+        query("INSERT INTO incidents (project_id, title, severity, status, reported_by) VALUES (?, ?, ?, ?, ?)", (project_id, title, severity, status, reported_by))
+        return {success: true}
+
+    endpoint delete_incident(id)
+        query("DELETE FROM incidents WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_documents()
+        var items = query("SELECT * FROM documents")
+        return {success: true, data: items}
+
+    endpoint create_document(name, type)
+        query("INSERT INTO documents (name, type) VALUES (?, ?)", (name, type))
+        return {success: true}
+
+    endpoint delete_document(id)
+        query("DELETE FROM documents WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_procurements()
+        var items = query("SELECT p.*, m.name as material_name FROM procurements p JOIN materials m ON p.material_id = m.id")
+        return {success: true, data: items}
+
+    endpoint create_procurement(material_name, qty, cost, requested_by)
+        var mat = query("SELECT id FROM materials WHERE name=?", (material_name,))[0]
+        query("INSERT INTO procurements (material_id, qty, cost, status, requested_by) VALUES (?, ?, ?, 'Pending', ?)", (mat.id, qty, cost, requested_by))
+        var pid = query("SELECT last_insert_rowid() as id")[0].id
+        query("INSERT INTO approvals (type, item_id, status, requested_by) VALUES (?, ?, 'Pending', ?)", ("Procurement Request #" + pid, pid, requested_by))
+        return {success: true}
+
+    endpoint list_approvals()
+        var items = query("SELECT * FROM approvals")
+        return {success: true, data: items}
+
+    endpoint handle_approval(id, status, approved_by)
+        query("UPDATE approvals SET status=? WHERE id=?", (status, id))
+        var app = query("SELECT * FROM approvals WHERE id=?", (id,))[0]
+        if status == "Approved"
+            if app.type == "Procurement Request #" + app.item_id
+                query("UPDATE procurements SET status='Approved' WHERE id=?", (app.item_id,))
+                var req = query("SELECT * FROM procurements WHERE id=?", (app.item_id,))[0]
+                query("UPDATE materials SET stock = stock + ? WHERE id=?", (req.qty, req.material_id))
+        else
+            if app.type == "Procurement Request #" + app.item_id
+                query("UPDATE procurements SET status='Rejected' WHERE id=?", (app.item_id,))
+        return {success: true}
+'''
+
+_CONSTRUCTION_UI = '''\
+component Dashboard
+    state properties = []
+    state projects = []
+    state incidents = []
+    state approvals = []
+
+    on load
+        var pr = list_properties()
+        properties = pr.data
+        var p = list_projects()
+        projects = p.data
+        var i = list_incidents()
+        incidents = i.data
+        var a = list_approvals()
+        approvals = a.data
+
+    render
+        div
+            h2 "Construction Management Dashboard"
+            p className="text-muted mb-6" "Configure property sites, track jobs, monitor Gantt scheduling timelines, manage material stock, file safety logs, and grant workflows approvals."
+            div grid_cols=4
+                stat_card label="Total Properties" value=properties.length icon="Building" color="blue"
+                stat_card label="Active Projects" value=projects.length icon="Wrench" color="green"
+                stat_card label="Safety Incidents" value=incidents.length icon="ShieldAlert" color="red"
+                stat_card label="Pending Approvals" value=approvals.length icon="CheckCircle" color="amber"
+            div grid_cols=2
+                card
+                    card_header "Project Budget Overview ($)"
+                    bar_chart data=projects x_key="name" y_key="budget" height=300
+                card
+                    card_header "Safety Log Details"
+                    table data=incidents
+                        table_header
+                            table_row
+                                table_head "title"
+                                table_head "severity"
+                                table_head "status"
+                                table_head "reported_by"
+                        table_body
+
+component PropertiesTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state location = ""
+    state units = 0
+    state status = "Under Construction"
+
+    on load
+        var resp = list_properties()
+        items = resp.data
+
+    on submit
+        var r = create_property(name, location, units, status)
+        if r.success
+            var resp = list_properties()
+            items = resp.data
+            name = ""
+            location = ""
+            units = 0
+
+    render
+        div
+            card
+                card_header "Register Construction Site"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Property Name"
+                        input bind=location label="Site Location"
+                    div grid_cols=2
+                        input bind=units label="Units Planned" type="number"
+                        select bind=status options=["Planning", "Under Construction", "Completed"] label="Status"
+                    button "Add Property Site" variant="default"
+            card
+                card_header "Active Properties"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "location"
+                            table_head "units"
+                            table_head "status"
+                    table_body
+
+component ProjectsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state budget = 0.0
+    state status = "Active"
+    state start_date = ""
+    state end_date = ""
+    state prop_id = 1
+
+    on load
+        var pr = list_projects()
+        items = pr.data
+
+    on submit
+        var r = create_project(name, prop_id, budget, status, start_date, end_date)
+        if r.success
+            var pr = list_projects()
+            items = pr.data
+            name = ""
+            budget = 0.0
+            start_date = ""
+            end_date = ""
+
+    render
+        div
+            card
+                card_header "Track Project Budget & Goals"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Project Phase Name"
+                        input bind=budget label="Financial Budget ($)" type="number"
+                    div grid_cols=3
+                        select bind=status options=["Planning", "Active", "Completed", "Suspended"] label="Status"
+                        input bind=start_date label="Start Date (YYYY-MM-DD)"
+                        input bind=end_date label="End Date (YYYY-MM-DD)"
+                    button "Register Project" variant="default"
+            card
+                card_header "Active Construction Projects"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "budget"
+                            table_head "status"
+                            table_head "start_date"
+                            table_head "end_date"
+                    table_body
+
+component GanttChart
+    state jobs = []
+
+    on load
+        var resp = list_jobs()
+        jobs = resp.data
+
+    render
+        div
+            card
+                card_header "Visual Project Schedule (Timeline Day 1 to 30)"
+                div className="space-y-6 mt-4"
+                    for j in jobs
+                        div className="border-b pb-4 last:border-b-0"
+                            div className="flex justify-between items-center mb-2"
+                                span className="font-semibold text-sm" {j.title}
+                                span className="text-xs text-muted" {"Contractor: " + j.assigned_to + " | Progress: " + j.progress + "%"}
+                            div className="w-full bg-slate-100 rounded-full h-8 relative overflow-hidden flex"
+                                div style={{"width": (j.start_day * 3.3) + "%"}} className="h-full bg-transparent flex-shrink-0"
+                                div style={{"width": (j.duration * 3.3) + "%"}} className="h-full bg-indigo-600 rounded-md text-white flex items-center justify-between px-3 text-xs font-semibold shadow-sm"
+                                    span {j.progress + "%"}
+                                    span {j.duration + " d"}
+
+component JobsTable
+    state items = []
+    state edit_item = null
+    state title = ""
+    state assigned_to = ""
+    state status = "Pending"
+    state progress = 0
+    state start_day = 1
+    state duration = 5
+    state project_id = 1
+
+    on load
+        var resp = list_jobs()
+        items = resp.data
+
+    on submit
+        var r = create_job(project_id, title, assigned_to, status, progress, start_day, duration)
+        if r.success
+            var resp = list_jobs()
+            items = resp.data
+            title = ""
+            assigned_to = ""
+            progress = 0
+            start_day = 1
+            duration = 5
+
+    render
+        div
+            card
+                card_header "Dispatch Job Order"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Job/Task Title"
+                        input bind=assigned_to label="Assign Contractor"
+                    div grid_cols=4
+                        select bind=status options=["Pending", "Active", "Completed"] label="Status"
+                        input bind=progress label="Progress (%)" type="number"
+                        input bind=start_day label="Timeline Start Day" type="number"
+                        input bind=duration label="Duration (days)" type="number"
+                    button "Add Job Order" variant="default"
+            card
+                card_header "All Job Orders"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "assigned_to"
+                            table_head "status"
+                            table_head "progress"
+                            table_head "start_day"
+                            table_head "duration"
+                    table_body
+
+component ResourcesTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state role = ""
+    state rate = 0.0
+    state availability = "Available"
+
+    on load
+        var resp = list_resources()
+        items = resp.data
+
+    on submit
+        var r = create_resource(name, role, rate, availability)
+        if r.success
+            var resp = list_resources()
+            items = resp.data
+            name = ""
+            role = ""
+            rate = 0.0
+
+    render
+        div
+            card
+                card_header "Onboard Site Supervisor or Resource"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Supervisor Name"
+                        input bind=role label="Job Role"
+                    div grid_cols=2
+                        input bind=rate label="Hourly Rate ($)" type="number"
+                        select bind=availability options=["Available", "Busy", "Off-site"] label="Availability"
+                    button "Onboard Resource" variant="default"
+            card
+                card_header "Onboarded Site Staff"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "role"
+                            table_head "rate"
+                            table_head "availability"
+                    table_body
+
+component MaterialsTable
+    state items = []
+    state edit_item = null
+    state list_m = []
+    state material_name = "Cement"
+    state qty = 0
+    state cost = 0.0
+    state requested_by = "John Supervisor"
+
+    on load
+        var resp = list_materials()
+        items = resp.data
+        var list = []
+        for m in resp.data
+            list = list + [m.name]
+        list_m = list
+
+    on submit
+        var r = create_procurement(material_name, qty, cost, requested_by)
+        if r.success
+            toast("Procurement request dispatched for PM approvals")
+            qty = 0
+            cost = 0.0
+
+    render
+        div
+            card
+                card_header "Procure Construction Supplies"
+                form on_submit=submit
+                    div grid_cols=3
+                        select bind=material_name options=list_m label="Select Supply Item"
+                        input bind=qty label="Quantity" type="number"
+                        input bind=cost label="Estimate Cost ($)" type="number"
+                    button "Submit Purchase Request" variant="default"
+            card
+                card_header "Supply Materials Stock Inventory"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "unit"
+                            table_head "stock"
+                            table_head "reorder_level"
+                    table_body
+
+component AssetsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state type = "Heavy Equipment"
+    state status = "In Use"
+    state location = ""
+
+    on load
+        var resp = list_assets()
+        items = resp.data
+
+    on submit
+        var r = create_asset(name, type, status, location)
+        if r.success
+            var resp = list_assets()
+            items = resp.data
+            name = ""
+            location = ""
+
+    render
+        div
+            card
+                card_header "Register Heavy Equipment / Asset"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Asset Name"
+                        input bind=location label="Location Assigned"
+                    div grid_cols=2
+                        select bind=type options=["Heavy Equipment", "Vehicles", "Tools", "Power Systems"] label="Category"
+                        select bind=status options=["In Use", "Available", "Maintenance", "Off-site"] label="Status"
+                    button "Add Asset" variant="default"
+            card
+                card_header "Tracked Equipment Assets"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "type"
+                            table_head "status"
+                            table_head "location"
+                    table_body
+
+component IncidentsTable
+    state items = []
+    state edit_item = null
+    state title = ""
+    state severity = "Low"
+    state status = "Open"
+    state reported_by = ""
+    state project_id = 1
+
+    on load
+        var resp = list_incidents()
+        items = resp.data
+
+    on submit
+        var r = create_incident(project_id, title, severity, status, reported_by)
+        if r.success
+            var resp = list_incidents()
+            items = resp.data
+            title = ""
+            reported_by = ""
+
+    render
+        div
+            card
+                card_header "Log Safety Site Incident"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Incident Description"
+                        input bind=reported_by label="Reporter Name"
+                    div grid_cols=2
+                        select bind=severity options=["Low", "Medium", "High", "Critical"] label="Severity"
+                        select bind=status options=["Open", "Investigation", "Resolved"] label="Status"
+                    button "Log Incident" variant="default"
+            card
+                card_header "Safety Log"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "severity"
+                            table_head "status"
+                            table_head "reported_by"
+                    table_body
+
+component ProcurementTable
+    state items = []
+
+    on load
+        var resp = list_procurements()
+        items = resp.data
+
+    render
+        div
+            card
+                card_header "Procurement Purchases Log"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "material_name"
+                            table_head "qty"
+                            table_head "cost"
+                            table_head "status"
+                            table_head "requested_by"
+                    table_body
+
+component ApprovalsTable
+    state items = []
+    state edit_item = null
+    state edit_status = "Pending"
+    state show_edit_modal = false
+
+    on load
+        var resp = list_approvals()
+        items = resp.data
+
+    render
+        div
+            card
+                card_header "Project Approvals Required"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "type"
+                            table_head "status"
+                            table_head "requested_by"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Grant Approval"
+            form on_submit=handleSave
+                select bind=edit_status options=["Pending", "Approved", "Rejected"] label="Status Decision"
+                button "Save Decision" variant="default"
+
+
+component DocumentsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state type = "Blueprint"
+
+    on load
+        var resp = list_documents()
+        items = resp.data
+
+    on submit
+        var r = create_document(name, type)
+        if r.success
+            var resp = list_documents()
+            items = resp.data
+            name = ""
+
+    render
+        div
+            card
+                card_header "Compliance & Blueprint Repository"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="File/Document Name"
+                        select bind=type options=["Blueprint", "Permit", "Contract", "Invoice", "Report"] label="Document Type"
+                    button "Upload Document Metadata" variant="default"
+            card
+                card_header "Stored Project Documents"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "type"
+                            table_head "uploaded_at"
+                    table_body
+
+app Construction
+    title "Construction Manager"
+    theme "professional"
+    layout
+        sidebar
+            nav "Overview" Dashboard
+            nav "Properties" PropertiesTable
+            nav "Projects" ProjectsTable
+            nav "Gantt Chart" GanttChart
+            nav "Job Orders" JobsTable
+            nav "Resources" ResourcesTable
+            nav "Materials" MaterialsTable
+            nav "Assets Log" AssetsTable
+            nav "Incidents" IncidentsTable
+            nav "Procurement" ProcurementTable
+            nav "Approvals" ApprovalsTable
+            nav "Documents" DocumentsTable
+'''
+
 
 
 @app.route("/api/examples")
@@ -1481,17 +2620,23 @@ def get_examples():
 '    assert is_even(7) == false\n'
 )},
         # ── Full-stack project templates (writes backend + UI together) ──────────
-        {"id": "item_manager", "name": "📦 Item Manager", "project": True,
+        {"id": "item_manager", "name": "Item Manager", "project": True,
          "open": "ui/app.mcn",
          "files": [
-             {"path": "backend/main.mcn", "content": _DEFAULT_BACKEND},
-             {"path": "ui/app.mcn",       "content": _DEFAULT_UI},
+             {"path": "backend/main.mcn", "content": _ITEM_MANAGER_BACKEND},
+             {"path": "ui/app.mcn",       "content": _ITEM_MANAGER_UI},
          ]},
-        {"id": "crm", "name": "🏢 CRM App", "project": True,
+        {"id": "crm", "name": "CRM App", "project": True,
          "open": "ui/app.mcn",
          "files": [
              {"path": "backend/main.mcn", "content": _CRM_BACKEND},
              {"path": "ui/app.mcn",       "content": _CRM_UI},
+         ]},
+        {"id": "construction", "name": "Construction Management", "project": True,
+         "open": "ui/app.mcn",
+         "files": [
+             {"path": "backend/main.mcn", "content": _CONSTRUCTION_BACKEND},
+             {"path": "ui/app.mcn",       "content": _CONSTRUCTION_UI},
          ]},
     ])
 

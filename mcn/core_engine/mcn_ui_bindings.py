@@ -120,6 +120,20 @@ class UIBindingManager:
             **props
         )
     
+    def agent_chat(self, agent_name: str, **props):
+        """Create an AI Agent Chat component"""
+        return self.create_component('agent_chat',
+            agentName=agent_name,
+            **props
+        )
+    
+    def enterprise_search(self, datasource_name: str, **props):
+        """Create an Enterprise Search (RAG) component"""
+        return self.create_component('enterprise_search',
+            datasourceName=datasource_name,
+            **props
+        )
+    
     def create_page(self, name: str, path: str, components: List[str], **meta):
         """Create UI page"""
         page = UIPage(
@@ -140,8 +154,14 @@ class UIBindingManager:
         """Register event handler"""
         self.event_handlers[handler_name] = mcn_function
     
-    def generate_react_component(self, component: UIComponent) -> str:
+    def generate_react_component(self, component: Any) -> str:
         """Generate React component code"""
+        if isinstance(component, str):
+            if component in self.components:
+                component = self.components[component]
+            else:
+                return f"<div>Unknown component ID: {component}</div>"
+
         component_name = component.type.capitalize()
         
         if component.type == 'button':
@@ -158,6 +178,10 @@ class UIBindingManager:
             return self._generate_table_react(component)
         elif component.type == 'chart':
             return self._generate_chart_react(component)
+        elif component.type == 'agent_chat':
+            return self._generate_agent_chat_react(component)
+        elif component.type == 'enterprise_search':
+            return self._generate_enterprise_search_react(component)
         else:
             return f"<div>Unknown component: {component.type}</div>"
     
@@ -261,16 +285,41 @@ class UIBindingManager:
     def _generate_chart_react(self, component: UIComponent) -> str:
         """Generate React chart component"""
         props = component.props
-        chart_type = props.get('chartType', 'line')
+        chart_type = props.get('chartType', 'bar')
+        data_source = props.get('data', 'chartData')
         
-        return f"""<div className="chart-container">
-            <Chart 
-                type="{chart_type}"
-                data={{{props.get('data', 'chartData')}}}
-                options={{{props.get('options', '{}')}}}
-            />
+        return f"""<div className={`chart-container ${props.get('className', '')}`}>
+            <Chart type="{chart_type}" data={{{data_source}}} />
         </div>"""
     
+    def _generate_agent_chat_react(self, component: UIComponent) -> str:
+        props = component.props
+        agent_name = props.get('agentName', 'Agent')
+        return f"""<div className="agent-chat-container p-4 border border-gray-800 rounded-xl shadow-2xl bg-gray-900 text-white">
+            <h3 className="font-bold mb-4 text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">Chat with {agent_name}</h3>
+            <div className="chat-messages h-64 overflow-y-auto mb-4 p-4 bg-gray-950 rounded-lg border border-gray-800">
+                {{/* Messages will be rendered here dynamically */}}
+            </div>
+            <div className="chat-input flex space-x-2">
+                <input type="text" className="flex-1 p-3 border border-gray-700 bg-gray-800 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" placeholder="Type your message..." />
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20" onClick={{() => mcn.call('agent_chat', {{agent: '{agent_name}'}})}}>Send</button>
+            </div>
+        </div>"""
+
+    def _generate_enterprise_search_react(self, component: UIComponent) -> str:
+        props = component.props
+        ds_name = props.get('datasourceName', 'Knowledge Base')
+        return f"""<div className="enterprise-search-container p-4 border border-gray-800 rounded-xl shadow-2xl bg-gray-900 text-white">
+            <h3 className="font-bold mb-4 text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">Search {ds_name}</h3>
+            <div className="search-bar flex space-x-2 mb-4">
+                <input type="text" className="flex-1 p-3 border border-gray-700 bg-gray-800 rounded-lg focus:outline-none focus:border-indigo-500 transition-colors" placeholder="Search enterprise data..." />
+                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-indigo-900/20" onClick={{() => mcn.call('rag_query', {{datasource: '{ds_name}'}})}}>Search</button>
+            </div>
+            <div className="search-results min-h-32 p-4 bg-gray-950 rounded-lg border border-gray-800">
+                <p className="text-gray-500 text-sm italic">Enter a query to search across connected data sources.</p>
+            </div>
+        </div>"""
+
     def generate_page_component(self, page_name: str) -> str:
         """Generate complete React page component"""
         if page_name not in self.pages:
@@ -395,6 +444,16 @@ export default AppRouter;
         with open(os.path.join(output_dir, 'ui-manifest.json'), 'w') as f:
             json.dump(manifest, f, indent=2, default=str)
 
+    def export_to_flutter_project(self, output_dir: str):
+        """Export all UI definitions to Flutter project"""
+        os.makedirs(output_dir, exist_ok=True)
+        self._generate_ui_manifest(output_dir)
+        
+        manifest_path = os.path.join(output_dir, "ui-manifest.json")
+        from mcn.fullstack.flutter_generator import FlutterProjectGenerator
+        generator = FlutterProjectGenerator()
+        generator.generate_project(manifest_path, output_dir, "MCN_App")
+
 
 class UIIntegrationLayer:
     """Integration layer for MCN-React communication"""
@@ -414,9 +473,12 @@ class UIIntegrationLayer:
             'ui_form': self._ui_form,
             'ui_table': self._ui_table,
             'ui_chart': self._ui_chart,
+            'ui_agent_chat': self._ui_agent_chat,
+            'ui_enterprise_search': self._ui_enterprise_search,
             'ui_page': self._ui_page,
             'ui_bind_data': self._ui_bind_data,
             'ui_export': self._ui_export,
+            'ui_export_flutter': self._ui_export_flutter,
         }
         
         self.interpreter.functions.update(ui_functions)
@@ -449,6 +511,14 @@ class UIIntegrationLayer:
         """MCN function: Create chart"""
         return self.ui_manager.chart(chart_type, data, **props)
     
+    def _ui_agent_chat(self, agent_name: str, **props):
+        """MCN function: Create agent chat"""
+        return self.ui_manager.agent_chat(agent_name, **props)
+        
+    def _ui_enterprise_search(self, datasource_name: str, **props):
+        """MCN function: Create enterprise search"""
+        return self.ui_manager.enterprise_search(datasource_name, **props)
+    
     def _ui_page(self, name: str, path: str, *components, **meta):
         """MCN function: Create page"""
         return self.ui_manager.create_page(name, path, list(components), **meta)
@@ -461,3 +531,8 @@ class UIIntegrationLayer:
         """MCN function: Export UI to React project"""
         self.ui_manager.export_to_react_project(output_dir)
         return f"UI exported to {output_dir}"
+
+    def _ui_export_flutter(self, output_dir: str):
+        """MCN function: Export UI to Flutter project"""
+        self.ui_manager.export_to_flutter_project(output_dir)
+        return f"UI exported to Flutter at {output_dir}"

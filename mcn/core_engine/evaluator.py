@@ -126,12 +126,14 @@ class Evaluator:
     so they are also available for recursion and cross-function calls.
     """
 
-    def __init__(self, functions: Dict[str, Callable]):
+    def __init__(self, functions: Dict[str, Callable], max_steps: int = 100_000):
         self.functions       = functions         # shared with MCNInterpreter
         self.function_params: Dict[str, List[str]] = {}   # param names per endpoint
         self.globals    = Environment()
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
         self.app_decl:   Optional[ast.AppDecl]        = None  # app declaration
+        self.step_count = 0
+        self.max_steps = max_steps
 
         # Boolean and null literals (JavaScript / JSON style)
         self.globals.define("true",  True)
@@ -164,6 +166,14 @@ class Evaluator:
         return result
 
     def _exec_stmt(self, stmt: ast.Stmt, env: Environment) -> Any:  # noqa: C901
+        # Increment and check statement execution limit
+        self.step_count += 1
+        if self.step_count > self.max_steps:
+            raise MCNError(
+                f"Maximum statement execution limit of {self.max_steps} exceeded. Script execution terminated.",
+                stmt.line, stmt.col
+            )
+
         # ── var declaration ────────────────────────────────────────────────────
         if isinstance(stmt, ast.VarDecl):
             value = self._eval(stmt.value, env)
@@ -335,6 +345,9 @@ class Evaluator:
 
         if isinstance(stmt, ast.WorkflowDecl):
             return self._exec_workflow_decl(stmt, env)
+
+        if isinstance(stmt, ast.ScheduleDecl):
+            return self._exec_schedule_decl(stmt, env)
 
         if isinstance(stmt, ast.ContractDecl):
             return self._exec_contract_decl(stmt, env)
@@ -528,8 +541,11 @@ class Evaluator:
                 return None     # both safe and unsafe return None for None objects
             if isinstance(obj, dict):
                 return obj.get(expr.name)
-            if isinstance(obj, (list, tuple, str)) and expr.name == "length":
-                return len(obj)
+            if isinstance(obj, (list, tuple, str)):
+                if expr.name == "length":
+                    return len(obj)
+                if expr.name == "includes":
+                    return lambda x: x in obj
             # Allow attribute access on runtime objects (MCNPipeline, MCNService,
             # MCNWorkflow, MCNContract, MCNPrompt, MCNAgent) and any Python object
             if hasattr(obj, expr.name):
@@ -642,8 +658,29 @@ class Evaluator:
             self.function_params[ep.name] = params
 
         env.define(stmt.name, service)
-        self.functions[stmt.name] = service
+        env.define(stmt.name, service)
         return service
+
+    def _exec_schedule_decl(self, stmt: ast.ScheduleDecl,
+                            env: Environment) -> Any:
+        """
+        Build an MCNSchedule and bind it in the environment.
+        """
+        from .runtime_types import MCNSchedule
+        captured_env = env
+        body = stmt.body
+
+        def schedule_fn() -> Any:
+            call_env = Environment(captured_env)
+            try:
+                return self._exec_block(body, call_env)
+            except ReturnSignal as ret:
+                return ret.value
+
+        schedule = MCNSchedule(stmt.name, stmt.cron_expr, schedule_fn)
+        env.define(stmt.name, schedule)
+        self.functions[stmt.name] = schedule
+        return schedule
 
     def _exec_workflow_decl(self, stmt: ast.WorkflowDecl,
                             env: Environment) -> Any:

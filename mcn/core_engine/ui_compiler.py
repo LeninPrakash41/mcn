@@ -117,6 +117,22 @@ _THEMES: Dict[str, Dict[str, str]] = {
         "--primary":    "0 0% 9%",
         "--accent":     "0 0% 96.1%",
     },
+    "glassmorphism": {
+        "--radius":     "1rem",
+        "--background": "220 33% 98%",
+        "--foreground": "224 71% 4%",
+        "--primary":    "262.1 83.3% 57.8%",
+        "--accent":     "262.1 83.3% 95%",
+        "--border":     "220 13% 91%",
+    },
+    "luxury_dark": {
+        "--radius":     "0.75rem",
+        "--background": "224 71% 4%",
+        "--foreground": "210 40% 98%",
+        "--primary":    "263.4 70% 50.4%",
+        "--accent":     "217.2 32.6% 17.5%",
+        "--border":     "217.2 32.6% 17.5%",
+    },
     "default": {
         "--radius":     "0.5rem",
         "--background": "0 0% 100%",
@@ -177,6 +193,16 @@ def _expr_to_ts(expr: Optional[ast.Expr],
     if isinstance(expr, ast.Call):
         if isinstance(expr.callee, ast.Variable):
             fn = expr.callee.name
+            if fn in ("toast", "log", "confirm", "alert"):
+                args = ", ".join(_expr_to_ts(a, lv) for a in expr.arguments)
+                if fn == "log":
+                    return f"console.log({args})"
+                if fn == "confirm":
+                    return f"window.confirm({args})"
+                if fn == "alert":
+                    return f"window.alert({args})"
+                return f"toast({args})"
+
             # Build the payload object from positional args (use var names as keys)
             pairs = []
             for a in expr.arguments:
@@ -190,6 +216,40 @@ def _expr_to_ts(expr: Optional[ast.Expr],
     if isinstance(expr, ast.Array):
         return "[" + ", ".join(_expr_to_ts(e, lv) for e in expr.elements) + "]"
     return '""'
+
+
+def _get_entity_names(comp_name: str) -> Tuple[str, str]:
+    """Given a component name like DealsTable, return (singular, plural) entity names (e.g. ('deal', 'deals'))."""
+    name = comp_name.replace("Table", "")
+    lower = name.lower()
+
+    mappings = {
+        "deals": ("deal", "deals"),
+        "contacts": ("contact", "contacts"),
+        "companies": ("company", "companies"),
+        "activities": ("activity", "activities"),
+        "item": ("item", "items"),
+        "items": ("item", "items"),
+    }
+
+    if lower in mappings:
+        return mappings[lower]
+
+    if lower.endswith("ies"):
+        singular = lower[:-3] + "y"
+        plural = lower
+    elif lower.endswith("es"):
+        singular = lower[:-2]
+        plural = lower
+    elif lower.endswith("s") and not lower.endswith("ss"):
+        singular = lower[:-1]
+        plural = lower
+    else:
+        singular = lower
+        plural = lower + "s"
+
+    return singular, plural
+
 
 
 # ── main compiler class ────────────────────────────────────────────────────────
@@ -380,8 +440,9 @@ class UICompiler:
             hooks.append(f"  const [{var_name}, {setter}] = useState({default_ts})")
 
         if has_crud:
+            entity_singular, entity_plural = _get_entity_names(comp.name)
             # entity name: ClaimTable → claim, OrderTable → order
-            entity = comp.name.replace("Table", "").lower()
+            entity = entity_singular
             # Fields with edit_ prefix
             edit_fields = [s for s in comp.states if s.name.startswith("edit_")
                            and s.name not in ("edit_item", "edit_item_id")]
@@ -419,6 +480,7 @@ class UICompiler:
 
         # Inject CRUD helper functions for components with edit_item state
         if has_crud:
+            entity_singular, entity_plural = _get_entity_names(comp.name)
             handlers.append(
                 f"  const handleEdit = useCallback((row: any) => {{\n"
                 f"    setEditItemId(row.id)\n"
@@ -429,17 +491,17 @@ class UICompiler:
             )
             handlers.append(
                 f"  const handleDelete = useCallback(async (id: number) => {{\n"
-                f'    if (!window.confirm("Delete this {entity}?")) return\n'
-                f"    await api.post('/delete_{entity}', {{ id }})\n"
-                f"    const _resp = await api.post('/list_{entity}s', {{}})\n"
+                f'    if (!window.confirm("Delete this {entity_singular}?")) return\n'
+                f"    await api.post('/delete_{entity_singular}', {{ id }})\n"
+                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
                 f"    setItems(_resp.data ?? _resp)\n"
                 f"  }}, [])\n"
             )
             handlers.append(
                 f"  const handleSave = useCallback(async () => {{\n"
-                f"    await api.post('/update_{entity}', {{ id: editItemId, {save_payload_fields} }})\n"
+                f"    await api.post('/update_{entity_singular}', {{ id: editItemId, {save_payload_fields} }})\n"
                 f"    setShowEditModal(false)\n"
-                f"    const _resp = await api.post('/list_{entity}s', {{}})\n"
+                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
                 f"    setItems(_resp.data ?? _resp)\n"
                 f"  }}, [editItemId, {', '.join(s.name for s in edit_fields)}])\n"
             )
@@ -456,6 +518,11 @@ class UICompiler:
         needs_fragment = len(comp.render.elements if comp.render else []) > 1
         if needs_fragment:
             jsx_lines = ["    <>", *["  " + ln for ln in jsx_lines], "    </>"]
+
+        # If toast is called anywhere in compiled code, auto-import from sonner
+        all_compiled_code = "\n".join(handlers) + "\n" + "\n".join(jsx_lines)
+        if "toast(" in all_compiled_code:
+            self._extra_imports.add('import { toast } from "sonner"')
 
         # Merge lucide-react imports and append remaining extras
         lucide_icons: list = []
@@ -512,7 +579,8 @@ class UICompiler:
             tag = el.tag
             if tag in _SHADCN:
                 names, slug, _ = _SHADCN[tag]
-                self._shadcn_needed.add(slug)
+                if slug != "recharts":
+                    self._shadcn_needed.add(slug)
                 # recharts and other non-shadcn libs import directly by package name
                 if slug in ("recharts",):
                     pkg_path = slug
@@ -577,6 +645,44 @@ class UICompiler:
                 return lines
             else:
                 lines.append(f'{pad}<Input {props} />')
+                return lines
+
+        # file_upload
+        if tag == "file_upload":
+            label_attr = next((a for a in el.attrs if a.key == "label"), None)
+            if label_attr:
+                label_text = _expr_to_ts(label_attr.value)
+                lines.append(f'{pad}<div className="space-y-1">')
+                lines.append(f'{pad}  <Label>{{{label_text}}}</Label>')
+                lines.append(f'{pad}  <Input type="file" {props} />')
+                lines.append(f'{pad}</div>')
+                return lines
+            lines.append(f'{pad}<Input type="file" {props} />')
+            return lines
+
+        # data_grid
+        if tag == "data_grid":
+            data_attr = next((a for a in el.attrs if a.key == "data"), None)
+            if data_attr:
+                data_expr = _expr_to_ts(data_attr.value)
+                lines.append(f'{pad}<div className="border rounded-md overflow-x-auto">')
+                lines.append(f'{pad}  <Table>')
+                lines.append(f'{pad}    <TableHeader>')
+                lines.append(f'{pad}      <TableRow>')
+                lines.append(f'{pad}        {{({data_expr} && {data_expr}.length > 0) ? Object.keys({data_expr}[0]).map(k => <TableHead key={{k}}>{{k}}</TableHead>) : null}}')
+                lines.append(f'{pad}      </TableRow>')
+                lines.append(f'{pad}    </TableHeader>')
+                lines.append(f'{pad}    <TableBody>')
+                lines.append(f'{pad}      {{({data_expr} || []).map((row, i) => (')
+                lines.append(f'{pad}        <TableRow key={{i}}>')
+                lines.append(f'{pad}          {{Object.keys(row).map(k => (')
+                lines.append(f'{pad}            <TableCell key={{k}}><Input defaultValue={{row[k]}} className="border-transparent hover:border-gray-300 focus:border-blue-500 bg-transparent shadow-none" /></TableCell>')
+                lines.append(f'{pad}          ))}}')
+                lines.append(f'{pad}        </TableRow>')
+                lines.append(f'{pad}      ))}}')
+                lines.append(f'{pad}    </TableBody>')
+                lines.append(f'{pad}  </Table>')
+                lines.append(f'{pad}</div>')
                 return lines
 
         # textarea with label
@@ -665,19 +771,26 @@ class UICompiler:
                     # Inject Actions column into header
                     lines.extend(self._element_to_jsx_header_with_actions(child, indent + 2))
                 elif child.tag == "table_body" and not child.children:
-                    # Find the array-typed state variable in the current component
+                    # Check if table or table_body has a "data" attribute
+                    data_attr = next((a for a in el.attrs if a.key == "data"), None)
+                    if not data_attr:
+                        data_attr = next((a for a in child.attrs if a.key == "data"), None)
+
                     arr_state = None
-                    if self._current_comp:
+                    if data_attr:
+                        arr_state = _expr_to_ts(data_attr.value)
+                    elif self._current_comp:
                         arr_state = next(
                             (s.name for s in self._current_comp.states
                              if isinstance(s.value, ast.Array)),
                             None,
                         )
-                    entity = (self._current_comp.name.replace("Table", "").lower()
-                              if self._current_comp else "item")
+                    entity_singular = "item"
+                    if self._current_comp:
+                        entity_singular, _ = _get_entity_names(self._current_comp.name)
                     lines.extend(
                         self._gen_table_body_rows(arr_state or "items", col_names,
-                                                  indent + 2, has_actions, entity)
+                                                  indent + 2, has_actions, entity_singular)
                     )
                 else:
                     lines.extend(self._element_to_jsx(child, indent + 2))
@@ -1381,7 +1494,6 @@ export default function App() {{
 
         # Collect icon names used
         icon_names = [self._nav_icon(n.label) for n in layout.sidebar]
-        icons_import = ", ".join(sorted(set(icon_names)))
 
         nav_items = "\n".join(
             f'          <button\n'
@@ -1397,6 +1509,20 @@ export default function App() {{
             for n in layout.sidebar
         )
 
+        nav_items_mobile = "\n".join(
+            f'                <button\n'
+            f'                  onClick={{() => {{ setActive("{n.label}"); setMobileOpen(false); }}}}\n'
+            f'                  className={{`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm '
+            f'font-medium transition-colors ${{active === "{n.label}" '
+            f'? "bg-primary text-primary-foreground" '
+            f': "text-muted-foreground hover:bg-accent hover:text-foreground"}}`}}\n'
+            f'                >\n'
+            f'                  <{self._nav_icon(n.label)} className="w-4 h-4 shrink-0" />\n'
+            f'                  {n.label}\n'
+            f'                </button>'
+            for n in layout.sidebar
+        )
+
         pages = "\n".join(
             f'      {{active === "{n.label}" && <{n.component or _pascal(n.label)} />}}'
             for n in layout.sidebar
@@ -1405,7 +1531,7 @@ export default function App() {{
         default_page = layout.sidebar[0].label if layout.sidebar else ""
 
         app_icon = self._nav_icon(title.split()[0].lower()) if title else "Circle"
-        all_icons = sorted(set(icon_names) | {app_icon, "LogOut", "ChevronRight"})
+        all_icons = sorted(set(icon_names) | {app_icon, "LogOut", "ChevronRight", "Menu", "X"})
         icons_import_full = ", ".join(all_icons)
 
         return f'''\
@@ -1416,10 +1542,12 @@ import "./globals.css"
 
 export default function App() {{
   const [active, setActive] = useState("{default_page}")
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="w-64 border-r bg-card flex flex-col shadow-sm">
+      {{/* Sidebar for Desktop */}}
+      <aside className="hidden md:flex md:w-64 border-r bg-card flex flex-col shadow-sm">
         {{/* Header */}}
         <div className="flex items-center gap-3 px-4 py-4 border-b">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -1452,11 +1580,57 @@ export default function App() {{
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <div className="p-6">
+      {{/* Main Layout container (Desktop vs Mobile handling) */}}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        {{/* Mobile Top Navbar */}}
+        <header className="flex md:hidden items-center justify-between px-4 py-3 border-b bg-card shadow-sm w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <{app_icon} className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="text-sm font-bold">{title}</span>
+          </div>
+          <button 
+            onClick={{() => setMobileOpen(!mobileOpen)}}
+            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+          >
+            {{mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}}
+          </button>
+        </header>
+
+        {{/* Mobile Menu Overlay / Drawer */}}
+        {{mobileOpen && (
+          <div className="fixed inset-0 z-50 flex bg-background/80 backdrop-blur-sm md:hidden">
+            <div className="relative w-64 max-w-xs bg-card border-r flex flex-col p-4 shadow-xl">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b">
+                <span className="text-sm font-bold">{title}</span>
+                <button onClick={{() => setMobileOpen(false)}} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <nav className="flex-1 space-y-1">
+{nav_items_mobile}
+              </nav>
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">U</div>
+                  <div>
+                    <p className="text-xs font-medium">User</p>
+                    <p className="text-xs text-muted-foreground">user@example.com</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{/* Click outside to close */}}
+            <div className="flex-1" onClick={{() => setMobileOpen(false)}}></div>
+          </div>
+        )}}
+
+        {{/* Main Content Area */}}
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-background">
 {pages}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }}
@@ -1511,7 +1685,7 @@ export default function App() {{
     def _gen_api_service(self, app: Optional[ast.AppDecl]) -> str:
         return '''\
 /**
- * MCN API service — auto-generated.
+ * MCN API service - auto-generated.
  * All endpoint calls go through this module so components stay clean.
  */
 
@@ -1617,6 +1791,31 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     font-feature-settings: "rlig" 1, "calt" 1;
   }}
 }}
+
+@layer utilities {{
+  .glass-card {{
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }}
+  .dark .glass-card {{
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }}
+  .premium-gradient-bg {{
+    background: radial-gradient(circle at top left, var(--accent) 0%, var(--background) 70%);
+  }}
+  .hover-scale {{
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }}
+  .hover-scale:hover {{
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  }}
+}}
 '''
 
     def _gen_package_json(self, app: Optional[ast.AppDecl]) -> str:
@@ -1683,16 +1882,38 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border:     "hsl(var(--border))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        border:      "hsl(var(--border))",
+        input:       "hsl(var(--input))",
+        ring:        "hsl(var(--ring))",
+        background:  "hsl(var(--background))",
+        foreground:  "hsl(var(--foreground))",
         primary: {
           DEFAULT:    "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
+        secondary: {
+          DEFAULT:    "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT:    "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT:    "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         accent: {
           DEFAULT:    "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT:    "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT:    "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
       },
       borderRadius: {

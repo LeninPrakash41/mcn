@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCN Developer Reference Guide</title>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --primary-accent: #3b82f6;
+            --bg-main: #f8fafc;
+            --bg-sidebar: #1e293b;
+            --text-main: #334155;
+            --text-sidebar: #cbd5e1;
+            --border: #e2e8f0;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            display: flex;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            height: 100vh;
+            position: fixed;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        .sidebar h2 {
+            color: white;
+            padding: 0 20px;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        .sidebar a {
+            display: block;
+            color: var(--text-sidebar);
+            text-decoration: none;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            transition: 0.2s;
+        }
+        .sidebar a:hover {
+            background-color: #334155;
+            color: white;
+        }
+
+        /* Main Content */
+        .content {
+            margin-left: 280px;
+            padding: 40px 60px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        h1 { font-size: 2.8rem; color: var(--primary); margin-bottom: 10px; }
+        h2 { font-size: 1.8rem; color: var(--primary); margin-top: 50px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        h3 { font-size: 1.3rem; color: var(--primary-accent); margin-top: 30px; }
+        
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        code {
+            font-family: 'Fira Code', Consolas, monospace;
+            background-color: #e2e8f0;
+            color: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        pre code { background-color: transparent; color: inherit; padding: 0; }
+
+        .keyword-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .keyword-table th, .keyword-table td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        .keyword-table th { background-color: #f1f5f9; font-weight: 600; color: var(--primary); }
+
+        .note {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-accent);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>MCN Dev Guide</h2>
+        <a href="#intro">1. Introduction</a>
+        <a href="#keywords">2. Keywords & Syntax</a>
+        <a href="#data-types">3. Data Types & Collections</a>
+        <a href="#stdlib">4. Standard Library Reference</a>
+        <a href="#database">5. Database Connectivity</a>
+        <a href="#ai-tools">6. AI & Natural Language</a>
+        <a href="#ui-engine">7. UI Generation Engine</a>
+        <a href="#auth-stripe">8. Auth & Payments (Stripe)</a>
+        <a href="#full-app">9. Full Business App Example</a>
+        <a href="#packaging">10. Packaging & Delivery</a>
+    </div>
+
+    <div class="content">
+        <h1 id="intro">MCN Developer Reference</h1>
+        <p>Welcome to the comprehensive developer manual for the Macincode Scripting Language (MCN). This guide covers all language syntax, standard library functions, and full-stack API capabilities you need to build business applications.</p>
+
+        <!-- Keywords & Syntax -->
+        <h2 id="keywords">Keywords & Syntax</h2>
+        <p>MCN is designed to be highly readable, borrowing familiar concepts from JavaScript and Python.</p>
+
+        <table class="keyword-table">
+            <thead>
+                <tr>
+                    <th>Keyword</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>var</code></td>
+                    <td>Declares a mutable variable.</td>
+                    <td><code>var count = 0</code></td>
+                </tr>
+                <tr>
+                    <td><code>function</code></td>
+                    <td>Defines a reusable block of code.</td>
+                    <td><code>function calc(x) { return x * 2 }</code></td>
+                </tr>
+                <tr>
+                    <td><code>if / else</code></td>
+                    <td>Conditional branching.</td>
+                    <td><code>if x > 10 { log("Big") } else { log("Small") }</code></td>
+                </tr>
+                <tr>
+                    <td><code>for / in</code></td>
+                    <td>Iterating over collections.</td>
+                    <td><code>for user in users { log(user.name) }</code></td>
+                </tr>
+                <tr>
+                    <td><code>use</code></td>
+                    <td>Imports external packages (e.g. <code>ui</code>, <code>ai_v3</code>).</td>
+                    <td><code>use "ui"</code></td>
+                </tr>
+                <tr>
+                    <td><code>try / catch</code></td>
+                    <td>Error handling mechanism.</td>
+                    <td><code>try { failing_func() } catch { log("Error") }</code></td>
+                </tr>
+                <tr>
+                    <td><code>and / or / not</code></td>
+                    <td>Logical operators (Python style).</td>
+                    <td><code>if valid and not expired</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Syntax Example</h3>
+        <pre><code>// Variables and Logic
+var status = "active"
+var retry_count = 0
+
+function check_status(user) {
+    if user.role == "admin" and status == "active" {
+        return true
+    } else if retry_count < 3 {
+        retry_count += 1
+        return false
+    }
+    return false
+}</code></pre>
+
+
+        <!-- Data Types & Collections -->
+        <h2 id="data-types">Data Types & Collections</h2>
+        <p>MCN relies heavily on Lists (Arrays) and Dictionaries (Objects). You can access dictionary properties using dot notation or bracket notation.</p>
+
+        <pre><code>// Dictionaries (Objects)
+var user = {
+    "id": 101,
+    "name": "Jane Doe",
+    "preferences": ["email", "sms"]
+}
+
+// Property Access
+log("User name: " + user.name)
+user.role = "manager"     // Dynamically add properties
+
+// Lists (Arrays)
+var scores = [85, 92, 78]
+scores[0] = 90            // Modify index
+var first = scores[0]     // Access index</code></pre>
+
+
+        <!-- Standard Library -->
+        <h2 id="stdlib">Standard Library Reference</h2>
+        <p>MCN ships with over 100 built-in functions available globally without needing to import anything.</p>
+
+        <h3>Strings</h3>
+        <ul>
+            <li><code>to_upper(str)</code> / <code>to_lower(str)</code></li>
+            <li><code>split(str, delimiter)</code> / <code>join(list, delimiter)</code></li>
+            <li><code>substr(str, start, end)</code></li>
+            <li><code>str_replace(str, old, new)</code></li>
+            <li><code>regex_find(str, pattern)</code></li>
+        </ul>
+
+        <h3>Arrays / Lists</h3>
+        <ul>
+            <li><code>len(array)</code> — Returns item count</li>
+            <li><code>push(array, item)</code> / <code>pop(array)</code></li>
+            <li><code>map(array, func)</code> / <code>filter(array, func)</code></li>
+            <li><code>sort(array)</code> / <code>reverse(array)</code></li>
+            <li><code>unique(array)</code> — Removes duplicates</li>
+        </ul>
+
+        <h3>Math & Logic</h3>
+        <ul>
+            <li><code>random()</code> / <code>random_int(min, max)</code></li>
+            <li><code>round(val)</code> / <code>ceil(val)</code> / <code>floor(val)</code></li>
+            <li><code>sum(array)</code> / <code>avg(array)</code></li>
+        </ul>
+
+        <h3>Example Snippet: Data Processing</h3>
+        <pre><code>var raw_data = ["apple", "Banana", "APPLE", "orange"]
+
+// Clean and deduplicate data using stdlib
+var clean_data = map(raw_data, to_lower)
+var unique_fruits = unique(clean_data)
+
+log("Total unique fruits: " + len(unique_fruits))</code></pre>
+
+
+        <!-- Database -->
+        <h2 id="database">Database Connectivity</h2>
+        <p>By default, MCN uses a zero-config local SQLite database (<code>mcn_data.db</code>). This lets you prototype instantly.</p>
+
+        <pre><code>// 1. Default SQLite Querying
+query("CREATE TABLE IF NOT EXISTS inventory (id INTEGER, item TEXT, qty INTEGER)")
+query("INSERT INTO inventory VALUES (1, 'Laptop', 50)")
+
+var items = query("SELECT * FROM inventory WHERE qty > 10")
+log("Found " + len(items) + " items.")</code></pre>
+
+        <div class="note">
+            <strong>Connecting to External Databases</strong><br>
+            For production, MCN natively supports external connections to PostgreSQL and MongoDB. The <code>query()</code> function automatically routes requests to your active connection.
+        </div>
+
+        <pre><code>// Connect to PostgreSQL
+connect_postgresql("db.internal.corp", "crm_db", "admin", "securePass!", 5432)
+
+// Now queries execute on PostgreSQL!
+var active_users = query("SELECT * FROM users WHERE status = 'active'")
+
+// Connect to MongoDB
+connect_mongodb("mongodb+srv://admin:pass@cluster.mongodb.net/", "logs_db")
+var logs = query('{"collection": "events", "operation": "find", "filter": {"error": true}}')</code></pre>
+
+
+        <!-- AI & NLP -->
+        <h2 id="ai-tools">AI & Natural Language</h2>
+        <p>AI is a native primitive in MCN. You can invoke LLMs for raw text processing, or use the <code>ai_v3</code> Natural Language Translation to generate MCN code dynamically.</p>
+
+        <pre><code>use "ai_v3"
+
+// 1. Direct LLM Execution
+var response = run("gpt-4", "Summarize this customer feedback: The app is great but slow.")
+log(response)
+
+// 2. Natural Language to Code
+var code_snippet = translate("create a list of numbers from 1 to 5")
+log("Generated Code: " + code_snippet)
+
+// 3. Retrieval-Augmented Generation (RAG)
+var answer = rag("How do I reset my password?", support_docs)</code></pre>
+
+
+        <!-- UI Engine -->
+        <h2 id="ui-engine">UI Generation Engine</h2>
+        <p>The <code>ui</code> package is MCN's full-stack superpower. It transforms your MCN script into a functional React 18 + Tailwind frontend, while keeping the logic securely on the MCN backend.</p>
+
+        <table class="keyword-table">
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Usage</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>ui("page", title)</code></td>
+                    <td>Creates a new web page layout.</td>
+                </tr>
+                <tr>
+                    <td><code>ui("button", label, backend_func)</code></td>
+                    <td>A button that triggers an MCN backend function on click.</td>
+                </tr>
+                <tr>
+                    <td><code>ui("input", placeholder)</code></td>
+                    <td>A text input field.</td>
+                </tr>
+                <tr>
+                    <td><code>ui("table", [headers])</code></td>
+                    <td>A data grid. Use <code>ui("bind_data", table, func)</code> to populate it.</td>
+                </tr>
+                <tr>
+                    <td><code>ui("chart", type, data)</code></td>
+                    <td>Generates a Recharts visual (e.g., "bar", "line").</td>
+                </tr>
+                <tr>
+                    <td><code>ui("export", path)</code></td>
+                    <td>Generates the entire React codebase to the target folder.</td>
+                </tr>
+                <tr>
+                    <td><code>ui("export_flutter", path)</code></td>
+                    <td>Generates a complete native Flutter Dart app to the target folder.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>3. Web Playground & Interactive Simulators</h3>
+        <p>The MCN Web Playground comes with three built-in simulator modules that speed up testing, prototyping, and debugging:</p>
+        <ul>
+            <li><strong>DB Explorer:</strong> Interactively inspect database tables and schemas generated by your MCN script. Write and execute SQL queries directly inside the console to view live tabular contents.</li>
+            <li><strong>IoT Simulator:</strong> Simulate edge and sensor behaviors in real-time. Use interactive sliders and triggers to override values (e.g., temperature, motion) and trace command logs.</li>
+            <li><strong>AI & RAG Inspector:</strong> Trace active AI model parameters, registry state, prompt history, and retrieval-augmented generation (RAG) search operations side-by-side.</li>
+        </ul>
+
+
+        <!-- Auth & Stripe -->
+        <h2 id="auth-stripe">Authentication & Payments (Stripe)</h2>
+        <p>MCN makes standard SaaS infrastructure like user authentication and Stripe payments plug-and-play.</p>
+
+        <h3>1. Automated Authentication (<code>use "auth_auto"</code>)</h3>
+        <p>By declaring <code>use "auth_auto"</code>, MCN automatically creates a secure <code>auth_users</code> database table, registers backend register/login controller endpoints, and injects default <code>/login</code> and <code>/register</code> UI pages into the app registry. When you compile your app to React or Flutter, these pages are immediately generated and functional.</p>
+
+        <pre><code>use "auth_auto"
+use "ui"
+
+// Default Login and Register pages are already injected behind the scenes!
+ui("export", "./auth-dashboard-app")</code></pre>
+
+        <h3>2. Stripe Integration (<code>use "stripe"</code>)</h3>
+        <p>Call Stripe payment actions directly from MCN backend. If <code>STRIPE_SECRET_KEY</code> is set in the environment, MCN executes real transactions, otherwise, it falls back to mock responses in development mode.</p>
+
+        <ul>
+            <li><code>create_payment_intent(amount, currency)</code> — Generates a Stripe payment intent for custom checkout interfaces.</li>
+            <li><code>create_checkout_session(success_url, cancel_url, line_items)</code> — Redirects users to Stripe-hosted checkout pages.</li>
+            <li><code>create_customer(email, name)</code> — Registers a customer in Stripe.</li>
+            <li><code>create_subscription(customer_id, price_id)</code> — Initiates recurring Stripe subscription billing.</li>
+        </ul>
+
+        <pre><code>use "stripe"
+
+function checkout(data) {
+    var session = create_checkout_session(
+        "https://my-app.com/success",
+        "https://my-app.com/cancel",
+        [{"price": "price_H1A2B3C4", "quantity": 1}]
+    )
+    return {"url": session.url}
+}</code></pre>
+
+
+        <!-- Full Business App Example -->
+        <h2 id="full-app">Full Business App Example</h2>
+        <p>Here is an end-to-end example of a complete business application. This script handles the database, the backend APIs, and generates the entire React dashboard.</p>
+
+        <pre><code>// --- admin_dashboard.mcn ---
+use "ui"
+
+// 1. Initialize Database
+query("CREATE TABLE IF NOT EXISTS orders (id INTEGER, total REAL, status TEXT)")
+query("INSERT INTO orders VALUES (1, 150.00, 'pending')")
+
+// 2. Backend Logic (Controller)
+function get_orders() {
+    return query("SELECT * FROM orders")
+}
+
+function approve_order(data) {
+    query("UPDATE orders SET status = 'approved' WHERE id = ?", (data.id,))
+    return {"success": true, "message": "Order Approved"}
+}
+
+// 3. UI Generation (View)
+var dashboard = ui("page", "Admin Dashboard")
+
+// Create a stats card
+var total_orders = len(get_orders())
+var stat_card = ui("card", "Total Orders: " + total_orders)
+ui("add_child", dashboard, stat_card)
+
+// Create a data table
+var order_table = ui("table", ["ID", "Total", "Status"])
+ui("bind_data", order_table, "get_orders")
+ui("add_child", dashboard, order_table)
+
+// Add an interactive button
+var approve_btn = ui("button", "Approve All Pending", "approve_order")
+ui("add_child", dashboard, approve_btn)
+
+// 4. Export the React Application!
+ui("export", "./react-dashboard-app")
+
+// 5. Or Export a Native Flutter Mobile Application!
+ui("export_flutter", "./flutter-dashboard-app")</code></pre>
+
+        <p><strong>Deployment (React):</strong> Once you run the script, MCN generates a <code>react-dashboard-app</code> folder. Run <code>npm start</code> in that folder to view the Web UI. Start the MCN backend server via <code>python run_mcn.py serve --file admin_dashboard.mcn</code>.</p>
+        <p><strong>Deployment (Flutter Mobile):</strong> For mobile, MCN generates a clean <code>flutter-dashboard-app</code> project structure. Navigate to that folder, configure dependencies, and run <code>flutter run</code> to launch the mobile app locally (communicating directly with the active MCN backend API server).</p>
+
+        <!-- Packaging & Delivery -->
+        <h2 id="packaging">Packaging & Delivery</h2>
+        <p>For deploying MCN scripts and runtimes in enterprise and production environments, MCN supports multiple packaging options:</p>
+        <ul>
+            <li><strong>Python Wheel Packaging:</strong> Build standard universal wheels using:
+            <pre><code>python3 setup.py sdist bdist_wheel</code></pre>
+            This packages all core submodules, standard libraries, and Web Playground assets. Publish the output to private PyPI registries (e.g. AWS CodeArtifact, JFrog Artifactory) for deployment.</li>
+            <li><strong>Docker Containerization:</strong> Deploy MCN as a service using the included <code>Dockerfile</code>. It builds an isolated, production-grade container containing the API execution server and playground.</li>
+            <li><strong>VS Code Extension Packaging:</strong> Bundle visual editor support and language configs inside <code>studio/vscode-mcn</code> to a standard installation package using:
+            <pre><code>vsce package</code></pre></li>
+        </ul>
+
+        <hr style="margin-top: 60px; border: 0; border-top: 1px solid var(--border);">
+        <p style="text-align: center; color: var(--text-sidebar); font-size: 0.9rem; margin-top: 20px; padding-bottom: 40px;">
+            Macincode Scripting Language &bull; Developer Reference Manual
+        </p>
+    </div>
+
+</body>
+</html>

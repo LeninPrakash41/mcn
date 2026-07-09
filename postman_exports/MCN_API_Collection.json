@@ -1,0 +1,826 @@
+{
+  "info": {
+    "name": "MCN API Collection",
+    "description": "Auto-generated Postman collection for MCN APIs",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "ML",
+      "item": [
+        {
+          "name": "Train ML Model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ml/train",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ml",
+                "train"
+              ]
+            },
+            "description": "Train a machine learning model",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model_type\": \"random_forest\",\n  \"dataset_name\": \"customers\",\n  \"target_column\": \"churn\",\n  \"n_estimators\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/ml/train",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ml",
+                    "train"
+                  ]
+                },
+                "description": "Train a machine learning model",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model_type\": \"random_forest\",\n  \"dataset_name\": \"customers\",\n  \"target_column\": \"churn\",\n  \"n_estimators\": 100\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"model_id\": \"rf_customers_123456\",\n  \"metrics\": {\n    \"accuracy\": 0.85\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Make Prediction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ml/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ml",
+                "predict"
+              ]
+            },
+            "description": "Make prediction with trained model",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model_id\": \"rf_customers_123456\",\n  \"input_data\": {\n    \"age\": 30,\n    \"income\": 50000\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/ml/predict",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ml",
+                    "predict"
+                  ]
+                },
+                "description": "Make prediction with trained model",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"model_id\": \"rf_customers_123456\",\n  \"input_data\": {\n    \"age\": 30,\n    \"income\": 50000\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"prediction\": 0.23,\n  \"probability\": 0.77\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DB",
+      "item": [
+        {
+          "name": "Execute Database Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/db/query",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "db",
+                "query"
+              ]
+            },
+            "description": "Execute SQL query on database",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT * FROM users LIMIT 10\",\n  \"params\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/db/query",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "db",
+                    "query"
+                  ]
+                },
+                "description": "Execute SQL query on database",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sql\": \"SELECT * FROM users LIMIT 10\",\n  \"params\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"John\"\n    }\n  ],\n  \"rows_affected\": 1\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "AI Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/chat",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            },
+            "description": "Chat with AI model",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Analyze this data\",\n  \"model\": \"gpt-3.5-turbo\",\n  \"max_tokens\": 150\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/ai/chat",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "chat"
+                  ]
+                },
+                "description": "Chat with AI model",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"prompt\": \"Analyze this data\",\n  \"model\": \"gpt-3.5-turbo\",\n  \"max_tokens\": 150\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"response\": \"Based on the data analysis...\",\n  \"model\": \"gpt-3.5-turbo\",\n  \"tokens_used\": 45\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IOT",
+      "item": [
+        {
+          "name": "List IoT Devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/iot/devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "iot",
+                "devices"
+              ]
+            },
+            "description": "Get list of registered IoT devices"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/iot/devices",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices"
+                  ]
+                },
+                "description": "Get list of registered IoT devices"
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"devices\": [\n    {\n      \"id\": \"temp_01\",\n      \"type\": \"temperature_sensor\",\n      \"status\": \"active\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Read IoT Device",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/iot/device/{{param['name']}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "iot",
+                "device",
+                "{{param['name']}}",
+                "read"
+              ]
+            },
+            "description": "Read data from IoT device"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/iot/device/{{param['name']}}/read",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "device",
+                    "{{param['name']}}",
+                    "read"
+                  ]
+                },
+                "description": "Read data from IoT device"
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"value\": 23.5,\n  \"unit\": \"\\u00b0C\",\n  \"timestamp\": 1640995200\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EVENTS",
+      "item": [
+        {
+          "name": "Trigger Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events/trigger",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "trigger"
+              ]
+            },
+            "description": "Trigger an event in the system",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_name\": \"user_login\",\n  \"data\": {\n    \"user_id\": 123,\n    \"timestamp\": 1640995200\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events/trigger",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events",
+                    "trigger"
+                  ]
+                },
+                "description": "Trigger an event in the system",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"event_name\": \"user_login\",\n  \"data\": {\n    \"user_id\": 123,\n    \"timestamp\": 1640995200\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Event triggered successfully\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AGENTS",
+      "item": [
+        {
+          "name": "Create Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agents/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "agents",
+                "create"
+              ]
+            },
+            "description": "Create autonomous agent",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"data_analyst\",\n  \"prompt\": \"You are a data analysis expert\",\n  \"model\": \"gpt-4\",\n  \"tools\": [\n    \"query\",\n    \"ai\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/agents/create",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "agents",
+                    "create"
+                  ]
+                },
+                "description": "Create autonomous agent",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"data_analyst\",\n  \"prompt\": \"You are a data analysis expert\",\n  \"model\": \"gpt-4\",\n  \"tools\": [\n    \"query\",\n    \"ai\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"agent_id\": \"agent_123\",\n  \"status\": \"created\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PIPELINES",
+      "item": [
+        {
+          "name": "Run Data Pipeline",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/pipelines/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "pipelines",
+                "run"
+              ]
+            },
+            "description": "Execute data processing pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_name\": \"customer_analysis\",\n  \"input_data\": \"customer_data.csv\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/pipelines/run",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "pipelines",
+                    "run"
+                  ]
+                },
+                "description": "Execute data processing pipeline",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pipeline_name\": \"customer_analysis\",\n  \"input_data\": \"customer_data.csv\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"pipeline_id\": \"pipe_123\",\n  \"status\": \"running\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "your_api_key_here",
+      "type": "string"
+    }
+  ]
+}

@@ -91,6 +91,9 @@ class TT(Enum):
     MCP      = auto()   # mcp     (Model Context Protocol server declaration)
     TOOL     = auto()   # tool    (tool declaration inside mcp)
 
+    # Background Jobs
+    SCHEDULE = auto()   # schedule
+
     # Loop control
     BREAK    = auto()   # break
     CONTINUE = auto()   # continue
@@ -152,6 +155,8 @@ KEYWORDS: dict[str, TT] = {
     "agent":    TT.AGENT,
     "mcp":      TT.MCP,
     "tool":     TT.TOOL,
+    # Background Jobs
+    "schedule": TT.SCHEDULE,
     # Loop control
     "break":    TT.BREAK,
     "continue": TT.CONTINUE,

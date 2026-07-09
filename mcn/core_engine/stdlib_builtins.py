@@ -295,6 +295,43 @@ def mcn_auth_verify_token(token: str, secret: str = "") -> Optional[Dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ENVIRONMENT & SECRETS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def mcn_env_get(key: str, default: Any = "") -> str:
+    """Safely get an environment variable. Crucial for secrets like API keys."""
+    return os.environ.get(str(key), default)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP / THIRD-PARTY APIs
+# ─────────────────────────────────────────────────────────────────────────────
+
+def mcn_fetch(url: str, method: str = "GET", headers: dict = None, body: Any = None) -> Any:
+    """Make an HTTP request using requests. Returns JSON dict if possible, else text."""
+    import requests
+    kwargs = {"method": method.upper(), "url": url}
+    if headers:
+        kwargs["headers"] = dict(headers)
+    
+    if body is not None:
+        if isinstance(body, (dict, list)):
+            kwargs["json"] = body
+        else:
+            kwargs["data"] = str(body)
+
+    try:
+        resp = requests.request(**kwargs)
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except Exception:
+            return resp.text
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # DATA PARSING
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -559,6 +596,11 @@ def register_stdlib_builtins(functions: dict) -> None:
         "memory_search":     mcn_memory_search,
         "memory_all":        mcn_memory_all,
         "memory_clear":      mcn_memory_clear,
+        # HTTP & Env
+        "env_get":           mcn_env_get,
+        "fetch":             mcn_fetch,
+        "http_get":          lambda url, headers=None: mcn_fetch(url, method="GET", headers=headers),
+        "http_post":         lambda url, body, headers=None: mcn_fetch(url, method="POST", headers=headers, body=body),
         # Vector Store
         "vector_upsert":     mcn_vector_upsert,
         "vector_search":     mcn_vector_search,
@@ -658,6 +700,7 @@ def register_stdlib_builtins(functions: dict) -> None:
         "flat":              mcn_flatten,
         "slice":             mcn_slice_list,
         "zip":               mcn_zip_lists,
+        "range":             lambda *args: list(range(int(args[0]))) if len(args) == 1 else list(range(int(args[0]), int(args[1]))) if len(args) == 2 else list(range(int(args[0]), int(args[1]), int(args[2]))) if len(args) == 3 else [],
         "find":              lambda lst, fn: next((x for x in lst if fn(x)), None),
         "filter":            lambda lst, fn: [x for x in lst if fn(x)],
         "map":               lambda lst, fn: [fn(x) for x in lst],

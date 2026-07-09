@@ -539,21 +539,22 @@ def test_generate_streams_sse(r):
             return original_thread(target=lambda: None, daemon=True)
 
         with patch("threading.Thread", side_effect=_fake_thread):
-            with patch.object(pg, "WORKSPACE", _TMP_WORKSPACE):
-                # We test the endpoint shape by directly calling the route function
-                # and checking it doesn't raise
-                try:
-                    with app.test_client() as c:
-                        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test"}):
-                            res = c.post("/api/generate",
-                                         data=json.dumps({"description": "test app",
-                                                          "api_key": "sk-test-key"}),
-                                         content_type="application/json")
-                            # Should return SSE stream (200) or error (400/500)
-                            # — we just verify it doesn't crash and returns valid HTTP
-                            r.check(res.status_code in (200, 400, 500), "valid HTTP status")
-                except Exception as e:
-                    r.check(False, f"raised exception: {e}")
+            with patch("queue.Queue", return_value=q):
+                with patch.object(pg, "WORKSPACE", _TMP_WORKSPACE):
+                    # We test the endpoint shape by directly calling the route function
+                    # and checking it doesn't raise
+                    try:
+                        with app.test_client() as c:
+                            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test"}):
+                                res = c.post("/api/generate",
+                                             data=json.dumps({"description": "test app",
+                                                              "api_key": "sk-test-key"}),
+                                             content_type="application/json")
+                                # Should return SSE stream (200) or error (400/500)
+                                # — we just verify it doesn't crash and returns valid HTTP
+                                r.check(res.status_code in (200, 400, 500), "valid HTTP status")
+                    except Exception as e:
+                        r.check(False, f"raised exception: {e}")
 
 
 def test_execute_code_size_limit(r):

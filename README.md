@@ -28,6 +28,25 @@ log("Admitted {admission.patient_id} — risk: {risk}")
 
 ---
 
+## Internal Low/No-Code Platform
+
+MCN is designed to act as an **Internal Low/No-Code Platform** engine (ideal for ecosystems like ClopsAI). It replaces the need to write traditional React + Node.js boilerplates when building internal tools, admin panels, or CRM dashboards.
+
+### The Architecture: No Backend Boilerplate
+
+Unlike other app builders that generate separate frontend and backend codebases, **MCN itself acts as the backend server.**
+
+1. **Write an MCN Script (Low Code):** A single `.mcn` file defines your database schema, AI agents, and UI layout using simplified MCN syntax (`ui("table", ...)`).
+2. **Generate the Frontend:** The `ui("export", "./app")` command automatically translates your UI definitions into a production-ready React + Tailwind application. It also generates a dedicated `mcn-client.tsx` SDK that wires up all events directly to your backend.
+3. **Run the Backend:** Execute your script with `python run_mcn.py serve --file your_app.mcn`. The Python MCN engine instantly spins up a secure, live API server. 
+
+### Why this works:
+- **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to execute the Python-based MCN functions via HTTP/WebSockets.
+- **Natural Language Translation:** Non-technical staff can use the `ai_v3` translate module (`translate("show all products")`) to generate applications purely from text.
+- **Secure Integration:** Database credentials and API keys stay firmly on the MCN backend server, never touching the React View layer.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -44,6 +63,11 @@ cd mcn/web-playground
 python server.py
 # → http://localhost:7842
 ```
+
+The Web Playground includes built-in **Interactive Simulators** in the preview pane:
+* **DB Explorer**: Inspect database tables, explore generated schemas, and write SQL queries against the live SQLite instance.
+* **IoT Simulator**: Slide sensor values (temperature, humidity) or toggle motion triggers to override inputs and test automation handlers.
+* **AI & RAG Inspector**: Trace prompt execution pipelines, vector databases search operations, and retrieval matches in real time.
 
 ---
 
@@ -750,6 +774,29 @@ mt-mcn/
 ├── examples/                   # Ready-to-run .mcn scripts
 └── use-cases/                  # Real-world scenario scripts
 ```
+
+---
+
+## Packaging & Distribution
+
+To package and deploy MCN across enterprise clusters and edge environments:
+
+### 1. Python Wheel & Source Build
+Compile MCN into a universal wheel distribution:
+```bash
+python3 setup.py sdist bdist_wheel
+```
+This produces PEP 517 artifacts in `dist/` that can be pushed to secure private PyPI registries (e.g., AWS CodeArtifact, JFrog Artifactory) and installed via:
+```bash
+pip install mcn-lang --extra-index-url https://registry.company.com/simple
+```
+
+### 2. Docker Container Deployment
+Run MCN as a containerized microservice:
+```bash
+docker-compose up -d --build
+```
+This spins up the production API execution server and playground in an isolated, lightweight container.
 
 ---
 

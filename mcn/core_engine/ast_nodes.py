@@ -312,6 +312,17 @@ class ServiceDecl(Node):
 
 
 @dataclass
+class ScheduleDecl(Node):
+    """
+    schedule my_job at "0 0 * * *"
+        var data = query("...")
+    """
+    name:      str          = ""
+    cron_expr: str          = ""
+    body:      List["Stmt"] = field(default_factory=list)
+
+
+@dataclass
 class StepDecl(Node):
     """A single step inside a workflow declaration."""
     name:     str               = ""

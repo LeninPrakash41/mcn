@@ -11,21 +11,23 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:          #ffffff;
-      --surface:     #f8f9fb;
-      --surface2:    #f1f3f6;
-      --border:      #e4e8ef;
-      --accent:      #7c3aed;
-      --accent-bg:   #ede9fe;
-      --accent-h:    #6d28d9;
-      --green:       #16a34a;
-      --red:         #dc2626;
-      --text:        #0f172a;
-      --muted:       #64748b;
-      --header-h:    52px;
-      --sidebar-w:   224px;
-      --preview-w:   390px;
-      --status-h:    24px;
+      --bg:           #ffffff;
+      --surface:      #f4f4f5;
+      --surface2:     #e4e4e7;
+      --border:       #d4d4d8;
+      --border-focus: #a1a1aa;
+      --accent:       #3b82f6;
+      --accent-bg:    rgba(59, 130, 246, 0.08);
+      --accent-border:rgba(59, 130, 246, 0.35);
+      --accent-h:     #2563eb;
+      --green:        #16a34a;
+      --red:          #dc2626;
+      --text:         #09090b;
+      --muted:        #71717a;
+      --header-h:     56px;
+      --sidebar-w:    240px;
+      --preview-w:    420px;
+      --status-h:     28px;
     }
 
     body {
@@ -148,13 +150,34 @@
     .tree-folder {
       display: flex;
       align-items: center;
-      gap: 5px;
-      padding: 3px 12px;
-      font-size: 12px;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 12.5px;
       font-weight: 600;
       color: var(--muted);
       user-select: none;
-      cursor: default;
+      cursor: pointer;
+      border-radius: 5px;
+      margin: 2px 4px;
+      transition: background .12s, color .12s;
+    }
+    .tree-folder:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .folder-caret {
+      font-size: 9px;
+      width: 12px;
+      display: inline-block;
+      text-align: center;
+      opacity: 0.6;
+      transition: transform .12s;
+    }
+    .tree-folder-contents {
+      margin-bottom: 4px;
+    }
+    .tree-folder-contents .tree-item {
+      padding-left: 32px;
     }
 
     .tree-item {
@@ -348,8 +371,8 @@
       font-family: 'JetBrains Mono', monospace;
       font-size: 11.5px;
       line-height: 1.65;
-      background: #1a1b26;
-      color: #c0caf5;
+      background: #1e1e2e;
+      color: #cdd6f4;
     }
     .log-line { white-space: pre-wrap; word-break: break-all; }
     .log-line.success { color: #9ece6a; }
@@ -478,48 +501,56 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(6px);
+      background: rgba(9, 9, 11, 0.4);
+      backdrop-filter: blur(4px);
       z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s ease;
     }
     .modal-overlay.hidden { display: none; }
 
     .modal-card {
-      background: var(--bg);
-      border-radius: 16px;
+      background: #ffffff;
+      border-radius: 14px;
+      border: 1px solid var(--border);
       width: 580px;
       max-width: 92vw;
-      max-height: 82vh;
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 24px 48px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06);
+      box-shadow: 0 20px 48px rgba(9, 9, 11, 0.12), 0 0 0 1px rgba(9, 9, 11, 0.04);
+      color: var(--text);
       overflow: hidden;
+      transition: transform 0.2s ease, opacity 0.2s ease;
     }
 
     .modal-hdr {
-      padding: 22px 24px 0;
+      padding: 24px 24px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #ffffff;
     }
-    .modal-title { font-size: 19px; font-weight: 700; }
-    .modal-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 18px; }
+    .modal-title { font-size: 18px; font-weight: 600; color: var(--text); }
+    .modal-sub   { font-size: 13px; color: var(--muted); margin-top: 6px; margin-bottom: 0; }
 
     .modal-body {
-      padding: 0 24px;
+      padding: 20px 24px;
       flex: 1;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
+      background: #ffffff;
     }
 
     .modal-footer {
-      padding: 14px 24px;
+      padding: 16px 24px;
       display: flex;
-      gap: 8px;
+      gap: 12px;
       justify-content: flex-end;
       border-top: 1px solid var(--border);
+      background: var(--surface);
       flex-shrink: 0;
     }
 
@@ -553,12 +584,13 @@
     .gen-status.hidden { display: none; }
 
     .gen-stream {
-      background: #1a1b26;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 14px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 11.5px;
-      color: #c0caf5;
+      color: #334155;
       max-height: 200px;
       overflow-y: auto;
       white-space: pre-wrap;
@@ -579,8 +611,127 @@
     /* ── Scrollbars ──────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #dde2ea; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #b8c0cc; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-focus); }
+
+    /* ── Workspace Switcher (Far-Left Bar) ─────────────────────────── */
+    .workspace-switcher {
+      width: 72px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      flex-shrink: 0;
+      gap: 20px;
+    }
+    .switcher-items {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      align-items: center;
+    }
+    .switcher-item {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 4px;
+    }
+    .switcher-item:hover {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .switcher-item.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+    }
+    .switcher-icon { font-size: 20px; }
+    .switcher-text {
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Light-theme modal and form overrides ──────────────────────────── */
+    input.form-input, textarea.form-textarea, select.form-input {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+    }
+    input.form-input:focus, textarea.form-textarea:focus, select.form-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .si-trigger-card {
+      border-color: var(--border);
+      background: var(--surface);
+    }
+    .si-trigger-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    .si-trigger-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    .si-add-btn {
+      border-color: var(--border);
+    }
+    .si-add-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+
+    /* ── AI Agent card components ──────────────────────────────────────── */
+    .ai-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .ai-card h3 {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+
+    /* ── REPL Interactive console ────────────────────────────────────── */
+    #repl-history {
+      scrollbar-width: thin;
+    }
+    #repl-input:focus {
+      outline: none;
+    }
 
     .hidden { display: none !important; }
   </style>
@@ -591,30 +742,33 @@
 <header>
   <div class="logo">
     <div class="logo-gem">M</div>
-    MCN
+    MCN Playground
     <span class="logo-ver">v2.2</span>
   </div>
 
-  <button class="btn btn-gradient" onclick="openGenerateModal()">✦ Generate AI App</button>
-  <button class="btn btn-si" onclick="openSIModal()">⚡ Wire a Process</button>
-  <button class="btn" onclick="runActiveFile()" title="Run active file (Ctrl+Enter)">▶ Run</button>
-  <button class="btn btn-sm" onclick="formatActiveFile()" title="Format active file">⌥ Format</button>
-  <button class="btn btn-sm" onclick="checkActiveFile()" title="Type-check active file">✓ Check</button>
-  <button class="btn btn-sm" onclick="runTests()" title="Run tests in active file">⚗ Test</button>
-  <button class="btn btn-primary" onclick="buildProject()">⚡ Build</button>
+  <div class="hdr-sep"></div>
+
+  <!-- Primary Workflow Group -->
+  <div style="display:flex; gap: 8px; align-items: center; background: var(--surface); padding: 4px 6px; border-radius: 8px; border: 1px solid var(--border);">
+    <button class="btn btn-sm" onclick="runActiveFile()" title="Run backend file (Ctrl+Enter)">Run Backend</button>
+    <button class="btn btn-primary btn-sm" onclick="buildProject()">Build UI</button>
+    <button class="btn btn-sm" id="btnLaunch" onclick="toggleDevServer()" style="color:var(--text); background:var(--bg); border-color:var(--border-focus);">Launch Preview</button>
+  </div>
 
   <div class="hdr-sep"></div>
 
-  <button class="btn btn-sm" onclick="clearOutput()" title="Clear output log">⌫ Clear</button>
-  <button class="btn" id="btnDownload" onclick="downloadProject()" disabled title="Download built project as zip">⬇ Download</button>
-  <button class="btn" onclick="openDeployModal()" title="Package workspace for deployment">☁ Deploy</button>
-  <button class="btn" id="btnLaunch" onclick="toggleDevServer()">🚀 Launch Preview</button>
+  <button class="btn btn-sm" onclick="openGenerateModal()" title="AI Generate">Generate</button>
+  <button class="btn btn-sm" onclick="openAgentStudioModal()" title="AI Agent Studio" style="background:var(--accent-bg); color:var(--accent); border-color:var(--accent-border);">UI Agent</button>
+  <button class="btn btn-sm" onclick="openBackendAgentModal()" title="AI Backend Agent" style="background:var(--accent-bg); color:var(--accent); border-color:var(--accent-border);">Backend Agent</button>
+  <button class="btn btn-sm" onclick="formatActiveFile()" title="Format active file">Format</button>
+  <button class="btn btn-sm" onclick="checkActiveFile()" title="Type-check active file">Check</button>
 
   <div class="hdr-sep"></div>
 
   <div id="auth-area">
-    <button class="btn btn-sm" onclick="openAuthModal()" id="btn-signin">⚿ Sign In</button>
-    <span id="auth-user" style="display:none;font-size:13px;color:var(--fg-dim);cursor:pointer;" onclick="openAuthModal()"></span>
+    <button class="btn btn-sm" onclick="openAuthModal()" id="btn-signin">Sign In</button>
+    <button class="btn btn-sm" onclick="continueAsGuest()" id="btn-guest" style="color:var(--muted);">Continue as Guest</button>
+    <span id="auth-user" style="display:none;font-size:13px;color:var(--muted);cursor:pointer;" onclick="openAuthModal()"></span>
     <button class="btn btn-sm" onclick="signOut()" id="btn-signout" style="display:none;">Sign Out</button>
   </div>
 </header>
@@ -622,10 +776,35 @@
 <!-- ── Workspace ───────────────────────────────────────────────────────── -->
 <div class="workspace">
 
+  <!-- Workspace Switcher (Far-Left Bar) -->
+  <div class="workspace-switcher">
+    <div class="switcher-logo">
+      <div class="logo-gem">M</div>
+    </div>
+    <div class="switcher-items">
+      <button class="switcher-item" id="ws-repl" onclick="switchWorkspace('repl')" title="MCN REPL Sandbox">
+        <span class="switcher-icon">💻</span>
+        <span class="switcher-text">REPL</span>
+      </button>
+      <button class="switcher-item active" id="ws-react" onclick="switchWorkspace('react')" title="FullStack React Builder">
+        <span class="switcher-icon">🌐</span>
+        <span class="switcher-text">React Web</span>
+      </button>
+      <button class="switcher-item" id="ws-flutter" onclick="switchWorkspace('flutter')" title="Flutter Mobile Builder">
+        <span class="switcher-icon">📱</span>
+        <span class="switcher-text">Flutter Mobile</span>
+      </button>
+
+    </div>
+  </div>
+
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="sidebar-scroll">
-      <div class="section-label">Project</div>
+      <div class="section-label" style="display:flex; justify-content:space-between; align-items:center; padding-right:12px;">
+        <span>Project</span>
+        <button class="btn" onclick="promptCreateFile()" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; line-height: 1;" title="New File">+ New File</button>
+      </div>
       <div id="file-tree"></div>
 
       <div class="sidebar-div"></div>
@@ -638,30 +817,90 @@
   <div class="editor-area">
     <div class="tab-bar" id="tab-bar"></div>
     <div id="monaco-container" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
-    <div class="no-file-open" id="no-file-msg">
-      <div class="nfo-icon">📝</div>
-      <p>Select a file to start editing</p>
+    <div class="no-file-open" id="no-file-msg" style="pointer-events:auto;">
+      <div class="nfo-icon">✨</div>
+      <h2 style="font-size:18px; color:var(--text); margin-bottom: 6px;">Welcome to MCN Playground</h2>
+      <p style="text-align: center; max-width: 320px; line-height: 1.5; margin-bottom: 20px;">
+        Build full-stack applications instantly. Write MCN code, click <b>Build UI</b>, then <b>Launch Preview</b>.
+      </p>
+      <div style="display:flex; gap: 12px;">
+        <button class="btn btn-primary" onclick="openGenerateModal()">✦ Generate with AI</button>
+        <button class="btn" onclick="document.querySelector('#examples-list').scrollIntoView({behavior: 'smooth'})">Choose an Example</button>
+      </div>
     </div>
+
+
   </div>
 
   <!-- Preview panel -->
   <div class="preview-panel">
     <div class="panel-tabs">
-      <div class="panel-tab active" data-panel="preview" onclick="switchPanel('preview', this)">Preview</div>
-      <div class="panel-tab" data-panel="output" onclick="switchPanel('output', this)">Output</div>
-      <div class="panel-tab" data-panel="files" onclick="switchPanel('files', this)">Files</div>
+      <div class="panel-tab active" data-panel="preview" id="tab-web-preview" onclick="switchPanel('preview', this)">Web Preview</div>
+      <div class="panel-tab" data-panel="flutter-preview" id="tab-mobile-preview" onclick="switchPanel('flutter-preview', this)">Mobile Preview</div>
+      <div class="panel-tab" data-panel="repl-console" id="tab-repl-console" onclick="switchPanel('repl-console', this)">REPL Sandbox</div>
+      <div class="panel-tab" data-panel="db-explorer" id="tab-db-explorer" onclick="switchPanel('db-explorer', this)">DB Explorer</div>
+      <div class="panel-tab" data-panel="iot-simulator" id="tab-iot-simulator" onclick="switchPanel('iot-simulator', this)">IoT Simulator</div>
+      <div class="panel-tab" data-panel="ai-inspector" id="tab-ai-inspector" onclick="switchPanel('ai-inspector', this)">AI & RAG</div>
+      <div class="panel-tab" data-panel="output" id="tab-output" onclick="switchPanel('output', this)">Output</div>
+      <div class="panel-tab" data-panel="files" id="tab-files" onclick="switchPanel('files', this)">Files</div>
     </div>
     <div class="panel-content">
 
-      <!-- Preview -->
+      <!-- Web Preview -->
       <div class="panel-section active" id="panel-preview">
         <div class="preview-placeholder" id="preview-ph">
-          <div class="ph-icon">🖥️</div>
-          <h3>No Preview</h3>
+          <div class="ph-icon" style="font-size:40px;color:var(--muted);">&#9634;</div>
+          <h3>No Web Preview</h3>
           <p>Build your app then click <b>Launch Preview</b> to see it live here.</p>
         </div>
         <iframe id="preview-iframe" class="hidden" allow="same-origin"></iframe>
       </div>
+
+      <!-- Mobile Preview (Flutter Simulator) -->
+      <div class="panel-section" id="panel-flutter-preview" style="background:#e8eaf0;padding:20px;align-items:center;justify-content:center;display:none;flex-direction:column;gap:12px;">
+        <!-- Simulated smartphone frame - proper app size -->
+        <div class="phone-frame" style="width:390px;height:720px;background:#000;border:10px solid #1e293b;border-radius:44px;box-shadow:0 30px 60px -12px rgba(0,0,0,0.3),0 0 0 1px rgba(0,0,0,0.05);display:flex;flex-direction:column;overflow:hidden;position:relative;flex-shrink:0;">
+          <!-- Top Notch -->
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:32px;background:#000;border-bottom-left-radius:18px;border-bottom-right-radius:18px;z-index:30;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <div style="width:10px;height:10px;border-radius:50%;background:#1a1a1a;"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#1a1a1a;"></div>
+          </div>
+          <!-- Screen Content -->
+          <div class="phone-screen" style="flex:1;background:#f8fafc;display:flex;flex-direction:column;overflow:hidden;font-family:'Inter','Segoe UI',sans-serif;color:#1e293b;padding-top:32px;">
+            <!-- Phone Status Bar -->
+            <div style="height:20px;padding:0 16px;display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:600;color:#64748b;z-index:20;">
+              <span>9:41</span>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <span style="font-size:9px;">LTE</span><span style="font-size:9px;">100%</span>
+              </div>
+            </div>
+            <!-- Mock Flutter App Bar -->
+            <div id="flutter-mock-appbar" style="background:#2196F3;color:#ffffff;height:42px;padding:0 12px;display:flex;align-items:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);flex-shrink:0;">
+              <span id="flutter-appbar-title" style="font-weight:600;font-size:13px;">MCN Mobile App</span>
+            </div>
+            <!-- Mock Flutter Body Content -->
+            <div id="flutter-mock-content" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;">
+              <div style="text-align:center;padding:40px 10px;color:#64748b;font-style:italic;font-size:11px;">No mobile layout built. Click ⚡ Build to compile ui/app.mcn to Flutter widgets.</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:12px;">
+          <button class="btn btn-primary" onclick="downloadProject('flutter')" style="background:#0ea5e9;border:none;width:100%;padding:8px 0;font-size:12px;">Export Flutter Project Bundle</button>
+        </div>
+      </div>
+
+      <!-- REPL Sandbox Console -->
+      <div class="panel-section" id="panel-repl-console" style="background:#1a1b26;display:none;flex-direction:column;">
+        <div id="repl-history" style="flex:1;overflow-y:auto;padding:12px;font-family:'JetBrains Mono', monospace;font-size:11.5px;color:#c0caf5;display:flex;flex-direction:column;gap:6px;line-height:1.6;">
+          <div style="color:#565f89;">// Welcome to the MCN REPL Sandbox. Type expressions below.</div>
+        </div>
+        <div style="height:36px;border-top:1px solid #2e303e;display:flex;align-items:center;padding:0 8px;gap:6px;background:#13141c;flex-shrink:0;">
+          <span style="color:#89ddff;font-family:'JetBrains Mono', monospace;font-weight:bold;">mcn&gt;</span>
+          <input id="repl-input" type="text" placeholder="var x = 10; log(x);" style="flex:1;background:transparent;border:none;outline:none;color:#c0caf5;font-family:'JetBrains Mono', monospace;font-size:12px;" onkeydown="handleReplKey(event)" />
+        </div>
+      </div>
+
+
 
       <!-- Output log -->
       <div class="panel-section" id="panel-output">
@@ -674,10 +913,78 @@
           <div style="padding:24px;text-align:center;color:var(--muted)">No build yet — click ⚡ Build</div>
         </div>
       </div>
+
+      <!-- DB Explorer Panel -->
+      <div class="panel-section" id="panel-db-explorer" style="padding:16px;display:none;flex-direction:column;gap:12px;overflow-y:auto;background:var(--surface);">
+        <div class="form-group" style="display:flex;gap:6px;align-items:center;">
+          <h4 style="font-size:12.5px;font-weight:600;color:var(--text);margin:0;">Tables & Schema</h4>
+          <button class="btn btn-sm" onclick="refreshDBTables()" style="margin-left:auto;padding:3px 8px;font-size:11px;">↻ Refresh</button>
+        </div>
+        <div id="db-tables-list" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:6px;">
+          <div style="text-align:center;font-style:italic;">No tables found. Run database code first.</div>
+        </div>
+        
+        <div class="form-group" style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">SQL Console</label>
+          <textarea id="db-sql-console" rows="3" class="form-textarea" placeholder="SELECT * FROM auth_users;" style="background:#1a1b26;color:#c0caf5;font-family:'JetBrains Mono',monospace;font-size:11.5px;border:1px solid var(--border);padding:8px;outline:none;border-radius:6px;resize:vertical;"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="runConsoleSQL()" style="padding:4px 12px;font-size:11.5px;">Execute Query</button>
+          <button class="btn btn-sm" onclick="document.getElementById('db-sql-console').value=''" style="padding:4px 12px;font-size:11.5px;">Clear</button>
+        </div>
+        
+        <div class="form-group" style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:160px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">Query Results</label>
+          <div id="db-query-results" style="flex:1;background:#1a1b26;border:1px solid var(--border);border-radius:6px;padding:10px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:#c0caf5;line-height:1.5;">
+            <div style="color:#565f89;font-style:italic;">Execute a query above to see results.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- IoT Simulator Panel -->
+      <div class="panel-section" id="panel-iot-simulator" style="padding:16px;display:none;flex-direction:column;gap:12px;overflow-y:auto;background:var(--surface);">
+        <div class="form-group" style="display:flex;gap:6px;align-items:center;">
+          <h4 style="font-size:12.5px;font-weight:600;color:var(--text);margin:0;">Simulated Devices</h4>
+          <button class="btn btn-sm" onclick="refreshIoTSimulator()" style="margin-left:auto;padding:3px 8px;font-size:11px;">↻ Refresh</button>
+        </div>
+        <div id="iot-devices-list" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="text-align:center;font-style:italic;color:var(--muted);padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">No IoT devices registered. Run IoT code first.</div>
+        </div>
+        
+        <div class="form-group" style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:140px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">Device Commands & Actions Log</label>
+          <div id="iot-actions-log" style="flex:1;background:#1a1b26;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#c0caf5;line-height:1.5;">
+            <div style="color:#565f89;font-style:italic;">No commands recorded.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI & RAG Inspector Panel -->
+      <div class="panel-section" id="panel-ai-inspector" style="padding:16px;display:none;flex-direction:column;gap:12px;overflow-y:auto;background:var(--surface);">
+        <div class="form-group" style="display:flex;gap:6px;align-items:center;">
+          <h4 style="font-size:12.5px;font-weight:600;color:var(--text);margin:0;">Model Registry & AI Logs</h4>
+          <button class="btn btn-sm" onclick="refreshAIInspector()" style="margin-left:auto;padding:3px 8px;font-size:11px;">↻ Refresh</button>
+        </div>
+        
+        <div class="form-group" style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">Active AI Model</label>
+          <div id="ai-active-model" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;font-weight:500;color:#f3f4f6;font-family:'JetBrains Mono',monospace;">
+            gpt-3.5-turbo (default)
+          </div>
+        </div>
+
+        <div class="form-group" style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:200px;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">AI & RAG Execution Trace</label>
+          <div id="ai-execution-trace" style="flex:1;background:#1a1b26;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#c0caf5;line-height:1.5;display:flex;flex-direction:column;gap:8px;">
+            <div style="color:#565f89;font-style:italic;">No AI operations logged yet. Run AI or RAG code to trace execution.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="preview-actions">
       <button class="btn btn-sm" onclick="refreshPreview()" title="Reload iframe">↻ Refresh</button>
+      <button class="btn btn-sm" onclick="openPreviewFullscreen()" title="Open preview in new tab">↗ Open Tab</button>
       <div style="flex:1"></div>
       <span id="server-badge">No dev server</span>
     </div>
@@ -698,7 +1005,7 @@
 <div class="modal-overlay hidden" id="si-modal">
   <div class="modal-card" style="width:620px">
     <div class="modal-hdr">
-      <div class="modal-title">⚡ Wire a Process</div>
+      <div class="modal-title">Wire a Process</div>
       <div class="modal-sub">Answer 3 questions — MCN generates the integration for you</div>
     </div>
     <div class="modal-body">
@@ -779,7 +1086,7 @@
 <div class="modal-overlay hidden" id="gen-modal">
   <div class="modal-card">
     <div class="modal-hdr">
-      <div class="modal-title">✦ Generate AI App</div>
+      <div class="modal-title">Generate AI App</div>
       <div class="modal-sub">Describe your app in plain English — Claude generates the MCN backend &amp; UI</div>
     </div>
     <div class="modal-body">
@@ -808,40 +1115,201 @@
   </div>
 </div>
 
-<!-- ── Auth Modal ───────────────────────────────────────────────────────── -->
-<div class="modal-overlay hidden" id="auth-modal">
-  <div class="modal-card" style="max-width:400px">
+<!-- ── AI Agent Studio Modal ──────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="agent-studio-modal">
+  <div class="modal-card" style="width: 580px;">
     <div class="modal-hdr">
-      <div class="modal-title" id="auth-modal-title">Sign In</div>
-      <div class="modal-sub">Your workspace is saved between sessions</div>
+      <div class="modal-title">AI Agent Studio (UI/UX Refiner)</div>
+      <div class="modal-sub">Prompt the Coding Agent to refine and polish your interface and layouts</div>
     </div>
-    <div class="modal-body">
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <button class="btn btn-sm" id="auth-tab-login" onclick="switchAuthTab('login')" style="flex:1">Sign In</button>
-        <button class="btn btn-sm" id="auth-tab-register" onclick="switchAuthTab('register')" style="flex:1">Register</button>
-      </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+      
+      <!-- Presets -->
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" id="auth-email" placeholder="you@example.com" autocomplete="username" />
+        <label class="form-label" style="margin-bottom:6px;">Design Preset Quick Actions</label>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button class="btn btn-sm" onclick="setAgentPreset('mcn', 'Add Glassmorphism Theme (blur panels, translucent card borders, clean neon accent rings)')">✨ Glassmorphic Layout</button>
+          <button class="btn btn-sm" onclick="setAgentPreset('mcn', 'Convert main layout to a responsive 3-column dashboard grid layout (grid grid-cols-1 md:grid-cols-3 gap-6)')">📊 3-Col Grid</button>
+          <button class="btn btn-sm" onclick="setAgentPreset('compiled', 'Add hover scale-up micro-animations (scale 1.01, hover-scale) and smooth transition timings to all buttons and cards')">⚡ Micro-Animations</button>
+          <button class="btn btn-sm" onclick="setAgentPreset('compiled', 'Transform layout to luxury dark mode cyberpunk aesthetic with glowing borders and radial accent gradient backgrounds')">🌌 Cyberpunk Dark Mode</button>
+        </div>
       </div>
+
+      <!-- Mode selection -->
+      <div class="form-group" style="display:flex; gap:16px; margin-top:4px;">
+        <label class="form-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="agent-mode" value="mcn" checked style="accent-color:var(--accent);" />
+          <span>Enhance MCN Code (layout structure)</span>
+        </label>
+        <label class="form-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="agent-mode" value="compiled" style="accent-color:var(--accent);" />
+          <span>Enhance Compiled React TSX (pixel-perfect styles)</span>
+        </label>
+      </div>
+
+      <!-- Prompt input -->
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input class="form-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+        <label class="form-label">Tell the AI Coding Agent what to change/enhance</label>
+        <textarea class="form-textarea" id="agent-prompt" rows="3"
+          placeholder="e.g. Add a dark-mode glassmorphic navbar with rounded stats cards and hover transitions."></textarea>
       </div>
-      <div id="auth-error" style="display:none;color:#f87171;font-size:13px;margin-top:4px;"></div>
+
+      <!-- API Key input -->
+      <div class="form-group">
+        <label class="form-label">Claude API key <span>(optional if configured in environment)</span></label>
+        <input class="form-input" type="password" id="agent-key" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+
+      <!-- Status and spinner -->
+      <div class="gen-status hidden" id="agent-status" style="margin-top:8px;">
+        <div class="spinner"></div>
+        <span id="agent-status-text">Coding Agent analyzing UI...</span>
+      </div>
+
     </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeAuthModal()">Cancel</button>
-      <button class="btn btn-primary" id="auth-submit" onclick="submitAuth()">Sign In</button>
+    <div class="modal-footer" style="margin-top:12px;">
+      <button class="btn" onclick="closeAgentStudioModal()">Cancel</button>
+      <button class="btn btn-gradient" id="agent-submit" onclick="submitAgentEnhance()">✦ Refine UI</button>
     </div>
   </div>
 </div>
+
+<!-- ── Backend Agent Modal ────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="backend-agent-modal">
+  <div class="modal-card" style="width: 600px;">
+    <div class="modal-hdr">
+      <div class="modal-title">AI Backend Agent</div>
+      <div class="modal-sub">Generate or extend MCN backend services, APIs, database tables, auth flows, and scheduled jobs</div>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- Presets -->
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:6px;">Quick Presets</label>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button class="btn btn-sm" onclick="setBackendPreset('backend', 'Add JWT authentication endpoints: POST /auth/login, POST /auth/register, POST /auth/refresh with proper token validation')">🔐 Add Auth</button>
+          <button class="btn btn-sm" onclick="setBackendPreset('backend', 'Add full CRUD REST endpoints (GET list, GET by id, POST create, PUT update, DELETE) for the main database table')">📋 Full CRUD</button>
+          <button class="btn btn-sm" onclick="setBackendPreset('backend', 'Add a cron scheduled job that runs every midnight to clean up expired records and log a summary')">🕛 Cron Job</button>
+          <button class="btn btn-sm" onclick="setBackendPreset('backend', 'Add input validation and proper error handling (400/404/500) to all existing endpoints')">🛡 Validation & Errors</button>
+          <button class="btn btn-sm" onclick="setBackendPreset('backend', 'Add role-based access control: admin and user roles, protect write endpoints to admin only')">👥 RBAC Roles</button>
+          <button class="btn btn-sm" onclick="setBackendPreset('generate_backend', 'Generate a complete REST API backend with CRUD endpoints, database tables, auth, and a health-check endpoint')">✨ Generate from scratch</button>
+        </div>
+      </div>
+
+      <!-- Mode selection -->
+      <div class="form-group" style="display:flex; gap:20px; margin-top:4px;">
+        <label class="form-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="backend-mode" value="backend" checked style="accent-color:var(--accent);" />
+          <span>Enhance existing backend/main.mcn</span>
+        </label>
+        <label class="form-label" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="backend-mode" value="generate_backend" style="accent-color:var(--accent);" />
+          <span>Generate new backend from scratch</span>
+        </label>
+      </div>
+
+      <!-- Prompt input -->
+      <div class="form-group">
+        <label class="form-label">What should the Backend Agent do?</label>
+        <textarea class="form-textarea" id="backend-prompt" rows="3"
+          placeholder="e.g. Add a products service with full CRUD, image upload endpoint, and a stock alert cron job."></textarea>
+      </div>
+
+      <!-- API Key input -->
+      <div class="form-group">
+        <label class="form-label">Claude API key <span>(optional if configured in environment)</span></label>
+        <input class="form-input" type="password" id="backend-key" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+
+      <!-- Status spinner -->
+      <div class="gen-status hidden" id="backend-status" style="margin-top:8px;">
+        <div class="spinner"></div>
+        <span id="backend-status-text">Backend Agent generating code…</span>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="margin-top:12px;">
+      <button class="btn" onclick="closeBackendAgentModal()">Cancel</button>
+      <button class="btn btn-gradient" id="backend-submit" onclick="submitBackendAgent()">⚙ Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Auth Modal ───────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="auth-modal">
+  <div class="modal-card" style="width:420px; max-width:92vw;">
+
+    <!-- Branded header -->
+    <div style="padding:28px 28px 0;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <div style="width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;">M</div>
+        <span style="font-size:15px;font-weight:700;color:var(--text);">MCN Playground</span>
+      </div>
+      <div id="auth-modal-title" style="font-size:22px;font-weight:700;color:var(--text);margin-top:14px;">Welcome back</div>
+      <div class="modal-sub" style="margin-top:4px;">Sign in to save your workspace across sessions</div>
+
+      <!-- Tab switcher -->
+      <div style="display:flex; border-bottom:2px solid var(--border); margin-top:16px; gap:0;">
+        <button id="auth-tab-login" onclick="switchAuthTab('login')"
+          style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px;transition:all .15s;">
+          Sign In
+        </button>
+        <button id="auth-tab-register" onclick="switchAuthTab('register')"
+          style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+          Create Account
+        </button>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="modal-body" style="padding:20px 28px 8px; gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input class="form-input" type="email" id="auth-email"
+          placeholder="you@example.com" autocomplete="username"
+          style="padding:11px 13px;font-size:14px;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="auth-password"
+          placeholder="Min. 8 characters" autocomplete="current-password"
+          style="padding:11px 13px;font-size:14px;" />
+      </div>
+
+      <!-- Error message -->
+      <div id="auth-error" style="display:none; background:#fef2f2; border:1px solid #fecaca;
+        color:#dc2626; font-size:13px; padding:10px 13px; border-radius:8px; line-height:1.4;"></div>
+    </div>
+
+    <!-- Actions -->
+    <div style="padding:12px 28px 24px; display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-primary" id="auth-submit" onclick="submitAuth()"
+        style="width:100%; padding:12px; font-size:14px; font-weight:600; border-radius:9px;">
+        Sign In
+      </button>
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0;">
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+        <span style="font-size:12px;color:var(--muted);">or</span>
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+      </div>
+      <button onclick="continueAsGuest(); closeAuthModal();"
+        style="width:100%;padding:11px;font-size:13px;font-weight:500;border:1.5px solid var(--border);
+        border-radius:9px;background:transparent;cursor:pointer;color:var(--muted);
+        transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';">
+        Continue as Guest
+      </button>
+    </div>
+
+  </div>
+</div>
+
 
 <!-- ── Deploy Modal ─────────────────────────────────────────────────────── -->
 <div class="modal-overlay hidden" id="deploy-modal">
   <div class="modal-card">
     <div class="modal-hdr">
-      <div class="modal-title">☁ Deploy MCN App</div>
+      <div class="modal-title">Deploy MCN App</div>
       <div class="modal-sub">Package your workspace as a Docker-ready zip for any cloud platform</div>
     </div>
     <div class="modal-body">
@@ -1143,28 +1611,28 @@ require(['vs/editor/editor.main'], function () {
     }
   })
 
-  monaco.editor.defineTheme('mcn-light', {
-    base: 'vs', inherit: true,
+  monaco.editor.defineTheme('mcn-dark', {
+    base: 'vs-dark', inherit: true,
     rules: [
       { token: 'comment',            foreground: '6a9955', fontStyle: 'italic' },
-      { token: 'keyword',            foreground: '0000ff' },
-      { token: 'keyword.declaration',foreground: '795e26', fontStyle: 'bold' },
-      { token: 'keyword.control',    foreground: '267f99' },
-      { token: 'keyword.other',      foreground: '811f3f' },
-      { token: 'support.function',   foreground: '795e26' },
-      { token: 'string',             foreground: 'a31515' },
-      { token: 'number',             foreground: '098658' },
-      { token: 'constant.language',  foreground: '0070c1' },
+      { token: 'keyword',            foreground: 'c678dd' },
+      { token: 'keyword.declaration',foreground: 'd19a66', fontStyle: 'bold' },
+      { token: 'keyword.control',    foreground: '56b6c2' },
+      { token: 'keyword.other',      foreground: 'e06c75' },
+      { token: 'support.function',   foreground: '61afef' },
+      { token: 'string',             foreground: '98c379' },
+      { token: 'number',             foreground: 'd19a66' },
+      { token: 'constant.language',  foreground: '56b6c2' },
     ],
     colors: {
-      'editor.background': '#ffffff',
-      'editor.lineHighlightBackground': '#f8f9fb',
-      'editorLineNumber.foreground': '#adb5bd',
+      'editor.background': '#0f1420',
+      'editor.lineHighlightBackground': '#171e30',
+      'editorLineNumber.foreground': '#4b5563',
     }
   })
 
   window._editor = monaco.editor.create(document.getElementById('monaco-container'), {
-    theme:             'mcn-light',
+    theme:             'mcn-dark',
     language:          'mcn',
     automaticLayout:   true,
     fontSize:          13.5,
@@ -1198,6 +1666,7 @@ let _tabState  = new Map() // path → {dirty}
 let _active    = null
 let _devOn     = false
 let _built     = false
+let _expandedFolders = new Set(['backend', 'ui']) // Keep backend and ui expanded by default
 
 // ── Init ─────────────────────────────────────────────────────────────────
 async function initApp() {
@@ -1212,9 +1681,40 @@ async function loadFileTree() {
   try {
     const r = await apiFetch('/api/workspace/files')
     const d = await r.json()
-    renderFileTree(d.files || [])
+    window._workspaceFiles = d.files || []
+    renderFileTree(window._workspaceFiles)
   } catch (_) {}
 }
+
+async function promptCreateFile() {
+  const path = prompt('Enter new file path (e.g. backend/api.mcn or ui/component.mcn):');
+  if (!path) return;
+  
+  const allowedExts = ['.mcn', '.tsx', '.ts', '.json', '.css', '.html'];
+  const hasValidExt = allowedExts.some(ext => path.endsWith(ext));
+  if (!hasValidExt) {
+    alert('File must end with a valid extension: .mcn, .tsx, .ts, .json, .css, or .html');
+    return;
+  }
+  
+  try {
+    const r = await apiFetch('/api/workspace/file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path, content: '' })
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) {
+      alert(d.error || 'Failed to create file');
+      return;
+    }
+    await loadFileTree();
+    await openFile(path);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
 
 function fileIcon(path) {
   const ext = path.split('.').pop()
@@ -1242,22 +1742,57 @@ function renderFileTree(files) {
   for (const folder of allFolders) {
     if (!folders[folder]) continue
     if (folder !== '__root__') {
-      const el = document.createElement('div')
-      el.className = 'tree-folder'
-      el.innerHTML = `<span class="tree-icon">📁</span>${folder}/`
-      ct.appendChild(el)
-    }
-    for (const f of folders[folder]) {
-      ct.appendChild(makeFileItem(f.path))
+      const isExpanded = _expandedFolders.has(folder)
+      
+      const folderHeader = document.createElement('div')
+      folderHeader.className = 'tree-folder' + (isExpanded ? ' expanded' : '')
+      folderHeader.innerHTML = `
+        <span class="folder-caret">${isExpanded ? '▼' : '▶'}</span>
+        <span class="tree-icon">${isExpanded ? '📂' : '📁'}</span>
+        <span>${folder}</span>
+      `
+      
+      const folderContents = document.createElement('div')
+      folderContents.className = 'tree-folder-contents'
+      folderContents.style.display = isExpanded ? 'block' : 'none'
+      
+      for (const f of folders[folder]) {
+        folderContents.appendChild(makeFileItem(f.path))
+      }
+      
+      folderHeader.onclick = () => {
+        if (_expandedFolders.has(folder)) {
+          _expandedFolders.delete(folder)
+          folderHeader.classList.remove('expanded')
+          folderHeader.querySelector('.folder-caret').textContent = '▶'
+          folderHeader.querySelector('.tree-icon').textContent = '📁'
+          folderContents.style.display = 'none'
+        } else {
+          _expandedFolders.add(folder)
+          folderHeader.classList.add('expanded')
+          folderHeader.querySelector('.folder-caret').textContent = '▼'
+          folderHeader.querySelector('.tree-icon').textContent = '📂'
+          folderContents.style.display = 'block'
+        }
+      }
+      
+      ct.appendChild(folderHeader)
+      ct.appendChild(folderContents)
+    } else {
+      for (const f of folders[folder]) {
+        ct.appendChild(makeFileItem(f.path))
+      }
     }
   }
+  syncTreeActive()
 }
 
 function makeFileItem(path) {
   const el = document.createElement('div')
   el.className = 'tree-item' + (_active === path ? ' active' : '')
   el.dataset.path = path
-  const name = path.split('/').pop()
+  const parts = path.split('/')
+  const name = parts.length > 1 ? parts.slice(1).join('/') : path
   el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${name}</span>`
   el.onclick = () => openFile(path)
   return el
@@ -1267,18 +1802,26 @@ function makeFileItem(path) {
 async function loadExamples() {
   try {
     const r = await apiFetch('/api/examples')
+    if (!r.ok) { console.warn('Examples failed:', r.status); return }
     const d = await r.json()
     const ct = document.getElementById('examples-list')
     ct.innerHTML = ''
     for (const ex of d) {
       const el = document.createElement('div')
       el.className = 'tree-item'
-      const icon = ex.project ? '🗂' : ex.id === 'tests' ? '⚗' : ex.id === 'pipeline' ? '⛓' : '▸'
-      el.innerHTML = `<span class="tree-icon">${icon}</span><span>${ex.name}</span>`
+      const icon = ex.project ? '[P]' : ex.id === 'tests' ? '[T]' : ex.id === 'pipeline' ? '[D]' : '[>]'
+      el.innerHTML = `<span class="tree-icon" style="color:var(--muted);font-size:10px;">${icon}</span><span>${ex.name.replace(/[\u{1F300}-\u{1FAFF}]/gu, '').trim()}</span>`
       el.onclick = () => loadExample(ex)
       ct.appendChild(el)
     }
-  } catch (_) {}
+    if (d.length === 0) {
+      ct.innerHTML = '<div style="padding:8px 12px;color:var(--muted);font-size:12px;">No examples found.</div>'
+    }
+  } catch (err) {
+    console.warn('loadExamples error:', err)
+    const ct = document.getElementById('examples-list')
+    if (ct) ct.innerHTML = '<div style="padding:8px 12px;color:var(--red);font-size:12px;">Failed to load examples.</div>'
+  }
 }
 
 async function loadExample(ex) {
@@ -1299,8 +1842,9 @@ async function loadExample(ex) {
     // Server stopped dev server on reset — update UI state
     _devOn = false
     _built = false
-    document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
-    document.getElementById('btnDownload').disabled = true
+    document.getElementById('btnLaunch').textContent = 'Launch Preview'
+    const btnDownload = document.getElementById('btnDownload')
+    if (btnDownload) btnDownload.disabled = true
     document.getElementById('server-badge').textContent = 'No dev server'
     document.getElementById('server-badge').className = ''
     document.getElementById('status-srv').textContent = ''
@@ -1326,6 +1870,18 @@ async function loadExample(ex) {
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 async function openFile(path) {
+  // Auto-expand folder
+  const parts = path.split('/')
+  if (parts.length > 1) {
+    const folder = parts[0]
+    if (!_expandedFolders.has(folder)) {
+      _expandedFolders.add(folder)
+      if (window._workspaceFiles) {
+        renderFileTree(window._workspaceFiles)
+      }
+    }
+  }
+
   if (!_models.has(path)) {
     try {
       const r = await apiFetch(`/api/workspace/file?path=${encodeURIComponent(path)}`)
@@ -1435,7 +1991,13 @@ async function runActiveFile() {
     const d = await r.json()
     for (const l of (d.output || [])) appendLog('', l)
     if (!d.success) { appendLog('error', '✗ ' + d.error); setStatus('Error', 'err') }
-    else setStatus('Done', 'ok')
+    else {
+      setStatus('Done', 'ok')
+      // Auto-refresh simulators
+      refreshDBTables()
+      refreshIoTSimulator()
+      refreshAIInspector()
+    }
   } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
 }
 
@@ -1553,10 +2115,13 @@ async function buildProject() {
   await saveAllTabs()
   setStatus('Building…')
   switchPanel('output', document.querySelector('[data-panel="output"]'))
-  appendLog('info', '⚡ Building UI from ui/app.mcn…')
+  const isFlutter = (_activeWorkspace === 'flutter');
+  appendLog('info', `⚡ Building UI for platform ${isFlutter ? 'Flutter' : 'React'}…`)
   try {
     const r = await apiFetch('/api/build', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ platform: isFlutter ? 'flutter' : 'react' })
     })
     const d = await r.json()
     if (d.stdout) appendLog('dim', d.stdout)
@@ -1565,9 +2130,13 @@ async function buildProject() {
       appendLog('success', `✓ Build complete — ${d.files?.length || 0} files generated`)
       setStatus('Build complete', 'ok')
       _built = true
-      document.getElementById('btnDownload').disabled = false
+      const btnDownload = document.getElementById('btnDownload')
+      if (btnDownload) btnDownload.disabled = false
       renderBuildFiles(d.files || [])
       await loadFileTree()
+      if (isFlutter) {
+        renderFlutterSimulator();
+      }
     } else {
       appendLog('error', '✗ ' + d.error)
       setStatus('Build failed', 'err')
@@ -1589,8 +2158,9 @@ function renderBuildFiles(files) {
 }
 
 // ── Download ──────────────────────────────────────────────────────────────
-function downloadProject() {
-  window.location.href = '/api/download'
+function downloadProject(platformOverride) {
+  const plat = platformOverride || (_activeWorkspace === 'flutter' ? 'flutter' : 'react');
+  window.location.href = `/api/download?platform=${plat}`
 }
 
 // ── Dev server ────────────────────────────────────────────────────────────
@@ -1599,6 +2169,10 @@ async function toggleDevServer() {
 }
 
 async function startDevServer() {
+  const btn = document.getElementById('btnLaunch');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="display:inline-block; vertical-align:middle; margin-right:4px;"></span> Starting…';
   setStatus('Starting dev server…')
   try {
     const r = await apiFetch('/api/devserver/start', { method: 'POST' })
@@ -1609,8 +2183,8 @@ async function startDevServer() {
         // npm not available — serve built files via Flask static route
         const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
         setStatus(`Static preview${beInfo}`, 'ok')
-        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-        document.getElementById('server-badge').textContent = `● Static preview${beInfo}`
+        btn.textContent = 'Stop Server'
+        document.getElementById('server-badge').textContent = `Static preview${beInfo}`
         document.getElementById('server-badge').className = 'running'
         document.getElementById('status-srv').textContent = 'static'
         appendLog('warn', '⚠ npm not found — serving built files statically.')
@@ -1620,24 +2194,31 @@ async function startDevServer() {
       } else {
         const beInfo = d.backend_port ? ` | API :${d.backend_port}` : ''
         setStatus(`UI :${d.port}${beInfo}`, 'ok')
-        document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-        document.getElementById('server-badge').textContent = `● UI :${d.port}${beInfo}`
+        btn.textContent = 'Stop Server'
+        document.getElementById('server-badge').textContent = `Running${beInfo}`
         document.getElementById('server-badge').className = 'running'
         document.getElementById('status-srv').textContent = `:${d.port}`
-        if (d.backend_port) appendLog('success', `✓ MCN backend running on :${d.backend_port}`)
+        if (d.backend_port) appendLog('success', `Backend running on :${d.backend_port}`)
         showPreview(d.preview_url || `http://localhost:${d.port}`)
       }
     } else {
       appendLog('error', '✗ ' + d.error)
       setStatus('Server failed', 'err')
+      btn.textContent = oldText;
     }
-  } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+  } catch (e) {
+    appendLog('error', '✗ ' + e.message);
+    setStatus('Error', 'err');
+    btn.textContent = oldText;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function stopDevServer() {
   await apiFetch('/api/devserver/stop', { method: 'POST' })
   _devOn = false
-  document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+  document.getElementById('btnLaunch').textContent = 'Launch Preview'
   document.getElementById('server-badge').textContent = 'No dev server'
   document.getElementById('server-badge').className = ''
   document.getElementById('status-srv').textContent = ''
@@ -1667,6 +2248,13 @@ function refreshPreview() {
   if (_devOn) { const s = iframe.src; iframe.src = ''; iframe.src = s }
 }
 
+function openPreviewFullscreen() {
+  const iframe = document.getElementById('preview-iframe')
+  if (iframe && iframe.src && iframe.src !== 'about:blank') {
+    window.open(iframe.src, '_blank')
+  }
+}
+
 async function pollDevStatus() {
   while (true) {
     try {
@@ -1676,12 +2264,12 @@ async function pollDevStatus() {
         _devOn = d.running
         if (_devOn) {
           const label = d.port ? `:${d.port}` : 'static'
-          document.getElementById('btnLaunch').textContent = '⛔ Stop Server'
-          document.getElementById('server-badge').textContent = `● ${label}`
+          document.getElementById('btnLaunch').textContent = 'Stop Server'
+          document.getElementById('server-badge').textContent = `Running ${label}`
           document.getElementById('server-badge').className = 'running'
           document.getElementById('status-srv').textContent = label
         } else {
-          document.getElementById('btnLaunch').textContent = '🚀 Launch Preview'
+          document.getElementById('btnLaunch').textContent = 'Launch Preview'
           document.getElementById('server-badge').textContent = d.npm_available ? 'No dev server' : 'npm not installed'
           document.getElementById('server-badge').className = ''
           document.getElementById('status-srv').textContent = ''
@@ -1697,8 +2285,733 @@ function switchPanel(name, tabEl) {
   document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'))
   document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'))
   if (tabEl) tabEl.classList.add('active')
-  const sec = document.getElementById('panel-' + name)
+  
+  // Handle panel naming mapping
+  let secId = 'panel-' + name;
+  if (name === 'preview') secId = 'panel-preview';
+  
+  const sec = document.getElementById(secId)
   if (sec) sec.classList.add('active')
+
+  if (name === 'db-explorer') refreshDBTables()
+  else if (name === 'iot-simulator') refreshIoTSimulator()
+  else if (name === 'ai-inspector') refreshAIInspector()
+}
+
+// ── Workspace Switching & Redesign ──────────────────────────────────────────
+let _activeWorkspace = 'react';
+
+// ── DB, IoT, and AI Trace Helper Functions ────────────────────────────────
+async function refreshDBTables() {
+  const container = document.getElementById('db-tables-list')
+  if (!container) return
+  try {
+    const r = await apiFetch('/api/db/schema')
+    const d = await r.json()
+    if (d.success && d.schema && d.schema.length > 0) {
+      container.innerHTML = d.schema.map(t => `
+        <div style="margin-bottom: 6px;">
+          <strong style="color:var(--text);">${t.table}</strong>
+          <div style="padding-left:10px;margin-top:2px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px;">
+            ${t.columns.map(c => `<span style="background:var(--surface3);padding:1px 4px;border-radius:3px;font-size:10px;">${c}</span>`).join('')}
+          </div>
+        </div>
+      `).join('')
+    } else {
+      container.innerHTML = '<div style="text-align:center;font-style:italic;">No tables found. Run database code first.</div>'
+    }
+  } catch (e) {
+    container.innerHTML = `<div style="color:#f87171;">Failed to load tables: ${e.message}</div>`
+  }
+}
+
+async function runConsoleSQL() {
+  const sql = document.getElementById('db-sql-console').value.trim()
+  const resultsDiv = document.getElementById('db-query-results')
+  if (!sql || !resultsDiv) return
+  resultsDiv.textContent = 'Executing query...'
+  try {
+    const r = await apiFetch('/api/db/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql })
+    })
+    const d = await r.json()
+    if (d.success) {
+      if (Array.isArray(d.result) && d.result.length > 0) {
+        const cols = Object.keys(d.result[0])
+        const headerHtml = cols.map(c => `<th style="text-align:left;padding:6px;border-bottom:2px solid var(--border);color:var(--text);font-weight:600;">${c}</th>`).join('')
+        const rowsHtml = d.result.map(row => `
+          <tr style="border-bottom:1px solid var(--border);">
+            ${cols.map(c => `<td style="padding:6px;color:var(--muted);">${row[c] !== null ? row[c] : 'NULL'}</td>`).join('')}
+          </tr>
+        `).join('')
+        
+        resultsDiv.innerHTML = `
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr>${headerHtml}</tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        `
+      } else {
+        resultsDiv.innerHTML = `<div style="color:#34d399;font-style:italic;">Query executed successfully. Result: ${JSON.stringify(d.result)}</div>`
+      }
+      refreshDBTables()
+    } else {
+      resultsDiv.innerHTML = `<div style="color:#f87171;">Error: ${d.error}</div>`
+    }
+  } catch (e) {
+    resultsDiv.innerHTML = `<div style="color:#f87171;">Connection failed: ${e.message}</div>`
+  }
+}
+
+async function refreshIoTSimulator() {
+  const container = document.getElementById('iot-devices-list')
+  if (!container) return
+  try {
+    const r = await apiFetch('/api/iot/devices')
+    const d = await r.json()
+    if (d.success && d.devices && Object.keys(d.devices).length > 0) {
+      container.innerHTML = Object.entries(d.devices).map(([id, info]) => {
+        let controlHtml = ''
+        if (info.type === 'temperature_sensor') {
+          controlHtml = `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="range" min="15" max="35" step="0.5" value="${info.value}" 
+                style="flex:1;height:4px;border-radius:2px;outline:none;"
+                oninput="this.nextElementSibling.textContent = this.value + '°C'"
+                onchange="updateIoTOverride('${id}', this.value)" />
+              <span style="font-weight:bold;color:#f3f4f6;min-width:38px;font-size:11px;">${info.value}°C</span>
+            </div>
+          `
+        } else if (info.type === 'humidity_sensor') {
+          controlHtml = `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="range" min="20" max="90" step="1" value="${info.value}" 
+                style="flex:1;height:4px;border-radius:2px;outline:none;"
+                oninput="this.nextElementSibling.textContent = this.value + '%'"
+                onchange="updateIoTOverride('${id}', this.value)" />
+              <span style="font-weight:bold;color:#f3f4f6;min-width:38px;font-size:11px;">${info.value}%</span>
+            </div>
+          `
+        } else if (info.type === 'motion_sensor') {
+          controlHtml = `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <button class="btn btn-sm" onclick="updateIoTOverride('${id}', ${info.value ? 0 : 1})" 
+                style="padding:2px 8px;font-size:10px;background:${info.value ? '#3b82f6' : 'var(--surface3)'};">
+                ${info.value ? '🚨 Motion Active' : '⚪ Trigger Motion'}
+              </button>
+            </div>
+          `
+        } else {
+          controlHtml = `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="text" value="${info.value}" class="form-input" style="padding:2px 6px;font-size:11px;"
+                onchange="updateIoTOverride('${id}', this.value)" />
+            </div>
+          `
+        }
+        
+        return `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <strong style="color:var(--text);font-size:12px;">${id}</strong>
+              <span style="font-size:10px;background:var(--surface3);color:var(--muted);padding:1px 6px;border-radius:4px;">${info.type}</span>
+            </div>
+            ${controlHtml}
+          </div>
+        `
+      }).join('')
+    } else {
+      container.innerHTML = '<div style="text-align:center;font-style:italic;color:var(--muted);padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;">No IoT devices registered. Run IoT code first.</div>'
+    }
+    
+    const logsRes = await apiFetch('/api/iot/commands')
+    const logsD = await logsRes.json()
+    const logContainer = document.getElementById('iot-actions-log')
+    if (logContainer && logsD.success && logsD.commands && logsD.commands.length > 0) {
+      logContainer.innerHTML = logsD.commands.slice().reverse().map(cmd => `
+        <div style="border-bottom:1px solid var(--border);padding:4px 0;font-size:10.5px;">
+          <span style="color:#565f89;">[${new Date(cmd.timestamp*1000).toLocaleTimeString()}]</span>
+          <strong style="color:#89ddff;">${cmd.device_id}</strong>: 
+          <span style="color:#bb9af3;">${cmd.command}</span> 
+          <span style="color:var(--muted);">${JSON.stringify(cmd.params || {})}</span>
+        </div>
+      `).join('')
+    }
+  } catch (e) {
+    container.innerHTML = `<div style="color:#f87171;">Failed to load devices: ${e.message}</div>`
+  }
+}
+
+async function updateIoTOverride(deviceId, value) {
+  try {
+    await apiFetch('/api/iot/device/value', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, value })
+    })
+    refreshIoTSimulator()
+  } catch (e) {}
+}
+
+async function refreshAIInspector() {
+  const traceContainer = document.getElementById('ai-execution-trace')
+  if (!traceContainer) return
+  try {
+    const r = await apiFetch('/api/ai/trace')
+    const d = await r.json()
+    if (d.success) {
+      document.getElementById('ai-active-model').textContent = d.model + " (Gemini integration enabled)"
+      
+      if (d.trace && d.trace.length > 0) {
+        traceContainer.innerHTML = d.trace.slice().reverse().map(t => `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11px;">
+            <div style="display:flex;justify-content:space-between;color:var(--muted);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:2px;">
+              <strong>${t.type}</strong>
+              <span>${new Date(t.timestamp*1000).toLocaleTimeString()}</span>
+            </div>
+            <div style="color:#89ddff;margin-bottom:4px;white-space:pre-wrap;"><b>Query:</b> ${t.prompt}</div>
+            <div style="color:#34d399;white-space:pre-wrap;"><b>Response:</b> ${t.response}</div>
+          </div>
+        `).join('')
+      } else {
+        traceContainer.innerHTML = '<div style="color:#565f89;font-style:italic;">No AI operations logged yet. Run AI or RAG code to trace execution.</div>'
+      }
+    }
+  } catch (e) {
+    traceContainer.innerHTML = `<div style="color:#f87171;">Failed to load trace: ${e.message}</div>`
+  }
+}
+
+// Initialize workspace selectors and view defaults
+setTimeout(() => {
+  switchWorkspace('react');
+}, 100);
+
+function switchWorkspace(workspace) {
+  _activeWorkspace = workspace;
+  
+  // 1. Update switcher buttons
+  document.querySelectorAll('.switcher-item').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById('ws-' + workspace);
+  if (activeBtn) activeBtn.classList.add('active');
+  
+  // 2. Hide/show workspace-specific tabs in preview-panel
+  const tabWeb = document.getElementById('tab-web-preview');
+  const tabMobile = document.getElementById('tab-mobile-preview');
+  const tabRepl = document.getElementById('tab-repl-console');
+  
+  [tabWeb, tabMobile, tabRepl].forEach(t => {
+    if (t) t.style.display = 'none';
+  });
+  
+  // 3. Hide/show editor-area views
+  const monacoContainer = document.getElementById('monaco-container');
+  const tabBar = document.getElementById('tab-bar');
+  const noFileMsg = document.getElementById('no-file-msg');
+  
+  if (monacoContainer) monacoContainer.style.display = '';
+  if (tabBar) tabBar.style.display = '';
+  
+  if (workspace === 'repl') {
+    if (tabRepl) {
+      tabRepl.style.display = '';
+      switchPanel('repl-console', tabRepl);
+    }
+  } else if (workspace === 'react') {
+    if (tabWeb) {
+      tabWeb.style.display = '';
+      switchPanel('preview', tabWeb);
+    }
+  } else if (workspace === 'flutter') {
+    if (tabMobile) {
+      tabMobile.style.display = '';
+      switchPanel('flutter-preview', tabMobile);
+      // Render the simulated mockup if built
+      renderFlutterSimulator();
+    }
+  }
+}
+
+// ── REPL Sandbox console logic ────────────────────────────────────────────────
+async function handleReplKey(e) {
+  if (e.key === 'Enter') {
+    const input = document.getElementById('repl-input');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    
+    input.value = '';
+    const history = document.getElementById('repl-history');
+    
+    // Echo input
+    const inEl = document.createElement('div');
+    inEl.style.color = '#89ddff';
+    inEl.textContent = `mcn> ${cmd}`;
+    history.appendChild(inEl);
+    
+    try {
+      const r = await apiFetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: cmd })
+      });
+      const d = await r.json();
+      
+      if (d.output && d.output.length > 0) {
+        for (const line of d.output) {
+          const outLine = document.createElement('div');
+          outLine.style.color = '#c0caf5';
+          outLine.textContent = line;
+          history.appendChild(outLine);
+        }
+      }
+      
+      const resEl = document.createElement('div');
+      if (d.success) {
+        resEl.style.color = '#9ece6a';
+        resEl.textContent = `=> ${d.result !== null ? d.result : 'void'}`;
+      } else {
+        resEl.style.color = '#f7768e';
+        resEl.textContent = `Error: ${d.error}`;
+      }
+      history.appendChild(resEl);
+    } catch (err) {
+      const errEl = document.createElement('div');
+      errEl.style.color = '#f7768e';
+      errEl.textContent = `Execution Error: ${err.message}`;
+      history.appendChild(errEl);
+    }
+    history.scrollTop = history.scrollHeight;
+  }
+}
+
+// ── Flutter simulated mobile UI rendering logic ──────────────────────────────
+async function renderFlutterSimulator() {
+  const mockContent = document.getElementById('flutter-mock-content');
+  const titleEl = document.getElementById('flutter-appbar-title');
+  mockContent.innerHTML = '';
+  
+  try {
+    const r = await apiFetch('/api/workspace/file?path=flutter/ui-manifest.json');
+    if (!r.ok) {
+      mockContent.innerHTML = '<div style="text-align:center;padding:40px 10px;color:#64748b;font-style:italic;font-size:11px;">No mobile preview available. Click ⚡ Build with Flutter to compile.</div>';
+      return;
+    }
+    const d = await r.json();
+    const manifest = JSON.parse(d.content);
+    
+    // Get the first page defined
+    const pageKeys = Object.keys(manifest.pages || {});
+    if (pageKeys.length === 0) {
+      mockContent.innerHTML = '<div style="text-align:center;padding:40px 10px;color:#64748b;font-style:italic;font-size:11px;">No screens found in the manifest.</div>';
+      return;
+    }
+    
+    const pageName = pageKeys[0];
+    const page = manifest.pages[pageName];
+    titleEl.textContent = pageName;
+    
+    // Recursively render components into Flutter mock widgets
+    function renderComponent(comp) {
+      if (typeof comp === 'string') {
+        comp = manifest.components[comp];
+      }
+      if (!comp) return '';
+      
+      const type = comp.type;
+      const props = comp.props || {};
+      
+      if (type === 'text') {
+        const tag = props.tag || 'p';
+        const fontSize = tag === 'h1' ? '14px' : tag === 'h2' ? '12px' : '10px';
+        const fontWeight = tag.startsWith('h') ? 'bold' : 'normal';
+        return `<div style="font-size:${fontSize};font-weight:${fontWeight};margin:4px 0;color:#1e293b;">${props.content || ''}</div>`;
+      }
+      else if (type === 'button') {
+        return `<button style="background:#2196F3;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;width:100%;font-weight:600;margin:4px 0;box-shadow:0 1px 2px rgba(0,0,0,0.1);">${props.text || 'Button'}</button>`;
+      }
+      else if (type === 'input') {
+        return `<div style="border:1px solid #cbd5e1;background:#f8fafc;padding:6px 8px;border-radius:6px;font-size:10px;color:#94a3b8;margin:4px 0;">${props.placeholder || 'Type here...'}</div>`;
+      }
+      else if (type === 'container') {
+        const childHtml = (comp.children || []).map(c => renderComponent(c)).join('');
+        const isRow = (props.className || '').includes('row') || (props.className || '').includes('header');
+        const display = isRow ? 'flex' : 'block';
+        const flexDir = isRow ? 'row' : 'column';
+        const justify = isRow ? 'space-between' : 'stretch';
+        return `<div style="display:${display};flex-direction:${flexDir};justify-content:${justify};gap:6px;padding:2px 0;">${childHtml}</div>`;
+      }
+      else if (type === 'form') {
+        const childHtml = (comp.children || []).map(c => renderComponent(c)).join('');
+        return `<div style="display:flex;flex-direction:column;gap:4px;padding:2px 0;">${childHtml}</div>`;
+      }
+      else if (type === 'table') {
+        const columns = props.columns || [];
+        const colsHtml = columns.map(c => `<th style="padding:4px;font-size:8px;font-weight:bold;color:#475569;border-bottom:1px solid #e2e8f0;text-align:left;">${c}</th>`).join('');
+        return `<div style="background:white;border-radius:6px;border:1px solid #e2e8f0;overflow:hidden;margin:4px 0;"><table style="width:100%;border-collapse:collapse;"><thead><tr>${colsHtml}</tr></thead><tbody><tr><td colspan="${columns.length}" style="padding:8px;font-size:9px;color:#94a3b8;font-style:italic;text-align:center;">No entries loaded</td></tr></tbody></table></div>`;
+      }
+      else if (type === 'chart') {
+        return `<div style="background:white;border-radius:6px;border:1px solid #e2e8f0;padding:6px;margin:4px 0;display:flex;flex-direction:column;gap:4px;"><div style="font-size:9px;font-weight:bold;color:#64748b;">Chart: ${props.chartType || 'Line'}</div><div style="height:40px;background:#eff6ff;border-radius:4px;border:1px dashed #bfdbfe;display:flex;align-items:center;justify-content:center;color:#3b82f6;font-size:9px;">Visual Analytics Data</div></div>`;
+      }
+      else if (type === 'agent_chat') {
+        return `<div style="background:#1e293b;border-radius:6px;padding:6px;color:white;font-size:10px;margin:4px 0;display:flex;flex-direction:column;gap:4px;"><div style="font-weight:bold;color:#a78bfa;font-size:9px;">Chat: ${props.agentName || 'Agent'}</div><div style="height:40px;background:#0f172a;border-radius:4px;padding:4px;color:#94a3b8;font-size:8px;font-style:italic;overflow:hidden;">Dialogue session active...</div><div style="display:flex;gap:4px;"><div style="flex:1;background:#334155;border-radius:4px;padding:2px 4px;color:#94a3b8;font-size:9px;">Message...</div><div style="background:#8b5cf6;padding:2px 4px;border-radius:4px;font-weight:bold;font-size:8px;">Send</div></div></div>`;
+      }
+      else if (type === 'enterprise_search') {
+        return `<div style="background:#1e293b;border-radius:6px;padding:6px;color:white;font-size:10px;margin:4px 0;display:flex;flex-direction:column;gap:4px;"><div style="font-weight:bold;color:#38bdf8;font-size:9px;">Search: ${props.datasourceName || 'Knowledge Base'}</div><div style="display:flex;gap:4px;"><div style="flex:1;background:#334155;border-radius:4px;padding:2px 4px;color:#94a3b8;font-size:9px;">Query...</div><div style="background:#0ea5e9;padding:2px 4px;border-radius:4px;font-weight:bold;font-size:8px;">Find</div></div></div>`;
+      }
+      
+      return '';
+    }
+    
+    // Render first components of page
+    for (const compId of page.components || []) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = renderComponent(compId);
+      mockContent.appendChild(wrapper.firstChild);
+    }
+  } catch (err) {
+    mockContent.innerHTML = `<div style="text-align:center;padding:40px 10px;color:#ef4444;font-size:11px;">Error loading simulator: ${err.message}</div>`;
+  }
+}
+
+// ── AI Studio Logic ───────────────────────────────────────────────────────────
+let _customSubagents = [];
+let _activeAgents = [];
+let _activeDataSources = [];
+
+function toggleSourcePayloadType() {
+  const type = document.getElementById('ai-source-type').value;
+  if (type === 'text') {
+    document.getElementById('ai-payload-text-group').classList.remove('hidden');
+    document.getElementById('ai-payload-file-group').classList.add('hidden');
+  } else {
+    document.getElementById('ai-payload-text-group').classList.add('hidden');
+    document.getElementById('ai-payload-file-group').classList.remove('hidden');
+  }
+}
+
+function addCustomSubagent() {
+  const input = document.getElementById('ai-new-subagent');
+  const val = input.value.trim();
+  if (!val) return;
+  input.value = '';
+  
+  if (!_customSubagents.includes(val)) {
+    _customSubagents.push(val);
+    renderSubagentsChecklist();
+  }
+}
+
+function renderSubagentsChecklist() {
+  const list = document.getElementById('ai-sub-agents-list');
+  list.innerHTML = '';
+  
+  const allAgents = [...new Set([..._activeAgents, ..._customSubagents])];
+  if (allAgents.length === 0) {
+    list.innerHTML = '<div style="font-style:italic;color:var(--muted);font-size:12px;">No agents defined yet. Define standard agents in main.mcn or add sub-agents below.</div>';
+    return;
+  }
+  
+  for (const agent of allAgents) {
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.alignItems = 'center';
+    div.style.gap = '8px';
+    div.innerHTML = `<input type="checkbox" value="${agent}" class="subagent-cb" id="cb-${agent}" /> <label for="cb-${agent}" style="color:var(--text);font-size:12px;">${agent}</label>`;
+    list.appendChild(div);
+  }
+}
+
+async function refreshAIStudioGUI() {
+  try {
+    // Read main.mcn backend file content and search for agent/datasource declarations
+    const r = await apiFetch('/api/workspace/file?path=backend/main.mcn');
+    if (r.ok) {
+      const d = await r.json();
+      const code = d.content;
+      
+      // Basic regex parsing to extract defined agents and datasources
+      const agentRegex = /agent\(\s*["']([^"']+)["']|create_agent\(\s*["']([^"']+)["']/g;
+      const dsRegex = /datasource\(\s*["']create["']\s*,\s*["']([^"']+)["']/g;
+      
+      let match;
+      _activeAgents = [];
+      while ((match = agentRegex.exec(code)) !== null) {
+        _activeAgents.push(match[1] || match[2]);
+      }
+      
+      _activeDataSources = [];
+      while ((match = dsRegex.exec(code)) !== null) {
+        _activeDataSources.push(match[1]);
+      }
+      
+      _activeAgents = [...new Set(_activeAgents)];
+      _activeDataSources = [...new Set(_activeDataSources)];
+    }
+  } catch (e) {}
+  
+  renderSubagentsChecklist();
+  renderConnectedDataSources();
+  updateSelectors();
+}
+
+function renderConnectedDataSources() {
+  const container = document.getElementById('ai-data-sources-list');
+  container.innerHTML = '';
+  
+  if (_activeDataSources.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--muted);font-style:italic;">No knowledge sources active in memory. Use the form above to ingest documents.</div>';
+    return;
+  }
+  
+  for (const ds of _activeDataSources) {
+    const card = document.createElement('div');
+    card.className = 'ai-card';
+    card.style.borderRadius = '8px';
+    card.style.padding = '12px';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.gap = '6px';
+    card.innerHTML = `
+      <div style="font-weight:bold;color:#818cf8;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+        <span>📚 ${ds}</span>
+        <span class="ai-badge" style="font-size:9px;padding:1px 4px;">RAG Ready</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Connected to vector search pipeline.</div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+function updateSelectors() {
+  // Update Agent Selector in dialogue box
+  const chatSel = document.getElementById('chat-agent-selector');
+  const originalChatVal = chatSel.value;
+  chatSel.innerHTML = '<option value="">(Select Agent)</option>';
+  
+  // Include custom and discovered agents
+  const allAgents = [...new Set([..._activeAgents, ..._customSubagents])];
+  for (const agent of allAgents) {
+    const opt = document.createElement('option');
+    opt.value = agent;
+    opt.textContent = agent;
+    chatSel.appendChild(opt);
+  }
+  chatSel.value = originalChatVal;
+
+  // Update Datasource Selector in dialogue box
+  const dsSel = document.getElementById('search-ds-selector');
+  const originalDsVal = dsSel.value;
+  dsSel.innerHTML = '<option value="">(Select Source)</option>';
+  
+  for (const ds of _activeDataSources) {
+    const opt = document.createElement('option');
+    opt.value = ds;
+    opt.textContent = ds;
+    dsSel.appendChild(opt);
+  }
+  dsSel.value = originalDsVal;
+}
+
+async function createMultiAgent() {
+  const name = document.getElementById('ai-agent-name').value.trim();
+  const prompt = document.getElementById('ai-agent-prompt').value.trim();
+  
+  if (!name || !prompt) {
+    alert("Please enter agent name and coordinator prompt.");
+    return;
+  }
+  
+  // Get checked sub-agents
+  const subAgents = [];
+  document.querySelectorAll('.subagent-cb:checked').forEach(cb => {
+    subAgents.push(cb.value);
+  });
+  
+  const mcnCode = `\n// Multi-Agent coordinator created via AI Agent Studio\nagent("create_multi", "${name}", ${JSON.stringify(subAgents)}, "${prompt.replace(/"/g, '\\"')}")\nagent("activate", "${name}")\n`;
+  
+  try {
+    // Append to main.mcn backend file
+    const getRes = await apiFetch('/api/workspace/file?path=backend/main.mcn');
+    if (getRes.ok) {
+      const getD = await getRes.json();
+      const updatedCode = getD.content + mcnCode;
+      await apiFetch('/api/workspace/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'backend/main.mcn', content: updatedCode })
+      });
+      
+      // Execute the statement immediately to register in server session
+      await apiFetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mcnCode })
+      });
+      
+      appendLog('success', `✓ Multi-Agent Coordinator '${name}' registered successfully!`);
+      document.getElementById('ai-agent-name').value = '';
+      document.getElementById('ai-agent-prompt').value = '';
+      document.querySelectorAll('.subagent-cb').forEach(cb => cb.checked = false);
+      
+      await refreshAIStudioGUI();
+      await loadFileTree();
+    }
+  } catch (err) {
+    appendLog('error', `✗ Failed to create Multi-Agent: ${err.message}`);
+  }
+}
+
+async function createDataSource() {
+  const name = document.getElementById('ai-source-name').value.trim();
+  const type = document.getElementById('ai-source-type').value;
+  let payload = '';
+  
+  if (type === 'text') {
+    payload = document.getElementById('ai-source-payload-text').value.trim();
+  } else {
+    payload = document.getElementById('ai-source-payload-file').value.trim();
+  }
+  
+  if (!name || !payload) {
+    alert("Please fill in source name and details.");
+    return;
+  }
+  
+  const mcnCode = `\n// Knowledge source ingested via AI Agent Studio\ndatasource("create", "${name}", "${type}", "${payload.replace(/\n/g, '\\n').replace(/"/g, '\\"')}")\n`;
+  
+  try {
+    // Append to main.mcn backend file
+    const getRes = await apiFetch('/api/workspace/file?path=backend/main.mcn');
+    if (getRes.ok) {
+      const getD = await getRes.json();
+      const updatedCode = getD.content + mcnCode;
+      await apiFetch('/api/workspace/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'backend/main.mcn', content: updatedCode })
+      });
+      
+      // Execute to update memory
+      await apiFetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mcnCode })
+      });
+      
+      appendLog('success', `✓ Knowledge Base '${name}' indexed successfully!`);
+      document.getElementById('ai-source-name').value = '';
+      document.getElementById('ai-source-payload-text').value = '';
+      document.getElementById('ai-source-payload-file').value = '';
+      
+      await refreshAIStudioGUI();
+      await loadFileTree();
+    }
+  } catch (err) {
+    appendLog('error', `✗ Failed to create knowledge source: ${err.message}`);
+  }
+}
+
+function updateSelectedAgentChat() {
+  const agent = document.getElementById('chat-agent-selector').value;
+  const msgs = document.getElementById('chat-sandbox-messages');
+  msgs.innerHTML = '';
+  if (agent) {
+    const welcome = document.createElement('div');
+    welcome.style.color = '#a78bfa';
+    welcome.style.fontStyle = 'italic';
+    welcome.textContent = `Dialogue active with agent '${agent}'. Send a prompt below.`;
+    msgs.appendChild(welcome);
+  } else {
+    msgs.innerHTML = '<div style="color:#64748b;font-style:italic;">Choose an agent from the dropdown to start chatting.</div>';
+  }
+}
+
+async function sendChatSandboxMsg() {
+  const agent = document.getElementById('chat-agent-selector').value;
+  const input = document.getElementById('chat-sandbox-input');
+  const prompt = input.value.trim();
+  
+  if (!agent || !prompt) return;
+  input.value = '';
+  
+  const msgs = document.getElementById('chat-sandbox-messages');
+  
+  // Render user prompt
+  const userEl = document.createElement('div');
+  userEl.style.color = '#f3f4f6';
+  userEl.innerHTML = `<span style="font-weight:bold;color:#94a3b8;">User:</span> ${prompt}`;
+  msgs.appendChild(userEl);
+  
+  const code = `agent("think", "${agent}", "${prompt.replace(/"/g, '\\"')}")`;
+  
+  try {
+    const r = await apiFetch('/api/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const d = await r.json();
+    
+    const botEl = document.createElement('div');
+    if (d.success && d.result) {
+      botEl.style.color = '#a78bfa';
+      botEl.innerHTML = `<span style="font-weight:bold;color:#c084fc;">${agent}:</span> ${d.result}`;
+    } else {
+      botEl.style.color = '#ef4444';
+      botEl.textContent = `Agent Error: ${d.error || 'Empty response'}`;
+    }
+    msgs.appendChild(botEl);
+  } catch (err) {
+    const botEl = document.createElement('div');
+    botEl.style.color = '#ef4444';
+    botEl.textContent = `Connection Error: ${err.message}`;
+    msgs.appendChild(botEl);
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function handleChatSandboxKey(e) {
+  if (e.key === 'Enter') sendChatSandboxMsg();
+}
+
+async function querySearchSandbox() {
+  const ds = document.getElementById('search-ds-selector').value;
+  const input = document.getElementById('search-sandbox-input');
+  const query = input.value.trim();
+  
+  if (!ds || !query) return;
+  input.value = '';
+  
+  const results = document.getElementById('search-sandbox-results');
+  results.textContent = 'Searching vector storage index...';
+  
+  const code = `rag("query_datasource", "${query.replace(/"/g, '\\"')}", "${ds}")`;
+  
+  try {
+    const r = await apiFetch('/api/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const d = await r.json();
+    
+    if (d.success && d.result) {
+      results.style.color = '#f8fafc';
+      results.textContent = d.result;
+    } else {
+      results.style.color = '#fca5a5';
+      results.textContent = `Search Error: ${d.error || 'No results'}`;
+    }
+  } catch (err) {
+    results.style.color = '#fca5a5';
+    results.textContent = `Connection Error: ${err.message}`;
+  }
+}
+
+function handleSearchSandboxKey(e) {
+  if (e.key === 'Enter') querySearchSandbox();
 }
 
 // ── Output log ────────────────────────────────────────────────────────────
@@ -1816,7 +3129,163 @@ document.getElementById('gen-modal').addEventListener('click', function(e) {
   if (e.target === this) closeGenerateModal()
 })
 
-// ── Deploy modal ────────────────────────────────────────────────────────────
+// ── AI Agent Studio ─────────────────────────────────────────────────────────
+
+function openAgentStudioModal() {
+  document.getElementById('agent-studio-modal').classList.remove('hidden')
+  document.getElementById('agent-prompt').focus()
+}
+
+function closeAgentStudioModal() {
+  document.getElementById('agent-studio-modal').classList.add('hidden')
+  document.getElementById('agent-status').classList.add('hidden')
+  document.getElementById('agent-submit').disabled = false
+}
+
+function setAgentPreset(mode, promptText) {
+  // Set the radio mode
+  document.querySelectorAll('input[name="agent-mode"]').forEach(r => {
+    r.checked = (r.value === mode)
+  })
+  // Populate prompt
+  document.getElementById('agent-prompt').value = promptText
+  document.getElementById('agent-prompt').focus()
+}
+
+async function submitAgentEnhance() {
+  const prompt  = document.getElementById('agent-prompt').value.trim()
+  const apiKey  = document.getElementById('agent-key').value.trim()
+  const modeEl  = document.querySelector('input[name="agent-mode"]:checked')
+  const mode    = modeEl ? modeEl.value : 'mcn'
+
+  if (!prompt) { alert('Please enter a prompt for the AI Coding Agent.'); return }
+
+  // Determine the target file path
+  let targetPath = ''
+  if (mode === 'mcn') {
+    // Default to the active MCN UI file
+    targetPath = _activeFile || 'ui/app.mcn'
+  } else {
+    // For compiled mode, target the generated App.tsx (first valid .tsx file)
+    targetPath = 'frontend/src/App.tsx'
+  }
+
+  document.getElementById('agent-submit').disabled = true
+  document.getElementById('agent-status').classList.remove('hidden')
+  document.getElementById('agent-status-text').textContent = '✦ AI Coding Agent analyzing UI…'
+
+  try {
+    const r = await apiFetch('/api/agent/enhance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: targetPath, prompt, mode, api_key: apiKey })
+    })
+    const data = await r.json()
+
+    if (!data.success) {
+      document.getElementById('agent-status-text').textContent = '✗ ' + (data.error || 'Enhancement failed')
+      document.getElementById('agent-submit').disabled = false
+      return
+    }
+
+    // Update Monaco editor if the file is already open
+    if (data.content && _models.has(targetPath)) {
+      _models.get(targetPath).setValue(data.content)
+      if (_tabState.has(targetPath)) _tabState.get(targetPath).dirty = false
+    }
+
+    await loadFileTree()
+    document.getElementById('agent-status-text').textContent = '✓ ' + (data.message || 'Enhancement applied!')
+    
+    setTimeout(() => {
+      closeAgentStudioModal()
+      if (targetPath) openFile(targetPath)
+    }, 1200)
+
+  } catch (e) {
+    document.getElementById('agent-status-text').textContent = '✗ Error: ' + e.message
+    document.getElementById('agent-submit').disabled = false
+  }
+}
+
+document.getElementById('agent-studio-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAgentStudioModal()
+})
+
+// ── Backend Agent ────────────────────────────────────────────────────────────
+
+function openBackendAgentModal() {
+  document.getElementById('backend-agent-modal').classList.remove('hidden')
+  document.getElementById('backend-prompt').focus()
+}
+
+function closeBackendAgentModal() {
+  document.getElementById('backend-agent-modal').classList.add('hidden')
+  document.getElementById('backend-status').classList.add('hidden')
+  document.getElementById('backend-submit').disabled = false
+}
+
+function setBackendPreset(mode, promptText) {
+  document.querySelectorAll('input[name="backend-mode"]').forEach(r => {
+    r.checked = (r.value === mode)
+  })
+  document.getElementById('backend-prompt').value = promptText
+  document.getElementById('backend-prompt').focus()
+}
+
+async function submitBackendAgent() {
+  const prompt = document.getElementById('backend-prompt').value.trim()
+  const apiKey = document.getElementById('backend-key').value.trim()
+  const modeEl = document.querySelector('input[name="backend-mode"]:checked')
+  const mode   = modeEl ? modeEl.value : 'backend'
+
+  if (!prompt) { alert('Please enter a prompt for the Backend Agent.'); return }
+
+  // Target file: always backend/main.mcn
+  const targetPath = 'backend/main.mcn'
+
+  document.getElementById('backend-submit').disabled = true
+  document.getElementById('backend-status').classList.remove('hidden')
+  document.getElementById('backend-status-text').textContent = '⚙ Backend Agent working…'
+
+  try {
+    const r = await apiFetch('/api/agent/enhance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: targetPath, prompt, mode, api_key: apiKey })
+    })
+    const data = await r.json()
+
+    if (!data.success) {
+      document.getElementById('backend-status-text').textContent = '✗ ' + (data.error || 'Backend Agent failed')
+      document.getElementById('backend-submit').disabled = false
+      return
+    }
+
+    // Reflect changes in Monaco editor if the file is already loaded
+    const writtenPath = data.path || targetPath
+    if (data.content && _models.has(writtenPath)) {
+      _models.get(writtenPath).setValue(data.content)
+      if (_tabState.has(writtenPath)) _tabState.get(writtenPath).dirty = false
+    }
+
+    await loadFileTree()
+    document.getElementById('backend-status-text').textContent = '✓ ' + (data.message || 'Backend updated!')
+
+    setTimeout(() => {
+      closeBackendAgentModal()
+      openFile(writtenPath)
+    }, 1200)
+
+  } catch (e) {
+    document.getElementById('backend-status-text').textContent = '✗ Error: ' + e.message
+    document.getElementById('backend-submit').disabled = false
+  }
+}
+
+document.getElementById('backend-agent-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeBackendAgentModal()
+})
 
 function openDeployModal() {
   const m = document.getElementById('deploy-modal')
@@ -1888,8 +3357,10 @@ document.getElementById('deploy-modal').addEventListener('click', function(e) {
 
 let _authToken = localStorage.getItem('mcn_token') || ''
 let _authUser  = null
+let _authGuest = false
 
 try { _authUser = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch(e) {}
+
 
 function _getAuthHeaders() {
   return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {}
@@ -1903,26 +3374,56 @@ async function apiFetch(url, opts = {}) {
 
 function _updateAuthUI() {
   const user = _authUser
-  document.getElementById('btn-signin').style.display   = user ? 'none' : ''
-  document.getElementById('auth-user').style.display    = user ? '' : 'none'
-  document.getElementById('btn-signout').style.display  = user ? '' : 'none'
+  const isGuest = _authGuest
+  document.getElementById('btn-signin').style.display  = (user || isGuest) ? 'none' : ''
+  const guestBtn = document.getElementById('btn-guest')
+  if (guestBtn) guestBtn.style.display = (user || isGuest) ? 'none' : ''
+  document.getElementById('auth-user').style.display   = (user || isGuest) ? '' : 'none'
+  document.getElementById('btn-signout').style.display = (user || isGuest) ? '' : 'none'
   if (user) {
-    document.getElementById('auth-user').textContent = '● ' + (user.email || 'signed in')
+    document.getElementById('auth-user').textContent = user.email || 'Signed in'
+  } else if (isGuest) {
+    document.getElementById('auth-user').textContent = 'Guest'
   }
 }
 
+function continueAsGuest() {
+  _authGuest = true
+  localStorage.setItem('mcn_guest', '1')
+  _updateAuthUI()
+  appendLog('info', 'Continuing as Guest — workspace is local and not saved between sessions.')
+}
+
+// Restore guest state on page load, then sync UI
+try { _authGuest = !!localStorage.getItem('mcn_guest') } catch(e) { _authGuest = false }
 _updateAuthUI()
+
 
 let _authTab = 'login'
 
 function switchAuthTab(tab) {
   _authTab = tab
-  document.getElementById('auth-modal-title').textContent = tab === 'login' ? 'Sign In' : 'Create Account'
+  document.getElementById('auth-modal-title').textContent = tab === 'login' ? 'Welcome back' : 'Create an account'
   document.getElementById('auth-submit').textContent      = tab === 'login' ? 'Sign In' : 'Create Account'
-  document.getElementById('auth-tab-login').style.opacity    = tab === 'login' ? '1' : '0.5'
-  document.getElementById('auth-tab-register').style.opacity = tab === 'register' ? '1' : '0.5'
+  
+  const loginTab = document.getElementById('auth-tab-login')
+  const registerTab = document.getElementById('auth-tab-register')
+  
+  if (tab === 'login') {
+    loginTab.style.color = 'var(--accent)'
+    loginTab.style.borderBottomColor = 'var(--accent)'
+    registerTab.style.color = 'var(--muted)'
+    registerTab.style.borderBottomColor = 'transparent'
+  } else {
+    loginTab.style.color = 'var(--muted)'
+    loginTab.style.borderBottomColor = 'transparent'
+    registerTab.style.color = 'var(--accent)'
+    registerTab.style.borderBottomColor = 'var(--accent)'
+  }
+  
   document.getElementById('auth-error').style.display = 'none'
 }
+
 
 function openAuthModal() {
   if (_authUser) {
@@ -1961,6 +3462,7 @@ async function submitAuth() {
       body: JSON.stringify({ email, password })
     })
     const d = await r.json()
+    if (r.status === 503) throw new Error('Auth is not configured on this server. Use "Continue as Guest" to use the playground.')
     if (!r.ok || d.error) throw new Error(d.error || r.statusText)
 
     _authToken = d.token
@@ -1984,8 +3486,10 @@ async function submitAuth() {
 function signOut() {
   _authToken = ''
   _authUser  = null
+  _authGuest = false
   localStorage.removeItem('mcn_token')
   localStorage.removeItem('mcn_user')
+  localStorage.removeItem('mcn_guest')
   _updateAuthUI()
   loadFileTree()
   appendLog('info', 'Signed out')

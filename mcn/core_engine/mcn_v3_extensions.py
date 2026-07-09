@@ -185,12 +185,23 @@ class MCNIoTConnector:
             raise Exception(f"Device '{device_id}' not found")
         
         device = self.devices[device_id]
+        import time
+        current_time = time.time()
+
+        if "override_value" in device and device["override_value"] is not None:
+            val = device["override_value"]
+            if device["type"] == "temperature_sensor":
+                device["last_reading"] = {"temperature": val, "unit": "C", "timestamp": current_time, "value": val}
+            elif device["type"] == "humidity_sensor":
+                device["last_reading"] = {"humidity": val, "unit": "%", "timestamp": current_time, "value": val}
+            elif device["type"] == "motion_sensor":
+                device["last_reading"] = {"motion_detected": bool(val), "timestamp": current_time, "value": bool(val)}
+            else:
+                device["last_reading"] = {"value": val, "timestamp": current_time}
+            return val
         
         # Dynamic device reading based on type and real sensor simulation
-        import time
         import math
-        
-        current_time = time.time()
         
         if device["type"] == "temperature_sensor":
             # Realistic temperature variation based on time of day
@@ -250,6 +261,22 @@ class MCNAgentSystem:
         self.agents[name] = agent
         return f"Agent '{name}' created with model '{agent_model}'"
     
+    def create_multi_agent(self, name: str, sub_agents: List[str], coordinator_prompt: str, model: str = None):
+        """Create a multi-agent coordinator"""
+        agent_model = model or self.model_registry.active_model or "gpt-3.5-turbo"
+        
+        agent = MCNAgent(
+            name=name,
+            prompt=coordinator_prompt,
+            model=agent_model,
+            memory={"sub_agents": sub_agents, "is_coordinator": True},
+            tools=[],
+            active=False
+        )
+        
+        self.agents[name] = agent
+        return f"Multi-Agent coordinator '{name}' created with {len(sub_agents)} sub-agents"
+    
     def activate_agent(self, name: str):
         """Activate an agent"""
         if name not in self.agents:
@@ -272,6 +299,16 @@ class MCNAgentSystem:
         
         # Store in memory
         agent.memory[f"input_{len(agent.memory)}"] = input_data
+        
+        if agent.memory.get("is_coordinator"):
+            sub_agents = agent.memory.get("sub_agents", [])
+            responses = []
+            for sub in sub_agents:
+                if sub in self.agents and self.agents[sub].active:
+                    responses.append(f"[{sub}]: " + self.agent_think(sub, input_data))
+            coordinator_response = f"Coordinator '{name}' synthesized responses from {len(responses)} sub-agents:\n" + "\n".join(responses)
+            agent.memory[f"response_{len(agent.memory)}"] = coordinator_response
+            return coordinator_response
         
         # Dynamic AI processing with context awareness
         context_keywords = ["analyze", "calculate", "predict", "recommend", "classify"]
@@ -412,6 +449,42 @@ class MCNDataPipeline:
             return {"data": data, "entities": entities}
         
         return {"data": data, "extracted": []}
+
+
+class MCNDataSourceSystem:
+    """Knowledge Sources and Enterprise Search (RAG)"""
+    
+    def __init__(self):
+        self.datasources = {}
+    
+    def create_datasource(self, name: str, source_type: str, payload: Any):
+        """Ingest documents or connect to an external source"""
+        documents = []
+        if source_type == "text":
+            documents = [{"content": chunk, "source": "text_payload"} for chunk in str(payload).split("\n\n")]
+        elif source_type == "file":
+            documents = [{"content": f"Mock content from {payload}", "source": payload}]
+        else:
+            documents = [{"content": str(payload), "source": "unknown"}]
+            
+        self.datasources[name] = {
+            "type": source_type,
+            "documents": documents,
+            "vector_index_mock": f"vector_index_{len(documents)}_items",
+            "created": time.time()
+        }
+        return f"DataSource '{name}' created with {len(documents)} chunks ingested."
+        
+    def query_rag(self, name: str, query: str):
+        """Retrieve and generate based on datasource"""
+        if name not in self.datasources:
+            raise Exception(f"DataSource '{name}' not found")
+            
+        ds = self.datasources[name]
+        top_docs = ds["documents"][:2]
+        context = "\n".join([doc["content"] for doc in top_docs])
+        
+        return f"RAG Response from '{name}' for query '{query}': Based on knowledge base context ({context[:50]}...), the answer is highly relevant."
 
 
 class MCNNaturalLanguage:
@@ -555,17 +628,26 @@ def create_v3_iot_package(iot_connector: MCNIoTConnector):
 def create_v3_event_package(event_system: MCNEventSystem):
     """Event-driven programming package"""
     
-    def on_event(event_name: str, handler_code: str):
-        """Register event handler (simplified)"""
-        def handler(data):
-            print(f"Event {event_name} triggered with data: {data}")
-        
-        event_system.on_event(event_name, handler)
+    def on_event(event_name: str, handler_func: Any):
+        """Register event handler"""
+        if callable(handler_func):
+            event_system.on_event(event_name, handler_func)
+        else:
+            def handler(data):
+                print(f"Event {event_name} triggered with data: {data}")
+            event_system.on_event(event_name, handler)
         return f"Handler registered for event '{event_name}'"
     
-    def trigger_event(event_name: str, **data):
+    def trigger_event(event_name: str, data: dict = None, **kwargs):
         """Trigger an event"""
-        return event_system.trigger_event(event_name, data)
+        payload = {}
+        if isinstance(data, dict):
+            payload.update(data)
+        elif data is not None:
+            payload["value"] = data
+        if kwargs:
+            payload.update(kwargs)
+        return event_system.trigger_event(event_name, payload)
     
     return {
         "on": on_event,
@@ -622,9 +704,12 @@ def create_v3_pipeline_package(pipeline_system: MCNDataPipeline):
 def create_v3_nl_package(nl_system: MCNNaturalLanguage):
     """Natural language programming package"""
     
-    def translate_code(natural_text: str):
+    def translate_code(natural_text: str, execute_if_safe: bool = False):
         """Translate natural language to MCN code"""
-        return nl_system.translate(natural_text)
+        code = nl_system.translate(natural_text)
+        if execute_if_safe:
+            return f"Simulated execution of: {code}"
+        return code
     
     def execute_natural(natural_text: str, interpreter):
         """Execute natural language directly"""

@@ -24,6 +24,18 @@ from .lexer     import Lexer, TT, Token
 from .parser    import Parser
 from .evaluator import Evaluator, MCNError
 
+
+class CallableDict(dict):
+    """A dictionary that is also callable. Used to prevent namespace/function shadowing."""
+    def __init__(self, *args, **kwargs):
+        self._callable = None
+        super().__init__(*args, **kwargs)
+        
+    def __call__(self, *args, **kwargs):
+        if self._callable:
+            return self._callable(*args, **kwargs)
+        raise TypeError("'CallableDict' object is not callable")
+
 # ── Backward-compat aliases ────────────────────────────────────────────────────
 MCNLexer  = Lexer
 MCNParser = Parser
@@ -65,7 +77,8 @@ class MCNInterpreter:
     the previous behaviour.
     """
 
-    def __init__(self):
+    def __init__(self, sandbox_dir: Optional[str] = None, db_path: Optional[str] = None, db_connection: Any = None):
+        self.sandbox_dir = sandbox_dir
         # Built-in function registry — shared with the Evaluator so that
         # user-defined functions declared during execution are also visible.
         self._functions: Dict[str, Callable] = {}
@@ -74,6 +87,21 @@ class MCNInterpreter:
 
         # Create the evaluator with the shared functions dict
         self._evaluator = Evaluator(self._functions)
+
+        if db_path:
+            self.runtime.connect_database(db_path)
+        if db_connection:
+            self.runtime.db_connection = db_connection
+            import sqlite3
+            if isinstance(db_connection, sqlite3.Connection):
+                self.runtime.db_type = "sqlite"
+            else:
+                try:
+                    import psycopg2
+                    if isinstance(db_connection, psycopg2.extensions.connection):
+                        self.runtime.db_type = "postgresql"
+                except ImportError:
+                    pass
 
     # ── Backward-compat properties (used by tests / server) ───────────────────
 
@@ -97,7 +125,8 @@ class MCNInterpreter:
         self._functions[name] = func
 
     def execute(self, code: str, file_path: str = None,
-                quiet: bool = False) -> Any:
+                quiet: bool = False, max_steps: Optional[int] = None,
+                db_connection: Any = None) -> Any:
         """
         Lex, parse, and evaluate a MCN source string.
 
@@ -106,59 +135,89 @@ class MCNInterpreter:
         code      : MCN source text
         file_path : used in error / log messages only
         quiet     : suppress step-level logging (used in production/server mode)
+        max_steps : instruction step count limit
+        db_connection : dynamically bind tenant database connection
         """
         import textwrap
         code = textwrap.dedent(code)
         start = time.time()
-        try:
-            if not quiet:
-                log_step("Starting MCN execution", file_path=file_path)
 
-            # ── Lexical analysis ──────────────────────────────────────────────
-            tokens = Lexer(code).tokenize()
-            if not quiet:
-                log_step("Tokenisation complete", token_count=len(tokens))
+        # Dynamically set max steps
+        original_max_steps = self._evaluator.max_steps
+        if max_steps is not None:
+            self._evaluator.max_steps = max_steps
+        self._evaluator.step_count = 0
 
-            # ── Parsing ───────────────────────────────────────────────────────
-            program = Parser(tokens).parse()
-            if not quiet:
-                log_step("Parsing complete", statements=len(program.body))
-
-            # ── Evaluation ────────────────────────────────────────────────────
-            result = self._evaluator.execute_program(program)
-            elapsed = time.time() - start
-            if not quiet:
-                log_performance(
-                    "MCN execution", elapsed,
-                    statements=len(program.body),
-                    variables=len(self.variables),
-                    functions=len(self._functions),
-                )
-            return result
-
-        except Exception as exc:
-            elapsed = time.time() - start
-            msg     = str(exc)
-
-            if "LexError" in msg or "ParseError" in msg:
-                error_type = "SYNTAX_ERROR"
-            elif "Undefined variable" in msg or "Undefined function" in msg:
-                error_type = "REFERENCE_ERROR"
-            elif "RuntimeError" in msg:
-                error_type = "RUNTIME_ERROR"
+        # Dynamically swap database connection
+        original_db_connection = self.runtime.db_connection
+        original_db_type = self.runtime.db_type
+        if db_connection is not None:
+            self.runtime.db_connection = db_connection
+            import sqlite3
+            if isinstance(db_connection, sqlite3.Connection):
+                self.runtime.db_type = "sqlite"
             else:
-                error_type = "RUNTIME_ERROR"
+                try:
+                    import psycopg2
+                    if isinstance(db_connection, psycopg2.extensions.connection):
+                        self.runtime.db_type = "postgresql"
+                except ImportError:
+                    pass
 
-            log_error(
-                error_type, msg,
-                context={
-                    "code_snippet": code[:200] + ("..." if len(code) > 200 else ""),
-                    "execution_time": elapsed,
-                    "traceback": traceback.format_exc(),
-                },
-                file_path=file_path,
-            )
-            raise Exception(f"MCN {error_type}: {msg}") from exc
+        try:
+            try:
+                if not quiet:
+                    log_step("Starting MCN execution", file_path=file_path)
+
+                # ── Lexical analysis ──────────────────────────────────────────────
+                tokens = Lexer(code).tokenize()
+                if not quiet:
+                    log_step("Tokenisation complete", token_count=len(tokens))
+
+                # ── Parsing ───────────────────────────────────────────────────────
+                program = Parser(tokens).parse()
+                if not quiet:
+                    log_step("Parsing complete", statements=len(program.body))
+
+                # ── Evaluation ────────────────────────────────────────────────────
+                result = self._evaluator.execute_program(program)
+                elapsed = time.time() - start
+                if not quiet:
+                    log_performance(
+                        "MCN execution", elapsed,
+                        statements=len(program.body),
+                        variables=len(self.variables),
+                        functions=len(self._functions),
+                    )
+                return result
+
+            except Exception as exc:
+                elapsed = time.time() - start
+                msg     = str(exc)
+
+                if "LexError" in msg or "ParseError" in msg:
+                    error_type = "SYNTAX_ERROR"
+                elif "Undefined variable" in msg or "Undefined function" in msg:
+                    error_type = "REFERENCE_ERROR"
+                elif "RuntimeError" in msg:
+                    error_type = "RUNTIME_ERROR"
+                else:
+                    error_type = "RUNTIME_ERROR"
+
+                log_error(
+                    error_type, msg,
+                    context={
+                        "code_snippet": code[:200] + ("..." if len(code) > 200 else ""),
+                        "execution_time": elapsed,
+                        "traceback": traceback.format_exc(),
+                    },
+                    file_path=file_path,
+                )
+                raise Exception(f"MCN {error_type}: {msg}") from exc
+        finally:
+            self._evaluator.max_steps = original_max_steps
+            self.runtime.db_connection = original_db_connection
+            self.runtime.db_type = original_db_type
 
     # ── Built-in function registration ─────────────────────────────────────────
 
@@ -236,6 +295,8 @@ class MCNInterpreter:
             "agent":               self._agent_operation,
             "pipeline":            self._pipeline_operation,
             "translate":           self._translate_natural,
+            "datasource":          self._datasource_operation,
+            "rag":                 self._rag_operation,
             "ui":                  self._ui_operation,
         })
 
@@ -255,23 +316,43 @@ class MCNInterpreter:
     def _env(self, key: str) -> Optional[str]:
         return os.getenv(key)
 
+    def _resolve_sandbox_path(self, filepath: str) -> str:
+        if not self.sandbox_dir:
+            return filepath
+        sandbox_path = os.path.abspath(self.sandbox_dir)
+        prefix = sandbox_path if sandbox_path.endswith(os.sep) else sandbox_path + os.sep
+
+        if os.path.isabs(filepath):
+            resolved = os.path.abspath(filepath)
+            if resolved != sandbox_path and not resolved.startswith(prefix):
+                raise Exception(f"Sandbox violation: Attempted to access absolute path '{filepath}' outside sandbox directory '{self.sandbox_dir}'")
+            return resolved
+        else:
+            resolved = os.path.abspath(os.path.join(sandbox_path, filepath))
+            if resolved != sandbox_path and not resolved.startswith(prefix):
+                raise Exception(f"Sandbox violation: Attempted to access path '{filepath}' outside sandbox directory '{self.sandbox_dir}'")
+            return resolved
+
     def _read_file(self, filepath: str) -> str:
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            target = self._resolve_sandbox_path(filepath)
+            with open(target, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as exc:
             raise Exception(f"Failed to read file '{filepath}': {exc}") from exc
 
     def _write_file(self, filepath: str, content: str) -> None:
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
+            target = self._resolve_sandbox_path(filepath)
+            with open(target, "w", encoding="utf-8") as f:
                 f.write(str(content))
         except Exception as exc:
             raise Exception(f"Failed to write file '{filepath}': {exc}") from exc
 
     def _append_file(self, filepath: str, content: str) -> None:
         try:
-            with open(filepath, "a", encoding="utf-8") as f:
+            target = self._resolve_sandbox_path(filepath)
+            with open(target, "a", encoding="utf-8") as f:
                 f.write(str(content))
         except Exception as exc:
             raise Exception(f"Failed to append to '{filepath}': {exc}") from exc
@@ -317,7 +398,7 @@ class MCNInterpreter:
             from .mcn_module_system import MCNModuleSystem
             from .mcn_v3_extensions import (
                 MCNModelRegistry, MCNEventSystem, MCNIoTConnector,
-                MCNAgentSystem, MCNDataPipeline, MCNNaturalLanguage
+                MCNAgentSystem, MCNDataPipeline, MCNNaturalLanguage, MCNDataSourceSystem
             )
             self.model_registry = MCNModelRegistry()
             self.event_system = MCNEventSystem()
@@ -326,6 +407,7 @@ class MCNInterpreter:
             self.pipeline_system = MCNDataPipeline(self.model_registry)
             self.nl_system = MCNNaturalLanguage(self.model_registry)
             self.module_system = MCNModuleSystem()
+            self.datasource_system = MCNDataSourceSystem()
 
     def _use_package(self, package_name: str) -> str:
         from .mcn_packages import get_registry, PackageNotFoundError
@@ -336,7 +418,12 @@ class MCNInterpreter:
             # Also expose as package_name.fn() namespace object
             # Use only the last path component: "accenture/healthcare" → "healthcare"
             ns_key = pkg_name.split("/")[-1].replace("-", "_")
-            self._evaluator.globals.define(ns_key, pkg_fns)
+            if ns_key in self._functions:
+                callable_dict = CallableDict(pkg_fns)
+                callable_dict._callable = self._functions[ns_key]
+                self._evaluator.globals.define(ns_key, callable_dict)
+            else:
+                self._evaluator.globals.define(ns_key, pkg_fns)
             return f"Package '{pkg_name}' loaded ({len(pkg_fns)} exports)"
 
         # 1. Try the new registry (bundled + disk + project)
@@ -347,6 +434,28 @@ class MCNInterpreter:
             pass
 
         # 2. Fall back to legacy in-memory package_manager (db/http/ai packages)
+        if package_name == "ui":
+            self._ensure_ui_integration()
+            pkg_fns = {
+                "button": self.ui_integration._ui_button,
+                "input": self.ui_integration._ui_input,
+                "text": self.ui_integration._ui_text,
+                "container": self.ui_integration._ui_container,
+                "form": self.ui_integration._ui_form,
+                "table": self.ui_integration._ui_table,
+                "chart": self.ui_integration._ui_chart,
+                "page": self.ui_integration._ui_page,
+                "bind_data": self.ui_integration._ui_bind_data,
+                "export": self.ui_integration._ui_export,
+                "export_flutter": self.ui_integration._ui_export_flutter
+            }
+            return _bind(package_name, pkg_fns)
+
+        if package_name == "auth_auto":
+            self._ensure_ui_integration()
+            pkg_fns = self._setup_auth_auto()
+            return _bind(package_name, pkg_fns)
+
         pkg_fns = self.package_manager.get_package_functions(package_name)
         if pkg_fns:
             return _bind(package_name, pkg_fns)
@@ -492,26 +601,51 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": str(e)}
 
-    def _agent_operation(self, operation: str, name: str = None, options: dict = None, **kwargs):
+    def _agent_operation(self, operation: str, name: str = None, *args, **kwargs):
         try:
             self._ensure_v3_systems()
             opts = {}
-            if isinstance(options, dict):
-                opts.update(options)
+            if args and isinstance(args[0], dict):
+                opts.update(args[0])
             opts.update(kwargs)
             
             if operation == "create":
-                prompt = opts.get("prompt", "")
+                prompt = opts.get("prompt", args[0] if args and isinstance(args[0], str) else "")
                 model = opts.get("model")
                 tools = opts.get("tools")
                 return self.agent_system.create_agent(name, prompt, model, tools)
+            elif operation == "create_multi":
+                sub_agents = opts.get("sub_agents", args[0] if args and isinstance(args[0], list) else [])
+                prompt = opts.get("coordinator_prompt", args[1] if len(args) > 1 and isinstance(args[1], str) else "")
+                model = opts.get("model")
+                return self.agent_system.create_multi_agent(name, sub_agents, prompt, model)
             elif operation == "activate":
                 return self.agent_system.activate_agent(name)
             elif operation == "think":
                 self.agent_system.activate_agent(name)
-                input_data = opts.get("input", "")
+                input_data = opts.get("input", args[0] if args and isinstance(args[0], str) else "")
                 return self.agent_system.agent_think(name, input_data)
             return f"Agent {operation} on {name} simulated"
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _datasource_operation(self, operation: str, name: str, *args, **kwargs):
+        try:
+            self._ensure_v3_systems()
+            if operation == "create":
+                source_type = args[0] if len(args) > 0 else kwargs.get("type", "text")
+                payload = args[1] if len(args) > 1 else kwargs.get("payload", "")
+                return self.datasource_system.create_datasource(name, source_type, payload)
+            return f"Datasource {operation} simulated"
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _rag_operation(self, operation: str, query: str, name: str):
+        try:
+            self._ensure_v3_systems()
+            if operation == "query_datasource":
+                return self.datasource_system.query_rag(name, query)
+            return f"RAG {operation} simulated"
         except Exception as e:
             return {"error": str(e)}
 
@@ -543,12 +677,118 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": str(e)}
 
-    def _ui_operation(self, operation: str, text_or_format=None):
+    def _ensure_ui_integration(self):
+        if not hasattr(self, "ui_integration") or self.ui_integration is None:
+            from .mcn_ui_bindings import UIIntegrationLayer
+            self.ui_integration = UIIntegrationLayer(self)
+
+    def _ui_operation(self, operation: str, *args, **kwargs):
         try:
-            from .mcn_runtime import MCNRuntime
-            runtime = MCNRuntime()
-            if hasattr(runtime, "ui_operation"):
-                return runtime.ui_operation(operation, text_or_format)
+            self._ensure_ui_integration()
+            method_name = f"_ui_{operation}"
+            if hasattr(self.ui_integration, method_name):
+                return getattr(self.ui_integration, method_name)(*args, **kwargs)
             return f"UI operation {operation} simulated"
         except Exception as e:
             return {"error": str(e)}
+
+    def _setup_auth_auto(self) -> Dict[str, Callable]:
+        """
+        Auto-configures complete database-backed authentication.
+        Creates default Login & Register pages, maps database tables, and registers auth controllers.
+        """
+        # 1. Initialize auth_users table
+        try:
+            self.runtime.query(
+                "CREATE TABLE IF NOT EXISTS auth_users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, password TEXT)"
+            )
+        except Exception:
+            try:
+                self.runtime.query(
+                    "CREATE TABLE IF NOT EXISTS auth_users (id SERIAL PRIMARY KEY, email TEXT UNIQUE, password TEXT)"
+                )
+            except Exception as e:
+                print(f"Auth auto DB init warning: {e}")
+
+        # 2. Define login and register backend logic
+        def register_user(payload: dict) -> dict:
+            email = payload.get("email")
+            password = payload.get("password")
+            if not email or not password:
+                return {"success": False, "error": "Email and Password are required"}
+            
+            from .stdlib_builtins import mcn_auth_hash
+            hashed = mcn_auth_hash(password)
+            
+            try:
+                self.runtime.query(
+                    "INSERT INTO auth_users (email, password) VALUES (?, ?)", (email, hashed)
+                )
+                return {"success": True, "message": "User registered successfully"}
+            except Exception as e:
+                err_str = str(e).lower()
+                if "unique" in err_str or "duplicate" in err_str:
+                    return {"success": False, "error": "Email is already registered"}
+                try:
+                    self.runtime.query(
+                        "INSERT INTO auth_users (email, password) VALUES (%s, %s)", (email, hashed)
+                    )
+                    return {"success": True, "message": "User registered successfully"}
+                except Exception as ex:
+                    ex_str = str(ex).lower()
+                    if "unique" in ex_str or "duplicate" in ex_str:
+                        return {"success": False, "error": "Email is already registered"}
+                    return {"success": False, "error": f"Registration error: {str(ex)}"}
+
+        def login_user(payload: dict) -> dict:
+            email = payload.get("email")
+            password = payload.get("password")
+            if not email or not password:
+                return {"success": False, "error": "Email and Password are required"}
+
+            try:
+                users = self.runtime.query("SELECT * FROM auth_users WHERE email = ?", (email,))
+            except Exception:
+                try:
+                    users = self.runtime.query("SELECT * FROM auth_users WHERE email = %s", (email,))
+                except Exception as ex:
+                    return {"success": False, "error": str(ex)}
+
+            if not users:
+                return {"success": False, "error": "Invalid email or password"}
+
+            user = users[0]
+            from .stdlib_builtins import mcn_auth_verify_hash, mcn_auth_create_token
+            stored_pwd = user.get("password") or user.get("PASSWORD")
+            if not stored_pwd or not mcn_auth_verify_hash(password, stored_pwd):
+                return {"success": False, "error": "Invalid email or password"}
+
+            token = mcn_auth_create_token({"email": email, "id": user.get("id") or user.get("ID")})
+            return {"success": True, "token": token, "message": "Login successful"}
+
+        # 3. Expose these backend endpoints
+        self.register_function("register_user", register_user)
+        self.register_function("login_user", login_user)
+
+        # 4. Inject Login and Register UI pages in the UIBindingManager
+        self._ensure_ui_integration()
+        ui = self.ui_integration.ui_manager
+
+        # --- Login Page ---
+        email_in = ui.input("Enter email", id="login_email")
+        pass_in = ui.input("Enter password", type="password", id="login_password")
+        login_btn = ui.button("Log In", onClick="login_user", id="login_btn")
+        login_form = ui.form([email_in, pass_in, login_btn], onSubmit="login_user", id="login_form")
+        ui.create_page("Login", "/login", [login_form])
+
+        # --- Register Page ---
+        reg_email = ui.input("Enter email", id="register_email")
+        reg_pass = ui.input("Enter password", type="password", id="register_password")
+        reg_btn = ui.button("Register", onClick="register_user", id="register_btn")
+        reg_form = ui.form([reg_email, reg_pass, reg_btn], onSubmit="register_user", id="register_form")
+        ui.create_page("Register", "/register", [reg_form])
+
+        return {
+            "register_user": register_user,
+            "login_user": login_user
+        }
