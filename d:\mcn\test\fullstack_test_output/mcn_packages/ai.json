@@ -1,9 +1,0 @@
-{
-  "name": "ai",
-  "functions": [
-    "summarize",
-    "analyze_sentiment",
-    "predict_trend"
-  ],
-  "installed": true
-}
