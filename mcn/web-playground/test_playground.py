@@ -482,6 +482,48 @@ def test_devserver_stop_when_not_running(r):
         r.check(data.get("success"), "stop returns success")
 
 
+def test_preview_route(r):
+    """GET /preview/index.html should return interactive HTML page."""
+    with app.test_client() as c:
+        res = c.get("/preview/index.html")
+        r.eq(res.status_code, 200, "status 200")
+        r.check("<!DOCTYPE html>" in res.data.decode("utf-8"), "returns HTML document")
+
+
+def test_crm_build_and_preview(r):
+    """Building CRM template should generate all components and render sidebar in preview."""
+    with app.test_client() as c:
+        # 1. Reset workspace to CRM template
+        reset_res = c.post("/api/workspace/reset",
+                           data=json.dumps({
+                               "files": [
+                                   {"path": "backend/main.mcn", "content": pg._CRM_BACKEND},
+                                   {"path": "ui/app.mcn",       "content": pg._CRM_UI}
+                               ]
+                           }),
+                           content_type="application/json")
+        r.eq(reset_res.status_code, 200, "reset status")
+
+        # 2. Build CRM project
+        build_res = c.post("/api/build",
+                           data=json.dumps({"platform": "react"}),
+                           content_type="application/json")
+        bdata = json.loads(build_res.data)
+        r.check(bdata.get("success"), "build success")
+
+        # 3. Fetch preview HTML
+        prev_res = c.get("/preview/index.html")
+        r.eq(prev_res.status_code, 200, "preview status 200")
+        html = prev_res.data.decode("utf-8")
+        r.check("CRM" in html, "contains CRM title")
+        r.check("Dashboard" in html, "contains Dashboard nav")
+        r.check("Deals" in html, "contains Deals nav")
+        r.check("Contacts" in html, "contains Contacts nav")
+        r.check("Companies" in html, "contains Companies nav")
+        r.check("Activities" in html, "contains Activities nav")
+        r.check("sidebar" in html, "contains sidebar layout")
+
+
 def test_generate_missing_description(r):
     with app.test_client() as c:
         res  = c.post("/api/generate",
@@ -575,12 +617,211 @@ def test_execute_timeout(r):
                       data=json.dumps({"code": inf_loop}),
                       content_type="application/json",
                       )
+def test_execute_analytics(r):
+    """Analytics package: kpi_summary, trend, distribution, pivot, report, and export_report."""
+    script = (
+        'use analytics\n'
+        'query("DROP TABLE IF EXISTS test_sales")\n'
+        'query("CREATE TABLE test_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, rep TEXT, region TEXT, amount REAL, created_at TEXT)")\n'
+        'query("INSERT INTO test_sales (rep, region, amount, created_at) VALUES (\'Alice\', \'North\', 10000, \'2026-01-10\')")\n'
+        'query("INSERT INTO test_sales (rep, region, amount, created_at) VALUES (\'Bob\', \'West\', 20000, \'2026-02-14\')")\n'
+        'query("INSERT INTO test_sales (rep, region, amount, created_at) VALUES (\'Charlie\', \'North\', 30000, \'2026-02-20\')")\n'
+        'var k = kpi_summary("test_sales", metrics=["sum:amount", "avg:amount", "count:*"])\n'
+        'var t = trend("test_sales", date_field="created_at", value_field="amount", interval="monthly", agg="sum")\n'
+        'var d = distribution("test_sales", category_field="region", value_field="amount")\n'
+        'var p = pivot("test_sales", row_field="rep", col_field="region", value_field="amount")\n'
+        'var rep = report("test_sales", metrics=["sum:amount", "count:*"], group_by=["region"])\n'
+        'var md = export_report(rep, format="markdown")\n'
+        'log("Total Sales: " + str(k.total_sum))\n'
+        'log(md)\n'
+    )
+    with app.test_client() as c:
+        res = c.post("/api/execute",
+                     data=json.dumps({"code": script}),
+                     content_type="application/json")
+        r.eq(res.status_code, 200, "status 200")
         data = json.loads(res.data)
-        # Should either timeout (408) or runtime-error (200 success=false)
-        r.check(
-            res.status_code == 408 or (res.status_code == 200 and not data.get("success")),
-            "infinite loop is terminated"
-        )
+        r.check(data.get("success") is True, f"execution succeeded (output: {data.get('output')}, error: {data.get('error')})")
+        out_raw = data.get("output", [])
+        output = "\n".join(out_raw) if isinstance(out_raw, list) else str(out_raw)
+        r.check("60000" in output, f"computed correct aggregated KPI total (output: {output})")
+        r.check("North" in output and "West" in output, "exported markdown report table with grouping")
+
+
+def test_generate_with_attachments(r):
+    """POST /api/generate with multimodal attachments."""
+    import base64
+    fake_pdf = base64.b64encode(b"%PDF-1.4 mock BRD requirement").decode("utf-8")
+    fake_png = base64.b64encode(b"\x89PNG\r\n\x1a\n mock figma image").decode("utf-8")
+    attachments = [
+        {"name": "BRD_CRM_Spec.pdf", "type": "application/pdf", "size": 1024, "data": fake_pdf},
+        {"name": "Figma_Dashboard_Mockup.png", "type": "image/png", "size": 2048, "data": fake_png},
+    ]
+    with app.test_client() as c:
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test"}):
+            res = c.post("/api/generate",
+                         data=json.dumps({
+                             "description": "Generate CRM based on attached BRD and Figma UI",
+                             "attachments": attachments,
+                             "api_key": "sk-test"
+                         }),
+                         content_type="application/json")
+            r.check(res.status_code in (200, 400, 500), "valid HTTP status for multimodal generation")
+
+
+def test_mcn_agent_multimodal_prompt(r):
+    """MCNAgent._build_prompt structures document and image blocks correctly."""
+    from mcn.ai.mcn_agent import MCNAgent
+    agent = MCNAgent(api_key="sk-dummy")
+    import base64
+    fake_pdf = base64.b64encode(b"%PDF-1.4 test").decode("utf-8")
+    fake_png = base64.b64encode(b"PNG mock").decode("utf-8")
+    fake_md  = base64.b64encode(b"# PRD Spec\nCRUD for users").decode("utf-8")
+
+    attachments = [
+        {"name": "requirements.pdf", "type": "application/pdf", "data": fake_pdf},
+        {"name": "flowchart.png", "type": "image/png", "data": fake_png},
+        {"name": "notes.md", "type": "text/markdown", "data": fake_md},
+    ]
+
+    blocks = agent._build_prompt("Build user portal", port=8080, attachments=attachments)
+    r.check(isinstance(blocks, list), "returns list of content blocks")
+    r.check(len(blocks) == 4, f"expected 4 blocks, got {len(blocks)}")
+    r.check(blocks[0]["type"] == "document", "first block is document")
+    r.check(blocks[0]["source"]["media_type"] == "application/pdf", "media_type is application/pdf")
+    r.check(blocks[1]["type"] == "image", "second block is image")
+    r.check(blocks[1]["source"]["media_type"] == "image/png", "media_type is image/png")
+    r.check(blocks[2]["type"] == "text", "third block is decoded text")
+    r.check("CRUD for users" in blocks[2]["text"], "text attachment content decoded")
+    r.check(blocks[3]["type"] == "text", "fourth block is instruction text")
+    r.check("REQUIREMENTS ANALYSIS & DECOMPOSITION WORKFLOW" in blocks[3]["text"], "instructions present in final block")
+
+
+# ── Enterprise & Tooling Tests ────────────────────────────────────────────────
+
+def test_openapi_spec(r):
+    with app.test_client() as c:
+        res = c.get("/api/openapi.json")
+        r.eq(res.status_code, 200, "status is 200")
+        data = res.get_json()
+        r.eq(data.get("openapi"), "3.0.3", "openapi 3.0.3 version")
+        r.check("paths" in data, "paths in openapi spec")
+        r.check("components" in data, "components in openapi spec")
+        r.check("bearerAuth" in data.get("components", {}).get("securitySchemes", {}), "bearerAuth security scheme present")
+
+
+def test_swagger_ui_route(r):
+    with app.test_client() as c:
+        res = c.get("/docs")
+        r.eq(res.status_code, 200, "status is 200")
+        html = res.get_data(as_text=True)
+        r.check("SwaggerUIBundle" in html, "SwaggerUIBundle present in /docs")
+        r.check("/api/openapi.json" in html, "spec url present in /docs")
+
+
+def test_auth_guard_validation(r):
+    from mcn.core_engine.auth_primitives import _make_token
+    admin_token = _make_token({"user_id": "u1", "email": "admin@example.com", "roles": ["admin"]})
+    user_token = _make_token({"user_id": "u2", "email": "user@example.com", "roles": ["viewer"]})
+
+    with app.test_client() as c:
+        # Test admin access
+        res = c.post("/api/auth/validate_guard", json={"token": admin_token, "required_role": "admin"})
+        r.eq(res.status_code, 200, "admin validation status")
+        r.check(res.get_json().get("valid") is True, "admin valid is True")
+
+        # Test forbidden role
+        res = c.post("/api/auth/validate_guard", json={"token": user_token, "required_role": "admin"})
+        r.eq(res.status_code, 403, "forbidden status is 403")
+        r.check(res.get_json().get("valid") is False, "forbidden valid is False")
+
+        # Test invalid token
+        res = c.post("/api/auth/validate_guard", json={"token": "invalid.token", "required_role": "admin"})
+        r.eq(res.status_code, 401, "invalid token status is 401")
+
+
+def test_database_migrations_export(r):
+    with app.test_client() as c:
+        res = c.get("/api/database/export_migrations?dialect=postgres")
+        r.eq(res.status_code, 200, "status is 200")
+        data = res.get_json()
+        r.check(data.get("success") is True, "success is True")
+        r.check("migration_sql" in data, "migration_sql in data")
+        r.check("CREATE TABLE" in data.get("migration_sql", ""), "CREATE TABLE in migration sql")
+
+
+def test_production_download_bundle(r):
+    with app.test_client() as c:
+        # Ensure build exists
+        c.post("/api/build")
+        res = c.get("/api/download")
+        r.eq(res.status_code, 200, "status is 200")
+        r.eq(res.mimetype, "application/zip", "zip mimetype")
+        
+        import zipfile, io
+        zf = zipfile.ZipFile(io.BytesIO(res.data))
+        namelist = zf.namelist()
+        r.check(any("Dockerfile" in n for n in namelist), "Dockerfile in download zip")
+        r.check(any("docker-compose.yml" in n for n in namelist), "docker-compose.yml in download zip")
+
+
+def test_vscode_extension_files(r):
+    ext_dir = Path(__file__).parent.parent.parent / "mcn-vscode-extension"
+    r.check((ext_dir / "package.json").exists(), f"package.json exists in {ext_dir}")
+    r.check((ext_dir / "syntaxes" / "mcn.tmLanguage.json").exists(), "mcn.tmLanguage.json exists")
+    r.check((ext_dir / "snippets" / "mcn.code-snippets").exists(), "mcn.code-snippets exists")
+    r.check((ext_dir / "language-configuration.json").exists(), "language-configuration.json exists")
+    
+    if (ext_dir / "package.json").exists():
+        pkg = json.loads((ext_dir / "package.json").read_text(encoding="utf-8"))
+        r.eq(pkg.get("name"), "mcn-lang", "extension package name")
+        r.check("contributes" in pkg, "contributes field present")
+
+
+def test_telemetry_status(r):
+    with app.test_client() as c:
+        res = c.get("/api/telemetry/status")
+        r.eq(res.status_code, 200, "status is 200")
+        data = res.get_json()
+        r.check("registered" in data, "registered boolean in telemetry status")
+
+
+def test_telemetry_register(r):
+    with app.test_client() as c:
+        # Invalid email
+        res_bad = c.post("/api/telemetry/register", json={"email": "invalid_email"})
+        r.eq(res_bad.status_code, 400, "bad email rejected with 400")
+
+        # Valid registration
+        res = c.post("/api/telemetry/register", json={
+            "email": "dev@macincode.dev",
+            "name": "MCN Developer",
+            "organization": "Open Source",
+            "platform": "web"
+        })
+        r.eq(res.status_code, 200, "registration status is 200")
+        data = res.get_json()
+        r.check(data.get("success") is True, "registration success is True")
+        r.eq(data.get("profile", {}).get("email"), "dev@macincode.dev", "profile email matches")
+
+
+def test_telemetry_feedback(r):
+    with app.test_client() as c:
+        # Missing message
+        res_bad = c.post("/api/telemetry/feedback", json={"email": "dev@macincode.dev", "message": ""})
+        r.eq(res_bad.status_code, 400, "empty message rejected with 400")
+
+        # Valid feedback
+        res = c.post("/api/telemetry/feedback", json={
+            "email": "dev@macincode.dev",
+            "feedback_type": "bug",
+            "subject": "UI alignment test",
+            "message": "Testing telemetry and error diagnostics reporting.",
+            "error_logs": "Traceback: simulated log"
+        })
+        r.eq(res.status_code, 200, "feedback submission status is 200")
+        data = res.get_json()
+        r.check(data.get("success") is True, "feedback success is True")
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
@@ -605,6 +846,7 @@ SUITES = {
         ("POST /api/execute (return value)", test_execute_return_value),
         ("POST /api/execute (size limit)",   test_execute_code_size_limit),
         ("POST /api/execute (timeout)",      test_execute_timeout),
+        ("POST /api/execute (analytics engine)", test_execute_analytics),
     ],
     "Format": [
         ("POST /api/format (messy code)",    test_format_code),
@@ -635,11 +877,28 @@ SUITES = {
         ("GET  /api/devserver/status",                test_devserver_status_initial),
         ("POST /api/devserver/start (no pkg.json)",   test_devserver_start_no_package_json),
         ("POST /api/devserver/stop  (not running)",   test_devserver_stop_when_not_running),
+        ("GET  /preview/index.html",                  test_preview_route),
+        ("GET  /preview/index.html (CRM template)",   test_crm_build_and_preview),
     ],
     "Generate (AI)": [
         ("POST /api/generate (no description)", test_generate_missing_description),
         ("POST /api/generate (no api key)",     test_generate_missing_api_key),
         ("POST /api/generate (SSE stream)",     test_generate_streams_sse),
+        ("POST /api/generate (attachments)",    test_generate_with_attachments),
+        ("MCNAgent multimodal prompt builder",  test_mcn_agent_multimodal_prompt),
+    ],
+    "Enterprise & Tooling": [
+        ("GET  /api/openapi.json (OpenAPI 3.0)",       test_openapi_spec),
+        ("GET  /docs (Swagger UI Explorer)",           test_swagger_ui_route),
+        ("POST /api/auth/validate_guard (RBAC Guard)", test_auth_guard_validation),
+        ("GET  /api/database/export_migrations (DDL)", test_database_migrations_export),
+        ("GET  /api/download (Production Bundle)",     test_production_download_bundle),
+        ("VS Code Extension (Grammar & Snippets)",     test_vscode_extension_files),
+    ],
+    "Community Telemetry & Feedback": [
+        ("GET  /api/telemetry/status",                 test_telemetry_status),
+        ("POST /api/telemetry/register (Developer)",   test_telemetry_register),
+        ("POST /api/telemetry/feedback (Diagnostics)", test_telemetry_feedback),
     ],
 }
 

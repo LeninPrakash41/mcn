@@ -15,6 +15,8 @@ from .mcn_extensions import (
     create_db_package,
     create_http_package,
     create_ai_package,
+    create_analytics_package,
+    create_reports_package,
 )
 from .mcn_project_manager import mcn_project_manager
 from .mcn_frontend import mcn_frontend
@@ -36,6 +38,8 @@ __all__ = [
     "create_db_package",
     "create_http_package",
     "create_ai_package",
+    "create_analytics_package",
+    "create_reports_package",
     "mcn_project_manager",
     "mcn_frontend",
 ]

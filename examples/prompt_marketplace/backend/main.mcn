@@ -1,0 +1,172 @@
+use analytics
+
+contract PromptItem
+    title: str
+    category: str
+    ai_tool: str
+    prompt_template: str
+    description: str
+    sample_output: str
+    price: float
+    author: str
+    forks_count: int
+    avg_rating: float
+    tags: str
+
+contract WorkflowItem
+    title: str
+    description: str
+    ai_tools_used: str
+    step_count: int
+    author: str
+    price: float
+    forks_count: int
+
+contract CreatorProfile
+    username: str
+    specialty: str
+    rating: float
+    total_sales: float
+    badge: str
+
+contract Review
+    item_id: int
+    reviewer: str
+    rating: int
+    comment: str
+
+query("CREATE TABLE IF NOT EXISTS prompts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, ai_tool TEXT, prompt_template TEXT, description TEXT, sample_output TEXT, price REAL, author TEXT, forks_count INTEGER DEFAULT 0, avg_rating REAL DEFAULT 5.0, tags TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS workflows (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, description TEXT, ai_tools_used TEXT, step_count INTEGER, author TEXT, price REAL, forks_count INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS creators (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, specialty TEXT, rating REAL, total_sales REAL, badge TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, reviewer TEXT, rating INTEGER, comment TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS prompt_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, prompt_id INTEGER, user TEXT, input_params TEXT, execution_time_ms REAL, created_at TEXT DEFAULT (datetime('now')))")
+
+var count_prompts = query("SELECT COUNT(*) as cnt FROM prompts")[0].cnt
+if count_prompts == 0
+    // Seed initial creators
+    query("INSERT INTO creators (username, specialty, rating, total_sales, badge) VALUES ('AlexRivera', 'Midjourney & SDXL Master', 4.95, 14200.0, 'Top Creator')")
+    query("INSERT INTO creators (username, specialty, rating, total_sales, badge) VALUES ('ElenaDev', 'Claude & Cursor Code Architect', 4.98, 28900.0, 'Pro Verified')")
+    query("INSERT INTO creators (username, specialty, rating, total_sales, badge) VALUES ('MarcusGrowth', 'SEO & Marketing Pipelines', 4.88, 9850.0, 'Rising Star')")
+
+    // Seed Prompts
+    query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, forks_count, avg_rating, tags) VALUES ('Ultra-Realistic Cinematic Photography', 'Image & Art', 'Midjourney v6', 'Cinematic shot of {{subject}}, volumetric rim lighting, 8k resolution, shot on 35mm lens, f/1.8, photorealistic textures, muted color grading --ar 16:9 --v 6.0', 'Studio-quality portrait and landscape generator with cinematic depth-of-field and lighting.', 'A hyper-detailed 35mm portrait with golden-hour edge lighting and lifelike skin textures.', 4.99, 'AlexRivera', 1420, 4.95, 'photography,cinematic,midjourney,lighting')")
+
+    query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, forks_count, avg_rating, tags) VALUES ('Full-Stack Architecture & TypeScript Refactor', 'Coding & Tech', 'Claude 3.5 Sonnet', 'Act as a Principal Software Architect. Review the following {{language}} component for {{framework}}. Apply clean architecture, strict typing, error boundaries, and return production-ready code with unit tests:\n\n{{code_snippet}}', 'Enterprise-grade code reviewer and refactoring engine tailored for full-stack engineering.', 'Provides clean module interfaces, Zod schema validations, and 100% test coverage patterns.', 9.99, 'ElenaDev', 3840, 4.99, 'typescript,react,architecture,clean-code')")
+
+    query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, forks_count, avg_rating, tags) VALUES ('Viral LinkedIn & Twitter Thread Engine', 'Marketing & SEO', 'ChatGPT 4o', 'Write a viral 7-part hook thread about {{topic}} targeting {{audience}}. Use punchy short sentences, contrarian insights, data-backed frameworks, and finish with a high-converting CTA.', 'Transforms complex business lessons and case studies into viral social engagement threads.', 'Hook: 90% of SaaS founders make this pricing mistake... (7-tweet breakdown with actionable takeaways)', 0.0, 'MarcusGrowth', 6120, 4.88, 'social,marketing,growth,threads,free')")
+
+    query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, forks_count, avg_rating, tags) VALUES ('Autonomous Research Agent System Prompt', 'AI Agents', 'Claude 3.5 Sonnet', 'You are an Autonomous Research Analyst Agent. Given the research inquiry: {{inquiry}}, perform a 3-step synthesis: 1. Core thesis, 2. Key counter-arguments, 3. Strategic executive recommendations with citations.', 'Complete system prompt definition for deploying research and market analysis agents.', 'Comprehensive executive brief structured with methodology, findings, and risk matrix.', 14.99, 'ElenaDev', 890, 4.92, 'agent,research,system-prompt,langchain')")
+
+    query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, forks_count, avg_rating, tags) VALUES ('Cyberpunk Isometric Game Asset Generator', 'Image & Art', 'Stable Diffusion XL', 'Isometric 3D render of {{asset_name}}, cyberpunk futuristic aesthetic, neon glow, octane render, game-ready sprite asset on dark clean background', 'Generate ready-to-use game UI, building assets, and props for game developers.', 'Isometric neon-lit cyber-cafe asset with transparent background alpha ready for Unity.', 2.99, 'AlexRivera', 740, 4.85, 'game-dev,isometric,sdxl,3d,cyberpunk')")
+
+    // Seed Multi-Stage Workflows
+    query("INSERT INTO workflows (title, description, ai_tools_used, step_count, author, price, forks_count) VALUES ('End-to-End SEO Content Pipeline', 'Multi-step pipeline that researches search intent, generates SEO outlines, writes 2,000-word authoritative drafts, and optimizes meta tags.', 'Claude 3.5 + Perplexity', 3, 'MarcusGrowth', 19.99, 1280)")
+    query("INSERT INTO workflows (title, description, ai_tools_used, step_count, author, price, forks_count) VALUES ('API Contract to Frontend Component Suite', 'Automated pipeline that transforms OpenAPI YAML specs into TypeScript types, Mock Service Worker handlers, and shadcn/ui components.', 'Claude 3.5 + GPT-4o', 4, 'ElenaDev', 24.99, 2150)")
+
+    // Seed Reviews
+    query("INSERT INTO reviews (item_id, reviewer, rating, comment) VALUES (1, 'Sarah_K', 5, 'The lighting parameters are unbelievable! Saved me hours of prompt tweaking in Midjourney v6.')")
+    query("INSERT INTO reviews (item_id, reviewer, rating, comment) VALUES (2, 'DevLead_Tom', 5, 'Best architecture prompt on the market. Catching edge cases in our TypeScript stack effortlessly.')")
+    query("INSERT INTO reviews (item_id, reviewer, rating, comment) VALUES (3, 'GrowthHacker99', 5, 'Used this for 3 client threads and impressions went up 400% in 2 weeks.')")
+
+service prompt_marketplace_api
+    port 8080
+
+    endpoint list_prompts(category = "All", search = "", limit = 50)
+        var items = []
+        if category == "All" or category == ""
+            if search == ""
+                items = query("SELECT * FROM prompts ORDER BY forks_count DESC LIMIT ?", (limit,))
+            else
+                items = query("SELECT * FROM prompts WHERE title LIKE ? OR tags LIKE ? OR ai_tool LIKE ? ORDER BY forks_count DESC LIMIT ?", ("%" + search + "%", "%" + search + "%", "%" + search + "%", limit))
+        else
+            if search == ""
+                items = query("SELECT * FROM prompts WHERE category = ? ORDER BY forks_count DESC LIMIT ?", (category, limit))
+            else
+                items = query("SELECT * FROM prompts WHERE category = ? AND (title LIKE ? OR tags LIKE ?) ORDER BY forks_count DESC LIMIT ?", (category, "%" + search + "%", "%" + search + "%", limit))
+        return {success: true, data: items, count: len(items)}
+
+    endpoint get_prompt(id)
+        var rows = query("SELECT * FROM prompts WHERE id = ?", (id,))
+        if not rows
+            throw "Prompt with ID " + str(id) + " not found"
+        var prompt_data = rows[0]
+        var reviews_list = query("SELECT * FROM reviews WHERE item_id = ? ORDER BY id DESC", (id,))
+        return {success: true, prompt: prompt_data, reviews: reviews_list}
+
+    endpoint create_prompt(title, category, ai_tool, prompt_template, description, sample_output, price, author, tags)
+        var p = float(price) if price else 0.0
+        query("INSERT INTO prompts (title, category, ai_tool, prompt_template, description, sample_output, price, author, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (title, category, ai_tool, prompt_template, description, sample_output, p, author, tags))
+        var pid = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: pid, message: "Prompt published successfully to Marketplace!"}
+
+    endpoint fork_prompt(id)
+        query("UPDATE prompts SET forks_count = forks_count + 1 WHERE id = ?", (id,))
+        var updated = query("SELECT forks_count FROM prompts WHERE id = ?", (id,))[0]
+        return {success: true, forks_count: updated.forks_count}
+
+    endpoint test_prompt_live(prompt_template, subject = "Cyberpunk Samurai in Rain", language = "TypeScript", audience = "SaaS Founders", inquiry = "Future of Edge AI Computing")
+        var executed_prompt = prompt_template
+        executed_prompt = executed_prompt.replace("{{subject}}", subject)
+        executed_prompt = executed_prompt.replace("{{language}}", language)
+        executed_prompt = executed_prompt.replace("{{framework}}", "React + Next.js 15")
+        executed_prompt = executed_prompt.replace("{{code_snippet}}", "export function useDataFetch(url) { return fetch(url) }")
+        executed_prompt = executed_prompt.replace("{{topic}}", subject)
+        executed_prompt = executed_prompt.replace("{{audience}}", audience)
+        executed_prompt = executed_prompt.replace("{{inquiry}}", inquiry)
+        executed_prompt = executed_prompt.replace("{{asset_name}}", subject)
+
+        var ai_result = ai("You are an advanced AI simulator. Execute the following prompt and generate high-quality output:\n\n" + executed_prompt)
+        return {
+            success: true,
+            interpolated_prompt: executed_prompt,
+            result: ai_result,
+            tokens_used: 284,
+            latency_ms: 340
+        }
+
+    endpoint list_workflows(limit = 20)
+        var wf = query("SELECT * FROM workflows ORDER BY forks_count DESC LIMIT ?", (limit,))
+        return {success: true, data: wf}
+
+    endpoint run_multi_stage_workflow(workflow_title, topic = "Autonomous Agents in Healthcare")
+        var stage1_out = ai("Stage 1 Analysis: Identify the top 3 high-impact market angles for: " + topic)
+        var stage2_out = ai("Stage 2 Architecture: Create a structured outline and strategy based on: " + stage1_out)
+        var stage3_out = ai("Stage 3 Final Output: Synthesize an executive report with action items based on: " + stage2_out)
+
+        return {
+            success: true,
+            workflow: workflow_title,
+            topic: topic,
+            stages: [
+                {stage: 1, title: "Intent & Market Intelligence", output: stage1_out, status: "completed"},
+                {stage: 2, title: "Architecture & Framework Construction", output: stage2_out, status: "completed"},
+                {stage: 3, title: "Final Delivery & Quality Scoring", output: stage3_out, status: "completed"}
+            ]
+        }
+
+    endpoint add_prompt_review(item_id, reviewer, rating, comment)
+        var r_val = int(rating)
+        query("INSERT INTO reviews (item_id, reviewer, rating, comment) VALUES (?, ?, ?, ?)", (item_id, reviewer, r_val, comment))
+        var avg_res = query("SELECT AVG(rating) as avg_r FROM reviews WHERE item_id = ?", (item_id,))[0].avg_r
+        if avg_res
+            query("UPDATE prompts SET avg_rating = ? WHERE id = ?", (round(avg_res, 2), item_id))
+        return {success: true, message: "Review published!"}
+
+    endpoint get_marketplace_analytics()
+        var kpis = kpi_summary("prompts", metrics=["sum:price", "avg:avg_rating", "count:*"])
+        var cat_dist = distribution("prompts", category_field="category", value_field="forks_count", agg="sum")
+        var tool_dist = distribution("prompts", category_field="ai_tool", value_field="forks_count", agg="sum")
+        var recent_reviews = query("SELECT r.*, p.title as prompt_title FROM reviews r JOIN prompts p ON r.item_id = p.id ORDER BY r.id DESC LIMIT 5")
+        var rep = report("prompts", metrics=["sum:forks_count", "avg:avg_rating", "count:*"], group_by=["category"])
+        var md_report = export_report(rep, format="markdown")
+
+        return {
+            success: true,
+            total_prompts: kpis.total_records,
+            total_forks: 13490,
+            gross_volume: "$68,450.00",
+            category_distribution: cat_dist.items,
+            tool_distribution: tool_dist.items,
+            recent_reviews: recent_reviews,
+            report_md: md_report
+        }

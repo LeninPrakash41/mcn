@@ -1,0 +1,109 @@
+{
+  "MCN Service": {
+    "prefix": "service",
+    "body": [
+      "service ${1:api_name}",
+      "    port ${2:8080}",
+      "",
+      "    endpoint ${3:get_items}()",
+      "        var items = query(\"SELECT * FROM ${4:items}\")",
+      "        return {success: true, data: items}",
+      ""
+    ],
+    "description": "Define an MCN backend service"
+  },
+  "MCN Endpoint": {
+    "prefix": "endpoint",
+    "body": [
+      "endpoint ${1:handler_name}(${2:params})",
+      "    ${0:// handler implementation}",
+      "    return {success: true}"
+    ],
+    "description": "Define an MCN service endpoint"
+  },
+  "MCN Endpoint with Guard": {
+    "prefix": "guard_endpoint",
+    "body": [
+      "@guard(role=\"${1:admin}\")",
+      "endpoint ${2:secure_action}(${3:params})",
+      "    ${0:// protected logic}",
+      "    return {success: true}"
+    ],
+    "description": "Define a role-guarded MCN service endpoint"
+  },
+  "MCN Contract": {
+    "prefix": "contract",
+    "body": [
+      "contract ${1:Item}",
+      "    ${2:name}: str",
+      "    ${3:amount}: float",
+      "    ${4:status}: str"
+    ],
+    "description": "Define an MCN data contract"
+  },
+  "MCN Component": {
+    "prefix": "component",
+    "body": [
+      "component ${1:ComponentName}",
+      "    state items = []",
+      "    state loading = false",
+      "",
+      "    on load",
+      "        var res = ${2:list_items}()",
+      "        items = res.data",
+      "",
+      "    render",
+      "        div",
+      "            card",
+      "                card_header \"${3:Overview}\"",
+      "                table data=items"
+    ],
+    "description": "Define an MCN UI component"
+  },
+  "MCN Analytics Engine": {
+    "prefix": "analytics",
+    "body": [
+      "use analytics",
+      "",
+      "var kpi = kpi_summary(\"${1:sales}\", metrics=[\"sum:${2:amount}\", \"avg:${2:amount}\", \"count:*\"])",
+      "var trends = trend(\"${1:sales}\", date_field=\"${3:created_at}\", value_field=\"${2:amount}\", interval=\"monthly\", agg=\"sum\")",
+      "var dist = distribution(\"${1:sales}\", category_field=\"${4:region}\", value_field=\"${2:amount}\")",
+      "var p = pivot(\"${1:sales}\", row_field=\"${5:rep}\", col_field=\"${4:region}\", value_field=\"${2:amount}\")",
+      "var md = export_report(report(\"${1:sales}\", metrics=[\"sum:${2:amount}\"]), format=\"markdown\")"
+    ],
+    "description": "Native MCN SQLite analytics and reporting pipeline"
+  },
+  "MCN Multi-Stage Pipeline": {
+    "prefix": "pipeline",
+    "body": [
+      "pipeline ${1:data_processor}",
+      "    stage extract",
+      "        var raw = [${2}]",
+      "        return raw",
+      "",
+      "    stage transform(records)",
+      "        var enriched = []",
+      "        for r in records",
+      "            enriched = enriched + [r]",
+      "        return enriched",
+      "",
+      "    stage load(result)",
+      "        log(\"Pipeline completed with \" + str(len(result)) + \" records\")",
+      "",
+      "${1:data_processor}.run()"
+    ],
+    "description": "Define a multi-stage ETL/AI pipeline"
+  },
+  "MCN App Layout": {
+    "prefix": "app",
+    "body": [
+      "app ${1:ApplicationName}",
+      "    title \"${2:My MCN Enterprise App}\"",
+      "    layout",
+      "        sidebar",
+      "            nav \"${3:Dashboard}\" ${4:DashboardComponent}",
+      "            nav \"${5:Settings}\" ${6:SettingsComponent}"
+    ],
+    "description": "Define an MCN full-stack application layout"
+  }
+}

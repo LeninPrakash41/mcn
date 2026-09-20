@@ -23,14 +23,16 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from .lexer import Lexer, Token, TT
+from .lexer import Lexer, Token, TT, KEYWORDS
 
 
 # ── Token categories ──────────────────────────────────────────────────────────
 
-_BINARY_OPS = {TT.PLUS, TT.MINUS, TT.STAR, TT.SLASH,
+_BINARY_OPS = {TT.PLUS, TT.MINUS, TT.STAR, TT.SLASH, TT.PERCENT,
                TT.EQ, TT.NEQ, TT.GT, TT.GTE, TT.LT, TT.LTE,
-               TT.ASSIGN, TT.AND, TT.OR}
+               TT.ASSIGN, TT.PLUS_ASSIGN, TT.MINUS_ASSIGN, TT.STAR_ASSIGN,
+               TT.SLASH_ASSIGN, TT.PERCENT_ASSIGN, TT.ARROW, TT.QUESTION,
+               TT.AND, TT.OR, TT.IN}
 
 _NO_SPACE_BEFORE = {TT.RPAREN, TT.RBRACKET, TT.RBRACE,
                     TT.COMMA, TT.COLON, TT.DOT, TT.SAFE_DOT,
@@ -40,18 +42,20 @@ _NO_SPACE_AFTER  = {TT.LPAREN, TT.LBRACKET, TT.LBRACE,
                     TT.DOT, TT.SAFE_DOT, TT.NOT,
                     TT.INDENT, TT.DEDENT, TT.NEWLINE}
 
+_KEYWORDS = set(KEYWORDS.values())
+
 # These keywords introduce a block — followed by a newline & indent
 _BLOCK_STARTERS = {TT.IF, TT.ELSE, TT.FOR, TT.WHILE, TT.FUNCTION,
                    TT.TRY, TT.CATCH,
                    TT.PIPELINE, TT.SERVICE, TT.WORKFLOW, TT.CONTRACT,
                    TT.PROMPT, TT.AGENT,
                    TT.STAGE, TT.ENDPOINT, TT.STEP,
-                   TT.TEST}
+                   TT.TEST, TT.COMPONENT, TT.APP}
 
 # Top-level declarations that get a blank line before them
 _TOP_LEVEL_DECLS = {TT.FUNCTION, TT.PIPELINE, TT.SERVICE,
                     TT.WORKFLOW, TT.CONTRACT, TT.PROMPT,
-                    TT.AGENT, TT.TEST}
+                    TT.AGENT, TT.TEST, TT.COMPONENT, TT.APP}
 
 
 class Formatter:
@@ -122,7 +126,7 @@ class Formatter:
 
             # Determine spacing before this token
             need_space = self._needs_space_before(tok, prev_tt)
-            if need_space and line_buf:
+            if need_space and line_buf and not line_buf[-1].endswith(" "):
                 line_buf.append(" ")
 
             # Emit the token value
@@ -131,6 +135,10 @@ class Formatter:
             # Space after comma
             if tok.type == TT.COMMA:
                 line_buf.append(" ")
+            elif tok.type == TT.COLON:
+                next_real = self._peek_real(tokens, i + 1)
+                if next_real and next_real.line == tok.line and next_real.type not in (TT.NEWLINE, TT.EOF):
+                    line_buf.append(" ")
 
             prev_tt = tok.type
             i += 1
@@ -148,11 +156,16 @@ class Formatter:
             return False
         if tok.type == TT.LPAREN and prev_tt == TT.IDENTIFIER:
             return False   # function call: f(x) not f (x)
-        if tok.type in _BINARY_OPS:
+        if tok.type == TT.LBRACKET and prev_tt == TT.IDENTIFIER:
+            return False   # array indexing: arr[0] not arr [0]
+        if tok.type in _BINARY_OPS or prev_tt in _BINARY_OPS:
             return True
-        if prev_tt in _BINARY_OPS:
+        if tok.type in _KEYWORDS or prev_tt in _KEYWORDS:
             return True
         if tok.type in (TT.IDENTIFIER, TT.NUMBER, TT.STRING):
+            return True
+        if prev_tt in (TT.IDENTIFIER, TT.NUMBER, TT.STRING,
+                       TT.RPAREN, TT.RBRACKET, TT.RBRACE):
             return True
         return False
 

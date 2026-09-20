@@ -1,0 +1,47 @@
+// MCN Refinements Test Suite
+// Demonstrating:
+// 1. Multiline expression continuation
+// 2. TypeScript-style optional type annotations
+// 3. Formatter compliance
+
+log("=== Testing MCN Language Refinements ===")
+
+// 1. Optional Type Annotations on Variables
+var app_name: str = "Enterprise Hub"
+var base_deal_target: int = 500000
+var tax_rate: float = 0.08
+var is_production_ready: bool = true
+
+// 2. Multiline Expression Continuation (no extra parentheses required)
+var total_projected_revenue: float = base_deal_target +
+    150000 +
+    75000 *
+    1.2
+
+var full_title: str = "Welcome to " +
+    app_name +
+    " - Production System"
+
+log(full_title)
+log("Projected Revenue: $" + total_projected_revenue)
+
+// 3. Typed Function with Default Parameters and Return Type
+function calculate_commission(deal_size: int, rate: float = 0.1): float
+    var raw_commission: float = deal_size *
+        rate
+    return raw_commission
+
+var sample_deal: int = 120000
+var commission: float = calculate_commission(sample_deal, 0.15)
+log("Commission for $" + sample_deal + ": $" + commission)
+
+// 4. Multiline Boolean Logic & Ternary
+var has_quota_met: bool = total_projected_revenue >= 500000 and
+    is_production_ready == true
+
+var status_summary: str = has_quota_met ?
+    "Target Achieved" :
+    "Pipeline in Progress"
+
+log("Status Summary: " + status_summary)
+log("=== All Refinements Passed Successfully ===")

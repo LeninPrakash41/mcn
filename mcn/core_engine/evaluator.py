@@ -155,7 +155,10 @@ class Evaluator:
     # ── Program entry point ────────────────────────────────────────────────────
 
     def execute_program(self, program: ast.Program) -> Any:
-        return self._exec_block(program.body, self.globals)
+        try:
+            return self._exec_block(program.body, self.globals)
+        except ReturnSignal as ret:
+            return ret.value
 
     # ── Statement execution ────────────────────────────────────────────────────
 
@@ -317,7 +320,14 @@ class Evaluator:
 
         # ── use (package import) ───────────────────────────────────────────────
         if isinstance(stmt, ast.UseStmt):
-            package_name = str(self._eval(stmt.package, env))
+            if isinstance(stmt.package, ast.Variable):
+                package_name = stmt.package.name
+            elif isinstance(stmt.package, ast.Literal):
+                package_name = str(stmt.package.value)
+            elif hasattr(stmt.package, "name"):
+                package_name = getattr(stmt.package, "name")
+            else:
+                package_name = str(self._eval(stmt.package, env))
             if "use" in self.functions:
                 return self.functions["use"](package_name)
             raise MCNError("Package system not initialised", stmt.line, stmt.col)
@@ -425,11 +435,13 @@ class Evaluator:
         body         = stmt.body
         name         = stmt.name
 
-        def user_func(*args: Any) -> Any:
+        def user_func(*args: Any, **kwargs: Any) -> Any:
             call_env = Environment(captured_env)
             for i, param in enumerate(params):
                 if i < len(args):
                     call_env.define(param, args[i])
+                elif param in kwargs:
+                    call_env.define(param, kwargs[param])
                 elif param in defaults:
                     # Evaluate the default in the defining scope (lexical)
                     call_env.define(param, self._eval(defaults[param], captured_env))
@@ -552,6 +564,9 @@ class Evaluator:
                 return getattr(obj, expr.name)
             return None
 
+        if isinstance(expr, ast.NamedArg):
+            return (expr.name, self._eval(expr.value, env))
+
         if isinstance(expr, ast.Call):
             return self._eval_call(expr, env)
 
@@ -559,11 +574,19 @@ class Evaluator:
 
     def _eval_call(self, expr: ast.Call, env: Environment) -> Any:
         callee = self._eval(expr.callee, env)
-        args   = [self._eval(a, env) for a in expr.arguments]
+        pos_args = []
+        kw_args = {}
+        for a in expr.arguments:
+            if isinstance(a, ast.NamedArg):
+                kw_args[a.name] = self._eval(a.value, env)
+            else:
+                pos_args.append(self._eval(a, env))
 
         if callable(callee):
             try:
-                return callee(*args)
+                if kw_args:
+                    return callee(*pos_args, **kw_args)
+                return callee(*pos_args)
             except (ReturnSignal, MCNError):
                 raise
             except Exception as exc:
@@ -575,7 +598,10 @@ class Evaluator:
 
         # Callee resolved to a string (legacy edge-case)
         if isinstance(callee, str) and callee in self.functions:
-            return self.functions[callee](*args)
+            fn = self.functions[callee]
+            if kw_args:
+                return fn(*pos_args, **kw_args)
+            return fn(*pos_args)
 
         name    = getattr(expr.callee, "name", str(callee))
         similar = [

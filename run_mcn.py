@@ -13,18 +13,6 @@ def main():
     global script_dir
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    parser = argparse.ArgumentParser(
-        description="MCN (Macincode Scripting Language) Runner"
-    )
-    parser.add_argument(
-        "command", nargs="?", default="repl", help="Command to run (run, repl, serve, postman, docs, codegen, monitor)"
-    )
-    parser.add_argument("file", nargs="?", help="MCN file to run")
-    parser.add_argument("--port", type=int, default=8000, help="Port for serve command")
-    parser.add_argument("--host", default="127.0.0.1", help="Host for serve command")
-
-    args = parser.parse_args()
-
     # Add paths for imports
     mcn_lang_path = os.path.join(script_dir, "mcn")
     core_engine_path = os.path.join(mcn_lang_path, "core_engine")
@@ -33,8 +21,37 @@ def main():
     sys.path.insert(0, mcn_lang_path)
     sys.path.insert(0, core_engine_path)
 
+    # Delegate rich subcommands directly to mcn_cli
+    if len(sys.argv) > 1 and sys.argv[1] in (
+        "agent", "install", "packages", "deploy", "build", "new-package",
+        "generate", "gen", "config", "test", "init", "validate", "add-frontend", "logs"
+    ):
+        from mcn.core_engine.mcn_cli import main as cli_main
+        return cli_main()
+
+    parser = argparse.ArgumentParser(
+        description="MCN (Macincode Scripting Language) Runner"
+    )
+    parser.add_argument(
+        "command", nargs="?", default="repl", help="Command to run (run, repl, check, fmt, agent, serve, postman, docs, codegen, monitor)"
+    )
+    parser.add_argument("file", nargs="?", help="MCN file to run")
+    parser.add_argument("--write", "-w", action="store_true", help="Rewrite file in-place for fmt")
+    parser.add_argument("--check", "-c", action="store_true", help="Check formatting or type check")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors for check")
+    parser.add_argument("--port", type=int, default=8000, help="Port for serve command")
+    parser.add_argument("--host", default="127.0.0.1", help="Host for serve command")
+
+    args = parser.parse_args()
+
     if args.command == "run" and args.file:
         return run_file(args.file)
+    elif args.command == "check":
+        from mcn.core_engine.mcn_cli import check_file
+        return check_file(args.file or "examples/sales_calendar.mcn", strict=args.strict)
+    elif args.command == "fmt":
+        from mcn.core_engine.formatter import run_fmt
+        return run_fmt(args.file or "examples/sales_calendar.mcn", write=args.write, check=args.check)
     elif args.command == "repl":
         return run_repl()
     elif args.command == "serve":

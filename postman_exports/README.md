@@ -51,4 +51,4 @@ This collection contains 9 API endpoints for the MCN system, automatically gener
 3. **Examples**: Each request includes example request/response data
 4. **Testing**: Use Postman's test scripts for automated testing
 
-## Generated on: 2026-07-09 17:18:14
+## Generated on: 2026-09-16 11:53:56

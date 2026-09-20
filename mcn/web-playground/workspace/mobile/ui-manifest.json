@@ -1,0 +1,46 @@
+{
+  "name": "SalesMobileApp",
+  "components": {
+    "Dashboard": {
+      "type": "container",
+      "props": {
+        "className": "column"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "tag": "h1",
+            "content": "Sales Intelligence Mobile"
+          }
+        },
+        {
+          "type": "card",
+          "props": {
+            "title": "Active Pipeline",
+            "value": "$420,000"
+          }
+        },
+        {
+          "type": "button",
+          "props": {
+            "text": "\u26a1 Refresh Deals"
+          }
+        },
+        {
+          "type": "input",
+          "props": {
+            "placeholder": "Search leads..."
+          }
+        }
+      ]
+    }
+  },
+  "pages": {
+    "Sales Intelligence": {
+      "components": [
+        "Dashboard"
+      ]
+    }
+  }
+}

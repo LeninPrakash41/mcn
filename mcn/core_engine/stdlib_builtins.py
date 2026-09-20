@@ -732,6 +732,10 @@ def register_stdlib_builtins(functions: dict) -> None:
         "vector_add":        mcn_vector_upsert,
         # Memory aliases
         "memory_add":        mcn_memory_store,
+        "str":               lambda v: str(v) if v is not None else "",
+        "int":               lambda v: int(v) if v is not None else 0,
+        "float":             lambda v: float(v) if v is not None else 0.0,
+        "bool":              lambda v: bool(v),
         # Queue aliases
         "queue_peek":        lambda name: _QUEUES.get(str(name), [None])[0] if _QUEUES.get(str(name)) else None,
         "queue_len":         lambda name: len(_QUEUES.get(str(name), [])),

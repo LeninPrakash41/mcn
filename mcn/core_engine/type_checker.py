@@ -55,6 +55,41 @@ class MCNType(str, Enum):
         return False
 
 
+_TYPE_MAP: Dict[str, MCNType] = {
+    "any":      MCNType.ANY,
+    "int":      MCNType.INT,
+    "integer":  MCNType.INT,
+    "float":    MCNType.FLOAT,
+    "number":   MCNType.NUMBER,
+    "num":      MCNType.NUMBER,
+    "str":      MCNType.STR,
+    "string":   MCNType.STR,
+    "bool":     MCNType.BOOL,
+    "boolean":  MCNType.BOOL,
+    "list":     MCNType.LIST,
+    "array":    MCNType.LIST,
+    "dict":     MCNType.DICT,
+    "map":      MCNType.DICT,
+    "object":   MCNType.DICT,
+    "tuple":    MCNType.TUPLE,
+    "null":     MCNType.NULL,
+    "void":     MCNType.NULL,
+    "none":     MCNType.NULL,
+    "callable": MCNType.CALLABLE,
+    "func":     MCNType.CALLABLE,
+    "function": MCNType.CALLABLE,
+    "fn":       MCNType.CALLABLE,
+}
+
+
+def _resolve_type_name(name: Optional[str]) -> MCNType:
+    """Map a type annotation string (e.g. 'str', 'int', 'list') to MCNType."""
+    if not name:
+        return MCNType.ANY
+    cleaned = str(name).strip().lower()
+    return _TYPE_MAP.get(cleaned, MCNType.ANY)
+
+
 # ── Issues ─────────────────────────────────────────────────────────────────────
 
 class Severity(Enum):
@@ -148,6 +183,19 @@ BUILTIN_RETURN_TYPES: Dict[str, MCNType] = {
     "vector_clear":      MCNType.NULL,
     # RAG
     "rag":               MCNType.STR,
+    # Analytics & Reporting
+    "report":                MCNType.DICT,
+    "generate_report":       MCNType.DICT,
+    "kpi":                   MCNType.DICT,
+    "kpi_summary":           MCNType.DICT,
+    "trend":                 MCNType.DICT,
+    "trend_analysis":        MCNType.DICT,
+    "distribution":          MCNType.DICT,
+    "distribution_analysis": MCNType.DICT,
+    "pivot":                 MCNType.DICT,
+    "pivot_table":           MCNType.DICT,
+    "chart_data":            MCNType.DICT,
+    "export_report":         MCNType.STR,
     # Auth
     "auth_hash":         MCNType.STR,
     "auth_verify_hash":  MCNType.BOOL,
@@ -352,8 +400,41 @@ class TypeChecker:
     def _check_stmt(self, stmt: ast.Stmt, scope: TypeScope) -> MCNType:  # noqa: C901
         if isinstance(stmt, ast.VarDecl):
             val_type = self._infer(stmt.value, scope)
-            scope.define(stmt.name, val_type)
+            if stmt.type_hint:
+                expected_type = _resolve_type_name(stmt.type_hint)
+                if expected_type != MCNType.ANY and val_type != MCNType.ANY:
+                    if not val_type.is_compatible(expected_type):
+                        self._error(
+                            f"Cannot assign expression of type '{val_type.value}' to variable '{stmt.name}' with declared type '{stmt.type_hint}'",
+                            stmt.line, stmt.col,
+                        )
+                scope.define(stmt.name, expected_type if expected_type != MCNType.ANY else val_type)
+            else:
+                scope.define(stmt.name, val_type)
             return val_type
+
+        if isinstance(stmt, ast.AssignStmt):
+            val_type = self._infer(stmt.value, scope)
+            existing_type = scope.get(stmt.name)
+            if existing_type != MCNType.ANY and val_type != MCNType.ANY:
+                if not val_type.is_compatible(existing_type):
+                    self._error(
+                        f"Cannot assign expression of type '{val_type.value}' to variable '{stmt.name}' of type '{existing_type.value}'",
+                        stmt.line, stmt.col,
+                    )
+            return val_type
+
+        if isinstance(stmt, ast.CompoundAssignStmt):
+            val_type = self._infer(stmt.value, scope)
+            existing_type = scope.get(stmt.name)
+            if existing_type != MCNType.ANY and val_type != MCNType.ANY:
+                if stmt.op in ("+=", "-=", "*=", "/=", "%="):
+                    if existing_type not in (MCNType.INT, MCNType.FLOAT, MCNType.NUMBER) and not (stmt.op == "+=" and existing_type == MCNType.STR):
+                        self._error(
+                            f"Compound assignment '{stmt.op}' not supported on type '{existing_type.value}'",
+                            stmt.line, stmt.col,
+                        )
+            return existing_type
 
         if isinstance(stmt, ast.IfStmt):
             cond_type = self._infer(stmt.condition, scope)
@@ -375,6 +456,8 @@ class TypeChecker:
                 )
             loop_scope = scope.child()
             loop_scope.define(stmt.variable, MCNType.ANY)
+            if getattr(stmt, "index_var", None):
+                loop_scope.define(stmt.index_var, MCNType.INT)
             self._check_block(stmt.body, loop_scope)
             return MCNType.NULL
 
@@ -387,8 +470,11 @@ class TypeChecker:
             self._check_block(stmt.try_body, scope.child())
             if stmt.catch_body:
                 catch_scope = scope.child()
-                catch_scope.define("error", MCNType.STR)
+                err_var = getattr(stmt, "catch_var", None) or "error"
+                catch_scope.define(err_var, MCNType.STR)
                 self._check_block(stmt.catch_body, catch_scope)
+            if getattr(stmt, "finally_body", None):
+                self._check_block(stmt.finally_body, scope.child())
             return MCNType.NULL
 
         if isinstance(stmt, ast.ThrowStmt):
@@ -397,15 +483,36 @@ class TypeChecker:
 
         if isinstance(stmt, ast.FunctionDecl):
             fn_scope = scope.child()
+            expected_ret = _resolve_type_name(stmt.return_type) if stmt.return_type else MCNType.ANY
             for param in stmt.params:
-                fn_scope.define(param, MCNType.ANY)
-            return_type = self._check_block(stmt.body, fn_scope)
+                p_hint = stmt.param_types.get(param) if stmt.param_types else None
+                p_type = _resolve_type_name(p_hint)
+                fn_scope.define(param, p_type)
+                if stmt.defaults and param in stmt.defaults:
+                    def_val_t = self._infer(stmt.defaults[param], scope)
+                    if p_type != MCNType.ANY and def_val_t != MCNType.ANY and not def_val_t.is_compatible(p_type):
+                        self._error(
+                            f"Default value of type '{def_val_t.value}' is incompatible with parameter '{param}' of type '{p_type.value}'",
+                            stmt.line, stmt.col,
+                        )
+            self._check_function_body(stmt.body, fn_scope, expected_ret)
             scope.define(stmt.name, MCNType.CALLABLE)
             return MCNType.NULL
 
         if isinstance(stmt, ast.ReturnStmt):
             if stmt.value is not None:
                 return self._infer(stmt.value, scope)
+            return MCNType.NULL
+
+        if isinstance(stmt, ast.AssertStmt):
+            self._infer(stmt.condition, scope)
+            if stmt.message:
+                self._infer(stmt.message, scope)
+            return MCNType.NULL
+
+        if isinstance(stmt, ast.TestDecl):
+            test_scope = scope.child()
+            self._check_block(stmt.body, test_scope)
             return MCNType.NULL
 
         if isinstance(stmt, ast.ExprStmt):
@@ -417,21 +524,42 @@ class TypeChecker:
         if isinstance(stmt, ast.TaskStmt):
             return MCNType.STR
 
-        if isinstance(stmt, (ast.ThrowStmt,)):
-            return MCNType.NULL
-
         # New language primitive declarations
-        for decl_type in ("PipelineDecl", "ServiceDecl", "WorkflowDecl", "ContractDecl"):
+        for decl_type in ("PipelineDecl", "ServiceDecl", "WorkflowDecl", "ContractDecl", "AgentDecl", "PromptDecl", "MCPDecl"):
             if type(stmt).__name__ == decl_type:
                 self._check_primitive_decl(stmt, scope)
                 return MCNType.ANY
 
         return MCNType.ANY
 
+    def _check_function_body(self, stmts: List[ast.Stmt], scope: TypeScope, expected_ret: MCNType):
+        for s in stmts:
+            if isinstance(s, ast.ReturnStmt):
+                actual_ret = self._infer(s.value, scope) if s.value is not None else MCNType.NULL
+                if expected_ret != MCNType.ANY and actual_ret != MCNType.ANY and not actual_ret.is_compatible(expected_ret):
+                    self._error(
+                        f"Return value of type '{actual_ret.value}' is incompatible with declared return type '{expected_ret.value}'",
+                        s.line, s.col,
+                    )
+            elif isinstance(s, ast.IfStmt):
+                self._infer(s.condition, scope)
+                self._check_function_body(s.then_body, scope.child(), expected_ret)
+                if s.else_body:
+                    self._check_function_body(s.else_body, scope.child(), expected_ret)
+            elif isinstance(s, ast.TryStmt):
+                self._check_function_body(s.try_body, scope.child(), expected_ret)
+                if s.catch_body:
+                    catch_scope = scope.child()
+                    err_var = getattr(s, "catch_var", None) or "error"
+                    catch_scope.define(err_var, MCNType.STR)
+                    self._check_function_body(s.catch_body, catch_scope, expected_ret)
+            else:
+                self._check_stmt(s, scope)
+
     def _check_primitive_decl(self, stmt: Any, scope: TypeScope):
-        """Handle pipeline / service / workflow / contract declarations."""
-        # All inner stages/endpoints/steps are function-like — check their bodies
-        for attr in ("stages", "endpoints", "steps"):
+        """Handle pipeline / service / workflow / contract / agent declarations."""
+        # All inner stages/endpoints/steps/tools are function-like — check their bodies
+        for attr in ("stages", "endpoints", "steps", "tools"):
             for sub in getattr(stmt, attr, []):
                 sub_scope = scope.child()
                 for param in getattr(sub, "params", []):
@@ -487,9 +615,26 @@ class TypeChecker:
                 self._infer(val_expr, scope)
             return MCNType.DICT
 
+        if isinstance(expr, ast.TernaryExpr):
+            self._infer(expr.condition, scope)
+            t1 = self._infer(expr.then_expr, scope)
+            t2 = self._infer(expr.else_expr, scope)
+            if t1 == t2:
+                return t1
+            if t1 in (MCNType.INT, MCNType.FLOAT) and t2 in (MCNType.INT, MCNType.FLOAT):
+                return MCNType.NUMBER
+            return MCNType.ANY
+
+        if isinstance(expr, ast.ArrowFunc):
+            af_scope = scope.child()
+            for p in expr.params:
+                af_scope.define(p, MCNType.ANY)
+            self._infer(expr.body, af_scope)
+            return MCNType.CALLABLE
+
         if isinstance(expr, ast.Index):
             obj_t = self._infer(expr.object, scope)
-            if obj_t not in (MCNType.LIST, MCNType.DICT, MCNType.TUPLE, MCNType.ANY):
+            if obj_t not in (MCNType.LIST, MCNType.DICT, MCNType.TUPLE, MCNType.STR, MCNType.ANY):
                 self._error(
                     f"Subscript on non-indexable type '{obj_t.value}'",
                     expr.line, expr.col,
@@ -500,6 +645,9 @@ class TypeChecker:
         if isinstance(expr, ast.Property):
             self._infer(expr.object, scope)
             return MCNType.ANY  # property access always any for now
+
+        if isinstance(expr, ast.NamedArg):
+            return self._infer(expr.value, scope)
 
         if isinstance(expr, ast.Call):
             return self._infer_call(expr, scope)

@@ -476,23 +476,32 @@ class UIEnterpriseSearch extends StatelessWidget {
         for page_name, page_data in manifest.get('pages', {}).items():
             self._generate_page_widget(output_path, page_name, page_data)
             
+    def _sanitize_names(self, name: str) -> Tuple[str, str]:
+        import re
+        words = re.sub(r'[^a-zA-Z0-9_]', ' ', name).split()
+        if not words:
+            words = ['Home']
+        class_name = "".join(w.capitalize() for w in words) + "Page"
+        file_name = "_".join(w.lower() for w in words) + "_page.dart"
+        return class_name, file_name
+
     def _generate_page_widget(self, output_path: Path, page_name: str, page_data: Dict):
         """Generate individual Page Widget as a StatefulWidget to handle page state"""
-        
+        class_name, file_name = self._sanitize_names(page_name)
         content_code = self._generate_page_content_dart(page_data)
         
         page_code = f"""import 'package:flutter/material.dart';
 import '../services/mcn_client.dart';
 import '../widgets/ui_components.dart';
 
-class {page_name}Page extends StatefulWidget {{
-  const {page_name}Page({{super.key}});
+class {class_name} extends StatefulWidget {{
+  const {class_name}({{super.key}});
 
   @override
-  State<{page_name}Page> createState() => _{page_name}PageState();
+  State<{class_name}> createState() => _{class_name}State();
 }}
 
-class _{page_name}PageState extends State<{page_name}Page> {{
+class _{class_name}State extends State<{class_name}> {{
   final MCNClient _mcn = MCNClient();
   Map<String, dynamic> _data = {{}};
   bool _loading = true;
@@ -578,7 +587,7 @@ class _{page_name}PageState extends State<{page_name}Page> {{
   }}
 }}
 """
-        with open(output_path / "lib" / "pages" / f"{page_name}Page.dart", 'w') as f:
+        with open(output_path / "lib" / "pages" / file_name, 'w') as f:
             f.write(page_code)
             
     def _generate_page_content_dart(self, page_data: Dict) -> str:
@@ -689,13 +698,14 @@ class _{page_name}PageState extends State<{page_name}Page> {{
         
         imports = []
         routes = []
-        first_page = None
+        first_page_class = None
         
         for name, page in pages.items():
-            imports.append(f"import 'pages/{name}Page.dart';")
-            routes.append(f"'/': (context) => const {name}Page()," if first_page is None else f"'{page.get('path', '/')}': (context) => const {name}Page(),")
-            if first_page is None:
-                first_page = name
+            class_name, file_name = self._sanitize_names(name)
+            imports.append(f"import 'pages/{file_name}';")
+            routes.append(f"'/': (context) => const {class_name}()," if first_page_class is None else f"'{page.get('path', '/' + file_name.replace('_page.dart', ''))}': (context) => const {class_name}(),")
+            if first_page_class is None:
+                first_page_class = class_name
                 
         main_code = f"""import 'package:flutter/material.dart';
 {chr(10).join(imports)}

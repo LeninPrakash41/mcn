@@ -261,6 +261,7 @@ class MCNInterpreter:
         from .mcn_extensions import (
             MCNAIContext, MCNPackageManager, MCNAsyncRuntime, MCNTypeChecker,
             create_db_package, create_http_package, create_ai_package,
+            create_analytics_package, create_reports_package,
         )
 
         self.ai_context      = MCNAIContext()
@@ -268,9 +269,12 @@ class MCNInterpreter:
         self.async_runtime   = MCNAsyncRuntime()
         self.type_checker    = MCNTypeChecker()
 
-        self.package_manager.add_package("db",   create_db_package())
-        self.package_manager.add_package("http", create_http_package())
-        self.package_manager.add_package("ai",   create_ai_package())
+        self.package_manager.add_package("db",        create_db_package())
+        self.package_manager.add_package("http",      create_http_package())
+        self.package_manager.add_package("ai",        create_ai_package())
+        self.package_manager.add_package("analytics", create_analytics_package())
+        self.package_manager.add_package("report",    create_reports_package())
+        self.package_manager.add_package("reports",   create_reports_package())
 
         self._functions.update({
             "task": self._create_task,
@@ -298,6 +302,12 @@ class MCNInterpreter:
             "datasource":          self._datasource_operation,
             "rag":                 self._rag_operation,
             "ui":                  self._ui_operation,
+
+            # Agent Toolkit Primitives for AI Coding Agents
+            "agent_verify":        self._agent_verify,
+            "agent_repair":        self._agent_repair,
+            "agent_scaffold":      self._agent_scaffold,
+            "agent_explain":       self._agent_explain,
         })
 
     # ── Built-in implementations ───────────────────────────────────────────────
@@ -415,6 +425,9 @@ class MCNInterpreter:
         def _bind(pkg_name: str, pkg_fns: dict) -> str:
             """Bind package functions both flat and as a namespaced dict."""
             self._functions.update(pkg_fns)
+            self._evaluator.functions.update(pkg_fns)
+            for fn_name, fn_val in pkg_fns.items():
+                self._evaluator.globals.define(fn_name, fn_val)
             # Also expose as package_name.fn() namespace object
             # Use only the last path component: "accenture/healthcare" → "healthcare"
             ns_key = pkg_name.split("/")[-1].replace("-", "_")
@@ -792,3 +805,22 @@ class MCNInterpreter:
             "register_user": register_user,
             "login_user": login_user
         }
+
+    # ── Agent Toolkit Built-ins for LLM & Coding Agent Integration ─────────────
+
+    def _agent_verify(self, code: str):
+        from .agent_toolkit import verify_agent_code
+        return verify_agent_code(code)
+
+    def _agent_repair(self, code: str, verification_result: Any = None):
+        from .agent_toolkit import generate_repair_prompt
+        return generate_repair_prompt(code, verification_result)
+
+    def _agent_scaffold(self, template: str = "sales_calendar"):
+        from .agent_toolkit import get_agent_scaffold
+        return get_agent_scaffold(template)
+
+    def _agent_explain(self, query: str):
+        from .agent_toolkit import explain_syntax
+        return explain_syntax(query)
+

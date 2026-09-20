@@ -205,16 +205,32 @@ def _expr_to_ts(expr: Optional[ast.Expr],
 
             # Build the payload object from positional args (use var names as keys)
             pairs = []
-            for a in expr.arguments:
+            for i, a in enumerate(expr.arguments):
                 if isinstance(a, ast.Variable):
-                    pairs.append(a.name)
+                    key = a.name[5:] if a.name.startswith("edit_") else a.name
+                    pairs.append(f"{key}: {a.name}")
+                elif isinstance(a, ast.Property):
+                    key = a.name
+                    pairs.append(f"{key}: {_expr_to_ts(a, lv)}")
                 else:
-                    pairs.append(_expr_to_ts(a, lv))
+                    # Fallback: if it's a literal or complex expr, use a generic key
+                    pairs.append(f"arg{i}: {_expr_to_ts(a, lv)}")
             body = "{" + ", ".join(pairs) + "}"
             return f"api.post('/{fn}', {body})"
         return '""'
     if isinstance(expr, ast.Array):
         return "[" + ", ".join(_expr_to_ts(e, lv) for e in expr.elements) + "]"
+    if hasattr(ast, 'MCNObject') and isinstance(expr, getattr(ast, 'MCNObject')):
+        props = []
+        for k, v in expr.properties:
+            if isinstance(k, getattr(ast, 'Literal')) and isinstance(k.value, str):
+                key_str = json.dumps(k.value)
+            elif isinstance(k, getattr(ast, 'Variable')):
+                key_str = k.name
+            else:
+                key_str = f"[{_expr_to_ts(k, lv)}]"
+            props.append(f"{key_str}: {_expr_to_ts(v, lv)}")
+        return f"{{{', '.join(props)}}}"
     return '""'
 
 
@@ -297,6 +313,10 @@ class UICompiler:
         )
         written.append(utils_path)
         print(f"  write  {utils_path.relative_to(self.out.parent)}")
+
+        # Write core shadcn UI components into src/components/ui/
+        ui_written = self._write_ui_components(src)
+        written.extend(ui_written)
 
         app_decl: Optional[ast.AppDecl] = evaluator.app_decl
         components: Dict[str, ast.ComponentDecl] = evaluator.components
@@ -412,8 +432,23 @@ class UICompiler:
         if comp.render:
             self._collect_imports(comp.render.elements, shadcn_imports)
 
-        # Detect CRUD mode (component has edit_item state) — needed before building hooks list
-        has_crud = any(s.name == "edit_item" for s in comp.states)
+        def _extract_table_columns(elements: List[ast.UIElement]) -> List[str]:
+            cols = []
+            for el in elements:
+                if el.tag == "table_head" and el.text and hasattr(el.text, "value"):
+                    val = str(el.text.value)
+                    clean_text = val.strip('"').strip("'")
+                    if clean_text:
+                        cols.append(clean_text)
+                else:
+                    cols.extend(_extract_table_columns(el.children))
+            return cols
+
+        # Detect CRUD mode
+        table_columns = _extract_table_columns(comp.render.elements) if comp.render else []
+        has_crud_from_table = bool(table_columns)
+        has_crud_from_states = any(s.name == "edit_item" for s in comp.states)
+        has_crud = has_crud_from_table or has_crud_from_states
 
         # Determine which React hooks are needed
         has_load_handler   = any(h.event == "load" for h in comp.handlers)
@@ -433,27 +468,56 @@ class UICompiler:
 
         # useState hooks from state declarations
         hooks: List[str] = []
+        defined_states = set()
         for s in comp.states:
             var_name   = s.name
+            defined_states.add(var_name)
             setter     = "set" + _pascal(var_name)
             default_ts = _expr_to_ts(s.value)
             hooks.append(f"  const [{var_name}, {setter}] = useState({default_ts})")
 
+        # Automatically inject CRUD states if they aren't explicitly defined
+        synthetic_edit_fields = []
+        synthetic_create_fields = []
+        if has_crud:
+            if "edit_item" not in defined_states:
+                hooks.append(f"  const [edit_item, setEditItem] = useState<any>(null)")
+            for col in table_columns:
+                edit_var = f"edit_{col}"
+                if edit_var not in defined_states:
+                    hooks.append(f"  const [{edit_var}, set{_pascal(edit_var)}] = useState('')")
+                    synthetic_edit_fields.append(edit_var)
+                create_var = f"create_{col}"
+                if create_var not in defined_states:
+                    hooks.append(f"  const [{create_var}, set{_pascal(create_var)}] = useState('')")
+                    synthetic_create_fields.append(create_var)
+            
+            # Global Search and Pagination
+            hooks.append(f"  const [searchQuery, setSearchQuery] = useState('')")
+            hooks.append(f"  const [currentPage, setCurrentPage] = useState(1)")
+            hooks.append(f"  const [pageSize, setPageSize] = useState(10)")
+            arr_state = next((s.name for s in comp.states if isinstance(s.value, ast.Array)), "items")
+            hooks.append(f"  const filteredItems = React.useMemo(() => {{\n    if (!searchQuery) return {arr_state};\n    return {arr_state}.filter((item: any) => \n      Object.values(item).some(v => \n        String(v).toLowerCase().includes(searchQuery.toLowerCase())\n      )\n    )\n  }}, [{arr_state}, searchQuery])")
+
         if has_crud:
             entity_singular, entity_plural = _get_entity_names(comp.name)
-            # entity name: ClaimTable → claim, OrderTable → order
             entity = entity_singular
-            # Fields with edit_ prefix
-            edit_fields = [s for s in comp.states if s.name.startswith("edit_")
-                           and s.name not in ("edit_item", "edit_item_id")]
+            
+            # Fields with edit_ prefix (both explicitly defined and auto-injected)
+            edit_fields_names = [s.name for s in comp.states if s.name.startswith("edit_") and s.name not in ("edit_item", "edit_item_id")]
+            edit_fields_names.extend(synthetic_edit_fields)
+            
             field_setters = "\n    ".join(
-                f"set{_pascal(s.name)}((row as any).{s.name[5:]} ?? '')"
-                for s in edit_fields
+                f"set{_pascal(name)}((row as any).{name[5:]} ?? '')"
+                for name in edit_fields_names
             )
             save_payload_fields = ", ".join(
-                f"{s.name[5:]}: {s.name}" for s in edit_fields
+                f"{name[5:]}: {name}" for name in edit_fields_names
             )
-            hooks.append(f"  const [editItemId, setEditItemId] = useState<number | null>(null)")
+            hooks.append(f"  const [_mcnEditItemId, set_mcnEditItemId] = useState<number | null>(null)")
+            hooks.append(f"  const [_mcnShowEditModal, set_mcnShowEditModal] = useState(false)")
+            hooks.append(f"  const [_mcnShowCreateModal, set_mcnShowCreateModal] = useState(false)")
+
 
         # Event handlers from on blocks
         handlers: List[str] = []
@@ -483,10 +547,10 @@ class UICompiler:
             entity_singular, entity_plural = _get_entity_names(comp.name)
             handlers.append(
                 f"  const handleEdit = useCallback((row: any) => {{\n"
-                f"    setEditItemId(row.id)\n"
+                f"    set_mcnEditItemId(row.id)\n"
                 f"    {field_setters}\n"
                 f"    setEditItem(row)\n"
-                f"    setShowEditModal(true)\n"
+                f"    set_mcnShowEditModal(true)\n"
                 f"  }}, [])\n"
             )
             handlers.append(
@@ -494,16 +558,43 @@ class UICompiler:
                 f'    if (!window.confirm("Delete this {entity_singular}?")) return\n'
                 f"    await api.post('/delete_{entity_singular}', {{ id }})\n"
                 f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
-                f"    setItems(_resp.data ?? _resp)\n"
+                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
                 f"  }}, [])\n"
             )
             handlers.append(
                 f"  const handleSave = useCallback(async () => {{\n"
-                f"    await api.post('/update_{entity_singular}', {{ id: editItemId, {save_payload_fields} }})\n"
-                f"    setShowEditModal(false)\n"
+                f"    await api.post('/update_{entity_singular}', {{ id: _mcnEditItemId, {save_payload_fields} }})\n"
+                f"    set_mcnShowEditModal(false)\n"
                 f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
-                f"    setItems(_resp.data ?? _resp)\n"
-                f"  }}, [editItemId, {', '.join(s.name for s in edit_fields)}])\n"
+                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"  }}, [_mcnEditItemId, {', '.join(name for name in edit_fields_names)}])\n"
+            )
+
+        if has_crud:
+            entity_singular, entity_plural = _get_entity_names(comp.name)
+            
+            # Create handler
+            create_payload_fields = ", ".join(f"{name[7:]}: {name}" for name in synthetic_create_fields)
+            create_reset_fields = "\n    ".join(f"set{_pascal(name)}('')" for name in synthetic_create_fields)
+            handlers.append(
+                f"  const handleCreate = useCallback(async () => {{\n"
+                f"    await api.post('/create_{entity_singular}', {{ {create_payload_fields} }})\n"
+                f"    set_mcnShowCreateModal(false)\n"
+                f"    {create_reset_fields}\n"
+                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
+                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"  }}, [{', '.join(synthetic_create_fields)}])\n"
+            )
+            
+            # Filtering and Pagination
+            handlers.append(
+                f"  const paginatedItems = React.useMemo(() => {{\n"
+                f"    const start = (currentPage - 1) * pageSize;\n"
+                f"    return filteredItems.slice(start, start + pageSize);\n"
+                f"  }}, [filteredItems, currentPage, pageSize])\n"
+            )
+            handlers.append(
+                f"  const totalPages = Math.ceil(filteredItems.length / pageSize);\n"
             )
 
         # Render JSX (must happen before final import assembly so _extra_imports is populated)
@@ -514,8 +605,74 @@ class UICompiler:
         else:
             jsx_lines.append("    <div>Empty component</div>")
 
+        # Inject Edit modal JSX for CRUD components
+        if has_crud:
+            entity_singular, _ = _get_entity_names(comp.name)
+            # Collect edit_ fields for the modal form inputs
+            edit_field_inputs: List[str] = []
+            for name in edit_fields_names:
+                field_name = name[5:]
+                edit_field_inputs.extend([
+                    f'          <div className="space-y-1">',
+                    f'            <label className="text-sm font-medium capitalize">{field_name}</label>',
+                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}(e.target.value)}} />',
+                    f'          </div>',
+                ])
+            
+            create_field_inputs: List[str] = []
+            for name in synthetic_create_fields:
+                field_name = name[7:]
+                create_field_inputs.extend([
+                    f'          <div className="space-y-1">',
+                    f'            <label className="text-sm font-medium capitalize">{field_name}</label>',
+                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}(e.target.value)}} />',
+                    f'          </div>',
+                ])
+
+            self._shadcn_needed.add("sheet")
+            self._extra_imports.add('import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"')
+
+            modal_jsx = [
+                f'      <Sheet open={{_mcnShowEditModal}} onOpenChange={{set_mcnShowEditModal}}>',
+                f'        <SheetContent className="sm:max-w-md overflow-y-auto">',
+                f'          <SheetHeader>',
+                f'            <SheetTitle>Edit {entity_singular}</SheetTitle>',
+                f'            <SheetDescription>Update the details below.</SheetDescription>',
+                f'          </SheetHeader>',
+                f'          <div className="space-y-4 py-4">',
+                *(edit_field_inputs if edit_field_inputs else [
+                    f'              <p className="text-sm text-muted-foreground">No editable fields defined.</p>',
+                ]),
+                f'          </div>',
+                f'          <SheetFooter>',
+                f'            <button className="px-4 py-2 text-sm rounded border hover:bg-slate-50" onClick={{() => set_mcnShowEditModal(false)}}>Cancel</button>',
+                f'            <button className="px-4 py-2 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90" onClick={{handleSave}}>Save Changes</button>',
+                f'          </SheetFooter>',
+                f'        </SheetContent>',
+                f'      </Sheet>',
+                f'',
+                f'      <Sheet open={{_mcnShowCreateModal}} onOpenChange={{set_mcnShowCreateModal}}>',
+                f'        <SheetContent className="sm:max-w-md overflow-y-auto">',
+                f'          <SheetHeader>',
+                f'            <SheetTitle>Create {entity_singular}</SheetTitle>',
+                f'            <SheetDescription>Enter the details below.</SheetDescription>',
+                f'          </SheetHeader>',
+                f'          <div className="space-y-4 py-4">',
+                *(create_field_inputs if create_field_inputs else [
+                    f'              <p className="text-sm text-muted-foreground">No fields defined.</p>',
+                ]),
+                f'          </div>',
+                f'          <SheetFooter>',
+                f'            <button className="px-4 py-2 text-sm rounded border hover:bg-slate-50" onClick={{() => set_mcnShowCreateModal(false)}}>Cancel</button>',
+                f'            <button className="px-4 py-2 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90" onClick={{handleCreate}}>Create</button>',
+                f'          </SheetFooter>',
+                f'        </SheetContent>',
+                f'      </Sheet>'
+            ]
+            jsx_lines.extend(modal_jsx)
+
         # Wrap in Fragment when multiple root elements (e.g. main card + edit modal)
-        needs_fragment = len(comp.render.elements if comp.render else []) > 1
+        needs_fragment = len(comp.render.elements if comp.render else []) > 1 or has_crud
         if needs_fragment:
             jsx_lines = ["    <>", *["  " + ln for ln in jsx_lines], "    </>"]
 
@@ -523,6 +680,7 @@ class UICompiler:
         all_compiled_code = "\n".join(handlers) + "\n" + "\n".join(jsx_lines)
         if "toast(" in all_compiled_code:
             self._extra_imports.add('import { toast } from "sonner"')
+            self._shadcn_needed.add("sonner")
 
         # Merge lucide-react imports and append remaining extras
         lucide_icons: list = []
@@ -551,7 +709,8 @@ class UICompiler:
             else:
                 imports.append(f'import {{ {", ".join(sorted(set(lucide_icons)))} }} from "lucide-react"')
         for extra in sorted(other_extras):
-            imports.append(extra)
+            if extra not in imports:
+                imports.append(extra)
 
         # Assemble
         lines = [
@@ -605,6 +764,20 @@ class UICompiler:
         pad   = " " * indent
         tag   = el.tag
         lines: List[str] = []
+
+        # ── for x in items loop rendering ───────────────────────────────────────
+        if tag == "for" and el.for_var and el.for_iterable is not None:
+            iterable_ts = _expr_to_ts(el.for_iterable)
+            var_name = el.for_var
+            child_lines: List[str] = []
+            for child in el.children:
+                child_lines.extend(self._element_to_jsx(child, indent + 4))
+            lines.append(f"{pad}{{{iterable_ts}.map(({var_name}: any, _i: number) => (")
+            lines.append(f"{pad}  <React.Fragment key={{_i}}>")
+            lines.extend(child_lines)
+            lines.append(f"{pad}  </React.Fragment>")
+            lines.append(f"{pad}))}}")
+            return lines
 
         # ── show=expr conditional rendering ────────────────────────────────────
         # modal/dialog handle show= via their open= prop, not the generic wrapper
@@ -740,20 +913,28 @@ class UICompiler:
             lines.append(f'{pad}</CardHeader>')
             return lines
 
-        # card — adds CardContent wrapper automatically
+        # card — correctly separates CardHeader/Footer and wraps content in CardContent
         if tag == "card":
             lines.append(f'{pad}<Card {props}>')
+            in_content = False
             for child in el.children:
-                lines.extend(self._element_to_jsx(child, indent + 2))
+                if child.tag in {"card_header", "card_content", "card_footer"}:
+                    if in_content:
+                        lines.append(f'{pad}  </CardContent>')
+                        in_content = False
+                    lines.extend(self._element_to_jsx(child, indent + 2))
+                else:
+                    if not in_content:
+                        lines.append(f'{pad}  <CardContent className="pt-6">')
+                        in_content = True
+                    lines.extend(self._element_to_jsx(child, indent + 4))
+            if in_content:
+                lines.append(f'{pad}  </CardContent>')
             lines.append(f'{pad}</Card>')
             return lines
 
         # table — generate full table structure with data rows if table_body is empty
         if tag == "table":
-            # Detect CRUD mode: component has edit_item state
-            has_actions = (self._current_comp is not None and
-                           any(s.name == "edit_item" for s in self._current_comp.states))
-
             # Extract column names from table_header for data row generation
             col_names: List[str] = []
             for child in el.children:
@@ -763,9 +944,33 @@ class UICompiler:
                             for th in row_el.children:
                                 if th.tag == "table_head" and th.text:
                                     if isinstance(th.text, ast.Literal):
-                                        col_names.append(str(th.text.value))
+                                        col_names.append(str(th.text.value).strip('"').strip("'"))
 
+            # Detect CRUD mode: component has edit_item state OR table has columns
+            has_actions = False
+            if self._current_comp is not None:
+                has_actions = any(s.name == "edit_item" for s in self._current_comp.states)
+            if not has_actions:
+                has_actions = bool(col_names)
+            
+            if has_actions:
+                self._extra_imports.add('import { Search, Plus } from "lucide-react"')
+                self._extra_imports.add('import { Label } from "@/components/ui/label"')
+                self._shadcn_needed.add("label")
+                entity_singular = _get_entity_names(self._current_comp.name)[0] if self._current_comp else "item"
+                lines.extend([
+                    f'{pad}<div className="flex items-center justify-between pb-4">',
+                    f'{pad}  <div className="relative w-64">',
+                    f'{pad}    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />',
+                    f'{pad}    <input type="text" placeholder="Search..." className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={{searchQuery}} onChange={{(e) => setSearchQuery(e.target.value)}} />',
+                    f'{pad}  </div>',
+                    f'{pad}  <button className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90" onClick={{() => set_mcnShowCreateModal(true)}}>',
+                    f'{pad}    <Plus className="w-4 h-4" /> New {entity_singular.capitalize()}',
+                    f'{pad}  </button>',
+                    f'{pad}</div>'
+                ])
             lines.append(f'{pad}<Table {props}>')
+
             for child in el.children:
                 if child.tag == "table_header" and has_actions:
                     # Inject Actions column into header
@@ -789,12 +994,24 @@ class UICompiler:
                     if self._current_comp:
                         entity_singular, _ = _get_entity_names(self._current_comp.name)
                     lines.extend(
-                        self._gen_table_body_rows(arr_state or "items", col_names,
-                                                  indent + 2, has_actions, entity_singular)
+                        self._gen_table_body_rows("paginatedItems" if has_actions else (arr_state or "items"), col_names, indent + 2, has_actions, entity_singular)
                     )
                 else:
                     lines.extend(self._element_to_jsx(child, indent + 2))
             lines.append(f'{pad}</Table>')
+            if has_actions:
+                lines.extend([
+                    f'{pad}<div className="flex items-center justify-between px-4 py-3 border-t">',
+                    f'{pad}  <div className="text-sm text-muted-foreground">',
+                    f'{pad}    Showing {{(currentPage - 1) * pageSize + 1}} to {{Math.min(currentPage * pageSize, filteredItems.length)}} of {{filteredItems.length}} entries',
+                    f'{pad}  </div>',
+                    f'{pad}  <div className="flex items-center space-x-2">',
+                    f'{pad}    <button className="px-3 py-1 text-sm border rounded hover:bg-accent disabled:opacity-50" onClick={{() => setCurrentPage(p => Math.max(1, p - 1))}} disabled={{currentPage === 1}}>Previous</button>',
+                    f'{pad}    <button className="px-3 py-1 text-sm border rounded hover:bg-accent disabled:opacity-50" onClick={{() => setCurrentPage(p => Math.min(totalPages, p + 1))}} disabled={{currentPage === totalPages || totalPages === 0}}>Next</button>',
+                    f'{pad}  </div>',
+                    f'{pad}</div>'
+                ])
+
             return lines
 
         # tabs
@@ -946,14 +1163,35 @@ class UICompiler:
             ]
             return lines
 
-        # stat_card — a compact KPI card with icon, value, trend
-        if tag == "stat_card":
-            label_attr = next((a for a in el.attrs if a.key == "label"), None)
-            value_attr = next((a for a in el.attrs if a.key == "value"), None)
+        # gantt_chart
+        if tag == "gantt_chart":
+            data_attr  = next((a for a in el.attrs if a.key == "data"),   None)
+            data_expr  = _expr_to_ts(data_attr.value)  if data_attr  else "[]"
+            lines += [
+                f'{pad}<div className="overflow-x-auto w-full">',
+                f'{pad}  <div className="min-w-[500px] flex flex-col gap-3 py-2">',
+                f'{pad}    {{{data_expr}.map((task: any, i: number) => (',
+                f'{pad}      <div key={{i}} className="flex items-center gap-4 text-sm">',
+                f'{pad}        <div className="w-32 font-medium truncate" title={{task.name || task.title}}>{{task.name || task.title || `Task ${{i+1}}`}}</div>',
+                f'{pad}        <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-8 relative overflow-hidden group">',
+                f'{pad}          <div className="absolute top-0 bottom-0 bg-blue-500/80 rounded-full transition-all group-hover:bg-blue-400" style={{{{ left: `${{Math.max(0, Math.min(100, task.start || (i*10)))}}%`, right: `${{100 - Math.max(0, Math.min(100, task.end || ((i+3)*10)))}}%` }}}}></div>',
+                f'{pad}        </div>',
+                f'{pad}        <div className="w-20 text-slate-500 text-xs text-right">{{task.status || "In Progress"}}</div>',
+                f'{pad}      </div>',
+                f'{pad}    ))}}',
+                f'{pad}  </div>',
+                f'{pad}</div>',
+            ]
+            return lines
+
+        # stat / stat_card — a compact KPI card with icon, value, trend
+        if tag in ("stat", "stat_card"):
+            label_attr = next((a for a in el.attrs if a.key in ("label", "title")), None)
+            value_attr = next((a for a in el.attrs if a.key in ("value", "val")), None)
             unit_attr  = next((a for a in el.attrs if a.key == "unit"),  None)
             icon_attr  = next((a for a in el.attrs if a.key == "icon"),  None)
-            trend_attr = next((a for a in el.attrs if a.key == "trend"), None)
-            trend_lbl  = next((a for a in el.attrs if a.key == "trend_label"), None)
+            trend_attr = next((a for a in el.attrs if a.key in ("trend", "change")), None)
+            trend_lbl  = next((a for a in el.attrs if a.key in ("trend_label", "change_label")), None)
             color_attr = next((a for a in el.attrs if a.key == "color"), None)
             lbl   = _expr_to_ts(label_attr.value) if label_attr else '""'
             val   = _expr_to_ts(value_attr.value) if value_attr else '""'
@@ -1689,7 +1927,7 @@ export default function App() {{
  * All endpoint calls go through this module so components stay clean.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080"
+const BASE = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8080"
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -1702,8 +1940,8 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
-  get:  <T>(path: string)              => request<T>(path),
-  post: <T>(path: string, body: unknown) => request<T>(path, body),
+  get:  <T = any>(path: string)              => request<T>(path),
+  post: <T = any>(path: string, body: unknown) => request<T>(path, body),
 }
 '''
 
@@ -2015,3 +2253,357 @@ export default {
   </body>
 </html>
 '''
+
+    def _write_ui_components(self, src: Path) -> List[Path]:
+        ui_dir = src / "components" / "ui"
+        ui_dir.mkdir(parents=True, exist_ok=True)
+        written: List[Path] = []
+
+        components = {
+            "card.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("rounded-xl border bg-card text-card-foreground shadow-sm", className)} {...props} />
+  )
+)
+Card.displayName = "Card"
+
+export const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
+  )
+)
+CardHeader.displayName = "CardHeader"
+
+export const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, ...props }, ref) => (
+    <h3 ref={ref} className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
+  )
+)
+CardTitle.displayName = "CardTitle"
+
+export const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  )
+)
+CardDescription.displayName = "CardDescription"
+
+export const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  )
+)
+CardContent.displayName = "CardContent"
+
+export const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />
+  )
+)
+CardFooter.displayName = "CardFooter"
+''',
+            "table.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
+  ({ className, ...props }, ref) => (
+    <div className="relative w-full overflow-auto">
+      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+    </div>
+  )
+)
+Table.displayName = "Table"
+
+export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
+  ({ className, ...props }, ref) => <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+)
+TableHeader.displayName = "TableHeader"
+
+export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
+  ({ className, ...props }, ref) => <tbody ref={ref} className={cn("[&_tr:last-child]:border-0", className)} {...props} />
+)
+TableBody.displayName = "TableBody"
+
+export const TableFooter = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
+  ({ className, ...props }, ref) => <tfoot ref={ref} className={cn("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", className)} {...props} />
+)
+TableFooter.displayName = "TableFooter"
+
+export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
+  ({ className, ...props }, ref) => (
+    <tr ref={ref} className={cn("border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", className)} {...props} />
+  )
+)
+TableRow.displayName = "TableRow"
+
+export const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
+  ({ className, ...props }, ref) => (
+    <th ref={ref} className={cn("h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]", className)} {...props} />
+  )
+)
+TableHead.displayName = "TableHead"
+
+export const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
+  ({ className, ...props }, ref) => (
+    <td ref={ref} className={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]", className)} {...props} />
+  )
+)
+TableCell.displayName = "TableCell"
+''',
+            "sheet.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export interface SheetProps {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  children?: React.ReactNode
+}
+
+export const Sheet: React.FC<SheetProps> = ({ open, onOpenChange, children }) => {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex justify-end" onClick={() => onOpenChange?.(false)}>
+      <div className="relative w-full max-w-md bg-background p-6 shadow-lg h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export const SheetContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("flex flex-col h-full", className)} {...props}>{children}</div>
+)
+
+export const SheetHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("flex flex-col space-y-2 text-center sm:text-left mb-4", className)} {...props}>{children}</div>
+)
+
+export const SheetTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({ className, children, ...props }) => (
+  <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props}>{children}</h2>
+)
+
+export const SheetDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({ className, children, ...props }) => (
+  <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>
+)
+
+export const SheetFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-auto pt-4 border-t", className)} {...props}>{children}</div>
+)
+
+export const SheetTrigger: React.FC<{ children?: React.ReactNode; asChild?: boolean }> = ({ children }) => <>{children}</>
+''',
+            "button.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  size?: "default" | "sm" | "lg" | "icon"
+}
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className={cn(
+          "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          variant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90",
+          variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          variant === "outline" && "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
+          variant === "link" && "text-primary underline-offset-4 hover:underline",
+          size === "default" && "h-10 px-4 py-2",
+          size === "sm" && "h-9 rounded-md px-3",
+          size === "lg" && "h-11 rounded-md px-8",
+          size === "icon" && "h-10 w-10",
+          className
+        )}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
+''',
+            "input.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Input.displayName = "Input"
+''',
+            "label.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
+  ({ className, ...props }, ref) => (
+    <label ref={ref} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)} {...props} />
+  )
+)
+Label.displayName = "Label"
+''',
+            "dialog.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export interface DialogProps {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  children?: React.ReactNode
+}
+
+export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => onOpenChange?.(false)}>
+      <div className="relative w-full max-w-lg bg-background p-6 shadow-lg rounded-lg" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export const DialogContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("space-y-4", className)} {...props}>{children}</div>
+)
+
+export const DialogHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props}>{children}</div>
+)
+
+export const DialogTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({ className, children, ...props }) => (
+  <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h2>
+)
+
+export const DialogDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({ className, children, ...props }) => (
+  <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>
+)
+
+export const DialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4", className)} {...props}>{children}</div>
+)
+
+export const DialogTrigger: React.FC<{ children?: React.ReactNode; asChild?: boolean }> = ({ children }) => <>{children}</>
+''',
+            "tabs.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+interface TabsContextValue {
+  value: string
+  setValue: (v: string) => void
+}
+const TabsContext = React.createContext<TabsContextValue>({ value: "", setValue: () => {} })
+
+export const Tabs: React.FC<{ defaultValue?: string; value?: string; onValueChange?: (v: string) => void; className?: string; children?: React.ReactNode }> = ({ defaultValue = "", value: controlledValue, onValueChange, className, children }) => {
+  const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue)
+  const isControlled = controlledValue !== undefined
+  const currentValue = isControlled ? controlledValue : uncontrolledValue
+  const handleChange = (v: string) => {
+    if (!isControlled) setUncontrolledValue(v)
+    onValueChange?.(v)
+  }
+  return (
+    <TabsContext.Provider value={{ value: currentValue, setValue: handleChange }}>
+      <div className={cn("space-y-4", className)}>{children}</div>
+    </TabsContext.Provider>
+  )
+}
+
+export const TabsList: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
+  <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground", className)} {...props} />
+)
+
+export const TabsTrigger: React.FC<{ value: string; className?: string; children?: React.ReactNode }> = ({ value, className, children }) => {
+  const ctx = React.useContext(TabsContext)
+  const active = ctx.value === value
+  return (
+    <button
+      className={cn(
+        "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        active && "bg-background text-foreground shadow-sm",
+        className
+      )}
+      onClick={() => ctx.setValue(value)}
+    >{children}</button>
+  )
+}
+
+export const TabsContent: React.FC<{ value: string; className?: string; children?: React.ReactNode }> = ({ value, className, children }) => {
+  const ctx = React.useContext(TabsContext)
+  if (ctx.value !== value) return null
+  return <div className={cn("mt-2 ring-offset-background focus-visible:outline-none", className)}>{children}</div>
+}
+''',
+            "badge.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Badge: React.FC<React.HTMLAttributes<HTMLDivElement> & { variant?: string }> = ({ className, variant, ...props }) => (
+  <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80", className)} {...props} />
+)
+''',
+            "separator.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Separator: React.FC<React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }> = ({ className, orientation = "horizontal", ...props }) => (
+  <div className={cn("shrink-0 bg-border", orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]", className)} {...props} />
+)
+''',
+            "stat.tsx": '''import * as React from "react"
+import { Card, CardContent } from "./card"
+import { cn } from "@/lib/utils"
+
+export interface StatProps {
+  label?: string
+  value?: string | number
+  change?: number | string
+  trend?: number | string
+  unit?: string
+  className?: string
+}
+
+export const Stat: React.FC<StatProps> = ({ label = "Overview", value = "$0", change, trend, unit = "", className }) => {
+  const valTrend = change !== undefined ? change : trend
+  return (
+    <Card className={cn("my-2", className)}>
+      <CardContent className="p-4">
+        <div className="text-xs font-semibold text-primary uppercase tracking-wider">{label}</div>
+        <div className="text-2xl font-bold mt-1 flex items-baseline">
+          {value} {unit && <span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>}
+          {valTrend !== undefined && (
+            <span className="text-xs text-green-500 font-semibold ml-2">↑ +{valTrend}%</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+export default Stat
+'''
+        }
+
+        for filename, content in components.items():
+            p = ui_dir / filename
+            p.write_text(content, encoding="utf-8")
+            written.append(p)
+            print(f"  write  {p.relative_to(self.out.parent)}")
+
+        return written
+

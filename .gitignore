@@ -145,11 +145,21 @@ mcn/test/
 ehthumbs.db
 Thumbs.db
 
-# Node.js (for web playground)
+# Node.js & Desktop build artifacts
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+out/
+dist/
+.vite/
+*.log
+
+# Web playground scratch files
+mcn/web-playground/full_script.*
+mcn/web-playground/test*.js
+!mcn/web-playground/test_playground.py
+mcn/web-playground/ui_styles.css
 
 # Docker
 .dockerignore
@@ -162,3 +172,4 @@ internal/
 test/
 
 # Development documentation (develop branch only)
+

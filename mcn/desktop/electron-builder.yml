@@ -1,0 +1,55 @@
+appId: dev.macincode.mcn
+productName: MCN Studio
+copyright: Copyright © 2025 Macincode
+
+directories:
+  output: dist
+
+files:
+  - out/**/*
+  - resources/**/*
+  - "!node_modules"
+
+extraResources:
+  - from: ../web-playground
+    to: web-playground
+    filter:
+      - "**/*"
+      - "!node_modules"
+      - "!__pycache__"
+      - "!*.pyc"
+      - "!mcn_data.db"
+      - "!logs"
+      - "!*.log"
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - universal
+  icon: resources/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  category: public.app-category.developer-tools
+
+dmg:
+  title: MCN Studio
+  icon: resources/icon.png
+  iconSize: 100
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 220
+      type: file
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

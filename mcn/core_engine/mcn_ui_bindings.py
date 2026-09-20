@@ -288,7 +288,8 @@ class UIBindingManager:
         chart_type = props.get('chartType', 'bar')
         data_source = props.get('data', 'chartData')
         
-        return f"""<div className={`chart-container ${props.get('className', '')}`}>
+        cls_name = props.get('className', '')
+        return f"""<div className="chart-container {cls_name}">
             <Chart type="{chart_type}" data={{{data_source}}} />
         </div>"""
     

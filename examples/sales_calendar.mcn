@@ -1,0 +1,155 @@
+// Sales Intelligence & Calendar Hub — MCN Internal Tool
+// Single-file CRM, Calendar Scheduler & AI Meeting Copilot
+
+use "db"
+use "auth"
+use "ui"
+
+log("=== Initializing Sales Intelligence & Calendar Hub ===")
+
+// 1. Initialize Tables
+query("CREATE TABLE IF NOT EXISTS sales_events (id INTEGER PRIMARY KEY, title TEXT, prospect_name TEXT, company TEXT, deal_size INTEGER, stage TEXT, scheduled_date TEXT, scheduled_time TEXT, rep TEXT, notes TEXT, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS deal_notes (id INTEGER PRIMARY KEY, event_id INTEGER, ai_briefing TEXT, follow_up_email TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
+// Seed sample upcoming sales calls if empty
+var existing_events = query("SELECT COUNT(*) as count FROM sales_events")
+if existing_events[0].count == 0 {
+    query("INSERT INTO sales_events (title, prospect_name, company, deal_size, stage, scheduled_date, scheduled_time, rep, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Enterprise Discovery Call", "Sarah Jenkins", "Acme Health", 75000, "Discovery", "Today", "10:30 AM", "Alex Rivera", "Exploring migration from legacy on-premise system. 500 seats.", "Confirmed"))
+    query("INSERT INTO sales_events (title, prospect_name, company, deal_size, stage, scheduled_date, scheduled_time, rep, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Contract & Security Review", "David Lin", "Vertex AI", 140000, "Proposal", "Today", "02:00 PM", "Elena Rostova", "SOC-2 and HIPAA compliance review with CISO.", "Confirmed"))
+    query("INSERT INTO sales_events (title, prospect_name, company, deal_size, stage, scheduled_date, scheduled_time, rep, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Executive Demo & ROI", "Marcus Vance", "Nova Logistics", 92000, "Demo", "Tomorrow", "11:00 AM", "Alex Rivera", "VP Operations wants fleet automation dashboard demo.", "Pending"))
+    query("INSERT INTO sales_events (title, prospect_name, company, deal_size, stage, scheduled_date, scheduled_time, rep, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Final Renewal Discussion", "Chloe Zhang", "FinTech Cloud", 185000, "Closing", "Tomorrow", "03:30 PM", "Elena Rostova", "Annual tier expansion + premium support add-on.", "Confirmed"))
+}
+
+// 2. Business Functions & AI Primitives
+
+function get_pipeline_metrics() {
+    var events = query("SELECT deal_size, stage FROM sales_events")
+    var total_pipeline = 0
+    var closed_won = 0
+    var count = events.length
+
+    for ev in events {
+        total_pipeline = total_pipeline + ev.deal_size
+        if ev.stage == "Closing" {
+            closed_won = closed_won + ev.deal_size
+        }
+    }
+
+    return {
+        "total_pipeline": total_pipeline,
+        "closed_revenue": closed_won,
+        "meeting_count": count,
+        "target": 500000
+    }
+}
+
+function schedule_demo(data) {
+    if !data.company or !data.prospect_name {
+        return {"success": false, "error": "Company and Prospect name are required"}
+    }
+    
+    var size = data.deal_size ? data.deal_size : 50000
+    var date = data.scheduled_date ? data.scheduled_date : "Upcoming"
+    var time = data.scheduled_time ? data.scheduled_time : "10:00 AM"
+    var rep = data.rep ? data.rep : "Alex Rivera"
+
+    query("INSERT INTO sales_events (title, prospect_name, company, deal_size, stage, scheduled_date, scheduled_time, rep, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          (data.title ? data.title : "Product Demo", data.prospect_name, data.company, size, "Discovery", date, time, rep, data.notes ? data.notes : "", "Confirmed"))
+    
+    log("Scheduled new demo with " + data.company)
+    return {"success": true, "message": "Demo scheduled successfully"}
+}
+
+function generate_meeting_prep(event_id) {
+    var event_rows = query("SELECT * FROM sales_events WHERE id = ?", (event_id,))
+    if event_rows.length == 0 {
+        return {"error": "Meeting not found"}
+    }
+    var ev = event_rows[0]
+    
+    // AI Primitive: Generate structured pre-call strategy briefing
+    var prompt_text = ("Pre-meeting strategy briefing for " + ev.company + " with prospect " + ev.prospect_name + " for deal value $" + ev.deal_size + " at stage " + ev.stage + ". Context: " + ev.notes)
+    var briefing = ai(prompt_text)
+    
+    query("INSERT INTO deal_notes (event_id, ai_briefing) VALUES (?, ?)", (event_id, briefing))
+    log("AI Meeting Prep generated for " + ev.company)
+    return {"success": true, "briefing": briefing}
+}
+
+function generate_post_call_email(event_id, key_takeaways) {
+    var event_rows = query("SELECT * FROM sales_events WHERE id = ?", (event_id,))
+    if event_rows.length == 0 {
+        return {"error": "Meeting not found"}
+    }
+    var ev = event_rows[0]
+
+    // AI Primitive: Generate professional follow-up email draft
+    var email_prompt = ("Draft executive follow-up email from " + ev.rep + " to " + ev.prospect_name + " at " + ev.company + " for " + ev.title + ". Key takeaways: " + key_takeaways)
+    var email_draft = ai(email_prompt)
+    query("UPDATE deal_notes SET follow_up_email = ? WHERE event_id = ?", (email_draft, event_id))
+    return {"success": true, "email": email_draft}
+}
+
+// 3. Declarative UI Definition for Web (@mcn/ui) & Mobile (mcn_ui)
+
+var metrics = get_pipeline_metrics()
+var active_meetings = query("SELECT id, scheduled_time, scheduled_date, company, prospect_name, deal_size, stage, rep, status FROM sales_events ORDER BY id ASC")
+
+// Metric Stats Header
+var header_stats = ui("container", [
+    ui("stat", {label: "Quarterly Target", value: "$500,000"}),
+    ui("stat", {label: "Active Pipeline", value: "$" + metrics.total_pipeline, change: 18.4}),
+    ui("stat", {label: "Deals in Closing", value: "$" + metrics.closed_revenue, change: 12.1}),
+    ui("stat", {label: "Scheduled Calls", value: metrics.meeting_count})
+], {"className": "grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"})
+
+// Meeting Schedule Table
+var schedule_table = ui("card", {
+    "title": "Today & Upcoming Schedule",
+    "description": "Live calendar queue with automated pre-call briefing actions"
+}, [
+    ui("table", {
+        "data": active_meetings,
+        "columns": [
+            {"key": "scheduled_date", "header": "Day"},
+            {"key": "scheduled_time", "header": "Time"},
+            {"key": "company", "header": "Account"},
+            {"key": "prospect_name", "header": "Contact"},
+            {"key": "deal_size", "header": "Deal Value"},
+            {"key": "stage", "header": "Stage"},
+            {"key": "rep", "header": "Owner"}
+        ],
+        "actions": ["AI Briefing", "Draft Email", "Reschedule"]
+    })
+])
+
+// AI Sales Assistant Panel
+var ai_copilot_panel = ui("card", {
+    "title": "AI Sales Copilot",
+    "description": "Instant meeting intelligence, win-probability scoring, and follow-up generation"
+}, [
+    ui("ai_prompt", {
+        "placeholder": "Ask AI: 'Generate briefing for Vertex AI call' or 'Draft follow-up for Acme'...",
+        "action": "ai_assistant_query"
+    }),
+    ui("button", {
+        "label": "+ Schedule New Demo",
+        "variant": "primary",
+        "action": "open_schedule_modal"
+    })
+])
+
+// Main Dashboard Page
+var sales_dashboard = ui("page", "SalesHub", "/", [
+    header_stats,
+    schedule_table,
+    ai_copilot_panel
+], {
+    "title": "Sales Calendar & Revenue Hub"
+})
+
+log("Sales Calendar & Intelligence Hub loaded successfully.")

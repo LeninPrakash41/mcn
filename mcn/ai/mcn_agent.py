@@ -77,16 +77,18 @@ class MCNAgent:
     def generate(
         self,
         description: str,
+        attachments: Optional[list[dict]] = None,
         output_dir: str = ".",
         port: int = 8080,
         verbose: bool = True,
     ) -> dict:
         """
-        Generate + validate + write MCN files for `description`.
+        Generate + validate + write MCN files for `description` and optional `attachments`.
 
         Parameters
         ----------
         description : natural-language app description
+        attachments : list of dicts with keys {name, type, data, size}
         output_dir  : root folder where backend/ and ui/ will be written
         port        : backend server port (injected into the prompt)
         verbose     : print streaming progress to stdout
@@ -99,7 +101,7 @@ class MCNAgent:
             attempts                    — number of generation attempts used
             build_cmd                   — suggested mcn build command string
         """
-        prompt = self._build_prompt(description, port)
+        prompt = self._build_prompt(description, port, attachments=attachments)
 
         backend_mcn = ""
         ui_mcn      = ""
@@ -111,8 +113,9 @@ class MCNAgent:
             attempts = attempt
 
             if attempt == 1:
+                att_info = f" with {len(attachments)} attachment(s)" if attachments else ""
                 if verbose:
-                    print(f"\n[MCN Agent] Generating MCN for: {description!r}\n")
+                    print(f"\n[MCN Agent] Generating MCN for: {description!r}{att_info}\n")
                 raw = self._call_claude(prompt, system=MCN_SYSTEM_PROMPT, verbose=verbose)
             else:
                 if verbose:
@@ -177,6 +180,7 @@ class MCNAgent:
     def generate_and_build(
         self,
         description: str,
+        attachments: Optional[list[dict]] = None,
         output_dir: str = ".",
         port: int = 8080,
         verbose: bool = True,
@@ -185,7 +189,13 @@ class MCNAgent:
         Like `generate`, but also runs `mcn build` after writing files.
         Returns the same dict with an extra `build_result` key.
         """
-        result = self.generate(description, output_dir=output_dir, port=port, verbose=verbose)
+        result = self.generate(
+            description,
+            attachments=attachments,
+            output_dir=output_dir,
+            port=port,
+            verbose=verbose,
+        )
 
         ui_path  = result["ui_path"]
         out_dir  = Path(output_dir) / "frontend"
@@ -209,15 +219,92 @@ class MCNAgent:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_prompt(self, description: str, port: int) -> str:
-        return (
-            f"Build a complete MCN application for the following:\n\n"
+    def _build_prompt(
+        self,
+        description: str,
+        port: int,
+        attachments: Optional[list[dict]] = None,
+    ) -> str | list[dict]:
+        if not attachments:
+            return (
+                f"Build a complete MCN application for the following:\n\n"
+                f"{description}\n\n"
+                f"Use port {port} for the backend service.\n"
+                f"Remember to output BOTH <backend> and <ui> blocks."
+            )
+
+        content_blocks: list[dict] = []
+        file_summaries: list[str] = []
+
+        for att in attachments:
+            name = att.get("name", "attachment")
+            mime = (att.get("type") or "").lower()
+            raw_data = att.get("data", "")
+            if "," in raw_data and raw_data.startswith("data:"):
+                raw_data = raw_data.split(",", 1)[1]
+
+            if mime == "application/pdf" or name.lower().endswith(".pdf"):
+                file_summaries.append(f"- [PDF / Requirements / BRD] {name}")
+                content_blocks.append({
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": raw_data,
+                    },
+                })
+            elif mime in ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif") or any(
+                name.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
+            ):
+                img_media = (
+                    "image/png" if name.lower().endswith(".png")
+                    else "image/jpeg" if name.lower().endswith((".jpg", ".jpeg"))
+                    else "image/webp" if name.lower().endswith(".webp")
+                    else "image/gif" if name.lower().endswith(".gif")
+                    else (mime or "image/png")
+                )
+                file_summaries.append(f"- [Image / Figma / Flowchart UI] {name}")
+                content_blocks.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": img_media,
+                        "data": raw_data,
+                    },
+                })
+            else:
+                # Text, Markdown, JSON, SVG, CSV, etc.
+                file_summaries.append(f"- [Specification File] {name}")
+                try:
+                    import base64
+                    decoded_text = base64.b64decode(raw_data).decode("utf-8", errors="replace")
+                except Exception:
+                    decoded_text = str(raw_data)
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"--- Attached Document: {name} ---\n{decoded_text}\n--- End Attached Document ---",
+                })
+
+        instruction_text = (
+            f"Build a complete, production-ready MCN application based on the user's requirements "
+            f"and the {len(attachments)} attached specification documents / flowchart diagrams / Figma UI mockups.\n\n"
+            f"USER SPECIFICATION / APP GOAL:\n"
             f"{description}\n\n"
-            f"Use port {port} for the backend service.\n"
-            f"Remember to output BOTH <backend> and <ui> blocks."
+            f"ATTACHED ARTIFACTS:\n"
+            + "\n".join(file_summaries)
+            + f"\n\n"
+            f"REQUIREMENTS ANALYSIS & DECOMPOSITION WORKFLOW:\n"
+            f"1. BRD / PRD Analysis: Extract all core entity models, fields, types, business rules, and CRUD workflows from the documents.\n"
+            f"2. Flowcharts & State Logic: Replicate all decision paths, status progressions, and lifecycle transitions in the backend endpoints and frontend state.\n"
+            f"3. Figma UI & Layouts: Match the visual cards, navigation tabs, metrics/KPI cards, tables, and form inputs faithfully in the MCN UI code.\n"
+            f"4. Database & Backend: Define table schemas with query() and backend service endpoints on port {port}.\n"
+            f"5. Output Format: Output BOTH <backend> and <ui> blocks containing complete MCN code with no placeholders or stubs."
         )
 
-    def _call_claude(self, prompt: str, system: str, verbose: bool) -> str:
+        content_blocks.append({"type": "text", "text": instruction_text})
+        return content_blocks
+
+    def _call_claude(self, prompt: str | list[dict], system: str, verbose: bool) -> str:
         """Stream a Claude response and return the full text."""
         chunks: list[str] = []
 

@@ -611,6 +611,81 @@ def _cmd_new_package(args) -> int:
     return 0
 
 
+def _cmd_agent(args) -> int:
+    """Agent toolkit CLI commands for LLMs and autonomous coding agents."""
+    try:
+        from .agent_toolkit import (
+            verify_agent_code,
+            generate_repair_prompt,
+            get_agent_scaffold,
+            explain_syntax,
+        )
+    except ImportError:
+        from agent_toolkit import (
+            verify_agent_code,
+            generate_repair_prompt,
+            get_agent_scaffold,
+            explain_syntax,
+        )
+
+    sub = getattr(args, "agent_subcommand", None)
+    if sub == "verify":
+        target = getattr(args, "file", None)
+        if not target:
+            print("Error: Specify a file path or code string to verify.")
+            return 1
+
+        if os.path.exists(target):
+            with open(target, "r", encoding="utf-8") as f:
+                code = f.read()
+        else:
+            code = target
+
+        result = verify_agent_code(code)
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2))
+        else:
+            status = "PASS" if result["valid"] else "FAIL"
+            print(f"Agent Verification: {status} ({result['issues_count']} issue(s))")
+            for iss in result.get("issues", []):
+                print(f"  [{iss['stage'].upper()}] Line {iss['line']}:{iss['col']} ({iss['severity']}): {iss['message']}")
+                if iss.get("code_context"):
+                    print(f"    Code: {iss['code_context'].strip()}")
+                if iss.get("fix_suggestion"):
+                    print(f"    Fix:  {iss['fix_suggestion']}")
+        return 0 if result["valid"] else 1
+
+    elif sub == "repair":
+        target = getattr(args, "file", None)
+        if not target:
+            print("Error: Specify a file path or code string to repair.")
+            return 1
+
+        if os.path.exists(target):
+            with open(target, "r", encoding="utf-8") as f:
+                code = f.read()
+        else:
+            code = target
+
+        prompt = generate_repair_prompt(code)
+        print(prompt)
+        return 0
+
+    elif sub == "scaffold":
+        template = getattr(args, "template", "sales_calendar") or "sales_calendar"
+        print(get_agent_scaffold(template))
+        return 0
+
+    elif sub == "explain":
+        query = getattr(args, "query", "")
+        info = explain_syntax(query)
+        print(json.dumps(info, indent=2))
+        return 0
+    else:
+        print("Usage: mcn agent {verify|repair|scaffold|explain} [options]")
+        return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="MCN (Macincode Scripting Language) CLI v2.0"
@@ -618,6 +693,23 @@ def main():
 
     # Subcommands
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Agent command
+    agent_parser = subparsers.add_parser("agent", help="LLM and coding agent validation and repair tools")
+    agent_sub = agent_parser.add_subparsers(dest="agent_subcommand", help="Agent action")
+
+    verify_p = agent_sub.add_parser("verify", help="Verify MCN code through Lexer, Parser, Type Checker, and Linter")
+    verify_p.add_argument("file", help="File to verify (or raw code string)")
+    verify_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    repair_p = agent_sub.add_parser("repair", help="Generate an LLM self-healing repair prompt for broken MCN code")
+    repair_p.add_argument("file", help="File containing broken MCN code")
+
+    scaffold_p = agent_sub.add_parser("scaffold", help="Get verified MCN scaffold template")
+    scaffold_p.add_argument("template", nargs="?", default="sales_calendar", help="Template name (sales_calendar, crm, ai_triage, rest_service)")
+
+    explain_p = agent_sub.add_parser("explain", help="Get exact syntax rules and grammar for MCN features")
+    explain_p.add_argument("query", help="Feature or keyword to explain (e.g. var, function, db, ai, ui, service)")
 
     # Run command (default)
     run_parser = subparsers.add_parser("run", help="Run MCN script")
@@ -810,6 +902,11 @@ def main():
     serve_parser.add_argument("--host", default="127.0.0.1", help="Server host")
     serve_parser.add_argument("--port", type=int, default=8000, help="Server port")
 
+    # Playground / Studio / Web IDE command
+    playground_parser = subparsers.add_parser("playground", aliases=["studio", "ide"], help="Launch the MCN Web IDE & Playground")
+    playground_parser.add_argument("--port", type=int, default=5003, help="Port to listen on (default: 5003)")
+    playground_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
+
     # Legacy support - direct file execution
     parser.add_argument("--repl", action="store_true", help="Start REPL mode (legacy)")
     parser.add_argument(
@@ -863,6 +960,9 @@ def main():
                        write=getattr(args, "write", False),
                        check=getattr(args, "check", False))
 
+    elif args.command == "agent":
+        return _cmd_agent(args)
+
     elif args.command == "check":
         return check_file(args.file, strict=getattr(args, "strict", False))
     elif args.command == "init":
@@ -887,6 +987,13 @@ def main():
             return 0
         else:
             return run_file(args.file)
+    elif args.command in ("playground", "studio", "ide"):
+        playground_server = Path(__file__).resolve().parent.parent / "web-playground" / "server.py"
+        import subprocess
+        env = os.environ.copy()
+        env["MCN_PLAYGROUND_PORT"] = str(args.port)
+        return subprocess.call([sys.executable, str(playground_server)], env=env)
+
     elif args.command == "serve":
         try:
             from .mcn_server import serve_script, serve_directory

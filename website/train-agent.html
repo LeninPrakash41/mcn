@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Train Coding Agents with MCN — The Autonomous AI DSL</title>
+  <meta name="description" content="Why MCN is the highest-performing domain-specific language for AI coding agents. Includes system prompts, few-shot datasets, and self-healing verification loops." />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#8b5cf6', 600: '#7c3aed' },
+            dark: { bg: '#09090b', surface: '#121215', surface2: '#1c1c22', border: '#27272a' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @keyframes glow-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50% { transform: scale(1.08); opacity: 0.6; }
+    }
+    .glow-bg {
+      position: absolute;
+      width: 650px;
+      height: 650px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, rgba(59, 130, 246, 0.12) 40%, transparent 70%);
+      filter: blur(80px);
+      animation: glow-pulse 10s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glass-panel {
+      background: rgba(18, 18, 21, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-panel:hover {
+      border-color: rgba(139, 92, 246, 0.35);
+    }
+    .code-editor {
+      background: #0d0e12;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .kw { color: #f472b6; font-weight: 600; }
+    .fn { color: #60a5fa; }
+    .str { color: #a7f3d0; }
+    .com { color: #71717a; font-style: italic; }
+    .num { color: #fde047; }
+    .var { color: #e2e8f0; }
+    .type { color: #38bdf8; font-weight: 500; }
+  </style>
+</head>
+<body class="bg-[#09090b] text-[#fafafa] font-sans antialiased overflow-x-hidden selection:bg-purple-500/30 selection:text-purple-200">
+
+  <div class="glow-bg top-[-60px] left-1/2 -translate-x-1/2"></div>
+  <div class="glow-bg top-[1500px] right-[-80px]"></div>
+
+  <!-- ── Header / Navbar ────────────────────────────────────────────────        -->
+  <header class="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#09090b]/90 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center gap-2.5 flex-shrink-0 group">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:scale-105 transition-transform">
+          M
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold tracking-tight text-[15px] text-white">MCN Studio</span>
+          <span class="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 leading-none">Agent Guide</span>
+        </div>
+      </a>
+
+      <!-- Center Navigation -->
+      <nav class="hidden lg:flex items-center gap-1 text-[13px] font-medium text-zinc-300">
+        <a href="index.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
+          Home
+        </a>
+        <a href="learn.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
+          Learn MCN
+        </a>
+        <a href="developer-guide.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
+          Developer Guide
+        </a>
+        <a href="train-agent.html" class="px-3 py-2 rounded-lg text-white bg-purple-500/20 text-purple-300 font-semibold transition-all flex items-center gap-1.5">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+          <span>Train Agent</span>
+        </a>
+      </nav>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <a href="https://github.com/zeroappz/mcn" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium text-zinc-300 hover:text-white rounded-lg border border-zinc-800 hover:bg-zinc-800/80 hover:border-zinc-700 transition-all">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i>
+          <span>GitHub</span>
+        </a>
+        <a href="http://localhost:5003" target="_blank" class="inline-flex items-center gap-2 h-9 px-3.5 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 rounded-lg shadow-md shadow-purple-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+          <span>Web IDE</span>
+          <span class="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        </a>
+        <a href="index.html#desktop" class="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-lg transition-all">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Desktop</span>
+        </a>
+
+        <!-- Mobile Menu Toggle Button -->
+        <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Toggle navigation">
+          <i data-lucide="menu" class="w-4 h-4" id="mobile-menu-icon"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-menu" class="hidden lg:hidden border-t border-white/[0.06] bg-[#09090b]/98 backdrop-blur-2xl px-5 py-4 space-y-3">
+      <div class="space-y-1">
+        <a href="index.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
+          <i data-lucide="home" class="w-4 h-4 text-blue-400"></i> Home
+        </a>
+        <a href="learn.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
+          <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i> Learn MCN
+        </a>
+        <a href="developer-guide.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
+          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i> Developer Guide
+        </a>
+        <a href="train-agent.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 bg-purple-500/10 font-semibold">
+          <i data-lucide="bot" class="w-4 h-4"></i> Train Coding Agent
+        </a>
+      </div>
+
+      <div class="pt-3 border-t border-white/[0.06] flex flex-col gap-2">
+        <a href="http://localhost:5003" target="_blank" class="flex items-center justify-center gap-2 h-10 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 shadow-md">
+          <i data-lucide="terminal" class="w-4 h-4"></i> Launch Web IDE
+        </a>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="https://github.com/zeroappz/mcn" target="_blank" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
+            <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
+          </a>
+          <a href="index.html#desktop" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Desktop App
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero Section ─────────────────────────────────────────────────────────── -->
+  <section class="relative pt-16 pb-12 px-6 max-w-5xl mx-auto text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 font-mono mb-4">
+      <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> For LLM Engineers & Autonomous Agents
+    </div>
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+      Train Coding Agents with <span class="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">MCN</span>
+    </h1>
+    <p class="text-base sm:text-lg text-zinc-400 mt-4 max-w-2xl mx-auto leading-relaxed">
+      Why autonomous AI agents (Google Antigravity, Claude 3.7, GPT-4o, Codex) generate software 10x faster and with 90% fewer errors using MCN as their Domain-Specific Language.
+    </p>
+  </section>
+
+  <!-- ── Main Content ─────────────────────────────────────────────────────────── -->
+  <main class="max-w-5xl mx-auto px-6 pb-24 space-y-16">
+
+    <!-- 1. WHY AGENTS LOVE MCN -->
+    <section class="glass-panel rounded-2xl p-8 border-purple-500/20">
+      <div class="flex items-center gap-3 mb-6">
+        <i data-lucide="zap" class="w-6 h-6 text-purple-400"></i>
+        <h2 class="text-2xl font-bold text-white tracking-tight">The 4 Superpowers of MCN for AI Coding Agents</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div class="p-5 bg-zinc-950/60 rounded-xl border border-zinc-800 space-y-2">
+          <div class="text-purple-300 font-bold flex items-center gap-2 text-sm">
+            <i data-lucide="check" class="w-4 h-4 text-purple-400"></i>
+            1. Zero Hallucinated Imports
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed">
+            In Python/Node, agents hallucinate non-existent pip/npm packages, wrong import paths, or outdated API versions. In MCN, all persistence (<code>use "db"</code>), auth, AI, and UI layout primitives are standard built-ins.
+          </p>
+        </div>
+
+        <div class="p-5 bg-zinc-950/60 rounded-xl border border-zinc-800 space-y-2">
+          <div class="text-blue-300 font-bold flex items-center gap-2 text-sm">
+            <i data-lucide="check" class="w-4 h-4 text-blue-400"></i>
+            2. 70% Context Window Token Savings
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed">
+            Generating a full-stack tool in Python/React consumes ~2,800 tokens across multiple files. MCN accomplishes the exact same functionality in ~350 tokens in a single file, eliminating model truncation and speeding up inference.
+          </p>
+        </div>
+
+        <div class="p-5 bg-zinc-950/60 rounded-xl border border-zinc-800 space-y-2">
+          <div class="text-emerald-300 font-bold flex items-center gap-2 text-sm">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+            3. Deterministic Static Self-Healing
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed">
+            Agents run <code>mcn check</code> in their execution loop. Any typing mismatch or missing variable returns an exact <code>[line:col]</code> error, allowing agents to auto-repair their code in 1-pass.
+          </p>
+        </div>
+
+        <div class="p-5 bg-zinc-950/60 rounded-xl border border-zinc-800 space-y-2">
+          <div class="text-pink-300 font-bold flex items-center gap-2 text-sm">
+            <i data-lucide="check" class="w-4 h-4 text-pink-400"></i>
+            4. Perfect Modal-to-Code Mapping
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed">
+            When users click a configuration modal, agents map the form data directly into declarative MCN AST nodes without complex multi-file scaffolding or wiring.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 2. COPY-PASTEABLE SYSTEM PROMPT -->
+    <section class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <i data-lucide="terminal" class="w-6 h-6 text-blue-400"></i>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Agent System Prompt (Copy & Paste)</h2>
+        </div>
+        <button onclick="copyPrompt()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-all">
+          <i id="copy-icon" data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span id="copy-label">Copy System Prompt</span>
+        </button>
+      </div>
+      <p class="text-sm text-zinc-400 mb-4 leading-relaxed">
+        Inject this system prompt into Claude, GPT-4o, Gemini, Cursor, or your local agent framework to instruct it to generate production-ready MCN scripts.
+      </p>
+
+      <pre class="code-editor rounded-xl p-5 font-mono text-[11.5px] leading-relaxed text-zinc-300 overflow-x-auto max-h-[380px] whitespace-pre" id="system-prompt-box">You are an expert MCN (Macincode Scripting Language) coding assistant.
+Your goal is to build full-stack internal tools, AI workflows, and multi-target applications using concise, valid MCN scripts.
+
+CORE SYNTAX RULES:
+1. Variables: Declare with 'var x = value' or typed 'var x: str = "val"'. Supported types: str, int, float, bool, list, dict, any.
+2. Built-in Modules:
+   - use "db"    -> Provides query(sql, params), insert(table, row). Parameterized SQL with (?, ?).
+   - use "auth"  -> Provides auth_create_token(claims), auth_verify_token(token).
+   - use "ui"    -> Provides ui("page"), ui("card"), ui("stat"), ui("table"), ui("ai_prompt"), ui("button").
+3. Native AI: Use ai("prompt text"), classify(text, [labels]), rag(query, collection), extract(text, schema).
+4. Functions:
+   function name(param: type = default): return_type
+       var res = param * 2
+       return res
+5. Multiline continuation: Expressions automatically continue across newlines after +, -, *, /, and, or, ?, :.
+6. Reactive UI Structure:
+   var stats = ui("container", [ui("stat", {label: "Target", value: "$500k"})])
+   var table = ui("card", {title: "Queue"}, [ui("table", {data: rows, columns: ["name", "status"]})])
+   var page = ui("page", "Dashboard", "/", [stats, table])
+
+Always output clean, self-contained MCN code that can be verified with 'mcn check' and executed with 'mcn run'.</pre>
+    </section>
+
+    <!-- 3. AUTONOMOUS AGENT WORKFLOW LOOP -->
+    <section class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-6">
+        <i data-lucide="refresh-cw" class="w-6 h-6 text-emerald-400"></i>
+        <h2 class="text-2xl font-bold text-white tracking-tight">The Self-Healing Autonomous Loop</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center text-xs font-mono">
+        <div class="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div class="text-purple-400 font-bold mb-1">Step 1. Prompt</div>
+          <div class="text-[11px] text-zinc-400 font-sans">User describes requirement or selects modal options.</div>
+        </div>
+        <div class="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div class="text-blue-400 font-bold mb-1">Step 2. Generate</div>
+          <div class="text-[11px] text-zinc-400 font-sans">Agent writes 12-25 lines of unified MCN script.</div>
+        </div>
+        <div class="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div class="text-emerald-400 font-bold mb-1">Step 3. mcn check</div>
+          <div class="text-[11px] text-zinc-400 font-sans">Compile-time type verification & syntax test.</div>
+        </div>
+        <div class="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div class="text-pink-400 font-bold mb-1">Step 4. Deploy</div>
+          <div class="text-[11px] text-zinc-400 font-sans">Instant live React Web & Flutter Mobile UI.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. MCP SERVER SETUP -->
+    <section class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <i data-lucide="server" class="w-6 h-6 text-amber-400"></i>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Model Context Protocol (MCP) Integration</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        Connect Claude Desktop, Cursor, or Google Antigravity to the MCN MCP server to give your AI agent native tools for executing, checking, and formatting MCN code.
+      </p>
+
+      <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+        <div class="text-zinc-500 mb-1">// claude_desktop_config.json / Cursor MCP configuration</div>
+        <div>{</div>
+        <div class="pl-4">"mcpServers": {</div>
+        <div class="pl-8">"mcn": {</div>
+        <div class="pl-12">"command": <span class="str">"python3"</span>,</div>
+        <div class="pl-12">"args": [<span class="str">"/path/to/mcn/run_mcn.py"</span>, <span class="str">"serve"</span>, <span class="str">"--port"</span>, <span class="str">"8000"</span>]</div>
+        <div class="pl-8">}</div>
+        <div class="pl-4">}</div>
+        <div>}</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
+  <footer class="border-t border-white/[0.06] py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 rounded bg-purple-600 flex items-center justify-center text-white font-bold text-[10px]">M</div>
+      <span class="text-zinc-300 font-medium">MCN (Macincode Scripting Language)</span>
+      <span>— Open Source under MIT License</span>
+    </div>
+
+    <div class="flex items-center gap-6">
+      <a href="index.html" class="hover:text-zinc-300 transition-colors">Home</a>
+      <a href="learn.html" class="hover:text-zinc-300 transition-colors">Learn MCN</a>
+      <a href="developer-guide.html" class="hover:text-zinc-300 transition-colors">Developer Guide</a>
+      <a href="train-agent.html" class="hover:text-zinc-300 transition-colors text-white font-medium">Train Coding Agent</a>
+      <a href="https://github.com/zeroappz/mcn" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      const icon = document.getElementById('mobile-menu-icon');
+      if (menu.classList.contains('hidden')) {
+        menu.classList.remove('hidden');
+        icon.setAttribute('data-lucide', 'x');
+      } else {
+        menu.classList.add('hidden');
+        icon.setAttribute('data-lucide', 'menu');
+      }
+      lucide.createIcons();
+    }
+
+    lucide.createIcons();
+
+    function copyPrompt() {
+      const el = document.getElementById("system-prompt-box");
+      navigator.clipboard.writeText(el.innerText);
+      const icon = document.getElementById("copy-icon");
+      const label = document.getElementById("copy-label");
+      icon.setAttribute("data-lucide", "check");
+      label.textContent = "Copied to Clipboard!";
+      lucide.createIcons();
+      setTimeout(() => {
+        icon.setAttribute("data-lucide", "copy");
+        label.textContent = "Copy System Prompt";
+        lucide.createIcons();
+      }, 2500);
+    }
+  </script>
+</body>
+</html>

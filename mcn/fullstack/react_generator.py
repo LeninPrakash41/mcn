@@ -419,12 +419,12 @@ export function UITable({ columns, data, className = '' }: UITableProps) {
     }
 
     return (
-        <Card className={cn(className)}>
+        <Card className={cn("overflow-hidden border border-slate-200/60 dark:border-white/10 shadow-sm", className)}>
             <Table>
-                <TableHeader>
+                <TableHeader className="bg-slate-50/50 dark:bg-white/5">
                     <TableRow>
                         {columns.map((column, index) => (
-                            <TableHead key={`header-${index}`}>
+                            <TableHead key={`header-${index}`} className="font-semibold text-slate-600 dark:text-slate-300">
                                 {column}
                             </TableHead>
                         ))}
@@ -432,9 +432,9 @@ export function UITable({ columns, data, className = '' }: UITableProps) {
                 </TableHeader>
                 <TableBody>
                     {data.map((row, rowIndex) => (
-                        <TableRow key={`row-${rowIndex}`}>
+                        <TableRow key={`row-${rowIndex}`} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
                             {columns.map((column, colIndex) => (
-                                <TableCell key={`cell-${rowIndex}-${colIndex}`}>
+                                <TableCell key={`cell-${rowIndex}-${colIndex}`} className="py-3 px-4">
                                     {row[column.toLowerCase()] || row[column] || '-'}
                                 </TableCell>
                             ))}
@@ -995,7 +995,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full rounded-lg border border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm",
           className
         )}
         ref={ref}
@@ -1024,7 +1024,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      "rounded-xl border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-black/40 text-card-foreground shadow-sm backdrop-blur-xl transition-all hover:shadow-md",
       className
     )}
     {...props}
@@ -1120,7 +1120,7 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead ref={ref} className={cn("[&_tr]:border-b border-slate-200/60 dark:border-white/10", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -1158,7 +1158,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+      "border-b border-slate-200/60 dark:border-white/10 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 data-[state=selected]:bg-slate-100 dark:data-[state=selected]:bg-white/10",
       className
     )}
     {...props}

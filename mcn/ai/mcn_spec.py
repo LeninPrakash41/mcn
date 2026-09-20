@@ -67,11 +67,24 @@ service my_api
     var label    = classify(text, ["cat1", "cat2", "cat3"]) // returns one label
     var data     = extract(text, ModelName)                  // structured extraction
 
+## Analytics & Reporting (use analytics)
+use analytics
+
+    endpoint get_analytics_summary()
+        var kpis = kpi_summary("deals", metrics=["sum:amount", "avg:amount", "count:*"])
+        var monthly = trend("deals", date_field="created_at", value_field="amount", interval="monthly", agg="sum")
+        var by_stage = distribution("deals", category_field="stage", value_field="amount")
+        var matrix = pivot("deals", row_field="region", col_field="stage", value_field="amount")
+        var rep = report("deals", metrics=["sum:amount", "count:*"], group_by=["stage"])
+        var md_report = export_report(rep, format="markdown")
+        return {kpis: kpis, monthly: monthly, by_stage: by_stage, pivot: matrix, report_md: md_report}
+
 ## Tests
 test "creates and retrieves item"
     var r = create_item("value1", 42)
     assert r.success == true
     assert r.id > 0
+
 
 ═══════════════════════════════════════════════════════════════
 UI SYNTAX (ui/app.mcn)

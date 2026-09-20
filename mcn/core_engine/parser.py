@@ -163,13 +163,22 @@ class Parser:
     # ── Statement parsers ──────────────────────────────────────────────────────
 
     def _var_decl(self) -> ast.VarDecl:
-        tok      = self._advance()            # consume VAR
-        name_tok = self._consume(TT.IDENTIFIER, "Expected variable name after 'var'")
+        tok   = self._advance()            # consume VAR
+        tok_n = self._current()
+        if tok_n.type in (TT.IDENTIFIER, TT.APP, TT.TASK, TT.PROMPT):
+            name_tok = self._advance()
+        else:
+            raise ParseError(f"Expected variable name after 'var' (got {tok_n.type.name} '{tok_n.value}')", tok_n)
+
         # optional type hint: var x: int = 5
         type_hint: Optional[str] = None
         if self._match(TT.COLON):
-            type_tok  = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
-            type_hint = type_tok.value
+            tok_t = self._current()
+            if tok_t.type == TT.IDENTIFIER or tok_t.type in _KEYWORD_TYPES:
+                type_tok = self._advance()
+                type_hint = type_tok.value
+            else:
+                raise ParseError("Expected type name after ':'", tok_t)
         self._consume(TT.ASSIGN, "Expected '=' after variable name")
         value    = self._expression()
         self._consume_end()
@@ -196,6 +205,7 @@ class Parser:
     def _if_stmt(self) -> ast.IfStmt:
         tok       = self._advance()           # consume IF
         condition = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         then_body = self._block()
         else_body: List[ast.Stmt] = []
@@ -205,6 +215,7 @@ class Parser:
                 # else if → wrap the nested if as the else_body (one-item list)
                 else_body = [self._if_stmt()]
             else:
+                self._match(TT.COLON)         # optional trailing colon
                 self._consume_end()
                 else_body = self._block()
         return ast.IfStmt(condition=condition, then_body=then_body,
@@ -226,6 +237,7 @@ class Parser:
 
         self._consume(TT.IN, "Expected 'in' after loop variable")
         iterable = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         body = self._block()
         return ast.ForStmt(variable=var_name, index_var=index_var,
@@ -235,6 +247,7 @@ class Parser:
     def _while_stmt(self) -> ast.WhileStmt:
         tok       = self._advance()           # consume WHILE
         condition = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         body = self._block()
         return ast.WhileStmt(condition=condition, body=body,
@@ -339,8 +352,7 @@ class Parser:
             rt = self._current()
             if rt.type == TT.IDENTIFIER or rt.type in _KEYWORD_TYPES:
                 return_type = self._advance().value
-            else:
-                raise ParseError("Expected return type after ':'", rt)
+                self._match(TT.COLON)         # optional trailing colon after return type
         self._consume_end()
         body = self._block()
         return ast.FunctionDecl(name=name_tok.value, params=params,
@@ -456,10 +468,13 @@ class Parser:
         """Top-level expression. Handles ternary: condition ? then : else"""
         expr = self._or()
         if self._check(TT.QUESTION):
-            q        = self._advance()        # consume '?'
-            then_ex  = self._or()
+            q = self._advance()        # consume '?'
+            self._skip_whitespace()
+            then_ex = self._or()
+            self._skip_whitespace()
             self._consume(TT.COLON, "Expected ':' in ternary expression")
-            else_ex  = self._or()
+            self._skip_whitespace()
+            else_ex = self._or()
             return ast.TernaryExpr(condition=expr, then_expr=then_ex, else_expr=else_ex,
                                    line=q.line, col=q.col)
         return expr
@@ -526,6 +541,18 @@ class Parser:
                              line=op.line, col=op.col)
         return self._call()
 
+    def _parse_arg(self) -> ast.Expr:
+        self._skip_whitespace()
+        tok = self._current()
+        # Check for named keyword argument: name = value or format = "..."
+        if (tok.type == TT.IDENTIFIER or tok.type in _KEYWORD_TYPES) and self._peek_token(1).type == TT.ASSIGN:
+            name_tok = self._advance()
+            self._advance()  # consume '='
+            self._skip_whitespace()
+            val_expr = self._expression()
+            return ast.NamedArg(name=name_tok.value, value=val_expr, line=name_tok.line, col=name_tok.col)
+        return self._expression()
+
     def _call(self) -> ast.Expr:
         expr = self._primary()
         while True:
@@ -533,13 +560,13 @@ class Parser:
                 args: List[ast.Expr] = []
                 self._skip_whitespace()
                 if not self._check(TT.RPAREN):
-                    args.append(self._expression())
+                    args.append(self._parse_arg())
                     self._skip_whitespace()
                     while self._match(TT.COMMA):
                         self._skip_whitespace()
                         if self._check(TT.RPAREN):
                             break
-                        args.append(self._expression())
+                        args.append(self._parse_arg())
                         self._skip_whitespace()
                 close = self._consume(TT.RPAREN, "Expected ')' after arguments")
                 expr  = ast.Call(callee=expr, arguments=args,
@@ -718,6 +745,12 @@ class Parser:
 
     def _current(self) -> Token:
         return self._tokens[self._pos]
+
+    def _peek_token(self, offset: int = 1) -> Token:
+        idx = self._pos + offset
+        if idx < len(self._tokens):
+            return self._tokens[idx]
+        return self._tokens[-1]
 
     def _check(self, tt: TT) -> bool:
         return self._current().type == tt
@@ -1309,10 +1342,50 @@ class Parser:
                 self._skip_newlines()
                 if self._check(TT.DEDENT) or self._at_end():
                     break
-                elements.append(self._ui_element())
+                elements.append(self._ui_element_or_for())
             if self._check(TT.DEDENT):
                 self._advance()
         return ast.RenderBlock(elements=elements, line=tok.line, col=tok.col)
+
+    def _ui_element_or_for(self) -> ast.UIElement:
+        """Parse either a `for var in iterable` loop or a normal UI element."""
+        if self._check(TT.FOR):
+            return self._ui_for_element()
+        return self._ui_element()
+
+    def _ui_for_element(self) -> ast.UIElement:
+        """
+        for var_name in iterable_expr
+            child_element ...
+        """
+        tok = self._advance()                    # consume FOR
+        var_tok = self._consume(TT.IDENTIFIER, "Expected loop variable after 'for'")
+        # consume optional 'in' keyword (IN token or IDENTIFIER 'in')
+        if self._check(TT.IN):
+            self._advance()                      # consume IN
+        elif (self._check(TT.IDENTIFIER) and
+              self._current().value == "in"):
+            self._advance()                      # consume 'in' as identifier
+        iterable = self._expression()
+        self._consume_end()
+
+        children: List[ast.UIElement] = []
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()                      # consume INDENT
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+                children.append(self._ui_element_or_for())
+            if self._check(TT.DEDENT):
+                self._advance()
+
+        return ast.UIElement(
+            tag="for", attrs=[], text=None, children=children,
+            for_var=var_tok.value, for_iterable=iterable,
+            line=tok.line, col=tok.col,
+        )
 
     def _ui_element(self) -> ast.UIElement:
         """
@@ -1351,13 +1424,18 @@ class Parser:
                 str_tok = self._advance()
                 text = ast.Literal(value=str_tok.value,
                                    line=str_tok.line, col=str_tok.col)
+            # expression → inline text expression: span {j.title}
+            elif cur.type == TT.LBRACE:
+                self._advance() # consume {
+                text = self._expression()
+                self._consume(TT.RBRACE, "Expected '}' after inline text expression")
 
             else:
                 break  # stop at NEWLINE / DEDENT / other
 
         self._consume_end()
 
-        # Parse indented children
+        # Parse indented children (support `for` loops as children too)
         children: List[ast.UIElement] = []
         self._skip_newlines()
         if self._check(TT.INDENT):
@@ -1366,7 +1444,7 @@ class Parser:
                 self._skip_newlines()
                 if self._check(TT.DEDENT) or self._at_end():
                     break
-                children.append(self._ui_element())
+                children.append(self._ui_element_or_for())
             if self._check(TT.DEDENT):
                 self._advance()
 

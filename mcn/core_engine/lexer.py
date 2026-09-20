@@ -197,6 +197,15 @@ class LexError(Exception):
         self.col  = col
 
 
+_CONTINUATION_OPS = {
+    TT.PLUS, TT.MINUS, TT.STAR, TT.SLASH, TT.PERCENT,
+    TT.COMMA, TT.DOT, TT.SAFE_DOT, TT.ARROW, TT.QUESTION,
+    TT.EQ, TT.NEQ, TT.LT, TT.GT, TT.LTE, TT.GTE,
+    TT.ASSIGN, TT.PLUS_ASSIGN, TT.MINUS_ASSIGN, TT.STAR_ASSIGN, TT.SLASH_ASSIGN, TT.PERCENT_ASSIGN,
+    TT.AND, TT.OR
+}
+
+
 # ── Lexer ──────────────────────────────────────────────────────────────────────
 
 class Lexer:
@@ -209,6 +218,7 @@ class Lexer:
       - If it is deeper than the current level: emit INDENT, push level.
       - If it is shallower: pop levels and emit DEDENT for each.
       - Inconsistent dedent (not matching any prior level) is a LexError.
+      - Automatic multiline continuation inside (), [] or after binary operators.
     """
 
     TAB_WIDTH = 4  # 1 tab counts as this many spaces
@@ -221,6 +231,7 @@ class Lexer:
         self._indent_stack: List[int] = [0]
         self._tokens: List[Token]     = []
         self._at_line_start           = True
+        self._nesting_level           = 0
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -311,13 +322,27 @@ class Lexer:
 
         ch = self._src[self._pos]
 
-        # Inline whitespace (not newline)
-        if ch in (" ", "\t", "\r"):
-            self._skip_inline_whitespace()
-            return
+        # Backslash explicit line continuation
+        if ch == "\\":
+            p = self._pos + 1
+            while p < len(self._src) and self._src[p] in (" ", "\t", "\r"):
+                p += 1
+            if p < len(self._src) and self._src[p] == "\n":
+                self._pos = p + 1
+                self._line += 1
+                self._col = 1
+                self._skip_inline_whitespace()
+                return
 
-        # Newline — end of logical line
+        # Newline — end of logical line (or continuation inside ()/[] or after operators)
         if ch == "\n":
+            if self._nesting_level > 0 or (self._tokens and self._tokens[-1].type in _CONTINUATION_OPS):
+                self._pos += 1
+                self._line += 1
+                self._col = 1
+                self._skip_inline_whitespace()
+                return
+
             self._push(TT.NEWLINE, "\\n")
             self._pos  += 1
             self._line += 1
@@ -508,6 +533,11 @@ class Lexer:
         return self._src[nxt] if nxt < len(self._src) else ""
 
     def _push(self, tt: TT, value: str, line: int = 0, col: int = 0):
+        if tt in (TT.LPAREN, TT.LBRACKET, TT.LBRACE):
+            self._nesting_level += 1
+        elif tt in (TT.RPAREN, TT.RBRACKET, TT.RBRACE):
+            self._nesting_level = max(0, self._nesting_level - 1)
+
         self._tokens.append(
             Token(tt, value, line or self._line, col or self._col)
         )

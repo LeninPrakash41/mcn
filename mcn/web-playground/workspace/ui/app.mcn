@@ -1,0 +1,49 @@
+component AnalyticsDashboard
+    state total_revenue = "$476,500"
+    state deal_count    = 8
+    state avg_deal      = "$59,562"
+    state items         = []
+    state category_data = []
+    state trend_data    = []
+    state report_text   = ""
+    state loading       = false
+
+    on load
+        var res = get_dashboard()
+        if res.success
+            items = res.data
+            category_data = res.categories.items
+            trend_data = res.trends
+        var rep_res = export_executive_report("markdown")
+        if rep_res.success
+            report_text = rep_res.report
+
+    render
+        card
+            card_header "Executive Analytics & Performance BI"
+            div grid_cols=3
+                stat_card label="Total Revenue" value=total_revenue unit=""
+                stat_card label="Total Deals" value=deal_count unit=""
+                stat_card label="Avg Deal Size" value=avg_deal unit=""
+            div grid_cols=2
+                bar_chart data=category_data x_key="category" y_key="amount" height=300
+                line_chart data=trend_data x_key="period" y_key="value" height=300
+            separator
+            card_header "Recent Transactions"
+            table
+                table_header
+                    table_row
+                        table_head "id"
+                        table_head "customer"
+                        table_head "region"
+                        table_head "category"
+                        table_head "amount"
+                        table_head "status"
+                table_body
+
+app BusinessAnalytics
+    title  "Executive Analytics & BI Hub"
+    theme  "professional"
+    layout
+        tabs
+            tab "Executive Overview" AnalyticsDashboard

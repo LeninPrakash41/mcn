@@ -1,0 +1,219 @@
+component MarketplaceCatalog
+    state items = []
+    state category = "All"
+    state search = ""
+    state active_tool = "All"
+    state selected_prompt = null
+    state copy_status = ""
+    state show_test_modal = false
+
+    on load
+        var res = list_prompts(category, search)
+        items = res.data
+
+    on submit
+        var res = list_prompts(category, search)
+        items = res.data
+
+    render
+        div
+            card
+                card_header "Discover & Fork Prompts for Modern AI Tools"
+                form on_submit=submit
+                    div grid_cols=3
+                        input bind=search label="Search prompts, keywords, or tags"
+                        select bind=category options=["All", "Image & Art", "Coding & Tech", "Marketing & SEO", "AI Agents"] label="Filter Category"
+                        button "Filter Catalog" variant="default"
+            card
+                card_header "Top Community Prompts & Workflows"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "category"
+                            table_head "ai_tool"
+                            table_head "price"
+                            table_head "author"
+                            table_head "avg_rating"
+                            table_head "forks_count"
+                    table_body
+
+component PromptTester
+    state template_text = "Cinematic shot of {{subject}}, volumetric rim lighting, 8k resolution, shot on 35mm lens, f/1.8, photorealistic textures --ar 16:9"
+    state subject = "Cyberpunk Samurai in Neon Rain"
+    state language = "TypeScript"
+    state audience = "Founders and Engineers"
+    state test_output = ""
+    state interpolated_prompt = ""
+    state loading = false
+    state tokens_count = 0
+    state latency = 0
+
+    on submit
+        loading = true
+        var res = test_prompt_live(template_text, subject, language, audience)
+        if res.success
+            test_output = res.result
+            interpolated_prompt = res.interpolated_prompt
+            tokens_count = res.tokens_used
+            latency = res.latency_ms
+        loading = false
+
+    render
+        div
+            card
+                card_header "Live Prompt Playground & Variable Interpolator"
+                form on_submit=submit
+                    textarea bind=template_text label="Prompt Template (Supports {{variables}})"
+                    div grid_cols=3
+                        input bind=subject label="Variable: {{subject}} or {{topic}}"
+                        input bind=language label="Variable: {{language}} or {{framework}}"
+                        input bind=audience label="Variable: {{audience}} or {{target}}"
+                    button "Execute Prompt with AI Simulator" variant="default" disabled=loading
+            card
+                card_header "Execution Result & Interpolated Output"
+                div grid_cols=2
+                    stat_card label="Simulated Tokens" value=tokens_count unit="tok"
+                    stat_card label="Latency" value=latency unit="ms"
+                card_content
+                    div
+                        text test_output
+
+component WorkflowsStudio
+    state workflows = []
+    state selected_workflow = "End-to-End SEO Content Pipeline"
+    state topic = "Autonomous Agents in Financial Services"
+    state stage1 = ""
+    state stage2 = ""
+    state stage3 = ""
+    state running = false
+
+    on load
+        var res = list_workflows()
+        workflows = res.data
+
+    on submit
+        running = true
+        var res = run_multi_stage_workflow(selected_workflow, topic)
+        if res.success
+            stage1 = res.stages[0].output
+            stage2 = res.stages[1].output
+            stage3 = res.stages[2].output
+        running = false
+
+    render
+        div
+            card
+                card_header "Multi-Step AI Workflow Orchestrator"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=selected_workflow label="Workflow Pipeline"
+                        input bind=topic label="Workflow Execution Subject / Topic"
+                    button "Run Multi-Stage Workflow" variant="default" disabled=running
+            div grid_cols=3
+                card
+                    card_header "Stage 1: Intent & Market Intelligence"
+                    text stage1
+                card
+                    card_header "Stage 2: Architecture & Content Framework"
+                    text stage2
+                card
+                    card_header "Stage 3: Final Delivery & Executive Score"
+                    text stage3
+
+component PublishStudio
+    state title = ""
+    state category = "Coding & Tech"
+    state ai_tool = "Claude 3.5 Sonnet"
+    state prompt_template = ""
+    state description = ""
+    state sample_output = ""
+    state price = 0.0
+    state author = "CommunityCreator"
+    state tags = ""
+    state status_msg = ""
+    state loading = false
+
+    on submit
+        loading = true
+        var res = create_prompt(title, category, ai_tool, prompt_template, description, sample_output, price, author, tags)
+        if res.success
+            status_msg = "Successfully published to Marketplace!"
+            title = ""
+            prompt_template = ""
+            description = ""
+            sample_output = ""
+            tags = ""
+        loading = false
+
+    render
+        div
+            card
+                card_header "Publish Prompt to Global Marketplace"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Prompt Title"
+                        select bind=category options=["Image & Art", "Coding & Tech", "Marketing & SEO", "AI Agents"] label="Category"
+                    div grid_cols=2
+                        select bind=ai_tool options=["Midjourney v6", "Claude 3.5 Sonnet", "ChatGPT 4o", "Stable Diffusion XL", "Cursor", "DALL-E 3"] label="Target AI Model"
+                        input bind=price label="Price in USD ($0 for Free/Community)" type="number"
+                    textarea bind=prompt_template label="Prompt Template (use {{variable}} for inputs)"
+                    textarea bind=description label="What makes this prompt effective? (Description)"
+                    textarea bind=sample_output label="Sample Output Generated by AI"
+                    div grid_cols=2
+                        input bind=author label="Creator Handle"
+                        input bind=tags label="Tags (comma separated)"
+                    button "Publish to Marketplace" variant="default" disabled=loading
+                    div
+                        text status_msg
+
+component CreatorAnalytics
+    state total_prompts = 5
+    state total_forks = 13490
+    state gross_volume = "$68,450.00"
+    state category_data = []
+    state recent_reviews = []
+    state report_md = ""
+
+    on load
+        var res = get_marketplace_analytics()
+        if res.success
+            total_prompts = res.total_prompts
+            total_forks = res.total_forks
+            gross_volume = res.gross_volume
+            category_data = res.category_distribution
+            recent_reviews = res.recent_reviews
+            report_md = res.report_md
+
+    render
+        div
+            card
+                card_header "Marketplace Intelligence & Creator Performance"
+                div grid_cols=3
+                    stat_card label="Total Prompts" value=total_prompts unit=""
+                    stat_card label="Total Community Forks" value=total_forks unit=""
+                    stat_card label="Gross Platform Volume" value=gross_volume unit=""
+            card
+                card_header "Forks by Category Distribution"
+                bar_chart data=category_data x_key="category" y_key="value" height=280
+            card
+                card_header "Community Reviews & Feedback"
+                table data=recent_reviews
+                    table_header
+                        table_row
+                            table_head "prompt_title"
+                            table_head "reviewer"
+                            table_head "rating"
+                            table_head "comment"
+                    table_body
+
+app PromptMarketplace
+    title "PromptVerse — AI Prompt & Workflow Marketplace"
+    theme "modern"
+    layout
+        sidebar
+            nav "Marketplace" MarketplaceCatalog
+            nav "Prompt Playground" PromptTester
+            nav "Workflow Pipelines" WorkflowsStudio
+            nav "Publish Prompt" PublishStudio
+            nav "Creator Analytics" CreatorAnalytics
