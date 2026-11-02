@@ -39,10 +39,10 @@ log("Motion detected: " + motion_data.value)
 // 3. Dynamic Event-Driven Automation
 log("3. Testing Dynamic Event-Driven Automation")
 
-function handle_temperature_alert(data) {
+function handle_temperature_alert(data)
     log("Temperature Alert Handler: " + data.temperature + "°C")
     
-    if data.temperature > 26 {
+    if data.temperature > 26
         // Activate cooling system
         var cooling_result = device("command", "hvac_controller_01", {"command": "cool", "target": 22})
         log("Cooling activated: " + cooling_result.message)
@@ -50,12 +50,10 @@ function handle_temperature_alert(data) {
         // Notify facilities team
         var notification = ai("Generate a facilities alert for high temperature: " + data.temperature + "°C")
         log("Alert generated: " + notification)
-    }
     
     return "Temperature alert processed"
-}
 
-function handle_security_event(data) {
+function handle_security_event(data)
     log("Security Event Handler: " + data.type + " at " + data.location)
     
     // Switch to security AI model for threat analysis
@@ -67,7 +65,6 @@ function handle_security_event(data) {
           (data.type, data.location, threat_analysis))
     
     return "Security event logged and analyzed"
-}
 
 // Register event handlers
 on event "temperature_alert" handle_temperature_alert
@@ -178,30 +175,27 @@ log("Churn prediction: " + prediction.prediction + " (confidence: " + prediction
 log("8. Testing Complete System Integration")
 
 // Simulate real business scenario
-function business_scenario_simulation() {
+function business_scenario_simulation()
     log("Simulating real business scenario...")
     
     // 1. Sensor triggers alert
-    if temp_data.value > 25 {
+    if temp_data.value > 25
         trigger("temperature_alert", {"temperature": temp_data.value, "location": temp_data.device_info.location})
-    }
     
     // 2. Motion detection triggers security check
-    if motion_data.value {
+    if motion_data.value
         var security_analysis = agent("think", "security_analyst", {
             "input": "Motion detected at " + motion_data.device_info.location + ". Assess security status."
         })
         
-        if "alert" in security_analysis.lower() {
+        if contains(lower(security_analysis), "alert")
             trigger("security_breach", {"type": "unauthorized_access", "location": motion_data.device_info.location})
-        }
-    }
     
     // 3. AI-driven business optimization
-    var optimization_prompt = "Based on current data - Temperature: " + temp_data.value + 
-                             "°C, Humidity: " + humidity_data.value + 
-                             "%, Motion: " + motion_data.value + 
-                             " - suggest business optimizations."
+    var optimization_prompt = ("Based on current data - Temperature: " + temp_data.value +
+                               "°C, Humidity: " + humidity_data.value +
+                               "%, Motion: " + motion_data.value +
+                               " - suggest business optimizations.")
     
     set_model("creative-claude")
     var business_insights = run(optimization_prompt)
@@ -216,7 +210,6 @@ function business_scenario_simulation() {
         "business_insights": business_insights,
         "timestamp": now()
     }
-}
 
 var scenario_result = business_scenario_simulation()
 log("Business Scenario Result: " + scenario_result)
@@ -243,9 +236,8 @@ var system_report = {
 }
 
 log("=== DYNAMIC SYSTEMS INTEGRATION REPORT ===")
-for key in keys(system_report) {
+for key in keys(system_report)
     log(key + ": " + system_report[key])
-}
 
 log("=== Integration Test Complete ===")
 log("✓ All dynamic systems operational")

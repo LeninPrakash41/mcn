@@ -30,22 +30,20 @@ log("AI response: " + ai_response)
 
 // 5. Real Event System
 log("5. Event system...")
-function handle_demo_event(data) {
+function handle_demo_event(data)
     log("Event received: " + data.message)
-}
 
 on("demo_event", "handle_demo_event")
 trigger("demo_event", {"message": "Dynamic events working!"})
 
 // 6. Real Async System
 log("6. Async system...")
-function async_task() {
+function async_task()
     log("Async task executing...")
     return "Task completed successfully"
-}
 
-task("demo_task", "async_task")
-var task_results = await("demo_task")
+task "demo_task" "async_task"
+var task_results = await "demo_task"
 log("Task results: " + task_results)
 
 // 7. Real Agent System

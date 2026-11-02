@@ -39,31 +39,26 @@ log("UI components created successfully")
 // Define event handlers
 log("Setting up event handlers...")
 
-function handle_add_task(data) {
+function handle_add_task(data)
     var title = data.value
-    if title {
+    if title
         query("INSERT INTO tasks (title, completed) VALUES (?, ?)", (title, false))
         log("Task added: " + title)
         return {"success": true, "message": "Task added"}
-    }
     return {"success": false, "error": "Title required"}
-}
 
-function submit_task(data) {
+function submit_task(data)
     log("Form submitted")
     return handle_add_task(data)
-}
 
-function analyze_tasks() {
+function analyze_tasks()
     var tasks = query("SELECT * FROM tasks")
     var completed_count = 0
     var total_count = tasks.length
     
-    for task in tasks {
-        if task.completed {
+    for task_row in tasks
+        if task_row.completed
             completed_count = completed_count + 1
-        }
-    }
     
     var completion_rate = (completed_count / total_count) * 100
     
@@ -76,10 +71,9 @@ function analyze_tasks() {
         "completion_rate": completion_rate,
         "ai_analysis": analysis
     }
-}
 
-function load_page_data(data) {
-    if data.page == "TaskManager" {
+function load_page_data(data)
+    if data.page == "TaskManager"
         var tasks = query("SELECT * FROM tasks ORDER BY created_at DESC")
         var analytics = analyze_tasks()
         
@@ -90,9 +84,7 @@ function load_page_data(data) {
                 "task_analytics": analytics
             }
         }
-    }
     return {"success": false, "error": "Unknown page"}
-}
 
 // Bind data sources
 ui("bind_data", task_table, "tasks")

@@ -1,5 +1,4 @@
-function test() {
+function test_fn()
     log("inside function")
-}
 
-test()
+test_fn()

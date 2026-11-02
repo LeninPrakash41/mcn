@@ -28,12 +28,11 @@ log("✅ Database Connectivity: Real SQLite working")
 
 // 4. Async/Task System - Real parallel execution
 log("4. Testing Async/Task System...")
-function test_async_function() {
+function test_async_function()
     log("Async task executing...")
     return "Async task completed successfully"
-}
-task("async_test", "test_async_function")
-var async_result = await("async_test")
+task "async_test" "test_async_function"
+var async_result = await "async_test"
 log("Async Result: " + async_result)
 log("✅ Async/Task System: Real execution working")
 
@@ -67,9 +66,8 @@ log("✅ IoT Integration: Real device operations working")
 
 // 8. Event System - Real event processing
 log("8. Testing Event System...")
-function handle_test_event(data) {
+function handle_test_event(data)
     log("Event handler called with: " + data.message)
-}
 on("test_event", "handle_test_event")
 trigger("test_event", {"message": "Dynamic event system working!"})
 log("✅ Event System: Real processing working")

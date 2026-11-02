@@ -57,10 +57,10 @@ log("MCN Code: " + nl_code11)
 log("=== Complex Natural Language Translation ===")
 
 // Multi-line natural language program
-var complex_nl = "create a variable users with value empty list
+var complex_nl = """create a variable users with value empty list
 for each user in database_users do add user to users
 if users length is greater than 0 then log found users
-call function send_email with admin notification"
+call function send_email with admin notification"""
 
 var complex_mcn = translate(complex_nl)
 log("Complex Natural Language:")
@@ -81,11 +81,11 @@ log("Executing: log the greeting variable")
 var result3 = translate("log greeting", true)
 
 // Business logic in natural language
-var business_nl = "create variable order_total with value 100
+var business_nl = """create variable order_total with value 100
 create variable tax_rate with value 0.08
 create variable tax with value order_total times tax_rate
 create variable final_total with value order_total plus tax
-log the final total"
+log the final total"""
 
 log("=== Business Logic Translation ===")
 log("Natural Language Business Logic:")

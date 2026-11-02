@@ -54,9 +54,9 @@ var mcn_tools = [
 // Register tools in MCP server
 var counter = 0
 while counter < mcn_tools.length
-    var tool = mcn_tools[counter]
+    var mcn_tool = mcn_tools[counter]
     query("INSERT OR REPLACE INTO mcp_tools (name, description, schema, handler) VALUES (?, ?, ?, ?)",
-          (tool.name, tool.description, tool.schema, tool.handler))
+          (mcn_tool.name, mcn_tool.description, mcn_tool.schema, mcn_tool.handler))
     counter = counter + 1
 
 // Create MCP server endpoints

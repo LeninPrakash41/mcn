@@ -47,8 +47,10 @@ log "Async results: " + task_results
 
 // 6. Package System Demo
 use "pipeline"
-pipeline "create" "data_pipeline" "steps"
-var pipeline_result = pipeline "run" "data_pipeline" "sample data"
+pipeline("create", "data_pipeline", [
+    {"type": "clean", "params": {"remove_special_chars": true}}
+])
+var pipeline_result = pipeline("run", "data_pipeline", "sample data")
 log "Pipeline result: " + pipeline_result
 
 // 7. Natural Language

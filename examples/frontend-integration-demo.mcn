@@ -32,7 +32,7 @@ query("INSERT INTO products (name, description, price, category) VALUES
 ON CONFLICT DO NOTHING")
 
 // API Endpoint: Get all products
-function get_products() {
+function get_products()
     var products = query("SELECT * FROM products ORDER BY created_at DESC")
 
     return {
@@ -40,18 +40,16 @@ function get_products() {
         "data": products,
         "count": products.length
     }
-}
 
 // API Endpoint: Get product by ID with AI-generated recommendations
-function get_product(product_id) {
+function get_product(product_id)
     var product = query("SELECT * FROM products WHERE id = ?", (product_id))
 
-    if (!product || product.length == 0) {
+    if not product or product.length == 0
         return {
             "status": "error",
             "message": "Product not found"
         }
-    }
 
     // Get reviews for this product
     var reviews = query("SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC", (product_id))
@@ -71,24 +69,21 @@ function get_product(product_id) {
             "ai_recommendations": recommendations
         }
     }
-}
 
 // API Endpoint: Add product review with AI sentiment analysis
-function add_review(product_id, rating, comment) {
+function add_review(product_id, rating, comment)
     // Validate input
-    if (!product_id || !rating || !comment) {
+    if not product_id or not rating or not comment
         return {
             "status": "error",
             "message": "Missing required fields: product_id, rating, comment"
         }
-    }
 
-    if (rating < 1 || rating > 5) {
+    if rating < 1 or rating > 5
         return {
             "status": "error",
             "message": "Rating must be between 1 and 5"
         }
-    }
 
     // AI sentiment analysis
     var sentiment = ai(
@@ -97,14 +92,13 @@ function add_review(product_id, rating, comment) {
     )
 
     // Clean up AI response to get just the sentiment
-    var clean_sentiment = sentiment.toLowerCase()
-    if (clean_sentiment.contains("positive")) {
+    var clean_sentiment = lower(sentiment)
+    if contains(clean_sentiment, "positive")
         clean_sentiment = "positive"
-    } else if (clean_sentiment.contains("negative")) {
+    else if contains(clean_sentiment, "negative")
         clean_sentiment = "negative"
-    } else {
+    else
         clean_sentiment = "neutral"
-    }
 
     // Insert review
     query("INSERT INTO reviews (product_id, rating, comment, sentiment) VALUES (?, ?, ?, ?)",
@@ -122,10 +116,9 @@ function add_review(product_id, rating, comment) {
             "sentiment_analysis": sentiment
         }
     }
-}
 
 // API Endpoint: Get analytics dashboard data
-function get_analytics() {
+function get_analytics()
     // Parallel data fetching
     task "product_count" "query" "SELECT COUNT(*) as count FROM products"
     task "review_count" "query" "SELECT COUNT(*) as count FROM reviews"
@@ -141,7 +134,7 @@ function get_analytics() {
         "Products: " + results.product_count[0].count +
         ", Reviews: " + results.review_count[0].count +
         ", Average Rating: " + results.avg_rating[0].avg_rating +
-        ", Sentiment: " + JSON.stringify(results.sentiment_breakdown),
+        ", Sentiment: " + to_json(results.sentiment_breakdown),
         "gpt-4"
     )
 
@@ -159,13 +152,11 @@ function get_analytics() {
             "generated_at": now()
         }
     }
-}
 
 // API Endpoint: Search products with AI-enhanced results
-function search_products(query_text) {
-    if (!query_text) {
+function search_products(query_text)
+    if not query_text
         return get_products()
-    }
 
     // Basic text search
     var products = query("SELECT * FROM products WHERE name ILIKE ? OR description ILIKE ?",
@@ -186,10 +177,9 @@ function search_products(query_text) {
             "result_count": products.length
         }
     }
-}
 
 // API Endpoint: Health check
-function health_check() {
+function health_check()
     return {
         "status": "healthy",
         "service": "MCN E-commerce API",
@@ -202,12 +192,7 @@ function health_check() {
             "Enhanced search with AI suggestions"
         ]
     }
-}
 
-// Export all functions for API access
-export get_products
-export get_product
-export add_review
-export get_analytics
-export search_products
-export health_check
+// API access: `mcn serve --file examples/frontend-integration-demo.mcn` exposes
+// every function above as an endpoint (get_products, get_product, add_review,
+// get_analytics, search_products, health_check)
