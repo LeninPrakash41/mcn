@@ -600,6 +600,12 @@ class _{class_name}State extends State<{class_name}> {{
             
         return ",\n            ".join(widgets)
         
+    @staticmethod
+    def _dart_escape(value: Any) -> str:
+        """Escape a value for use inside a double-quoted Dart string literal"""
+        return (str(value).replace('\\', '\\\\').replace('"', '\\"')
+                .replace('$', '\\$').replace('\n', '\\n').replace('\r', '\\r'))
+
     def _component_to_dart(self, component: Any) -> str:
         """Recursively build Dart widget representation from component JSON"""
         if isinstance(component, str):
@@ -623,8 +629,8 @@ class _{class_name}State extends State<{class_name}> {{
                 onclick_fn = "onPressed: () {},"
                 
             return f"""UIButton(
-              text: "{props.get('text', 'Button')}",
-              className: "{props.get('className', 'btn')}",
+              text: "{self._dart_escape(props.get('text', 'Button'))}",
+              className: "{self._dart_escape(props.get('className', 'btn'))}",
               {onclick_fn}
             )"""
             
@@ -635,16 +641,16 @@ class _{class_name}State extends State<{class_name}> {{
                   await _mcn.call('{events['onChange']}', {{'value': val}});
                 }},"""
             return f"""UIInput(
-              placeholder: "{props.get('placeholder', '')}",
-              className: "{props.get('className', 'input')}",
+              placeholder: "{self._dart_escape(props.get('placeholder', ''))}",
+              className: "{self._dart_escape(props.get('className', 'input'))}",
               {onchange_fn}
             )"""
             
         elif comp_type == 'text':
             return f"""UIText(
-              content: "{props.get('content', '')}",
-              tag: "{props.get('tag', 'p')}",
-              className: "{props.get('className', 'text')}",
+              content: "{self._dart_escape(props.get('content', ''))}",
+              tag: "{self._dart_escape(props.get('tag', 'p'))}",
+              className: "{self._dart_escape(props.get('className', 'text'))}",
             )"""
             
         elif comp_type == 'container':
@@ -654,7 +660,7 @@ class _{class_name}State extends State<{class_name}> {{
             
             children_str = ",\n".join(children_dart)
             return f"""UIContainer(
-              className: "{props.get('className', 'container')}",
+              className: "{self._dart_escape(props.get('className', 'container'))}",
               children: [
                 {children_str}
               ],
@@ -662,32 +668,32 @@ class _{class_name}State extends State<{class_name}> {{
             
         elif comp_type == 'table':
             columns = props.get('columns', [])
-            cols_str = ", ".join([f'"{col}"' for col in columns])
+            cols_str = ", ".join([f'"{self._dart_escape(col)}"' for col in columns])
             data_source = props.get('dataSource', 'tableData')
             return f"""UITable(
               columns: [{cols_str}],
               data: _data['{data_source}'] ?? [],
-              className: "{props.get('className', 'table')}",
+              className: "{self._dart_escape(props.get('className', 'table'))}",
             )"""
             
         elif comp_type == 'chart':
             data_source = props.get('data', 'chartData')
             return f"""UIChart(
-              type: "{props.get('chartType', 'line')}",
+              type: "{self._dart_escape(props.get('chartType', 'line'))}",
               data: _data['{data_source}'] ?? [],
-              className: "{props.get('className', 'chart')}",
+              className: "{self._dart_escape(props.get('className', 'chart'))}",
             )"""
             
         elif comp_type == 'agent_chat':
             return f"""UIAgentChat(
-              agentName: "{props.get('agentName', 'Agent')}",
-              className: "{props.get('className', 'agent-chat')}",
+              agentName: "{self._dart_escape(props.get('agentName', 'Agent'))}",
+              className: "{self._dart_escape(props.get('className', 'agent-chat'))}",
             )"""
             
         elif comp_type == 'enterprise_search':
             return f"""UIEnterpriseSearch(
-              datasourceName: "{props.get('datasourceName', 'Knowledge Base')}",
-              className: "{props.get('className', 'enterprise-search')}",
+              datasourceName: "{self._dart_escape(props.get('datasourceName', 'Knowledge Base'))}",
+              className: "{self._dart_escape(props.get('className', 'enterprise-search'))}",
             )"""
             
         return "const SizedBox.shrink()"

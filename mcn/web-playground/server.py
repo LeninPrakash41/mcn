@@ -722,12 +722,12 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _activeDeals = 14;
-  final String _pipelineValue = "$420,000";
+  final String _pipelineValue = "\\$420,000";
 
   final List<Map<String, dynamic>> _leads = [
-    {"name": "Sarah Jenkins", "company": "Acme Health", "value": "$75,000", "status": "Qualified"},
-    {"name": "David Lin", "company": "Vertex AI", "value": "$140,000", "status": "Proposal"},
-    {"name": "Elena Rostova", "company": "FinTech Cloud", "value": "$185,000", "status": "Closing"},
+    {"name": "Sarah Jenkins", "company": "Acme Health", "value": "\\$75,000", "status": "Qualified"},
+    {"name": "David Lin", "company": "Vertex AI", "value": "\\$140,000", "status": "Proposal"},
+    {"name": "Elena Rostova", "company": "FinTech Cloud", "value": "\\$185,000", "status": "Closing"},
   ];
 
   @override
