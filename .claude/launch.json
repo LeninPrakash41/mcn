@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-playground",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd mcn/web-playground && python3 server.py --port 5003"],
+      "port": 5003
+    }
+  ]
+}
