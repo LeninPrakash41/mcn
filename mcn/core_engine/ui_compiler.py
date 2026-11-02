@@ -17,6 +17,7 @@ Entry point:
 from __future__ import annotations
 
 import json
+import re
 import textwrap
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -134,6 +135,32 @@ def _pascal(name: str) -> str:
     return "".join(w.capitalize() for w in name.replace("-", "_").split("_"))
 
 
+def _field_key(label: str) -> str:
+    """Table header label → row field name: "ID" → id, "Sent At" → sent_at.
+
+    Backend rows come from SQL columns, which are conventionally snake_case."""
+    key = re.sub(r"[^0-9a-zA-Z]+", "_", label).strip("_").lower()
+    return key or label
+
+
+def _singular(word: str) -> str:
+    """leads → lead, categories → category, address → address."""
+    if word.endswith("ies") and len(word) > 3:
+        return word[:-3] + "y"
+    if word.endswith("s") and not word.endswith("ss") and len(word) > 1:
+        return word[:-1]
+    return word
+
+
+def _plural(word: str) -> str:
+    """lead → leads, category → categories, box → boxes."""
+    if word.endswith("y") and len(word) > 1 and word[-2] not in "aeiou":
+        return word[:-1] + "ies"
+    if word.endswith(("s", "x", "z", "ch", "sh")):
+        return word + "es"
+    return word + "s"
+
+
 def _camel(name: str) -> str:
     """snake_case → camelCase."""
     parts = name.split("_")
@@ -173,23 +200,52 @@ def _expr_to_ts(expr: Optional[ast.Expr],
                     return ts[1:-1]
                 return f"${{{ts}}}"
             return f"`{_unwrap(left)}{_unwrap(right)}`"
+        op = {"and": "&&", "or": "||"}.get(op, op)
         return f"{left} {op} {right}"
+    if isinstance(expr, ast.Unary):
+        operand = _expr_to_ts(expr.operand, lv)
+        op = "!" if expr.operator == "not" else expr.operator
+        return f"{op}({operand})" if " " in operand else f"{op}{operand}"
+    if isinstance(expr, ast.Index):
+        return f"{_expr_to_ts(expr.object, lv)}[{_expr_to_ts(expr.index, lv)}]"
+    if isinstance(expr, ast.TernaryExpr):
+        return (f"({_expr_to_ts(expr.condition, lv)} ? {_expr_to_ts(expr.then_expr, lv)}"
+                f" : {_expr_to_ts(expr.else_expr, lv)})")
     if isinstance(expr, ast.Call):
         if isinstance(expr.callee, ast.Variable):
             fn = expr.callee.name
-            # Build the payload object from positional args (use var names as keys)
-            pairs = []
-            for a in expr.arguments:
-                if isinstance(a, ast.Variable):
-                    pairs.append(a.name)
-                else:
-                    pairs.append(_expr_to_ts(a, lv))
-            body = "{" + ", ".join(pairs) + "}"
-            return f"api.post('/{fn}', {body})"
+            if not expr.arguments:
+                return f"api.post('/{fn}', {{}})"
+            # Positional args are sent positionally ({_args: [...]}) and the MCN
+            # server binds them to the endpoint's parameters in order.  The UI
+            # file can't see the backend's parameter names, so keying the body
+            # by the *frontend* variable names would silently mismatch.
+            args = ", ".join(_expr_to_ts(a, lv) for a in expr.arguments)
+            return f"api.post('/{fn}', {{ _args: [{args}] }})"
         return '""'
     if isinstance(expr, ast.Array):
         return "[" + ", ".join(_expr_to_ts(e, lv) for e in expr.elements) + "]"
     return '""'
+
+
+def _vars_needing_hoist(stmts: List[ast.Stmt]) -> Set[str]:
+    """Names of `var`s declared inside an if/else branch or declared twice."""
+    top: Dict[str, int] = {}
+    nested: Set[str] = set()
+
+    def walk(body: List[ast.Stmt], depth: int):
+        for st in body:
+            if isinstance(st, ast.VarDecl):
+                if depth == 0:
+                    top[st.name] = top.get(st.name, 0) + 1
+                else:
+                    nested.add(st.name)
+            elif isinstance(st, ast.IfStmt):
+                walk(st.then_body, depth + 1)
+                walk(st.else_body, depth + 1)
+
+    walk(stmts, 0)
+    return nested | {n for n, c in top.items() if c > 1}
 
 
 # ── main compiler class ────────────────────────────────────────────────────────
@@ -255,6 +311,12 @@ class UICompiler:
         api_path.write_text(self._gen_api_service(app_decl))
         written.append(api_path)
         print(f"  write  {api_path.relative_to(self.out.parent)}")
+
+        # 2b. vite-env.d.ts — types for import.meta.env used by api.ts
+        env_dts = src / "vite-env.d.ts"
+        env_dts.write_text('/// <reference types="vite/client" />\n')
+        written.append(env_dts)
+        print(f"  write  {env_dts.relative_to(self.out.parent)}")
 
         # 3. Generate App.tsx
         app_tsx = src / "App.tsx"
@@ -377,11 +439,11 @@ class UICompiler:
             var_name   = s.name
             setter     = "set" + _pascal(var_name)
             default_ts = _expr_to_ts(s.value)
-            hooks.append(f"  const [{var_name}, {setter}] = useState({default_ts})")
+            hooks.append(f"  const [{var_name}, {setter}] = useState<any>({default_ts})")
 
         if has_crud:
             # entity name: ClaimTable → claim, OrderTable → order
-            entity = comp.name.replace("Table", "").lower()
+            entity = _singular(comp.name.replace("Table", "").lower())
             # Fields with edit_ prefix
             edit_fields = [s for s in comp.states if s.name.startswith("edit_")
                            and s.name not in ("edit_item", "edit_item_id")]
@@ -431,7 +493,7 @@ class UICompiler:
                 f"  const handleDelete = useCallback(async (id: number) => {{\n"
                 f'    if (!window.confirm("Delete this {entity}?")) return\n'
                 f"    await api.post('/delete_{entity}', {{ id }})\n"
-                f"    const _resp = await api.post('/list_{entity}s', {{}})\n"
+                f"    const _resp = await api.post('/list_{_plural(entity)}', {{}})\n"
                 f"    setItems(_resp.data ?? _resp)\n"
                 f"  }}, [])\n"
             )
@@ -439,7 +501,7 @@ class UICompiler:
                 f"  const handleSave = useCallback(async () => {{\n"
                 f"    await api.post('/update_{entity}', {{ id: editItemId, {save_payload_fields} }})\n"
                 f"    setShowEditModal(false)\n"
-                f"    const _resp = await api.post('/list_{entity}s', {{}})\n"
+                f"    const _resp = await api.post('/list_{_plural(entity)}', {{}})\n"
                 f"    setItems(_resp.data ?? _resp)\n"
                 f"  }}, [editItemId, {', '.join(s.name for s in edit_fields)}])\n"
             )
@@ -537,6 +599,14 @@ class UICompiler:
         pad   = " " * indent
         tag   = el.tag
         lines: List[str] = []
+
+        # `p text=msg` / `alert text=result` → the element's content, not a prop
+        text_attr = next((a for a in el.attrs if a.key == "text"), None)
+        if text_attr is not None and el.text is None:
+            el = ast.UIElement(tag=el.tag,
+                               attrs=[a for a in el.attrs if a is not text_attr],
+                               text=text_attr.value, children=el.children,
+                               line=el.line, col=el.col)
 
         # ── show=expr conditional rendering ────────────────────────────────────
         # modal/dialog handle show= via their open= prop, not the generic wrapper
@@ -673,7 +743,7 @@ class UICompiler:
                              if isinstance(s.value, ast.Array)),
                             None,
                         )
-                    entity = (self._current_comp.name.replace("Table", "").lower()
+                    entity = (_singular(self._current_comp.name.replace("Table", "").lower())
                               if self._current_comp else "item")
                     lines.extend(
                         self._gen_table_body_rows(arr_state or "items", col_names,
@@ -1140,7 +1210,8 @@ class UICompiler:
                 f"{pad}</TableBody>",
             ]
 
-        cells = "\n".join(f"{p4}<TableCell>{{row.{c}}}</TableCell>" for c in cols)
+        cells = "\n".join(f"{p4}<TableCell>{{row[{json.dumps(_field_key(c))}]}}</TableCell>"
+                           for c in cols)
         return [
             f"{pad}<TableBody>",
             f"{p2}{{{state_name}.map((row: any, i: number) => (",
@@ -1205,7 +1276,8 @@ class UICompiler:
         return " ".join(props)
 
     def _stmts_to_ts(self, stmts: List[ast.Stmt], indent: int = 4,
-                     _lv: Optional[Dict[str, str]] = None) -> str:
+                     _lv: Optional[Dict[str, str]] = None,
+                     _hoisted: Optional[Set[str]] = None) -> str:
         """Convert simple MCN statements to TypeScript (for event handlers).
 
         _lv: internal local-var substitution dict; don't pass externally.
@@ -1214,11 +1286,21 @@ class UICompiler:
         lv    = dict(_lv or {})   # copy so sibling branches don't share mutations
         lines: List[str] = []
 
+        if _hoisted is None:
+            # Top level of a handler.  MCN `var`s are visible after the block
+            # that declares them (and may be re-declared), unlike TS `const`,
+            # so such names are hoisted to one `let` at the top of the handler.
+            _hoisted = _vars_needing_hoist(stmts)
+            if _hoisted:
+                lines.append(f"{pad}let {', '.join(f'{n}: any' for n in sorted(_hoisted))}")
+
         for stmt in stmts:
             if isinstance(stmt, ast.VarDecl):
                 val = _expr_to_ts(stmt.value, lv)
                 if isinstance(stmt.value, ast.Call):
-                    lines.append(f"{pad}const {stmt.name} = await {val}")
+                    val = f"await {val}"
+                if stmt.name in _hoisted:
+                    lines.append(f"{pad}{stmt.name} = {val}")
                 else:
                     lines.append(f"{pad}const {stmt.name} = {val}")
                 # Named vars are usable directly, no setter needed
@@ -1247,10 +1329,15 @@ class UICompiler:
 
             elif isinstance(stmt, ast.IfStmt):
                 cond      = _expr_to_ts(stmt.condition, lv)
-                then_body = self._stmts_to_ts(stmt.then_body, indent + 2, lv)
+                then_body = self._stmts_to_ts(stmt.then_body, indent + 2, lv, _hoisted)
                 lines.append(f"{pad}if ({cond}) {{")
                 if then_body.strip():
                     lines.append(then_body.rstrip("\n"))
+                if stmt.else_body:
+                    else_body = self._stmts_to_ts(stmt.else_body, indent + 2, lv, _hoisted)
+                    lines.append(f"{pad}}} else {{")
+                    if else_body.strip():
+                        lines.append(else_body.rstrip("\n"))
                 lines.append(f"{pad}}}")
 
             else:
@@ -1517,7 +1604,7 @@ export default function App() {{
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080"
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+async function request<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method:  body ? "POST" : "GET",
     headers: { "Content-Type": "application/json" },
@@ -1528,8 +1615,8 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
-  get:  <T>(path: string)              => request<T>(path),
-  post: <T>(path: string, body: unknown) => request<T>(path, body),
+  get:  <T = any>(path: string)              => request<T>(path),
+  post: <T = any>(path: string, body: unknown) => request<T>(path, body),
 }
 '''
 
@@ -1767,8 +1854,8 @@ export default {
                 "noEmit":            True,
                 "jsx":               "react-jsx",
                 "strict":            True,
-                "noUnusedLocals":    True,
-                "noUnusedParameters": True,
+                "noUnusedLocals":    False,
+                "noUnusedParameters": False,
                 "noFallthroughCasesInSwitch": True,
                 "baseUrl":           ".",
                 "paths": {

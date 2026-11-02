@@ -73,45 +73,43 @@ class MCNProjectManager:
         """Create essential project files"""
 
         # MCN main script
-        main_mcn = f"""// {project_name} - Main MCN Application
-use "db"
-use "ai"
-use "http"
+        main_mcn = f"""// {project_name} — MCN backend service
+//
+//   mcn run   mcn/main.mcn                 # run the top-level code once
+//   mcn test  mcn/main.mcn                 # run the test blocks
+//   mcn serve --file mcn/main.mcn --port 8080
+//
+// Endpoints named get_/list_/find_... are also served on GET.
 
-// Configuration
-var config = {{
-    "app_name": "{project_name}",
-    "version": "1.0.0",
-    "database": {{
-        "host": "localhost",
-        "port": 5432,
-        "name": "{project_name}_db"
-    }},
-    "api": {{
-        "port": 8080,
-        "cors": true
-    }}
-}}
+query("CREATE TABLE IF NOT EXISTS items (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+)")
 
-// Initialize database
-task "init_db" "query" "CREATE TABLE IF NOT EXISTS app_data (id SERIAL PRIMARY KEY, data JSONB)"
+function make_item(name)
+    return {{name: trim(name), created_by: "{project_name}"}}
 
-// Main application logic
-function main() {{
-    log("Starting {project_name}...")
+service api
+    port 8080
 
-    // Your MCN code here
-    var result = ai("Welcome to {project_name}! How can I help you today?")
+    endpoint list_items(limit = 50)
+        return query("SELECT * FROM items ORDER BY id DESC LIMIT ?", (limit,))
 
-    return {{
-        "status": "success",
-        "message": result,
-        "timestamp": now()
-    }}
-}}
+    endpoint get_item(id)
+        var rows = query("SELECT * FROM items WHERE id = ?", (id,))
+        return rows.length > 0 ? rows[0] : {{error: "not found"}}
 
-// Export for API access
-export main
+    endpoint create_item(name)
+        var item = make_item(name)
+        query("INSERT INTO items (name) VALUES (?)", (item.name,))
+        return {{success: true, id: query("SELECT last_insert_rowid() as id")[0].id}}
+
+log("{project_name} loaded — try: mcn serve --file mcn/main.mcn --port 8080")
+
+test "make_item trims the name"
+    var item = make_item("  hello  ")
+    assert item.name == "hello"
 """
 
         with open(project_dir / "mcn" / "main.mcn", "w") as f:
@@ -149,13 +147,12 @@ RUN pip install -r requirements.txt
 
 # Copy MCN application
 COPY mcn/ ./mcn/
-COPY tests/ ./tests/
 
 # Expose API port
 EXPOSE 8080
 
 # Run MCN application
-CMD ["python", "-m", "mcn.mcn_cli", "mcn/main.mcn", "--serve", "--port", "8080"]
+CMD ["mcn", "serve", "--file", "mcn/main.mcn", "--host", "0.0.0.0", "--port", "8080"]
 """
 
         with open(project_dir / "deployment" / "docker" / "Dockerfile", "w") as f:
@@ -187,20 +184,16 @@ MCN-powered application with AI, database, and API capabilities.
    pip install -r requirements.txt
    ```
 
-2. Configure your application:
-   ```bash
-   cp mcn/config/app.json.example mcn/config/app.json
-   # Edit configuration as needed
-   ```
+2. Configure your application in `mcn/config/app.json` as needed.
 
 3. Run the application:
    ```bash
-   python -m mcn.mcn_cli mcn/main.mcn
+   mcn run mcn/main.mcn
    ```
 
 4. Serve as API:
    ```bash
-   python -m mcn.mcn_cli mcn/main.mcn --serve --port 8080
+   mcn serve --file mcn/main.mcn --port 8080
    ```
 
 ## Project Structure
@@ -221,13 +214,15 @@ MCN-powered application with AI, database, and API capabilities.
 
 ## API Endpoints
 
-- `POST /main` - Main application endpoint
+- `GET  /list_items?limit=10` - List items
+- `GET  /get_item/<id>` - Get one item
+- `POST /create_item` `{{"name": "..."}}` - Create an item
 
 ## Development
 
 Run tests:
 ```bash
-python -m pytest tests/
+mcn test mcn/main.mcn
 ```
 
 Build Docker image:

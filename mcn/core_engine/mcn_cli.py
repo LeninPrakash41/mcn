@@ -181,7 +181,8 @@ def init_project(name: str, frontend: str = None):
         print("\nNext steps:")
         print(f"   cd {name}")
         print("   pip install -r requirements.txt")
-        print("   python -m mcn.mcn_cli mcn/main.mcn")
+        print("   mcn run mcn/main.mcn")
+        print("   mcn serve --file mcn/main.mcn --port 8080")
 
         return 0
     except Exception as e:

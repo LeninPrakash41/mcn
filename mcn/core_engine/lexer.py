@@ -216,6 +216,14 @@ class Lexer:
         self._indent_stack: List[int] = [0]
         self._tokens: List[Token]     = []
         self._at_line_start           = True
+        # Open ( [ { brackets.  While any of them is a *grouping* bracket
+        # (parens, list, object literal), newlines are implicit line
+        # continuations (no NEWLINE / INDENT / DEDENT), as in Python — so call
+        # arguments, lists and objects can span several lines.  A `{` that
+        # opens a curly-brace *block* (`if x {`) is pushed as False and keeps
+        # normal line handling.
+        self._bracket_stack: List[bool] = []
+        self._bracket_depth           = 0   # number of True entries above
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -311,6 +319,13 @@ class Lexer:
             self._skip_inline_whitespace()
             return
 
+        # Newline inside brackets — implicit line continuation
+        if ch == "\n" and self._bracket_depth > 0:
+            self._pos  += 1
+            self._line += 1
+            self._col   = 1
+            return
+
         # Newline — end of logical line
         if ch == "\n":
             self._push(TT.NEWLINE, "\\n")
@@ -377,6 +392,13 @@ class Lexer:
             ":": TT.COLON,  ".": TT.DOT,   ",": TT.COMMA,
         }
         if ch in one_ops:
+            if ch in "([{":
+                grouping = (ch != "{" or self._bracket_depth > 0 or
+                            self._brace_starts_literal())
+                self._bracket_stack.append(grouping)
+                self._bracket_depth += grouping
+            elif ch in ")]}" and self._bracket_stack:
+                self._bracket_depth -= self._bracket_stack.pop()
             self._push(one_ops[ch], ch)
             self._pos += 1
             self._col += 1
@@ -385,6 +407,20 @@ class Lexer:
         # Unknown character — skip silently (could raise LexError in strict mode)
         self._pos += 1
         self._col += 1
+
+    # Tokens after which a `{` must begin an object literal (an expression
+    # is expected there), rather than a curly-brace statement block.
+    _EXPR_EXPECTING = frozenset({
+        TT.ASSIGN, TT.PLUS_ASSIGN, TT.MINUS_ASSIGN, TT.STAR_ASSIGN,
+        TT.SLASH_ASSIGN, TT.PERCENT_ASSIGN, TT.ARROW, TT.RETURN,
+        TT.LPAREN, TT.LBRACKET, TT.LBRACE, TT.COMMA, TT.COLON, TT.QUESTION,
+        TT.PLUS, TT.MINUS, TT.STAR, TT.SLASH, TT.PERCENT,
+        TT.EQ, TT.NEQ, TT.GT, TT.LT, TT.GTE, TT.LTE,
+        TT.AND, TT.OR, TT.NOT,
+    })
+
+    def _brace_starts_literal(self) -> bool:
+        return bool(self._tokens) and self._tokens[-1].type in self._EXPR_EXPECTING
 
     # ── Scanners ───────────────────────────────────────────────────────────────
 
@@ -425,7 +461,18 @@ class Lexer:
                 self._push(TT.STRING, "".join(buf), start_line, start_col)
                 return
             if ch == "\n":
-                raise LexError("Unterminated string literal", start_line, start_col)
+                # A plain string may span lines only inside brackets, e.g.
+                #   query("CREATE TABLE t (
+                #       id INTEGER PRIMARY KEY
+                #   )")
+                # At statement level a newline still means a missing quote.
+                if self._bracket_depth == 0:
+                    raise LexError("Unterminated string literal", start_line, start_col)
+                buf.append(ch)
+                self._pos  += 1
+                self._line += 1
+                self._col   = 1
+                continue
             if ch == "\\":
                 self._pos += 1
                 self._col += 1

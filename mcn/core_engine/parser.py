@@ -31,6 +31,18 @@ class ParseError(Exception):
         self.token = token
 
 
+class ParseErrors(ParseError):
+    """Raised at the end of parse() when one or more statements failed to parse.
+
+    The parser recovers after each error so that every problem in the file is
+    reported at once; ``errors`` holds the individual messages.
+    """
+    def __init__(self, errors: List[str], token: Token):
+        Exception.__init__(self, "\n".join(errors))
+        self.token  = token
+        self.errors = errors
+
+
 # ── Parser ─────────────────────────────────────────────────────────────────────
 
 # Built-in names that can be called in statement position without parentheses:
@@ -57,12 +69,18 @@ class Parser:
         self._tokens = tokens
         self._pos    = 0
 
+    _CALLABLE_DECL_KEYWORDS = {
+        TT.AGENT, TT.PIPELINE, TT.WORKFLOW, TT.SERVICE, TT.CONTRACT,
+        TT.PROMPT, TT.MCP, TT.COMPONENT, TT.APP,
+    }
+
     # ── Entry point ────────────────────────────────────────────────────────────
 
     def parse(self) -> ast.Program:
         tok  = self._current()
         body: List[ast.Stmt] = []
-        self.errors: List[str] = []          # collected non-fatal parse errors
+        self.errors: List[str] = []          # collected parse errors
+        first_bad: Optional[Token] = None
         while not self._at_end():
             self._skip_newlines()
             if self._at_end():
@@ -72,8 +90,14 @@ class Parser:
                 if stmt is not None:
                     body.append(stmt)
             except ParseError as e:
+                if first_bad is None:
+                    first_bad = e.token
                 self.errors.append(str(e))
                 self._synchronize()          # skip to next safe statement boundary
+        if self.errors:
+            # Never silently drop code: a statement that failed to parse would
+            # otherwise just vanish (e.g. a whole function definition).
+            raise ParseErrors(self.errors, first_bad)
         return ast.Program(body=body, line=tok.line, col=tok.col)
 
     def _synchronize(self) -> None:
@@ -113,6 +137,13 @@ class Parser:
 
     def _statement(self) -> Optional[ast.Stmt]:
         tok = self._current()
+        # Declaration keywords used as function calls in statement position,
+        # e.g. `agent("create", ...)` / `pipeline("run", ...)` from the v3
+        # packages.  A declaration always has a name after the keyword, never '('.
+        if (tok.type in self._CALLABLE_DECL_KEYWORDS and
+                self._pos + 1 < len(self._tokens) and
+                self._tokens[self._pos + 1].type == TT.LPAREN):
+            return self._expr_stmt()
         if tok.type == TT.VAR:      return self._var_decl()
         if tok.type == TT.IF:       return self._if_stmt()
         if tok.type == TT.FOR:      return self._for_stmt()
@@ -197,6 +228,12 @@ class Parser:
         self._consume_end()
         then_body = self._block()
         else_body: List[ast.Stmt] = []
+        # Curly-brace style allows `}` and `else {` on separate lines.
+        if self._pos > 0 and self._tokens[self._pos - 1].type == TT.RBRACE:
+            save = self._pos
+            self._skip_newlines()
+            if not self._check(TT.ELSE):
+                self._pos = save
         if self._check(TT.ELSE):
             self._advance()                   # consume ELSE
             if self._check(TT.IF):
@@ -444,9 +481,9 @@ class Parser:
         expr = self._or()
         if self._check(TT.QUESTION):
             q        = self._advance()        # consume '?'
-            then_ex  = self._or()
+            then_ex  = self._expression()
             self._consume(TT.COLON, "Expected ':' in ternary expression")
-            else_ex  = self._or()
+            else_ex  = self._expression()     # right-associative: a ? b : c ? d : e
             return ast.TernaryExpr(condition=expr, then_expr=then_ex, else_expr=else_ex,
                                    line=q.line, col=q.col)
         return expr
@@ -1438,7 +1475,9 @@ class Parser:
                                 comp = ""
                                 while not self._at_eol():
                                     k = self._current()
-                                    if (k.type == TT.IDENTIFIER and
+                                    # key=value; the key may lex as a keyword
+                                    # (`component=Foo` → TT.COMPONENT)
+                                    if (k.type != TT.STRING and k.value.isidentifier() and
                                             self._pos + 1 < len(self._tokens) and
                                             self._tokens[self._pos + 1].type == TT.ASSIGN):
                                         key = self._advance().value
@@ -1447,6 +1486,9 @@ class Parser:
                                         val = val_tok.value.strip('"')
                                         if key == "icon":      icon = val
                                         if key == "component": comp = val
+                                    elif k.type == TT.IDENTIFIER and not comp:
+                                        # positional form: nav "Label" ComponentName
+                                        comp = self._advance().value
                                     else:
                                         break
                                 self._consume_end()

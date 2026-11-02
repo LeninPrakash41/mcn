@@ -140,6 +140,27 @@ def _load_evaluator(script_path: str) -> Evaluator:
     return ev
 
 
+def _is_endpoint(evaluator, fn_name: str) -> bool:
+    """Only `endpoint`s declared in a `service` are routable over HTTP.
+
+    evaluator.functions also holds every built-in (read_file, query, env, ...)
+    and helper `function`s, which must never be callable from a URL.
+    """
+    return fn_name in evaluator.function_params and fn_name in evaluator.functions
+
+
+def _declares_endpoints(script_path: str) -> bool:
+    """True if the script declares a `service` with at least one endpoint.
+
+    Decided from the AST, so plain scripts are not executed just to find out.
+    """
+    from . import ast_nodes as ast
+    with open(script_path, encoding="utf-8") as f:
+        program = Parser(Lexer(f.read()).tokenize()).parse()
+    return any(isinstance(stmt, ast.ServiceDecl) and stmt.endpoints
+               for stmt in program.body)
+
+
 def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
     """Return an HTTPServer handler class bound to the given evaluator."""
 
@@ -196,7 +217,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 self._send_json(200, {"status": "ok", "version": "MCN/2.0", "endpoints": routes})
                 return
 
-            if fn_name not in evaluator.functions:
+            if not _is_endpoint(evaluator, fn_name):
                 self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
                 return
 
@@ -228,7 +249,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
 
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
-            if fn_name not in evaluator.functions:
+            if not _is_endpoint(evaluator, fn_name):
                 self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
                 return
 
@@ -242,12 +263,24 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                     self._send_json(400, {"error": "Invalid JSON body"})
                     return
 
-            # Build args: path_arg first (if any), then body dict keys in param order
+            # Build args: path_arg first (if any), then positional `_args`
+            # (sent by compiled MCN UIs), then body dict keys in param order.
             params: List[str] = list(evaluator.function_params.get(fn_name, []))
             args = []
             if path_arg is not None and params:
                 args.append(path_arg)
                 params = params[1:]
+            if not isinstance(body, dict):
+                self._send_json(400, {"error": "JSON body must be an object"})
+                return
+            positional = body.get("_args")
+            if isinstance(positional, list):
+                if len(positional) > len(params):
+                    self._send_json(400, {"error": f"'{fn_name}' takes at most "
+                                                   f"{len(params)} argument(s)"})
+                    return
+                args.extend(positional)
+                params = params[len(positional):]
             for p in params:
                 if p not in body:
                     break   # remaining use MCN defaults
@@ -263,17 +296,21 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
 
 
 def serve_script(script_path: str, host: str = "0.0.0.0", port: int = 8080):
-    """Evaluate an MCN service file and serve each endpoint as a POST route."""
-    # Use FastAPI-based server if installed, otherwise fallback to stdlib http
-    if HAS_FASTAPI:
+    """Serve an MCN file over HTTP.
+
+    A file that declares a `service` gets one route per endpoint (GET for
+    get_/list_/... names, POST for all).  A plain script without endpoints is
+    exposed as a single POST /<script-name> route (FastAPI script mode).
+    """
+    if not os.path.exists(script_path):
+        print(f"Error: file not found: {script_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if HAS_FASTAPI and not _declares_endpoints(script_path):
         server = MCNServer()
         server.load_script(script_path)
         server.serve(host, port)
         return
-
-    if not os.path.exists(script_path):
-        print(f"Error: file not found: {script_path}", file=sys.stderr)
-        sys.exit(1)
 
     print(f"Loading: {script_path}")
     ev = _load_evaluator(script_path)
@@ -299,7 +336,9 @@ def serve_script(script_path: str, host: str = "0.0.0.0", port: int = 8080):
 
 def serve_directory(directory: str, host: str = "0.0.0.0", port: int = 8080):
     """Serve all .mcn files in a directory (loads each, merges endpoints)."""
-    if HAS_FASTAPI:
+    scripts = sorted(os.path.join(directory, f) for f in os.listdir(directory)
+                     if f.endswith(".mcn"))
+    if HAS_FASTAPI and not any(_declares_endpoints(p) for p in scripts):
         server = MCNServer()
         for filename in os.listdir(directory):
             if filename.endswith(".mcn"):
