@@ -166,7 +166,39 @@ def _safe_path_for(rel: str, ws: Path) -> Path:
 # ── Flask app ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__, static_folder=".")
-CORS(app)
+
+# The playground executes arbitrary MCN code (file, env, network and shell
+# builtins), so only loopback pages may call it. Extra origins can be allowed
+# via MCN_PLAYGROUND_ALLOWED_ORIGINS (comma-separated, exact match).
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
+_LOOPBACK_ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$")
+_EXTRA_ORIGINS = {
+    o.strip().rstrip("/") for o in os.environ.get("MCN_PLAYGROUND_ALLOWED_ORIGINS", "").split(",") if o.strip()
+}
+# Set to False in __main__ when the server is deliberately bound to a public interface.
+_LOCAL_ONLY = True
+
+
+def _origin_allowed(origin: str) -> bool:
+    origin = origin.rstrip("/")
+    return bool(_LOOPBACK_ORIGIN_RE.match(origin)) or origin in _EXTRA_ORIGINS
+
+
+CORS(app, origins=[_LOOPBACK_ORIGIN_RE, *_EXTRA_ORIGINS])
+
+
+@app.before_request
+def _guard_request_source():
+    # CORS only hides responses; a cross-site "simple" POST still reaches the
+    # handler, so refuse foreign origins before any code runs.
+    origin = request.headers.get("Origin")
+    if origin and not _origin_allowed(origin):  # also rejects sandboxed "null" origins
+        return jsonify({"error": "Origin not allowed"}), 403
+    # Block DNS-rebinding: a loopback-bound server must be addressed as loopback.
+    if _LOCAL_ONLY:
+        host = request.host.rsplit(":", 1)[0] if not request.host.startswith("[") else request.host.split("]")[0] + "]"
+        if host not in _LOOPBACK_HOSTS:
+            return jsonify({"error": "Host not allowed"}), 403
 
 _MAX_CODE_BYTES = 128 * 1024   # 128 KB
 _EXEC_TIMEOUT_S = 10
@@ -7128,9 +7160,14 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="MCN Web Playground Server")
     parser.add_argument("-p", "--port", type=int, default=int(os.environ.get("MCN_PLAYGROUND_PORT", 5003)), help="Port to run server on")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind to")
+    parser.add_argument("--host", type=str, default=os.environ.get("MCN_PLAYGROUND_HOST", "127.0.0.1"),
+                        help="Host address to bind to (default: loopback only)")
     args, _ = parser.parse_known_args()
     port = args.port
+    if args.host not in _LOOPBACK_HOSTS:
+        _LOCAL_ONLY = False
+        print(f"WARNING: binding to {args.host} exposes unauthenticated code execution to the network. "
+              "Only do this inside an isolated container or sandbox.")
     print(f"MCN Web Playground v2.2 — http://localhost:{port}")
     print(f"Workspace: {WORKSPACE}")
     app.run(debug=False, host=args.host, port=port, threaded=True)
