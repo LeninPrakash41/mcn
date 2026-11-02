@@ -2,7 +2,7 @@
 
 Leads, companies and follow-ups with search, filters, sorting, pagination,
 create / edit / delete with validation, and a live dashboard.
-**About 150 lines of MCN in 4 files**, with no hand-written React, SQL schema or API code.
+**Under 200 lines of MCN in 4 files** (blank lines and comments included), with no hand-written React, SQL schema or API code.
 
 ![Dashboard](screenshots/dashboard.png)
 
