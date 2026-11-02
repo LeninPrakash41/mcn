@@ -104,8 +104,44 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"error": str(e)}
         return {"id": "sub_mock", "status": "active", "customer": customer_id}
 
-    return {"charge": charge, "create_customer": create_customer,
-            "create_subscription": create_subscription}
+    def create_payment_intent(amount: float, currency: str = "usd") -> Dict:
+        key = _os.getenv("STRIPE_SECRET_KEY")
+        if key:
+            try:
+                import stripe as _stripe  # type: ignore
+                _stripe.api_key = key
+                intent = _stripe.PaymentIntent.create(
+                    amount=int(amount * 100), currency=currency
+                )
+                return {"id": intent.id, "client_secret": intent.client_secret, "status": intent.status}
+            except Exception as e:
+                return {"error": str(e)}
+        return {"id": "pi_mock_" + str(int(amount)), "client_secret": "pi_mock_secret_" + str(int(amount)), "status": "requires_payment_method"}
+
+    def create_checkout_session(success_url: str, cancel_url: str, line_items: List[Dict]) -> Dict:
+        key = _os.getenv("STRIPE_SECRET_KEY")
+        if key:
+            try:
+                import stripe as _stripe  # type: ignore
+                _stripe.api_key = key
+                session = _stripe.checkout.Session.create(
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    line_items=line_items,
+                    mode="payment"
+                )
+                return {"id": session.id, "url": session.url}
+            except Exception as e:
+                return {"error": str(e)}
+        return {"id": "cs_mock_" + str(len(line_items)), "url": "https://checkout.stripe.com/c/pay/cs_mock"}
+
+    return {
+        "charge": charge,
+        "create_customer": create_customer,
+        "create_subscription": create_subscription,
+        "create_payment_intent": create_payment_intent,
+        "create_checkout_session": create_checkout_session,
+    }
 
 
 def _bundled_twilio() -> Dict[str, Callable]:
@@ -403,16 +439,198 @@ def _bundled_auth() -> Dict[str, Callable]:
     return get_auth_package()
 
 
+def _bundled_analytics() -> Dict[str, Callable]:
+    from .mcn_extensions import create_analytics_package
+    from .mcn_business_packages import analytics_system
+    pkg = create_analytics_package()
+    pkg.update({
+        "track_event": analytics_system.track_event,
+        "track_metric": analytics_system.track_metric,
+        "create_dashboard": lambda config: {"status": "created", "config": config}
+    })
+    return pkg
+
+
+def _bundled_payments() -> Dict[str, Callable]:
+    from .mcn_business_packages import payment_processor
+    return {
+        "setup_provider": payment_processor.setup_provider,
+        "create_charge": payment_processor.create_charge,
+        "refund_payment": payment_processor.refund_payment
+    }
+
+
+def _bundled_storage() -> Dict[str, Callable]:
+    from .mcn_business_packages import storage_system
+    return {
+        "storage_setup": storage_system.setup_provider,
+        "file_upload": storage_system.upload_file,
+        "file_download": storage_system.download_file,
+        "file_delete": storage_system.delete_file
+    }
+
+
+def _bundled_realtime() -> Dict[str, Callable]:
+    from .mcn_business_packages import realtime_system
+    return {
+        "setup_provider": realtime_system.setup_provider,
+        "broadcast": realtime_system.broadcast,
+        "get_messages": realtime_system.get_messages
+    }
+
+
+def _bundled_notifications() -> Dict[str, Callable]:
+    from .mcn_business_packages import notification_system
+    return {
+        "setup_smtp": notification_system.setup_smtp,
+        "setup_twilio": notification_system.setup_twilio,
+        "send_email": notification_system.send_email,
+        "send_sms": notification_system.send_sms,
+        "send_push": notification_system.send_push
+    }
+
+
+def _bundled_integrations() -> Dict[str, Callable]:
+    from .mcn_business_packages import integration_system
+    return {
+        "setup_integration": integration_system.setup_integration,
+        "sync_data": integration_system.sync_data,
+        "send_notification": integration_system.send_notification
+    }
+
+
+def _bundled_workflows() -> Dict[str, Callable]:
+    from .mcn_business_packages import workflow_engine
+    return {
+        "create_workflow": workflow_engine.create_workflow,
+        "trigger_workflow": workflow_engine.trigger_workflow,
+        "get_status": workflow_engine.get_status
+    }
+
+
+def _bundled_compliance() -> Dict[str, Callable]:
+    from .mcn_business_packages import compliance_system
+    return {
+        "setup_framework": compliance_system.setup_framework,
+        "log_audit_event": compliance_system.log_audit_event,
+        "anonymize_data": compliance_system.anonymize_data,
+        "create_data_request": compliance_system.create_data_request,
+        "get_audit_logs": compliance_system.get_audit_logs
+    }
+
+
+def _bundled_mcp() -> Dict[str, Callable]:
+    from .mcn_business_packages import mcp_connector
+    return {
+        "connect": mcp_connector.connect,
+        "call": mcp_connector.call
+    }
+
+
+def _bundled_ai() -> Dict[str, Callable]:
+    from .ai_builtins import mcn_ai, mcn_llm, mcn_embed, mcn_extract, mcn_classify, mcn_checkpoint
+    return {
+        "complete": mcn_ai,
+        "llm": mcn_llm,
+        "embed": mcn_embed,
+        "extract": mcn_extract,
+        "classify": mcn_classify,
+        "checkpoint": mcn_checkpoint
+    }
+
+
+def _bundled_rag() -> Dict[str, Callable]:
+    from .stdlib_builtins import mcn_rag, mcn_vector_upsert, mcn_vector_search
+    def chunk(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
+        words = text.split()
+        chunks = []
+        i = 0
+        while i < len(words):
+            chunk_words = words[i:i + chunk_size]
+            chunks.append(" ".join(chunk_words))
+            i += max(1, chunk_size - overlap)
+        return chunks or [text]
+
+    return {
+        "query": mcn_rag,
+        "index": mcn_vector_upsert,
+        "search": mcn_vector_search,
+        "chunk": chunk
+    }
+
+
+def _bundled_vector_db() -> Dict[str, Callable]:
+    from .stdlib_builtins import mcn_vector_upsert, mcn_vector_search, mcn_vector_delete, mcn_vector_clear
+    return {
+        "upsert": mcn_vector_upsert,
+        "search": mcn_vector_search,
+        "delete": mcn_vector_delete,
+        "clear": mcn_vector_clear
+    }
+
+
+def _bundled_memory() -> Dict[str, Callable]:
+    from .stdlib_builtins import mcn_memory_store, mcn_memory_get, mcn_memory_search, mcn_memory_all, mcn_memory_clear
+    return {
+        "store": mcn_memory_store,
+        "get": mcn_memory_get,
+        "search": mcn_memory_search,
+        "all": mcn_memory_all,
+        "clear": mcn_memory_clear
+    }
+
+
+def _bundled_agent() -> Dict[str, Callable]:
+    from .ai_builtins import mcn_ai
+    def create(name: str, role: str, system: str = "", tools: Any = None) -> Dict[str, Any]:
+        return {
+            "name": name,
+            "role": role,
+            "system": system,
+            "tools": tools or [],
+            "history": []
+        }
+
+    def run(agent: Dict[str, Any], task: str) -> Dict[str, Any]:
+        sys_prompt = f"You are {agent.get('name')}, role: {agent.get('role')}. {agent.get('system', '')}"
+        res = mcn_ai(task, {"system": sys_prompt})
+        agent.setdefault("history", []).append({"task": task, "response": res})
+        return {"agent": agent.get("name"), "task": task, "result": res}
+
+    return {
+        "create": create,
+        "run": run
+    }
+
+
 _BUNDLED: Dict[str, Callable[[], Dict]] = {
-    "auth":        _bundled_auth,
-    "stripe":      _bundled_stripe,
-    "twilio":      _bundled_twilio,
-    "resend":      _bundled_resend,
-    "slack":       _bundled_slack,
-    "openai":      _bundled_openai,
-    "ollama":      _bundled_ollama,
-    "healthcare":  _bundled_healthcare,
-    "finance":     _bundled_finance,
+    "auth":          _bundled_auth,
+    "stripe":        _bundled_stripe,
+    "twilio":        _bundled_twilio,
+    "resend":        _bundled_resend,
+    "slack":         _bundled_slack,
+    "openai":        _bundled_openai,
+    "ollama":        _bundled_ollama,
+    "ai":            _bundled_ai,
+    "rag":           _bundled_rag,
+    "vector":        _bundled_vector_db,
+    "vector_db":     _bundled_vector_db,
+    "memory":        _bundled_memory,
+    "agent":         _bundled_agent,
+    "agentic":       _bundled_agent,
+    "healthcare":    _bundled_healthcare,
+    "finance":       _bundled_finance,
+    "analytics":     _bundled_analytics,
+    "report":        _bundled_analytics,
+    "reports":       _bundled_analytics,
+    "payments":      _bundled_payments,
+    "storage":       _bundled_storage,
+    "realtime":      _bundled_realtime,
+    "notifications": _bundled_notifications,
+    "integrations":  _bundled_integrations,
+    "workflows":     _bundled_workflows,
+    "compliance":    _bundled_compliance,
+    "mcp":           _bundled_mcp,
 }
 
 # Namespace aliases: "accenture/healthcare" → "healthcare" (bundled demo)

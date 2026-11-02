@@ -164,6 +164,20 @@ class MCNService:
         )
 
 
+class MCNSchedule:
+    """A scheduled background job declared in MCN."""
+    def __init__(self, name: str, cron_expr: str, fn: Callable):
+        self.name = name
+        self.cron_expr = cron_expr
+        self.fn = fn
+
+    def __call__(self, *args, **kwargs):
+        return self.fn(*args, **kwargs)
+
+    def __repr__(self):
+        return f"<MCNSchedule '{self.name}' at '{self.cron_expr}'>"
+
+
 # ── MCNWorkflow ────────────────────────────────────────────────────────────────
 
 class MCNWorkflow:

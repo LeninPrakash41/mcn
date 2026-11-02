@@ -87,6 +87,11 @@ _SHADCN: Dict[str, Tuple[List[str], str, str]] = {
                       "dropdown-menu", "DropdownMenu"),
     "sheet":         (["Sheet", "SheetContent", "SheetHeader", "SheetTitle", "SheetTrigger"],
                       "sheet",         "Sheet"),
+    # From the develop branch
+    "stat":          (["Card", "CardContent"],          "card",          "Card"),
+    "file_upload":   (["Input"],                        "input",         "Input"),
+    "data_grid":     (["Table", "TableHeader", "TableBody", "TableRow", "TableHead", "TableCell"],
+                      "table",         "Table"),
 }
 
 # Tags that map to plain HTML elements (no shadcn import needed)
@@ -273,6 +278,10 @@ def _expr_to_ts(expr: Optional[ast.Expr],
     if isinstance(expr, ast.Call):
         if isinstance(expr.callee, ast.Variable):
             fn = expr.callee.name
+            if fn in ("toast", "log", "confirm", "alert"):     # browser helpers
+                args = ", ".join(_expr_to_ts(a, lv) for a in expr.arguments)
+                return {"log": f"console.log({args})", "confirm": f"window.confirm({args})",
+                        "alert": f"window.alert({args})"}.get(fn, f"toast({args})")
             if not expr.arguments:
                 return f"api.post('/{fn}', {{}})"
             # Positional args are sent positionally ({_args: [...]}) and the MCN
@@ -506,7 +515,12 @@ class UICompiler:
             written.append(path)
             print(f"  write  {path.relative_to(self.out.parent)}")
 
-        # Print shadcn install command
+        # Bundled shadcn-compatible components; only the rest need `npx shadcn add`
+        from .ui_components import BUNDLED_SLUGS, write_components
+        for path in write_components(src / "components" / "ui"):
+            written.append(path)
+            print(f"  write  {path.relative_to(self.out.parent)}")
+        self._shadcn_needed -= BUNDLED_SLUGS | {"recharts", "sonner"}
         if self._shadcn_needed:
             pkgs = " ".join(sorted(self._shadcn_needed))
             print(f"\n  shadcn  npx shadcn@latest add {pkgs}")
@@ -680,6 +694,9 @@ class UICompiler:
         body_text = "\n".join(hooks + handlers + jsx_lines)
         if "truthy(" in body_text:
             imports.append('import { truthy } from "@/lib/utils"')
+        if "toast(" in body_text:
+            imports.append('import { toast } from "sonner"')
+            self._uses_toast = True
 
         # Assemble
         lines = [
@@ -1049,13 +1066,74 @@ class UICompiler:
             return lines
 
         # stat_card — a compact KPI card with icon, value, trend
-        if tag == "stat_card":
+        # file_upload (develop) — a plain file picker; use a `file` contract
+        # field with crud_table for stored uploads
+        if tag == "file_upload":
+            props = self._attrs_to_props([a for a in el.attrs if a.key != "label"], tag)
             label_attr = next((a for a in el.attrs if a.key == "label"), None)
-            value_attr = next((a for a in el.attrs if a.key == "value"), None)
+            if label_attr:
+                self._extra_imports.add('import { Label } from "@/components/ui/label"')
+                self._shadcn_needed.add("label")
+                return [f'{pad}<div className="space-y-1">',
+                        f'{pad}  <Label>{{{_expr_to_ts(label_attr.value)}}}</Label>',
+                        f'{pad}  <Input type="file" {props} />',
+                        f'{pad}</div>']
+            return [f'{pad}<Input type="file" {props} />']
+
+        # data_grid data=rows (develop) — editable grid of any rows
+        if tag == "data_grid":
+            data_attr = next((a for a in el.attrs if a.key == "data"), None)
+            data_expr = _expr_to_ts(data_attr.value) if data_attr else "[]"
+            self._extra_imports.add('import { Input } from "@/components/ui/input"')
+            self._shadcn_needed.add("input")
+            return [
+                f'{pad}<div className="border rounded-md overflow-x-auto">',
+                f'{pad}  <Table>',
+                f'{pad}    <TableHeader>',
+                f'{pad}      <TableRow>',
+                f'{pad}        {{(({data_expr}) ?? []).length > 0 ? Object.keys(({data_expr})[0]).map((k: string) => <TableHead key={{k}}>{{k}}</TableHead>) : null}}',
+                f'{pad}      </TableRow>',
+                f'{pad}    </TableHeader>',
+                f'{pad}    <TableBody>',
+                f'{pad}      {{(({data_expr}) ?? []).map((row: any, i: number) => (',
+                f'{pad}        <TableRow key={{i}}>',
+                f'{pad}          {{Object.keys(row).map((k: string) => (',
+                f'{pad}            <TableCell key={{k}}><Input defaultValue={{row[k]}} className="border-transparent bg-transparent shadow-none hover:border-input" /></TableCell>',
+                f'{pad}          ))}}',
+                f'{pad}        </TableRow>',
+                f'{pad}      ))}}',
+                f'{pad}    </TableBody>',
+                f'{pad}  </Table>',
+                f'{pad}</div>',
+            ]
+
+        # gantt_chart data=tasks (develop) — bars from task.start / task.end (0–100)
+        if tag == "gantt_chart":
+            data_attr = next((a for a in el.attrs if a.key == "data"), None)
+            data_expr = _expr_to_ts(data_attr.value) if data_attr else "[]"
+            return [
+                f'{pad}<div className="overflow-x-auto w-full">',
+                f'{pad}  <div className="min-w-[500px] flex flex-col gap-3 py-2">',
+                f'{pad}    {{(({data_expr}) ?? []).map((task: any, i: number) => (',
+                f'{pad}      <div key={{i}} className="flex items-center gap-4 text-sm">',
+                f'{pad}        <div className="w-32 font-medium truncate" title={{task.name || task.title}}>{{task.name || task.title || `Task ${{i + 1}}`}}</div>',
+                f'{pad}        <div className="flex-1 bg-muted rounded-full h-8 relative overflow-hidden">',
+                f'{pad}          <div className="absolute top-0 bottom-0 bg-primary/80 rounded-full" style={{{{ left: `${{Math.max(0, Math.min(100, task.start ?? i * 10))}}%`, right: `${{100 - Math.max(0, Math.min(100, task.end ?? (i + 3) * 10))}}%` }}}} />',
+                f'{pad}        </div>',
+                f'{pad}        <div className="w-20 text-muted-foreground text-xs text-right">{{task.status || "In progress"}}</div>',
+                f'{pad}      </div>',
+                f'{pad}    ))}}',
+                f'{pad}  </div>',
+                f'{pad}</div>',
+            ]
+
+        if tag in ("stat", "stat_card"):
+            label_attr = next((a for a in el.attrs if a.key in ("label", "title")), None)
+            value_attr = next((a for a in el.attrs if a.key in ("value", "val")), None)
             unit_attr  = next((a for a in el.attrs if a.key == "unit"),  None)
             icon_attr  = next((a for a in el.attrs if a.key == "icon"),  None)
-            trend_attr = next((a for a in el.attrs if a.key == "trend"), None)
-            trend_lbl  = next((a for a in el.attrs if a.key == "trend_label"), None)
+            trend_attr = next((a for a in el.attrs if a.key in ("trend", "change")), None)
+            trend_lbl  = next((a for a in el.attrs if a.key in ("trend_label", "change_label")), None)
             color_attr = next((a for a in el.attrs if a.key == "color"), None)
             lbl   = _expr_to_ts(label_attr.value) if label_attr else '""'
             val   = _expr_to_ts(value_attr.value) if value_attr else '""'
@@ -2044,15 +2122,16 @@ export const api = {
 '''
 
     def _gen_main_tsx(self) -> str:
-        return '''\
+        toast = getattr(self, "_uses_toast", False)
+        code = '''\
 import React from "react"
 import ReactDOM from "react-dom/client"
 import App from "./App"
 import "./globals.css"
-
+{toaster_import}
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <App />{toaster}
   </React.StrictMode>
 )
 
@@ -2061,6 +2140,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}))
 }
 '''
+        return (code.replace("{toaster_import}", 'import { Toaster } from "sonner"\n' if toast else "")
+                    .replace("{toaster}", "\n    <Toaster richColors />" if toast else ""))
 
     def _gen_globals_css(self, theme: str) -> str:
         # Full shadcn CSS variable set — theme presets only override a subset
@@ -2171,6 +2252,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
                 "@radix-ui/react-avatar":       "^1.1.0",
                 "@radix-ui/react-progress":     "^1.1.0",
                 "recharts":        "^2.12.0",
+                "sonner":          "^1.5.0",
                 "react-router-dom": "^6.26.0",
             },
             "devDependencies": {

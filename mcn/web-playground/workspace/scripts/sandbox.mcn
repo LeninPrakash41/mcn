@@ -1,0 +1,21 @@
+// MCN REPL Script — Press Ctrl+Enter to execute expressions
+
+var title = "MCN REPL Environment"
+log("⚡ " + title)
+
+function calculate_roi(revenue, cost)
+    return ((revenue - cost) / cost) * 100
+
+var revenue = 150000
+var cost = 95000
+var roi = calculate_roi(revenue, cost)
+
+log("Revenue: $" + str(revenue))
+log("Cost:    $" + str(cost))
+log("ROI:     " + str(roi) + "%")
+
+// Working with lists
+var deals = [45000, 120000, 85000, 30000, 210000]
+log("Total Pipeline: $" + str(sum(deals)))
+log("Average Deal:   $" + str(avg(deals)))
+log("Max Deal:       $" + str(max(deals)))

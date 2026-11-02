@@ -1,8 +1,0 @@
-{
-  "name": "db",
-  "functions": [
-    "batch_insert",
-    "backup_table"
-  ],
-  "installed": true
-}

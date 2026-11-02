@@ -20,15 +20,23 @@ import shutil
 class MCNPackage:
     """Package metadata and configuration"""
     name: str
-    version: str
-    description: str
-    dependencies: List[str]
-    functions: Dict[str, Any]
+    version: str = "1.0.0"
+    description: str = ""
+    dependencies: List[str] = None
+    functions: Any = None
     author: str = ""
     license: str = "MIT"
     repository: str = ""
     installed: bool = False
     local_path: Optional[str] = None
+
+    def __post_init__(self):
+        if self.dependencies is None:
+            self.dependencies = []
+        if isinstance(self.functions, list):
+            self.functions = {f: {} for f in self.functions}
+        elif self.functions is None:
+            self.functions = {}
 
 
 class MCNModuleSystem:
@@ -52,11 +60,15 @@ class MCNModuleSystem:
     
     def _load_installed_packages(self):
         """Load metadata for installed packages"""
+        from dataclasses import fields
+        package_fields = {f.name for f in fields(MCNPackage)}
         for package_file in self.packages_dir.glob("*.json"):
             try:
                 with open(package_file, 'r') as f:
                     data = json.load(f)
-                    package = MCNPackage(**data)
+                    # Filter out keys not recognized as fields of MCNPackage
+                    filtered_data = {k: v for k, v in data.items() if k in package_fields}
+                    package = MCNPackage(**filtered_data)
                     self.installed_packages[package.name] = package
             except Exception as e:
                 print(f"Warning: Failed to load package {package_file}: {e}")

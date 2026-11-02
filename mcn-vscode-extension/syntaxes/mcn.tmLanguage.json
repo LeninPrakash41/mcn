@@ -1,0 +1,180 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "MCN (Micro Code Native)",
+  "scopeName": "source.mcn",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#annotations" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#declarations" },
+    { "include": "#ui-components" },
+    { "include": "#builtins" },
+    { "include": "#types" },
+    { "include": "#operators" },
+    { "include": "#variable-interpolation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.mcn",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.mcn",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "entity.name.function.decorator.mcn",
+          "match": "@[A-Za-z0-9_]+(\\([^)]*\\))?"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mcn",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mcn",
+              "match": "\\\\."
+            },
+            {
+              "name": "variable.other.interpolated.mcn",
+              "match": "\\{\\{[A-Za-z0-9_]+\\}\\}"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.mcn",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mcn",
+              "match": "\\\\."
+            },
+            {
+              "name": "variable.other.interpolated.mcn",
+              "match": "\\{\\{[A-Za-z0-9_]+\\}\\}"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.mcn",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.mcn",
+          "match": "\\b(if|else|for|while|in|return|break|continue|try|catch|finally|throw)\\b"
+        },
+        {
+          "name": "keyword.other.mcn",
+          "match": "\\b(use\\s+analytics|use\\s+ai|use\\s+auth|use\\s+database|use|import|from|as|export)\\b"
+        },
+        {
+          "name": "keyword.other.event.mcn",
+          "match": "\\b(on\\s+load|on\\s+submit|on\\s+change|on\\s+click|state|bind|render)\\b"
+        },
+        {
+          "name": "constant.language.mcn",
+          "match": "\\b(true|false|null|undefined|none)\\b"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "match": "\\b(service|component|contract|pipeline|stage|app|function|test)\\s+([A-Za-z0-9_]+)",
+          "captures": {
+            "1": { "name": "keyword.declaration.mcn" },
+            "2": { "name": "entity.name.type.class.mcn" }
+          }
+        },
+        {
+          "match": "\\b(endpoint)\\s+([A-Za-z0-9_]+)\\s*\\(",
+          "captures": {
+            "1": { "name": "keyword.declaration.mcn" },
+            "2": { "name": "entity.name.function.mcn" }
+          }
+        },
+        {
+          "match": "\\b(var|let|const)\\s+([A-Za-z0-9_]+)",
+          "captures": {
+            "1": { "name": "storage.type.mcn" },
+            "2": { "name": "variable.other.mcn" }
+          }
+        },
+        {
+          "match": "\\b(layout|sidebar|tabs|navbar)\\b",
+          "name": "keyword.other.layout.mcn"
+        },
+        {
+          "match": "\\b(nav|tab)\\s+\"([^\"]+)\"\\s+([A-Za-z0-9_]+)",
+          "captures": {
+            "1": { "name": "keyword.other.nav.mcn" },
+            "2": { "name": "string.quoted.double.mcn" },
+            "3": { "name": "entity.name.type.class.mcn" }
+          }
+        }
+      ]
+    },
+    "ui-components": {
+      "patterns": [
+        {
+          "name": "support.class.component.mcn",
+          "match": "\\b(card|card_header|card_title|card_description|table|table_header|table_body|table_row|table_head|table_cell|button|input|select|textarea|badge|stat|stat_card|bar_chart|line_chart|pie_chart|modal|dialog|sheet|separator|div|span|h1|h2|h3|h4|p|form|text)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.mcn",
+          "match": "\\b(query|log|print|str|int|float|len|keys|values|sum|avg|min|max|sort|kpi_summary|trend|distribution|pivot|report|export_report|list_prompts|test_prompt_live|create_prompt|generate_ai)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.mcn",
+          "match": "\\b(str|int|float|bool|list|dict|any|datetime|void)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.mcn",
+          "match": "(\\+|\\-|\\*|\\/|\\%|\\=\\=|\\!\\=|\\<\\=|\\>\\=|\\<|\\>|\\=|\\&\\&|\\|\\|)"
+        }
+      ]
+    },
+    "variable-interpolation": {
+      "patterns": [
+        {
+          "name": "variable.parameter.template.mcn",
+          "match": "\\{\\{[A-Za-z0-9_]+\\}\\}"
+        }
+      ]
+    }
+  }
+}

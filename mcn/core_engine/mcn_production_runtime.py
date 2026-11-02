@@ -58,7 +58,7 @@ class ProductionMCNRuntime:
         self.metrics.memory_usage_mb = process.memory_info().rss / 1024 / 1024
         self.metrics.cpu_usage_percent = process.cpu_percent()
     
-    def execute_secure(self, code: str, context: Dict = None) -> Dict:
+    def execute_secure(self, code: str, context: Dict = None, max_steps: int = None) -> Dict:
         """Execute MCN code with security validation"""
         try:
             # Validate code size
@@ -76,7 +76,7 @@ class ProductionMCNRuntime:
             if context:
                 interpreter.variables.update(context)
             
-            result = interpreter.execute(code, quiet=False)
+            result = interpreter.execute(code, quiet=False, max_steps=max_steps)
             
             return {
                 "success": True,

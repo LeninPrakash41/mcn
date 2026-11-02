@@ -1,0 +1,55 @@
+{
+  "name": "mcn-lang",
+  "displayName": "MCN Language Support",
+  "description": "Rich language support, syntax highlighting, snippets, and tooling for MCN (Micro Code Native / Machine Code Native) full-stack applications.",
+  "version": "1.0.0",
+  "publisher": "mcn-lang",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "mcn",
+    "msl",
+    "fullstack",
+    "dsl",
+    "react",
+    "flutter",
+    "analytics"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "mcn",
+        "aliases": [
+          "MCN",
+          "mcn",
+          "Micro Code Native",
+          "MSL"
+        ],
+        "extensions": [
+          ".mcn",
+          ".msl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mcn",
+        "scopeName": "source.mcn",
+        "path": "./syntaxes/mcn.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "mcn",
+        "path": "./snippets/mcn.code-snippets"
+      }
+    ]
+  }
+}

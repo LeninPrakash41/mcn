@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com http://localhost:*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" />
+  <title>MCN Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0A0F1D;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      -webkit-app-region: drag;
+      user-select: none;
+      color: #F8FAFC;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #0284C7 0%, #38BDF8 50%, #FF6B6B 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 30px;
+      font-weight: 800;
+      box-shadow: 0 0 32px rgba(56, 189, 248, 0.45), 0 0 16px rgba(255, 107, 107, 0.3);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #F8FAFC;
+      letter-spacing: -0.02em;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: #FF6B6B;
+      background: rgba(255, 107, 107, 0.15);
+      border: 1px solid rgba(255, 107, 107, 0.35);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: -6px;
+    }
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid #1E2D4A;
+      border-top-color: #38BDF8;
+      border-right-color: #FF6B6B;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #status {
+      font-size: 13px;
+      font-weight: 500;
+      color: #94A3B8;
+      letter-spacing: -0.01em;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">M</div>
+  <h1>MCN Studio</h1>
+  <div class="badge">Coral Blue Edition</div>
+  <div class="spinner"></div>
+  <p id="status">Starting MCN runtime engine…</p>
+
+  <script>
+    let dots = 0
+    setInterval(() => {
+      dots = (dots + 1) % 4
+      const el = document.getElementById('status')
+      if (el) el.textContent = 'Starting MCN runtime engine' + '.'.repeat(dots)
+    }, 450)
+  </script>
+</body>
+</html>

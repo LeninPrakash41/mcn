@@ -36,8 +36,9 @@ _GET_PREFIXES = ("get_", "list_", "fetch_", "search_", "count_", "find_", "read_
 # ── FastAPI implementation from develop ──────────────────────────────────────────
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import JSONResponse
+    from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
     HAS_FASTAPI = True
 except ImportError:
@@ -50,6 +51,22 @@ class MCNServer:
     def __init__(self):
         if HAS_FASTAPI:
             self.app = FastAPI(title="MCN Server Runtime", version="2.0")
+
+            # Add CORS middleware
+            from fastapi.middleware.cors import CORSMiddleware
+            self.app.add_middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+
+            try:
+                from apscheduler.schedulers.background import BackgroundScheduler
+                self.scheduler = BackgroundScheduler()
+            except ImportError:
+                self.scheduler = None
         else:
             self.app = None
         self.interpreters = {}
@@ -63,6 +80,32 @@ class MCNServer:
 
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"Script not found: {script_path}")
+
+        # Check if the script defines service endpoints
+        try:
+            ev = _load_evaluator(script_path)
+        except Exception:
+            ev = None
+
+        if ev:
+            # Register endpoints
+            if ev.function_params:
+                for fn_name, params in ev.function_params.items():
+                    self._register_fastapi_endpoint(fn_name, params, ev)
+                self.routes[f"/{os.path.basename(script_path)}"] = f"service endpoints ({len(ev.function_params)})"
+            
+            # Register schedules
+            from .runtime_types import MCNSchedule
+            for name, obj in ev.functions.items():
+                if isinstance(obj, MCNSchedule):
+                    if self.scheduler:
+                        from apscheduler.triggers.cron import CronTrigger
+                        self.scheduler.add_job(obj.fn, CronTrigger.from_crontab(obj.cron_expr), id=name)
+                    else:
+                        print(f"Warning: apscheduler not installed. Cannot schedule '{name}'.")
+            
+            if ev.function_params:
+                return f"/{os.path.basename(script_path)}"
 
         script_name = os.path.basename(script_path).replace(".mcn", "")
         endpoint = endpoint or f"/{script_name}"
@@ -105,6 +148,28 @@ class MCNServer:
         self.routes[endpoint] = script_path
         return endpoint
 
+    def _register_fastapi_endpoint(self, fn_name: str, params: List[str], evaluator: Evaluator):
+        @self.app.post(f"/{fn_name}")
+        async def execute_endpoint(request: Request):
+            content_type = request.headers.get("content-type", "")
+            if "multipart/form-data" in content_type:
+                form = await request.form()
+                body = dict(form)
+            else:
+                try: body = await request.json()
+                except Exception: body = {}
+            
+            args = []
+            for p in params:
+                if p not in body:
+                    break
+                args.append(body[p])
+            try:
+                result = evaluator.functions[fn_name](*args)
+                return JSONResponse(result if result is not None else {})
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
     def serve(self, host: str = "127.0.0.1", port: int = 8000, auto_postman: bool = True):
         """Start the MCN server"""
         if not HAS_FASTAPI:
@@ -123,6 +188,10 @@ class MCNServer:
                 auto_generate_on_server_start(self)
             except Exception as e:
                 print(f"⚠️  Postman generation failed: {e}")
+
+        if self.scheduler and self.scheduler.get_jobs():
+            self.scheduler.start()
+            print(f"Started {len(self.scheduler.get_jobs())} scheduled background jobs.")
 
         uvicorn.run(self.app, host=host, port=port)
 

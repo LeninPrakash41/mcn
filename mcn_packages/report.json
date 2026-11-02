@@ -1,0 +1,18 @@
+{
+  "name": "report",
+  "functions": [
+    "report",
+    "generate_report",
+    "kpi",
+    "kpi_summary",
+    "trend",
+    "trend_analysis",
+    "distribution",
+    "distribution_analysis",
+    "pivot",
+    "pivot_table",
+    "chart_data",
+    "export_report"
+  ],
+  "installed": true
+}

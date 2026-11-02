@@ -18,7 +18,7 @@ dev:
 	pip install -r requirements.txt
 
 test:
-	python -m pytest test/ -v
+	python -m pytest tests/ -v
 	python run_mcn.py run examples/hello.mcn
 	python run_mcn.py run examples/business.mcn
 

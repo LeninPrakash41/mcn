@@ -12,7 +12,7 @@ python3 run_mcn.py run examples/hello.mcn
 python3 run_mcn.py run examples/business.mcn
 
 echo "Step 2: Run Basic Tests"
-python3 -m pytest test/test_basic.py -v --cov=mcn
+python3 -m pytest tests/ -v --cov=mcn
 
 echo "Step 3: Check Code Formatting"
 python3 -m black --check . --exclude="mcn/studio|mcn/web-playground" || echo "Some files need formatting (non-critical)"
@@ -23,6 +23,6 @@ python3 -c "from mcn.core_engine.mcn_interpreter import MCNInterpreter; print('I
 echo ""
 echo "LOCAL CI/CD TEST COMPLETE!"
 echo "MCN examples run successfully"
-echo "Basic tests pass (4/4)"
+echo "Tests pass"
 echo "Package imports work"
 echo "Ready for GitHub Actions!"

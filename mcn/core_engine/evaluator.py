@@ -139,7 +139,7 @@ class Evaluator:
     so they are also available for recursion and cross-function calls.
     """
 
-    def __init__(self, functions: Dict[str, Callable]):
+    def __init__(self, functions: Dict[str, Callable], max_steps: int = 100_000):
         self.functions       = functions         # shared with MCNInterpreter
         self.function_params: Dict[str, List[str]] = {}   # param names per endpoint
         self.globals    = Environment()
@@ -164,6 +164,8 @@ class Evaluator:
         self.functions["make_pdf"]   = self._make_pdf
         self.functions["file_url"]   = lambda file_id: self.file_store().url(int(file_id))
         self.current_user: Optional[Dict[str, Any]] = None   # set per request by mcn serve
+        self.step_count = 0
+        self.max_steps = max_steps
 
         # Boolean and null literals (JavaScript / JSON style)
         self.globals.define("true",  True)
@@ -186,7 +188,10 @@ class Evaluator:
     # ── Program entry point ────────────────────────────────────────────────────
 
     def execute_program(self, program: ast.Program) -> Any:
-        return self._exec_block(program.body, self.globals)
+        try:
+            return self._exec_block(program.body, self.globals)
+        except ReturnSignal as ret:
+            return ret.value
 
     # ── Statement execution ────────────────────────────────────────────────────
 
@@ -197,6 +202,14 @@ class Evaluator:
         return result
 
     def _exec_stmt(self, stmt: ast.Stmt, env: Environment) -> Any:  # noqa: C901
+        # Increment and check statement execution limit
+        self.step_count += 1
+        if self.step_count > self.max_steps:
+            raise MCNError(
+                f"Maximum statement execution limit of {self.max_steps} exceeded. Script execution terminated.",
+                stmt.line, stmt.col
+            )
+
         # ── var declaration ────────────────────────────────────────────────────
         if isinstance(stmt, ast.VarDecl):
             value = self._eval(stmt.value, env)
@@ -361,7 +374,14 @@ class Evaluator:
 
         # ── use (package import) ───────────────────────────────────────────────
         if isinstance(stmt, ast.UseStmt):
-            package_name = str(self._eval(stmt.package, env))
+            if isinstance(stmt.package, ast.Variable):
+                package_name = stmt.package.name
+            elif isinstance(stmt.package, ast.Literal):
+                package_name = str(stmt.package.value)
+            elif hasattr(stmt.package, "name"):
+                package_name = getattr(stmt.package, "name")
+            else:
+                package_name = str(self._eval(stmt.package, env))
             if "use" in self.functions:
                 return self.functions["use"](package_name)
             raise MCNError("Package system not initialised", stmt.line, stmt.col)
@@ -389,6 +409,9 @@ class Evaluator:
 
         if isinstance(stmt, ast.WorkflowDecl):
             return self._exec_workflow_decl(stmt, env)
+
+        if isinstance(stmt, ast.ScheduleDecl):
+            return self._exec_schedule_decl(stmt, env)
 
         if isinstance(stmt, ast.ContractDecl):
             return self._exec_contract_decl(stmt, env)
@@ -481,11 +504,13 @@ class Evaluator:
         body         = stmt.body
         name         = stmt.name
 
-        def user_func(*args: Any) -> Any:
+        def user_func(*args: Any, **kwargs: Any) -> Any:
             call_env = Environment(captured_env)
             for i, param in enumerate(params):
                 if i < len(args):
                     call_env.define(param, args[i])
+                elif param in kwargs:
+                    call_env.define(param, kwargs[param])
                 elif param in defaults:
                     # Evaluate the default in the defining scope (lexical)
                     call_env.define(param, self._eval(defaults[param], captured_env))
@@ -602,13 +627,19 @@ class Evaluator:
                 return None     # both safe and unsafe return None for None objects
             if isinstance(obj, dict):
                 return obj.get(expr.name)
-            if isinstance(obj, (list, tuple, str)) and expr.name == "length":
-                return len(obj)
+            if isinstance(obj, (list, tuple, str)):
+                if expr.name == "length":
+                    return len(obj)
+                if expr.name == "includes":
+                    return lambda x: x in obj
             # Allow attribute access on runtime objects (MCNPipeline, MCNService,
             # MCNWorkflow, MCNContract, MCNPrompt, MCNAgent) and any Python object
             if hasattr(obj, expr.name):
                 return getattr(obj, expr.name)
             return None
+
+        if isinstance(expr, ast.NamedArg):
+            return (expr.name, self._eval(expr.value, env))
 
         if isinstance(expr, ast.Call):
             return self._eval_call(expr, env)
@@ -617,11 +648,19 @@ class Evaluator:
 
     def _eval_call(self, expr: ast.Call, env: Environment) -> Any:
         callee = self._eval(expr.callee, env)
-        args   = [self._eval(a, env) for a in expr.arguments]
+        pos_args = []
+        kw_args = {}
+        for a in expr.arguments:
+            if isinstance(a, ast.NamedArg):
+                kw_args[a.name] = self._eval(a.value, env)
+            else:
+                pos_args.append(self._eval(a, env))
 
         if callable(callee):
             try:
-                return callee(*args)
+                if kw_args:
+                    return callee(*pos_args, **kw_args)
+                return callee(*pos_args)
             except (ReturnSignal, MCNError):
                 raise
             except Exception as exc:
@@ -633,7 +672,10 @@ class Evaluator:
 
         # Callee resolved to a string (legacy edge-case)
         if isinstance(callee, str) and callee in self.functions:
-            return self.functions[callee](*args)
+            fn = self.functions[callee]
+            if kw_args:
+                return fn(*pos_args, **kw_args)
+            return fn(*pos_args)
 
         name = getattr(expr.callee, "name", str(callee))
         raise MCNError(
@@ -970,7 +1012,7 @@ class Evaluator:
                         stmt.line, stmt.col)
 
         env.define(stmt.name, service)
-        self.functions[stmt.name] = service
+        env.define(stmt.name, service)
         return service
 
     def _exec_crud(self, crud: ast.CrudDecl, service, env: Environment) -> None:
@@ -1031,6 +1073,27 @@ class Evaluator:
             env.define(name, fn)
             self.functions[name] = fn
             self.function_params[name] = ["payload"]
+
+    def _exec_schedule_decl(self, stmt: ast.ScheduleDecl,
+                            env: Environment) -> Any:
+        """
+        Build an MCNSchedule and bind it in the environment.
+        """
+        from .runtime_types import MCNSchedule
+        captured_env = env
+        body = stmt.body
+
+        def schedule_fn() -> Any:
+            call_env = Environment(captured_env)
+            try:
+                return self._exec_block(body, call_env)
+            except ReturnSignal as ret:
+                return ret.value
+
+        schedule = MCNSchedule(stmt.name, stmt.cron_expr, schedule_fn)
+        env.define(stmt.name, schedule)
+        self.functions[stmt.name] = schedule
+        return schedule
 
     def _exec_workflow_decl(self, stmt: ast.WorkflowDecl,
                             env: Environment) -> Any:

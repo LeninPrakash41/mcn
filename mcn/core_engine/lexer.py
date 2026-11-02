@@ -91,6 +91,9 @@ class TT(Enum):
     MCP      = auto()   # mcp     (Model Context Protocol server declaration)
     TOOL     = auto()   # tool    (tool declaration inside mcp)
 
+    # Background Jobs
+    SCHEDULE = auto()   # schedule
+
     # Loop control
     BREAK    = auto()   # break
     CONTINUE = auto()   # continue
@@ -152,6 +155,8 @@ KEYWORDS: dict[str, TT] = {
     "agent":    TT.AGENT,
     "mcp":      TT.MCP,
     "tool":     TT.TOOL,
+    # Background Jobs
+    "schedule": TT.SCHEDULE,
     # Loop control
     "break":    TT.BREAK,
     "continue": TT.CONTINUE,
@@ -192,6 +197,17 @@ class LexError(Exception):
         self.col  = col
 
 
+# A line ending in one of these continues on the next line.  (Not `?`: a
+# trailing `?` marks an optional contract field — `phone: str?`.)
+_CONTINUATION_OPS = {
+    TT.PLUS, TT.MINUS, TT.STAR, TT.SLASH, TT.PERCENT,
+    TT.COMMA, TT.DOT, TT.SAFE_DOT, TT.ARROW,
+    TT.EQ, TT.NEQ, TT.LT, TT.GT, TT.LTE, TT.GTE,
+    TT.ASSIGN, TT.PLUS_ASSIGN, TT.MINUS_ASSIGN, TT.STAR_ASSIGN, TT.SLASH_ASSIGN, TT.PERCENT_ASSIGN,
+    TT.AND, TT.OR
+}
+
+
 # ── Lexer ──────────────────────────────────────────────────────────────────────
 
 class Lexer:
@@ -204,6 +220,8 @@ class Lexer:
       - If it is deeper than the current level: emit INDENT, push level.
       - If it is shallower: pop levels and emit DEDENT for each.
       - Inconsistent dedent (not matching any prior level) is a LexError.
+      - Automatic multiline continuation inside (), [], object literals, after a
+        trailing binary operator, or after a backslash.
     """
 
     TAB_WIDTH = 4  # 1 tab counts as this many spaces
@@ -314,20 +332,28 @@ class Lexer:
 
         ch = self._src[self._pos]
 
-        # Inline whitespace (not newline)
-        if ch in (" ", "\t", "\r"):
-            self._skip_inline_whitespace()
-            return
+        # Backslash explicit line continuation
+        if ch == "\\":
+            p = self._pos + 1
+            while p < len(self._src) and self._src[p] in (" ", "\t", "\r"):
+                p += 1
+            if p < len(self._src) and self._src[p] == "\n":
+                self._pos = p + 1
+                self._line += 1
+                self._col = 1
+                self._skip_inline_whitespace()
+                return
 
-        # Newline inside brackets — implicit line continuation
-        if ch == "\n" and self._bracket_depth > 0:
-            self._pos  += 1
-            self._line += 1
-            self._col   = 1
-            return
-
-        # Newline — end of logical line
+        # Newline — end of logical line, unless it continues: inside a
+        # grouping bracket, or after a trailing operator (`var t = a +`)
         if ch == "\n":
+            if self._bracket_depth > 0 or (self._tokens and self._tokens[-1].type in _CONTINUATION_OPS):
+                self._pos += 1
+                self._line += 1
+                self._col = 1
+                self._skip_inline_whitespace()
+                return
+
             self._push(TT.NEWLINE, "\\n")
             self._pos  += 1
             self._line += 1

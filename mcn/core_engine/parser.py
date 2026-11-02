@@ -201,6 +201,8 @@ class Parser:
         if tok.type == TT.SERVICE:  return self._service_decl()
         if tok.type == TT.WORKFLOW: return self._workflow_decl()
         if tok.type == TT.CONTRACT: return self._contract_decl()
+        # Background Jobs
+        if tok.type == TT.SCHEDULE: return self._schedule_decl()
         # AI / intelligent primitives
         if tok.type == TT.PROMPT:   return self._prompt_decl()
         if tok.type == TT.AGENT:    return self._agent_decl()
@@ -239,8 +241,12 @@ class Parser:
         # optional type hint: var x: int = 5
         type_hint: Optional[str] = None
         if self._match(TT.COLON):
-            type_tok  = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
-            type_hint = type_tok.value
+            tok_t = self._current()
+            if tok_t.type == TT.IDENTIFIER or tok_t.type in _KEYWORD_TYPES:
+                type_tok = self._advance()
+                type_hint = type_tok.value
+            else:
+                raise ParseError("Expected type name after ':'", tok_t)
         self._consume(TT.ASSIGN, "Expected '=' after variable name")
         value    = self._expression()
         self._consume_end()
@@ -267,6 +273,7 @@ class Parser:
     def _if_stmt(self) -> ast.IfStmt:
         tok       = self._advance()           # consume IF
         condition = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         then_body = self._block()
         else_body: List[ast.Stmt] = []
@@ -282,6 +289,7 @@ class Parser:
                 # else if → wrap the nested if as the else_body (one-item list)
                 else_body = [self._if_stmt()]
             else:
+                self._match(TT.COLON)         # optional trailing colon
                 self._consume_end()
                 else_body = self._block()
         return ast.IfStmt(condition=condition, then_body=then_body,
@@ -303,6 +311,7 @@ class Parser:
 
         self._consume(TT.IN, "Expected 'in' after loop variable")
         iterable = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         body = self._block()
         return ast.ForStmt(variable=var_name, index_var=index_var,
@@ -312,6 +321,7 @@ class Parser:
     def _while_stmt(self) -> ast.WhileStmt:
         tok       = self._advance()           # consume WHILE
         condition = self._expression()
+        self._match(TT.COLON)                 # optional trailing colon
         self._consume_end()
         body = self._block()
         return ast.WhileStmt(condition=condition, body=body,
@@ -385,7 +395,11 @@ class Parser:
             params.append(p)
             # optional type hint: param: type
             if self._match(TT.COLON):
-                type_tok = self._consume(TT.IDENTIFIER, "Expected type name after ':'")
+                tok_t = self._current()
+                if tok_t.type == TT.IDENTIFIER or tok_t.type in _KEYWORD_TYPES:
+                    type_tok = self._advance()
+                else:
+                    raise ParseError("Expected type name after ':'", tok_t)
                 param_types[p] = type_tok.value
             if self._match(TT.ASSIGN):
                 defaults[p] = self._expression()
@@ -405,8 +419,10 @@ class Parser:
         # optional return type: function foo(x): bool
         return_type: Optional[str] = None
         if self._match(TT.COLON):
-            rt = self._consume(TT.IDENTIFIER, "Expected return type after ':'")
-            return_type = rt.value
+            rt = self._current()
+            if rt.type == TT.IDENTIFIER or rt.type in _KEYWORD_TYPES:
+                return_type = self._advance().value
+                self._match(TT.COLON)         # optional trailing colon after return type
         self._consume_end()
         body = self._block()
         return ast.FunctionDecl(name=name_tok.value, params=params,
@@ -592,15 +608,33 @@ class Parser:
                              line=op.line, col=op.col)
         return self._call()
 
+    def _parse_arg(self) -> ast.Expr:
+        self._skip_whitespace()
+        tok = self._current()
+        # Check for named keyword argument: name = value or format = "..."
+        if (tok.type == TT.IDENTIFIER or tok.type in _KEYWORD_TYPES) and self._peek_token(1).type == TT.ASSIGN:
+            name_tok = self._advance()
+            self._advance()  # consume '='
+            self._skip_whitespace()
+            val_expr = self._expression()
+            return ast.NamedArg(name=name_tok.value, value=val_expr, line=name_tok.line, col=name_tok.col)
+        return self._expression()
+
     def _call(self) -> ast.Expr:
         expr = self._primary()
         while True:
             if self._match(TT.LPAREN):
                 args: List[ast.Expr] = []
+                self._skip_whitespace()
                 if not self._check(TT.RPAREN):
-                    args.append(self._expression())
+                    args.append(self._parse_arg())
+                    self._skip_whitespace()
                     while self._match(TT.COMMA):
-                        args.append(self._expression())
+                        self._skip_whitespace()
+                        if self._check(TT.RPAREN):
+                            break
+                        args.append(self._parse_arg())
+                        self._skip_whitespace()
                 close = self._consume(TT.RPAREN, "Expected ')' after arguments")
                 expr  = ast.Call(callee=expr, arguments=args,
                                  line=close.line, col=close.col)
@@ -669,13 +703,17 @@ class Parser:
         if self._match(TT.LPAREN):
             elements: List[ast.Expr] = []
             trailing_comma = False
+            self._skip_whitespace()
             if not self._check(TT.RPAREN):
                 elements.append(self._expression())
+                self._skip_whitespace()
                 while self._match(TT.COMMA):
+                    self._skip_whitespace()
                     if self._check(TT.RPAREN):   # trailing comma
                         trailing_comma = True
                         break
                     elements.append(self._expression())
+                    self._skip_whitespace()
             self._consume(TT.RPAREN, "Expected ')' after expression")
             # Arrow function: (x, y) => expr  or  (x) => expr
             if self._check(TT.ARROW):
@@ -769,6 +807,12 @@ class Parser:
 
     def _current(self) -> Token:
         return self._tokens[self._pos]
+
+    def _peek_token(self, offset: int = 1) -> Token:
+        idx = self._pos + offset
+        if idx < len(self._tokens):
+            return self._tokens[idx]
+        return self._tokens[-1]
 
     def _check(self, tt: TT) -> bool:
         return self._current().type == tt
@@ -1596,7 +1640,11 @@ class Parser:
     def _component_state_decl(self) -> ast.ComponentStateDecl:
         """state name = default_expr"""
         tok      = self._advance()               # consume STATE
-        name_tok = self._consume(TT.IDENTIFIER, "Expected state variable name")
+        cur = self._current()
+        if cur.type == TT.IDENTIFIER or cur.type in _KEYWORD_TYPES:
+            name_tok = self._advance()
+        else:
+            name_tok = self._consume(TT.IDENTIFIER, "Expected state variable name")
         self._consume(TT.ASSIGN, "Expected '=' after state name")
         value    = self._expression()
         self._consume_end()
@@ -1703,6 +1751,10 @@ class Parser:
         return ast.UIFor(variable=var_name, index_var=index_var, iterable=iterable,
                          body=body, empty=empty, line=tok.line, col=tok.col)
 
+    def _ui_element_or_for(self):
+        """Compatibility name (develop branch) for _ui_node: element, `if` or `for`."""
+        return self._ui_node()
+
     def _ui_element(self) -> ast.UIElement:
         """
         tag_name [key=value ...] ["text"]
@@ -1740,6 +1792,11 @@ class Parser:
                 str_tok = self._advance()
                 text = ast.Literal(value=str_tok.value,
                                    line=str_tok.line, col=str_tok.col)
+            # expression → inline text expression: span {j.title}
+            elif cur.type == TT.LBRACE:
+                self._advance() # consume {
+                text = self._expression()
+                self._consume(TT.RBRACE, "Expected '}' after inline text expression")
 
             else:
                 break  # stop at NEWLINE / DEDENT / other

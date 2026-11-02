@@ -49,8 +49,10 @@ from datetime import datetime
 class MCNEmbedded:
     """Enhanced MCN integration with v3.0 features for existing Python applications"""
 
-    def __init__(self, enable_v3_features: bool = True):
-        self.interpreter = MCNInterpreter()
+    def __init__(self, enable_v3_features: bool = True, sandbox_dir: Optional[str] = None,
+                 max_steps: int = 100_000, db_path: Optional[str] = None, db_connection: Any = None):
+        self.interpreter = MCNInterpreter(sandbox_dir=sandbox_dir, db_path=db_path, db_connection=db_connection)
+        self.max_steps = max_steps
         self.systems_manager = DynamicSystemsManager() if enable_v3_features else None
         self.v3_manager = V3ExtensionsManager() if enable_v3_features else None
         self.event_handlers = {}
@@ -90,21 +92,26 @@ class MCNEmbedded:
         self.interpreter.variables.update(context)
 
     def execute(
-        self, script: str, context: Dict[str, Any] = None, quiet: bool = False
+        self, script: str, context: Dict[str, Any] = None, quiet: bool = False,
+        max_steps: Optional[int] = None, db_connection: Any = None
     ) -> Any:
         """Execute MCN script with optional context"""
         if context:
             self.set_context(context)
-        return self.interpreter.execute(script, quiet=quiet)
+        return self.interpreter.execute(
+            script, quiet=quiet, max_steps=(max_steps or self.max_steps),
+            db_connection=db_connection
+        )
 
     def execute_file(
-        self, script_path: str, context: Dict[str, Any] = None, quiet: bool = False
+        self, script_path: str, context: Dict[str, Any] = None, quiet: bool = False,
+        max_steps: Optional[int] = None, db_connection: Any = None
     ) -> Any:
         """Execute MCN script from file with enhanced error handling"""
         try:
             with open(script_path, "r", encoding='utf-8') as f:
                 script = f.read()
-            return self.execute(script, context, quiet)
+            return self.execute(script, context, quiet, max_steps=max_steps, db_connection=db_connection)
         except FileNotFoundError:
             raise FileNotFoundError(f"MCN script file not found: {script_path}")
         except Exception as e:

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learn MCN — Fast-Track Interactive Tutorial & Language Guide</title>
+  <meta name="description" content="Master MCN scripting language in 15 minutes. Learn variables, native AI primitives, embedded database querying, reactive UI generation, and enterprise workflows." />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: "#3b82f6", 600: "#2563eb" },
+            dark: { bg: "#09090b", surface: "#121215", surface2: "#1c1c22", border: "#27272a" }
+          },
+          fontFamily: {
+            sans: ["Inter", "system-ui", "sans-serif"],
+            mono: ["JetBrains Mono", "Menlo", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @keyframes glow-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50% { transform: scale(1.08); opacity: 0.6; }
+    }
+    .glow-bg {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, rgba(124, 58, 237, 0.12) 40%, transparent 70%);
+      filter: blur(80px);
+      animation: glow-pulse 10s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glass-panel {
+      background: rgba(18, 18, 21, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-panel:hover {
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    .code-editor {
+      background: #0d0e12;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .dropdown-menu {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(8px);
+      transition: all 0.15s ease-in-out;
+    }
+    .nav-item:hover .dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .kw { color: #f472b6; font-weight: 600; }
+    .fn { color: #60a5fa; }
+    .str { color: #a7f3d0; }
+    .com { color: #71717a; font-style: italic; }
+    .num { color: #fde047; }
+    .var { color: #e2e8f0; }
+    .type { color: #38bdf8; font-weight: 500; }
+  </style>
+</head>
+<body class="bg-[#09090b] text-[#fafafa] font-sans antialiased overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-200">
+
+  <div class="glow-bg top-[-60px] left-1/2 -translate-x-1/2"></div>
+  <div class="glow-bg top-[1200px] right-[-80px]"></div>
+
+  <!-- ── Header / Navbar ──────────────────────────────────────────────────────── -->
+  <header class="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#09090b]/90 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center gap-2.5 flex-shrink-0 group">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:scale-105 transition-transform">
+          M
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold tracking-tight text-[15px] text-white">MCN Studio</span>
+          <span class="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 leading-none">Learn</span>
+        </div>
+      </a>
+
+      <!-- Center Navigation -->
+      <nav class="hidden lg:flex items-center gap-1 text-[13px] font-medium text-zinc-300">
+        <a href="index.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
+          Home
+        </a>
+        <a href="learn.html" class="px-3 py-2 rounded-lg text-white bg-white/[0.08] font-semibold transition-all">
+          Learn MCN
+        </a>
+        <a href="developer-guide.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
+          Developer Guide
+        </a>
+        <a href="train-agent.html" class="px-3 py-2 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-all flex items-center gap-1.5 font-medium">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+          <span>Train Agent</span>
+        </a>
+      </nav>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <a href="https://github.com/zeroappz/mcn" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium text-zinc-300 hover:text-white rounded-lg border border-zinc-800 hover:bg-zinc-800/80 hover:border-zinc-700 transition-all">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i>
+          <span>GitHub</span>
+        </a>
+        <a href="http://localhost:5003" target="_blank" class="inline-flex items-center gap-2 h-9 px-3.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 rounded-lg shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+          <span>Web IDE</span>
+          <span class="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        </a>
+        <a href="index.html#desktop" class="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 rounded-lg transition-all">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Desktop</span>
+        </a>
+
+        <!-- Mobile Menu Toggle Button -->
+        <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Toggle navigation">
+          <i data-lucide="menu" class="w-4 h-4" id="mobile-menu-icon"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-menu" class="hidden lg:hidden border-t border-white/[0.06] bg-[#09090b]/98 backdrop-blur-2xl px-5 py-4 space-y-3">
+      <div class="space-y-1">
+        <a href="index.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
+          <i data-lucide="home" class="w-4 h-4 text-blue-400"></i> Home
+        </a>
+        <a href="learn.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white bg-white/[0.08] font-semibold">
+          <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i> Learn MCN
+        </a>
+        <a href="developer-guide.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
+          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i> Developer Guide
+        </a>
+        <a href="train-agent.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10">
+          <i data-lucide="bot" class="w-4 h-4"></i> Train Coding Agent
+        </a>
+      </div>
+
+      <div class="pt-3 border-t border-white/[0.06] flex flex-col gap-2">
+        <a href="http://localhost:5003" target="_blank" class="flex items-center justify-center gap-2 h-10 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 shadow-md">
+          <i data-lucide="terminal" class="w-4 h-4"></i> Launch Web IDE
+        </a>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="https://github.com/zeroappz/mcn" target="_blank" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
+            <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
+          </a>
+          <a href="index.html#desktop" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Desktop App
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero Section ─────────────────────────────────────────────────────────── -->
+  <section class="relative pt-16 pb-12 px-6 max-w-5xl mx-auto text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 font-mono mb-4">
+      <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i> Interactive Crash Course
+    </div>
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+      Learn MCN in <span class="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">15 Minutes</span>
+    </h1>
+    <p class="text-base sm:text-lg text-zinc-400 mt-4 max-w-2xl mx-auto leading-relaxed">
+      A simple, declarative scripting language combining database queries, AI agents, full-stack React/Flutter UIs, and backend workflows in zero-setup scripts.
+    </p>
+
+    <!-- Fast Jump Links -->
+    <div class="flex flex-wrap justify-center gap-2 mt-8 text-xs font-mono">
+      <a href="#mod-1" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">1. Variables & Types</a>
+      <a href="#mod-2" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">2. Functions & Control</a>
+      <a href="#mod-3" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">3. Database & SQL</a>
+      <a href="#mod-4" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">4. Native AI Primitives</a>
+      <a href="#mod-5" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">5. Reactive UI Layouts</a>
+      <a href="#mod-6" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:text-blue-400 transition-all">6. Workflows & Services</a>
+    </div>
+  </section>
+
+  <!-- ── Interactive Tutorial Content ─────────────────────────────────────────── -->
+  <main class="max-w-5xl mx-auto px-6 pb-24 space-y-16">
+
+    <!-- MODULE 1: Variables & Optional Types -->
+    <section id="mod-1" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-sm">1</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Variables, Literals & Optional Type Hints</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        MCN variables are declared with <code class="text-pink-400 font-mono">var</code>. Types are gradually inferred, with optional TypeScript-style annotations for production compile-time static safety.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+          <div class="text-zinc-500 mb-2">// Inferred Variables & Literals</div>
+          <div><span class="kw">var</span> <span class="var">company</span> = <span class="str">"Acme Corp"</span></div>
+          <div><span class="kw">var</span> <span class="var">deal_size</span> = <span class="num">75000</span></div>
+          <div><span class="kw">var</span> <span class="var">discount</span> = <span class="num">0.12</span></div>
+          <div><span class="kw">var</span> <span class="var">is_active</span> = <span class="num">true</span></div>
+          <div class="mt-2 text-zinc-500">// TypeScript-Style Optional Type Annotations</div>
+          <div><span class="kw">var</span> <span class="var">user_email</span>: <span class="type">str</span> = <span class="str">"alex@acme.com"</span></div>
+          <div><span class="kw">var</span> <span class="var">quota</span>: <span class="type">int</span> = <span class="num">500000</span></div>
+          <div><span class="kw">var</span> <span class="var">rates</span>: <span class="type">list</span> = [<span class="num">0.05</span>, <span class="num">0.10</span>, <span class="num">0.15</span>]</div>
+          <div class="mt-2 text-zinc-500">// Objects & Dictionaries</div>
+          <div><span class="kw">var</span> <span class="var">lead</span> = {<span class="str">"name"</span>: <span class="str">"Sarah"</span>, <span class="str">"score"</span>: <span class="num">94</span>}</div>
+        </div>
+
+        <div class="bg-zinc-950/80 rounded-xl p-5 border border-zinc-800 text-xs space-y-3">
+          <div class="font-semibold text-white flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            Key Rules:
+          </div>
+          <ul class="space-y-2 text-zinc-400 list-disc list-inside">
+            <li><strong class="text-zinc-200">Multiline continuation:</strong> Expressions automatically continue after <code class="text-blue-300 font-mono">+</code>, <code class="text-blue-300 font-mono">*</code>, <code class="text-blue-300 font-mono">and</code>, <code class="text-blue-300 font-mono">?</code> across lines.</li>
+            <li><strong class="text-zinc-200">Gradual typing:</strong> Untyped variables act as dynamic types; typed variables are checked via <code class="text-blue-300 font-mono">mcn check</code>.</li>
+            <li><strong class="text-zinc-200">Built-in types:</strong> <code class="text-blue-300 font-mono">str</code>, <code class="text-blue-300 font-mono">int</code>, <code class="text-blue-300 font-mono">float</code>, <code class="text-blue-300 font-mono">bool</code>, <code class="text-blue-300 font-mono">list</code>, <code class="text-blue-300 font-mono">dict</code>, <code class="text-blue-300 font-mono">any</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 2: Functions & Control Flow -->
+    <section id="mod-2" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center font-bold text-purple-400 text-sm">2</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Functions, Conditionals & Loops</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        Functions support default parameters, return type validation, and concise 4-space indented or brace-enclosed blocks.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+          <div class="text-zinc-500 mb-2">// Typed function with default argument</div>
+          <div><span class="kw">function</span> <span class="fn">calculate_roi</span>(<span class="var">cost</span>: <span class="type">float</span>, <span class="var">margin</span>: <span class="type">float</span> = <span class="num">0.25</span>): <span class="type">float</span></div>
+          <div class="pl-4"><span class="kw">var</span> <span class="var">revenue</span> = <span class="var">cost</span> * (<span class="num">1.0</span> + <span class="var">margin</span>)</div>
+          <div class="pl-4"><span class="kw">return</span> <span class="var">revenue</span></div>
+          <div class="mt-3 text-zinc-500">// If / Else & Ternary</div>
+          <div><span class="kw">if</span> <span class="var">cost</span> > <span class="num">100000</span></div>
+          <div class="pl-4"><span class="fn">log</span>(<span class="str">"Executive sign-off required"</span>)</div>
+          <div><span class="kw">else</span></div>
+          <div class="pl-4"><span class="fn">log</span>(<span class="str">"Standard deal approval"</span>)</div>
+          <div class="mt-3 text-zinc-500">// Ternary assignment</div>
+          <div><span class="kw">var</span> <span class="var">status</span> = <span class="var">cost</span> > <span class="num">50000</span> ? <span class="str">"Enterprise"</span> : <span class="str">"SMB"</span></div>
+        </div>
+
+        <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+          <div class="text-zinc-500 mb-2">// Loops & Collections</div>
+          <div><span class="kw">var</span> <span class="var">deals</span> = [<span class="num">45000</span>, <span class="num">82000</span>, <span class="num">120000</span>]</div>
+          <div><span class="kw">var</span> <span class="var">total</span> = <span class="num">0</span></div>
+          <div class="mt-2 text-zinc-500">// For loop</div>
+          <div><span class="kw">for</span> <span class="var">deal</span> <span class="kw">in</span> <span class="var">deals</span></div>
+          <div class="pl-4"><span class="var">total</span> += <span class="var">deal</span></div>
+          <div class="mt-2 text-zinc-500">// Arrow Lambdas / Higher-order</div>
+          <div><span class="kw">var</span> <span class="var">double_it</span> = (<span class="var">x</span>) => <span class="var">x</span> * <span class="num">2</span></div>
+          <div><span class="fn">log</span>(<span class="str">"Total Pipeline: $"</span> + <span class="var">total</span>)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 3: Embedded Database & SQL -->
+    <section id="mod-3" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-sm">3</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Embedded Database (<code class="text-emerald-400 font-mono">use "db"</code>)</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        Zero config, zero connection pool setups. Import the native <code class="text-emerald-400 font-mono">db</code> package to query and mutate SQLite databases using parameterized queries.
+      </p>
+
+      <div class="code-editor rounded-xl p-5 font-mono text-xs leading-relaxed text-zinc-300">
+        <div><span class="kw">use</span> <span class="str">"db"</span></div>
+        <div class="mt-2 text-zinc-500">// 1. Create table</div>
+        <div><span class="fn">query</span>(<span class="str">"CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, name TEXT, company TEXT, deal_size INTEGER, stage TEXT)"</span>)</div>
+        <div class="mt-2 text-zinc-500">// 2. Parameterized Insert (safe against SQL injections)</div>
+        <div><span class="fn">query</span>(<span class="str">"INSERT INTO leads (name, company, deal_size, stage) VALUES (?, ?, ?, ?)"</span>, (<span class="str">"Elena Rostova"</span>, <span class="str">"FinTech Cloud"</span>, <span class="num">185000</span>, <span class="str">"Closing"</span>))</div>
+        <div class="mt-2 text-zinc-500">// 3. Query rows — returns JSON array of records</div>
+        <div><span class="kw">var</span> <span class="var">active_leads</span> = <span class="fn">query</span>(<span class="str">"SELECT * FROM leads WHERE deal_size >= ?"</span>, (<span class="num">100000</span>,))</div>
+        <div><span class="fn">log</span>(<span class="str">"High value leads found: "</span> + <span class="var">active_leads</span>.<span class="var">length</span>)</div>
+      </div>
+    </section>
+
+    <!-- MODULE 4: Native AI Primitives -->
+    <section id="mod-4" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/30 flex items-center justify-center font-bold text-pink-400 text-sm">4</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">AI Language Primitives (<code class="text-pink-400 font-mono">ai</code>, <code class="text-pink-400 font-mono">rag</code>, <code class="text-pink-400 font-mono">classify</code>)</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        AI is built directly into the grammar. No OpenAI SDK instantiation, prompt engineering pipelines, or token stream parsing required.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+          <div class="text-zinc-500 mb-2">// 1. Direct AI Generation</div>
+          <div><span class="kw">var</span> <span class="var">summary</span> = <span class="fn">ai</span>(<span class="str">"Draft 3 discovery questions for a $150k CRM migration for Acme Corp"</span>)</div>
+          <div class="mt-3 text-zinc-500">// 2. Structured Classification</div>
+          <div><span class="kw">var</span> <span class="var">urgency</span> = <span class="fn">classify</span>(<span class="str">"Database cluster latency exceeded 800ms"</span>, [<span class="str">"low"</span>, <span class="str">"medium"</span>, <span class="str">"critical"</span>])</div>
+          <div><span class="fn">log</span>(<span class="str">"Assigned tier: "</span> + <span class="var">urgency</span>)</div>
+        </div>
+
+        <div class="code-editor rounded-xl p-4 font-mono text-xs leading-relaxed text-zinc-300">
+          <div class="text-zinc-500 mb-2">// 3. RAG Search across Vector Documents</div>
+          <div><span class="kw">var</span> <span class="var">context</span> = <span class="fn">rag</span>(<span class="str">"What is our refund policy for enterprise annual contracts?"</span>, <span class="str">"knowledge_base"</span>)</div>
+          <div class="mt-3 text-zinc-500">// 4. LLM Extraction into JSON</div>
+          <div><span class="kw">var</span> <span class="var">lead_data</span> = <span class="fn">extract</span>(<span class="str">"Hi, I am Sarah from HealthNet ($80k budget). Call me at 555-0199."</span>, {<span class="str">"name"</span>: <span class="str">"str"</span>, <span class="str">"company"</span>: <span class="str">"str"</span>, <span class="str">"budget"</span>: <span class="str">"int"</span>})</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 5: Declarative Multi-Target UI -->
+    <section id="mod-5" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-sm">5</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Reactive Multi-Target UI Layouts (<code class="text-blue-400 font-mono">ui(...)</code>)</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        Declare your visual interface in MCN. The engine compiles the layout to modern React components (<code class="text-blue-300 font-mono">@mcn/ui</code>) for Web and Flutter widgets (<code class="text-blue-300 font-mono">mcn_ui</code>) for iOS & Android.
+      </p>
+
+      <div class="code-editor rounded-xl p-5 font-mono text-xs leading-relaxed text-zinc-300">
+        <div><span class="kw">use</span> <span class="str">"ui"</span></div>
+        <div class="mt-2 text-zinc-500">// 1. Define Dashboard Components</div>
+        <div><span class="kw">var</span> <span class="var">header_metrics</span> = <span class="fn">ui</span>(<span class="str">"container"</span>, [</div>
+        <div class="pl-4"><span class="fn">ui</span>(<span class="str">"stat"</span>, {<span class="str">"label"</span>: <span class="str">"Target"</span>, <span class="str">"value"</span>: <span class="str">"$500,000"</span>}),</div>
+        <div class="pl-4"><span class="fn">ui</span>(<span class="str">"stat"</span>, {<span class="str">"label"</span>: <span class="str">"Pipeline"</span>, <span class="str">"value"</span>: <span class="str">"$740,000"</span>, <span class="str">"change"</span>: <span class="num">18.4</span>})</div>
+        <div>])</div>
+        <div class="mt-2 text-zinc-500">// 2. Define Interactive Table & AI Copilot</div>
+        <div><span class="kw">var</span> <span class="var">table_panel</span> = <span class="fn">ui</span>(<span class="str">"card"</span>, {<span class="str">"title"</span>: <span class="str">"Sales Calendar"</span>}, [</div>
+        <div class="pl-4"><span class="fn">ui</span>(<span class="str">"table"</span>, {<span class="str">"data"</span>: <span class="var">active_leads</span>, <span class="str">"columns"</span>: [<span class="str">"name"</span>, <span class="str">"company"</span>, <span class="str">"deal_size"</span>, <span class="str">"stage"</span>]}),</div>
+        <div class="pl-4"><span class="fn">ui</span>(<span class="str">"ai_prompt"</span>, {<span class="str">"placeholder"</span>: <span class="str">"Ask AI Copilot: Generate pre-meeting briefing..."</span>})</div>
+        <div>])</div>
+        <div class="mt-2 text-zinc-500">// 3. Mount Page</div>
+        <div><span class="kw">var</span> <span class="var">app</span> = <span class="fn">ui</span>(<span class="str">"page"</span>, <span class="str">"SalesPortal"</span>, <span class="str">"/"</span>, [<span class="var">header_metrics</span>, <span class="var">table_panel</span>])</div>
+      </div>
+    </section>
+
+    <!-- MODULE 6: Workflows, Services & Pipelines -->
+    <section id="mod-6" class="glass-panel rounded-2xl p-8 border-white/[0.08]">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-sm">6</span>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Enterprise Services & Background Pipelines</h2>
+      </div>
+      <p class="text-sm text-zinc-400 mb-6 leading-relaxed">
+        Expose live REST endpoints, schedule cron tasks, and orchestrate multistep pipelines without setting up Express, Celery, or Docker containers.
+      </p>
+
+      <div class="code-editor rounded-xl p-5 font-mono text-xs leading-relaxed text-zinc-300">
+        <div><span class="text-zinc-500">// Instant REST Microservice</span></div>
+        <div><span class="kw">service</span> <span class="fn">LeadAPI</span></div>
+        <div class="pl-4"><span class="kw">port</span> <span class="num">8080</span></div>
+        <div class="pl-4"><span class="kw">endpoint</span> <span class="str">"POST /leads/score"</span>(<span class="var">req</span>)</div>
+        <div class="pl-8"><span class="kw">var</span> <span class="var">lead</span> = <span class="var">req</span>.<span class="var">body</span></div>
+        <div class="pl-8"><span class="kw">var</span> <span class="var">score</span> = <span class="fn">ai</span>(<span class="str">"Score lead quality 1-100: "</span> + <span class="fn">to_json</span>(<span class="var">lead</span>))</div>
+        <div class="pl-8"><span class="kw">return</span> {<span class="str">"score"</span>: <span class="var">score</span>, <span class="str">"status"</span>: <span class="str">"qualified"</span>}</div>
+        <div class="mt-3 text-zinc-500">// Background Scheduled Job (Cron)</div>
+        <div><span class="kw">schedule</span> <span class="str">"0 9 * * *"</span></div>
+        <div class="pl-4"><span class="fn">log</span>(<span class="str">"Running daily 9 AM pipeline audit..."</span>)</div>
+      </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <div class="text-center pt-8 border-t border-white/[0.06]">
+      <h3 class="text-2xl font-bold text-white mb-3">Ready to dive deeper?</h3>
+      <p class="text-sm text-zinc-400 mb-6">Explore the complete architecture and CLI reference in the Developer Guide.</p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="developer-guide.html" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/30 transition-all">
+          Read Developer Guide →
+        </a>
+        <a href="train-agent.html" class="px-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-purple-300 font-semibold text-sm transition-all flex items-center gap-2">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+          <span>Train Coding Agent</span>
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
+  <footer class="border-t border-white/[0.06] py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-[10px]">M</div>
+      <span class="text-zinc-300 font-medium">MCN (Macincode Scripting Language)</span>
+      <span>— Open Source under MIT License</span>
+    </div>
+
+    <div class="flex items-center gap-6">
+      <a href="index.html" class="hover:text-zinc-300 transition-colors">Home</a>
+      <a href="learn.html" class="hover:text-zinc-300 transition-colors text-white font-medium">Learn MCN</a>
+      <a href="developer-guide.html" class="hover:text-zinc-300 transition-colors">Developer Guide</a>
+      <a href="train-agent.html" class="hover:text-zinc-300 transition-colors">Train Coding Agent</a>
+      <a href="https://github.com/zeroappz/mcn" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      const icon = document.getElementById('mobile-menu-icon');
+      if (menu.classList.contains('hidden')) {
+        menu.classList.remove('hidden');
+        icon.setAttribute('data-lucide', 'x');
+      } else {
+        menu.classList.add('hidden');
+        icon.setAttribute('data-lucide', 'menu');
+      }
+      lucide.createIcons();
+    }
+    lucide.createIcons();
+  </script>
+</body>
+</html>

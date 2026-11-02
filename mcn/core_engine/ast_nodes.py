@@ -200,6 +200,13 @@ class Call(Node):
 
 
 @dataclass
+class NamedArg(Node):
+    """name = value (keyword argument in function call)"""
+    name: str = ""
+    value: "Expr" = None
+
+
+@dataclass
 class Index(Node):
     """object[index]"""
     object: "Expr" = None
@@ -424,6 +431,17 @@ class SSODecl(Node):
 
 
 @dataclass
+class ScheduleDecl(Node):
+    """
+    schedule my_job at "0 0 * * *"
+        var data = query("...")
+    """
+    name:      str          = ""
+    cron_expr: str          = ""
+    body:      List["Stmt"] = field(default_factory=list)
+
+
+@dataclass
 class StepDecl(Node):
     """A single step inside a workflow declaration."""
     name:     str               = ""
@@ -539,11 +557,14 @@ class UIElement(Node):
         button "Submit"              → tag="button", text=Literal("Submit")
         input bind=name label="Name" → tag="input", attrs=[UIAttr(bind, name), UIAttr(label, "Name")]
         card                         → tag="card", children=[...]
+        for j in jobs                → tag="for", for_var="j", for_iterable=Variable("jobs")
     """
-    tag:      str             = ""
-    attrs:    List[UIAttr]    = field(default_factory=list)
-    text:     Optional["Expr"] = None       # inline text content
-    children: List["UIElement"] = field(default_factory=list)
+    tag:           str               = ""
+    attrs:         List[UIAttr]      = field(default_factory=list)
+    text:          Optional["Expr"]  = None       # inline text content
+    children:      List["UIElement"] = field(default_factory=list)
+    for_var:       Optional[str]     = None       # loop var name (for 'for' elements)
+    for_iterable:  Optional["Expr"]  = None       # loop iterable expr (for 'for' elements)
 
 
 @dataclass
