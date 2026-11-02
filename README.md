@@ -502,6 +502,44 @@ mcn build ui/app.mcn --out frontend
 cd frontend && npm install && npm run dev
 ```
 
+### Lists, conditions and row actions in `render`
+
+```mcn
+component TaskBoard
+    state tasks   = []
+    state loading = true
+
+    on load
+        tasks   = list_tasks()
+        loading = false
+
+    on remove(id)                       // handlers can take parameters
+        delete_task(id)
+        tasks = list_tasks()
+
+    render
+        if loading
+            p "Loading…"
+        else if tasks.length > 50
+            alert text="Showing the first 50 tasks"
+        else
+            p "You have {tasks.length} tasks"    // strings interpolate
+
+        for task in tasks                         // or: for i, task in tasks
+            card
+                card_header "{task.title}"
+                badge text=task.done ? "Done" : "Open"
+                button "Delete" on_click=remove(task.id)
+        empty                                     // shown when the list is empty
+            p "No tasks yet"
+```
+
+- `if / else if / else` and `for … in` work anywhere inside `render`, including inside `table_body`.
+- `empty` is optional, and only has a meaning directly after a `for` block.
+- React keys are added for you (`task.id` when present, otherwise the index).
+- `on_click=remove(task.id)` calls a component handler; `on_click=delete_task(task.id)` calls the backend directly.
+- Words like `task`, `test`, `state` and `step` can be used as names (`for task in tasks`); they only act as keywords at the start of a declaration.
+
 **Supported UI elements:**
 
 | Category | Elements |

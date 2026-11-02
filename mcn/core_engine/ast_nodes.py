@@ -435,6 +435,59 @@ class UIElement(Node):
 
 
 @dataclass
+class UIIf(Node):
+    """
+    Conditional UI inside a render block:
+
+        if loading
+            p "Loading…"
+        else if error
+            alert text=error
+        else
+            p "Ready"
+
+    `else if` is represented as a single UIIf inside else_children.
+    tag / attrs / text / children mirror UIElement so tree walkers work.
+    """
+    condition:      "Expr"            = None
+    then_children:  List["UIElement"] = field(default_factory=list)
+    else_children:  List["UIElement"] = field(default_factory=list)
+    tag:   str            = "if"
+    attrs: List[UIAttr]   = field(default_factory=list)
+    text:  Optional["Expr"] = None
+
+    @property
+    def children(self) -> List["UIElement"]:
+        return self.then_children + self.else_children
+
+
+@dataclass
+class UIFor(Node):
+    """
+    Repeated UI inside a render block:
+
+        for task in tasks          (or: for i, task in tasks)
+            card_header "{task.title}"
+        empty
+            p "No tasks yet"
+
+    `empty` (optional) renders when the list has no items.
+    """
+    variable:       str               = ""
+    index_var:      Optional[str]     = None
+    iterable:       "Expr"            = None
+    body:           List["UIElement"] = field(default_factory=list)
+    empty:          List["UIElement"] = field(default_factory=list)
+    tag:   str            = "for"
+    attrs: List[UIAttr]   = field(default_factory=list)
+    text:  Optional["Expr"] = None
+
+    @property
+    def children(self) -> List["UIElement"]:
+        return self.body + self.empty
+
+
+@dataclass
 class RenderBlock(Node):
     """render\n    <ui elements>"""
     elements: List[UIElement] = field(default_factory=list)
@@ -450,8 +503,9 @@ class ComponentStateDecl(Node):
 @dataclass
 class OnHandler(Node):
     """on event_name\n    body"""
-    event: str          = ""
-    body:  List["Stmt"] = field(default_factory=list)
+    event:  str          = ""
+    body:   List["Stmt"] = field(default_factory=list)
+    params: List[str]    = field(default_factory=list)   # on remove(id)
 
 
 @dataclass

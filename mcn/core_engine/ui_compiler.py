@@ -187,6 +187,43 @@ def _camel(name: str) -> str:
     return parts[0] + "".join(w.capitalize() for w in parts[1:])
 
 
+# Names visible to UI code while compiling one component (state, handler
+# params, `for` loop variables).  "{name}" placeholders in strings are turned
+# into template-literal slots only for these, mirroring the backend, which
+# leaves unknown {placeholders} untouched.
+_UI_SCOPE: Set[str] = set()
+
+_INTERP_RE = re.compile(
+    r'\{([a-zA-Z_][a-zA-Z0-9_]*'
+    r'(?:\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\]|\["[^"]*"\])*)\}'
+)
+
+
+def _interp_ts(value: str, local_vars: Optional[Dict[str, str]] = None) -> str:
+    """"Hi {user.name}" → `Hi ${user.name ?? ""}`  (or a plain JSON string)."""
+    lv = local_vars or {}
+    parts: List[str] = []
+    pos, used = 0, False
+
+    def lit(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+
+    for m in _INTERP_RE.finditer(value):
+        path = m.group(1)
+        root = re.match(r"[a-zA-Z_][a-zA-Z0-9_]*", path).group(0)
+        if root not in _UI_SCOPE and root not in lv:
+            continue
+        used = True
+        parts.append(lit(value[pos:m.start()]))
+        ts_path = lv.get(root, root) + path[len(root):]
+        parts.append("${" + ts_path + ' ?? ""}')
+        pos = m.end()
+    if not used:
+        return json.dumps(value)
+    parts.append(lit(value[pos:]))
+    return "`" + "".join(parts) + "`"
+
+
 def _expr_to_ts(expr: Optional[ast.Expr],
                 local_vars: Optional[Dict[str, str]] = None) -> str:
     """Convert a simple MCN expression to a TypeScript expression string.
@@ -199,7 +236,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
         return '""'
     if isinstance(expr, ast.Literal):
         if isinstance(expr.value, str):
-            return json.dumps(expr.value)
+            return _interp_ts(expr.value, lv)
         if isinstance(expr.value, bool):
             return "true" if expr.value else "false"
         return str(expr.value)
@@ -443,6 +480,13 @@ class UICompiler:
         if comp.render:
             self._collect_imports(comp.render.elements, shadcn_imports)
 
+        # Names visible to UI expressions / string interpolation
+        global _UI_SCOPE
+        _UI_SCOPE = {s.name for s in comp.states}
+        for h in comp.handlers:
+            _UI_SCOPE.update(h.params)
+        self._handlers = {h.event: h.params for h in comp.handlers}
+
         # Detect CRUD mode (component has edit_item state) — needed before building hooks list
         has_crud = any(s.name == "edit_item" for s in comp.states)
 
@@ -499,6 +543,15 @@ class UICompiler:
                     f"    }})()\n"
                     f"  }}, [])"
                 )
+            elif h.params:
+                # on remove(id)  →  called as remove(task.id) from the UI
+                dep_names = ", ".join(s.name for s in comp.states)
+                sig = ", ".join(f"{p}: any" for p in h.params)
+                handlers.append(
+                    f"  const {fn_name} = useCallback(async ({sig}) => {{\n"
+                    f"{body_ts}"
+                    f"  }}, [{dep_names}])"
+                )
             else:
                 dep_names = ", ".join(s.name for s in comp.states)
                 handlers.append(
@@ -544,7 +597,9 @@ class UICompiler:
             jsx_lines.append("    <div>Empty component</div>")
 
         # Wrap in Fragment when multiple root elements (e.g. main card + edit modal)
-        needs_fragment = len(comp.render.elements if comp.render else []) > 1
+        roots = comp.render.elements if comp.render else []
+        needs_fragment = len(roots) > 1 or any(
+            isinstance(r, (ast.UIIf, ast.UIFor)) for r in roots)
         if needs_fragment:
             jsx_lines = ["    <>", *["  " + ln for ln in jsx_lines], "    </>"]
 
@@ -628,6 +683,10 @@ class UICompiler:
 
     def _element_to_jsx(self, el: ast.UIElement, indent: int) -> List[str]:
         """Convert a UIElement to JSX lines."""
+        if isinstance(el, ast.UIIf):
+            return self._ui_if_to_jsx(el, indent)
+        if isinstance(el, ast.UIFor):
+            return self._ui_for_to_jsx(el, indent)
         pad   = " " * indent
         tag   = el.tag
         lines: List[str] = []
@@ -1255,6 +1314,71 @@ class UICompiler:
             f"{pad}</TableBody>",
         ]
 
+    def _children_jsx(self, nodes: List[ast.UIElement], indent: int) -> List[str]:
+        """JSX for a branch: a single element, or several in a fragment."""
+        pad = " " * indent
+        if not nodes:
+            return [f"{pad}null"]
+        lines: List[str] = []
+        for n in nodes:
+            lines.extend(self._element_to_jsx(n, indent + 2))
+        return [f"{pad}<>", *lines, f"{pad}</>"]
+
+    def _ui_if_to_jsx(self, node: ast.UIIf, indent: int,
+                      nested: bool = False) -> List[str]:
+        """if / else if / else  →  {c1 ? (...) : c2 ? (...) : (...)}"""
+        pad  = " " * indent
+        cond = _cond_ts(node.condition)
+        head = f"{pad}{cond} ? (" if nested else f"{pad}{{{cond} ? ("
+        lines = [head, *self._children_jsx(node.then_children, indent + 2)]
+        els = node.else_children
+        if len(els) == 1 and isinstance(els[0], ast.UIIf):
+            inner = self._ui_if_to_jsx(els[0], indent, nested=True)
+            lines.append(f"{pad}) : {inner[0].lstrip()}")   # ) : cond2 ? (
+            lines.extend(inner[1:])
+        else:
+            lines.append(f"{pad}) : (")
+            lines.extend(self._children_jsx(els, indent + 2))
+            lines.append(f"{pad})")
+        if not nested:
+            lines[-1] = lines[-1] + "}"
+        return lines
+
+    def _ui_for_to_jsx(self, node: ast.UIFor, indent: int) -> List[str]:
+        """for item in items / empty  →  items.map(...) with keys."""
+        global _UI_SCOPE
+        pad  = " " * indent
+        p2   = pad + "  "
+        idx  = node.index_var or "_i"
+        var  = node.variable
+        items = f"({_expr_to_ts(node.iterable)} ?? [])"
+
+        added = {var, idx} - _UI_SCOPE
+        _UI_SCOPE |= added
+        try:
+            body: List[str] = []
+            for n in node.body:
+                body.extend(self._element_to_jsx(n, indent + 6))
+            empty_jsx = self._children_jsx(node.empty, indent + 2) if node.empty else None
+        finally:
+            _UI_SCOPE -= added
+
+        loop = [
+            f"{p2}{items}.map(({var}: any, {idx}: number) => (",
+            f"{p2}  <React.Fragment key={{{var}?.id ?? {idx}}}>",
+            *body,
+            f"{p2}  </React.Fragment>",
+            f"{p2}))",
+        ]
+        if empty_jsx is None:
+            return [f"{pad}{{", *loop, f"{pad}}}"]
+        cond = f"truthy({_expr_to_ts(node.iterable)})"
+        return [f"{pad}{{{cond} ? (", *loop, f"{pad}) : (", *empty_jsx, f"{pad})}}"]
+
+    def _handler_ref(self, name: str) -> str:
+        """MCN handler name → generated TS function name (filter_change → filterChange)."""
+        return _camel(name) if name in getattr(self, "_handlers", {}) else name
+
     def _attrs_to_props(self, attrs: List[ast.UIAttr], tag: str) -> str:
         """Convert UIAttr list → JSX props string."""
         props: List[str] = []
@@ -1293,7 +1417,19 @@ class UICompiler:
             # on_submit / on_click → onSubmit / onClick
             if key.startswith("on_"):
                 react_evt = "on" + _pascal(key[3:])
-                handler   = _expr_to_ts(val)
+                if isinstance(val, ast.Call) and isinstance(val.callee, ast.Variable):
+                    fn   = val.callee.name
+                    args = ", ".join(_expr_to_ts(a) for a in val.arguments)
+                    if fn in getattr(self, "_handlers", {}):
+                        # on_click=remove(task.id)  →  call the component handler
+                        handler = f"() => {self._handler_ref(fn)}({args})"
+                    else:
+                        # on_click=delete_task(task.id)  →  call the backend directly
+                        handler = f"async () => {{ await {_expr_to_ts(val)} }}"
+                elif isinstance(val, ast.Variable):
+                    handler = self._handler_ref(val.name)
+                else:
+                    handler = _expr_to_ts(val)
                 props.append(f'{react_evt}={{{handler}}}')
                 continue
 
@@ -1301,7 +1437,11 @@ class UICompiler:
             if val is None:
                 props.append(key)  # boolean flag
             elif isinstance(val, ast.Literal) and isinstance(val.value, str):
-                props.append(f'{_camel(key)}={json.dumps(val.value)}')
+                ts = _interp_ts(val.value)
+                if ts.startswith("`"):
+                    props.append(f'{_camel(key)}={{{ts}}}')     # "{task.title}"
+                else:
+                    props.append(f'{_camel(key)}={json.dumps(val.value)}')
             else:
                 props.append(f'{_camel(key)}={{{_expr_to_ts(val)}}}')
 

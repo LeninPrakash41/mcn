@@ -128,7 +128,11 @@ def check_file(filepath: str, strict: bool = False) -> int:
     warnings = [i for i in issues if i.severity == Severity.WARNING]
 
     for issue in sorted(issues, key=lambda i: (i.line, i.col)):
-        print(f"{filepath}:{issue}")
+        tag = "error" if issue.severity == Severity.ERROR else "warning"
+        msg = issue.message
+        if msg.startswith("syntax error: "):
+            tag, msg = "syntax error", msg[len("syntax error: "):]
+        print(f"{filepath}:{issue.line}:{issue.col}: {tag}: {msg}")
 
     total = len(errors)
     if strict:
@@ -332,8 +336,16 @@ def _cmd_build(mcn_file: str, out_dir: str) -> int:
     code = src.read_text(encoding="utf-8")
 
     # Parse
-    tokens  = Lexer(code).tokenize()
-    program = Parser(tokens).parse()
+    try:
+        tokens  = Lexer(code).tokenize()
+        program = Parser(tokens).parse()
+    except Exception as exc:
+        try:
+            from .error_format import format_error, use_color
+        except ImportError:
+            from error_format import format_error, use_color
+        sys.stderr.write(format_error(exc, code, str(src), color=use_color()))
+        return 1
 
     # Run evaluator — registers components/app but doesn't serve
     interp    = MCNInterpreter()

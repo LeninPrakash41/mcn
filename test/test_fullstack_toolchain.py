@@ -222,3 +222,89 @@ def test_ui_compiler_output(tmp_path):
     assert "'/list_leadss'" not in comp
     assert "<LeadsTable />" in app
     assert (tmp_path / "src/vite-env.d.ts").exists()
+
+
+# ── render: if / for / empty, handler params, interpolation ───────────────────
+
+RENDER_UI = '''
+component TaskBoard
+    state tasks = []
+    state loading = true
+    state error = ""
+
+    on remove(id)
+        delete_task(id)
+        tasks = list_tasks()
+
+    render
+        if loading
+            p "Loading"
+        else if error
+            alert text=error
+        else
+            p "You have {tasks.length} tasks"
+        for i, task in tasks
+            card_header "{i}. {task.title}"
+            button "Delete" on_click=remove(task.id)
+            button "Raw" on_click=delete_task(task.id)
+        empty
+            p "No tasks yet"
+        p "Unknown {stays} literal"
+'''
+
+
+def _compile(tmp_path, src, name):
+    from mcn.core_engine.ui_compiler import UICompiler
+    interp = MCNInterpreter()
+    interp.execute(src, quiet=True)
+    UICompiler(output_dir=tmp_path).compile(interp._evaluator)
+    return (tmp_path / f"src/components/{name}.tsx").read_text()
+
+
+def test_render_if_for_empty_parse():
+    import mcn.core_engine.ast_nodes as A
+    comp = parse(RENDER_UI).body[0]
+    roots = comp.render.elements
+    assert isinstance(roots[0], A.UIIf)
+    assert isinstance(roots[0].else_children[0], A.UIIf)          # else if
+    loop = roots[1]
+    assert isinstance(loop, A.UIFor)
+    assert (loop.index_var, loop.variable) == ("i", "task")
+    assert [e.tag for e in loop.empty] == ["p"]
+    assert comp.handlers[0].params == ["id"]
+
+
+def test_empty_is_only_special_after_for():
+    comp = parse('component C\n    render\n        empty\n').body[0]
+    assert comp.render.elements[0].tag == "empty"
+
+
+def test_render_compiles_to_react(tmp_path):
+    tsx = _compile(tmp_path, RENDER_UI, "TaskBoard")
+    assert "{truthy(loading) ? (" in tsx and ") : truthy(error) ? (" in tsx
+    assert "(tasks ?? []).map((task: any, i: number) => (" in tsx
+    assert "<React.Fragment key={task?.id ?? i}>" in tsx
+    assert "{truthy(tasks) ? (" in tsx                             # empty branch
+    assert '`${i ?? ""}. ${task.title ?? ""}`' in tsx
+    assert '`You have ${tasks.length ?? ""} tasks`' in tsx
+    assert '"Unknown {stays} literal"' in tsx                      # unknown name untouched
+    assert "const remove = useCallback(async (id: any) => {" in tsx
+    assert "onClick={() => remove(task.id)}" in tsx
+    assert "onClick={async () => { await api.post('/delete_task', { _args: [task.id] }) }}" in tsx
+    assert 'import { truthy } from "@/lib/utils"' in tsx
+
+
+def test_handler_reference_uses_generated_name(tmp_path):
+    tsx = _compile(tmp_path,
+                   'component F\n    state q = ""\n    on filter_change\n        q = "x"\n'
+                   '    render\n        button "Go" on_click=filter_change\n', "F")
+    assert "const filterChange = useCallback" in tsx
+    assert "onClick={filterChange}" in tsx
+
+
+def test_soft_keywords_as_names():
+    v = run('var tasks = [{t: 1}, {t: 2}]\nvar total = 0\nfor task in tasks\n    total += task.t\n'
+            'var state = {done: false}\nstate.done = true\n'
+            'function f(test, step)\n    return test + step\nvar s = f(1, 2)\n'
+            'test "still a test block"\n    assert true\n')
+    assert (v["total"], v["state"]["done"], v["s"]) == (3, True, 3)

@@ -616,12 +616,9 @@ def check_source(code: str) -> List[TypeIssue]:
         tokens  = Lexer(code).tokenize()
         program = Parser(tokens).parse()
     except Exception as exc:
-        line, col = 1, 1
-        # Extract location if the error message contains [line:col]
-        import re
-        m = re.search(r"\[(\d+):(\d+)\]", str(exc))
-        if m:
-            line, col = int(m.group(1)), int(m.group(2))
-        return [TypeIssue(Severity.ERROR, str(exc), line, col)]
+        # One issue per syntax error, with a clean message and location
+        from .error_format import error_entries
+        return [TypeIssue(Severity.ERROR, f"{label}: {message}", line or 1, col or 1)
+                for line, col, label, message in error_entries(exc)]
 
     return TypeChecker().check(program)

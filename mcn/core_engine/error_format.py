@@ -49,7 +49,9 @@ def _split(message: str) -> Tuple[int, int, str, str]:
         found = _describe_found(g.group(1), g.group(2))
         head  = text[:g.start()]
         if head.strip() == "Unexpected token":
-            text = f"Unexpected {found}"
+            text = {"INDENT": "Unexpected indentation",
+                    "DEDENT": "Unexpected end of block"}.get(
+                        g.group(1), f"Unexpected {found}")
         else:
             text = f"{head}, but found {found}"
     label = "syntax error" if kind in ("LexError", "ParseError") else "error"

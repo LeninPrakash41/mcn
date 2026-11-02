@@ -69,6 +69,28 @@ class Parser:
         self._tokens = tokens
         self._pos    = 0
 
+    # Soft keywords: domain words (task, test, state, tool, step, ...) that only
+    # mean something at the start of a declaration.  Everywhere a *name* is
+    # expected they are ordinary identifiers:  for task in tasks,
+    # var state = ..., function f(test), task.done = true.
+    _HARD_KEYWORDS = {
+        TT.VAR, TT.IF, TT.ELSE, TT.FOR, TT.IN, TT.WHILE, TT.FUNCTION, TT.TRY,
+        TT.CATCH, TT.FINALLY, TT.THROW, TT.RETURN, TT.AND, TT.OR, TT.NOT,
+        TT.BREAK, TT.CONTINUE, TT.USE, TT.AWAIT,
+    }
+    _SOFT_KEYWORDS = frozenset(set(KEYWORDS.values()) - _HARD_KEYWORDS)
+
+    def _soften(self) -> None:
+        """If the current token is a soft keyword, re-tag it as an identifier."""
+        tok = self._current()
+        if tok.type in self._SOFT_KEYWORDS:
+            self._tokens[self._pos] = Token(TT.IDENTIFIER, tok.value, tok.line, tok.col)
+
+    def _name(self, message: str) -> Token:
+        """Consume a name (identifier or soft keyword)."""
+        self._soften()
+        return self._consume(TT.IDENTIFIER, message)
+
     _CALLABLE_DECL_KEYWORDS = {
         TT.AGENT, TT.PIPELINE, TT.WORKFLOW, TT.SERVICE, TT.CONTRACT,
         TT.PROMPT, TT.MCP, TT.COMPONENT, TT.APP,
@@ -85,6 +107,11 @@ class Parser:
             self._skip_newlines()
             if self._at_end():
                 break
+            if self.errors and self._check(TT.DEDENT):
+                # Leftover block ends from recovering inside a nested block —
+                # not a new problem, so don't report it.
+                self._advance()
+                continue
             try:
                 stmt = self._statement()
                 if stmt is not None:
@@ -140,6 +167,14 @@ class Parser:
 
     def _statement(self) -> Optional[ast.Stmt]:
         tok = self._current()
+        # `task = ...`, `task.done = true`, `test += 1`, `tool[0] = x`: a soft
+        # keyword followed by one of these is a variable, never a declaration.
+        if (tok.type in self._SOFT_KEYWORDS and self._pos + 1 < len(self._tokens) and
+                self._tokens[self._pos + 1].type in (
+                    TT.ASSIGN, TT.DOT, TT.LBRACKET, TT.SAFE_DOT, TT.PLUS_ASSIGN,
+                    TT.MINUS_ASSIGN, TT.STAR_ASSIGN, TT.SLASH_ASSIGN, TT.PERCENT_ASSIGN)):
+            self._soften()
+            tok = self._current()
         # Declaration keywords used as function calls in statement position,
         # e.g. `agent("create", ...)` / `pipeline("run", ...)` from the v3
         # packages.  A declaration always has a name after the keyword, never '('.
@@ -196,7 +231,7 @@ class Parser:
 
     def _var_decl(self) -> ast.VarDecl:
         tok      = self._advance()            # consume VAR
-        name_tok = self._consume(TT.IDENTIFIER, "Expected variable name after 'var'")
+        name_tok = self._name("Expected variable name after 'var'")
         # optional type hint: var x: int = 5
         type_hint: Optional[str] = None
         if self._match(TT.COLON):
@@ -250,13 +285,13 @@ class Parser:
 
     def _for_stmt(self) -> ast.ForStmt:
         tok     = self._advance()             # consume FOR
-        first   = self._consume(TT.IDENTIFIER, "Expected loop variable after 'for'")
+        first   = self._name("Expected loop variable after 'for'")
 
         # for i, val in list  →  index_var=i, variable=val
         index_var: Optional[str] = None
         if self._check(TT.COMMA):
             self._advance()                   # consume ','
-            second    = self._consume(TT.IDENTIFIER, "Expected value variable after ','")
+            second    = self._name("Expected value variable after ','")
             index_var = first.value
             var_name  = second.value
         else:
@@ -293,7 +328,7 @@ class Parser:
                 catch_var = self._advance().value
             elif self._check(TT.LPAREN):
                 self._advance()               # consume (
-                catch_var = self._consume(TT.IDENTIFIER, "Expected variable name").value
+                catch_var = self._name("Expected variable name").value
                 self._consume(TT.RPAREN, "Expected ')' after catch variable")
             self._consume_end()
             catch_body = self._block()
@@ -342,7 +377,7 @@ class Parser:
         param_types: dict      = {}
 
         def _one_param():
-            p = self._consume(TT.IDENTIFIER, "Expected parameter name").value
+            p = self._name("Expected parameter name").value
             params.append(p)
             # optional type hint: param: type
             if self._match(TT.COLON):
@@ -359,7 +394,7 @@ class Parser:
 
     def _function_decl(self) -> ast.FunctionDecl:
         tok      = self._advance()            # consume FUNCTION
-        name_tok = self._consume(TT.IDENTIFIER, "Expected function name")
+        name_tok = self._name("Expected function name")
         self._consume(TT.LPAREN, "Expected '(' after function name")
         params, defaults, param_types = self._parse_params()
         self._consume(TT.RPAREN, "Expected ')' after parameters")
@@ -606,12 +641,7 @@ class Parser:
         if self._match(TT.STRING):
             return ast.Literal(value=tok.value, line=tok.line, col=tok.col)
 
-        _IDENTIFIER_LIKE_KEYWORDS = {
-            TT.AGENT, TT.PIPELINE, TT.WORKFLOW, TT.SERVICE, TT.CONTRACT,
-            TT.PROMPT, TT.MCP, TT.COMPONENT, TT.APP, TT.TASK, TT.USE,
-            TT.STAGE, TT.ENDPOINT, TT.STEP, TT.PORT, TT.ON, TT.INCLUDE,
-            TT.ROUTE, TT.TEST, TT.ASSERT,
-        }
+        _IDENTIFIER_LIKE_KEYWORDS = self._SOFT_KEYWORDS | {TT.USE}
         if self._check(TT.IDENTIFIER) or self._current().type in _IDENTIFIER_LIKE_KEYWORDS:
             tok = self._advance()
             # Arrow function: single param shorthand   x => expr
@@ -1294,10 +1324,14 @@ class Parser:
         """on event_name\n    body"""
         tok       = self._advance()              # consume ON
         event_tok = self._consume(TT.IDENTIFIER, "Expected event name after 'on'")
+        params: List[str] = []
+        if self._match(TT.LPAREN):               # on remove(id)
+            params, _, _ = self._parse_params()
+            self._consume(TT.RPAREN, "Expected ')' after handler parameters")
         self._consume_end()
         body = self._block()
         return ast.OnHandler(
-            event=event_tok.value, body=body,
+            event=event_tok.value, body=body, params=params,
             line=tok.line, col=tok.col,
         )
 
@@ -1305,7 +1339,12 @@ class Parser:
         """render\n    ui_elements..."""
         tok = self._advance()                    # consume RENDER
         self._consume_end()
-        elements: List[ast.UIElement] = []
+        elements = self._ui_block()
+        return ast.RenderBlock(elements=elements, line=tok.line, col=tok.col)
+
+    def _ui_block(self) -> List[ast.UIElement]:
+        """An indented block of UI nodes (elements, `if`, `for`), or []."""
+        nodes: List[ast.UIElement] = []
         self._skip_newlines()
         if self._check(TT.INDENT):
             self._advance()                      # consume INDENT
@@ -1313,10 +1352,71 @@ class Parser:
                 self._skip_newlines()
                 if self._check(TT.DEDENT) or self._at_end():
                     break
-                elements.append(self._ui_element())
+                nodes.append(self._ui_node())
             if self._check(TT.DEDENT):
                 self._advance()
-        return ast.RenderBlock(elements=elements, line=tok.line, col=tok.col)
+        return nodes
+
+    def _ui_node(self):
+        if self._check(TT.IF):
+            return self._ui_if()
+        if self._check(TT.FOR):
+            return self._ui_for()
+        return self._ui_element()
+
+    def _ui_if(self) -> ast.UIIf:
+        """
+        if cond
+            ui...
+        else if cond
+            ui...
+        else
+            ui...
+        """
+        tok       = self._advance()              # consume IF
+        condition = self._expression()
+        self._consume_end()
+        then_children = self._ui_block()
+        else_children: List[ast.UIElement] = []
+        if self._check(TT.ELSE):
+            self._advance()                      # consume ELSE
+            if self._check(TT.IF):
+                else_children = [self._ui_if()]  # else if → nested UIIf
+            else:
+                self._consume_end()
+                else_children = self._ui_block()
+        return ast.UIIf(condition=condition, then_children=then_children,
+                        else_children=else_children, line=tok.line, col=tok.col)
+
+    def _ui_for(self) -> ast.UIFor:
+        """
+        for item in items          (or: for i, item in items)
+            ui...
+        empty
+            ui...                  (optional: shown when items is empty)
+        """
+        tok   = self._advance()                  # consume FOR
+        first = self._name("Expected loop variable after 'for'")
+        index_var: Optional[str] = None
+        var_name = first.value
+        if self._match(TT.COMMA):
+            second    = self._name("Expected item variable after ','")
+            index_var = first.value
+            var_name  = second.value
+        self._consume(TT.IN, "Expected 'in' after loop variable")
+        iterable = self._expression()
+        self._consume_end()
+        body = self._ui_block()
+        empty: List[ast.UIElement] = []
+        # `empty` is only special directly after a `for` block
+        if (self._check(TT.IDENTIFIER) and self._current().value == "empty" and
+                self._pos + 1 < len(self._tokens) and
+                self._tokens[self._pos + 1].type in (TT.NEWLINE, TT.INDENT)):
+            self._advance()                      # consume `empty`
+            self._consume_end()
+            empty = self._ui_block()
+        return ast.UIFor(variable=var_name, index_var=index_var, iterable=iterable,
+                         body=body, empty=empty, line=tok.line, col=tok.col)
 
     def _ui_element(self) -> ast.UIElement:
         """
@@ -1362,17 +1462,7 @@ class Parser:
         self._consume_end()
 
         # Parse indented children
-        children: List[ast.UIElement] = []
-        self._skip_newlines()
-        if self._check(TT.INDENT):
-            self._advance()                      # consume INDENT
-            while not self._at_end() and not self._check(TT.DEDENT):
-                self._skip_newlines()
-                if self._check(TT.DEDENT) or self._at_end():
-                    break
-                children.append(self._ui_element())
-            if self._check(TT.DEDENT):
-                self._advance()
+        children = self._ui_block()
 
         return ast.UIElement(
             tag=tag, attrs=attrs, text=text, children=children,
