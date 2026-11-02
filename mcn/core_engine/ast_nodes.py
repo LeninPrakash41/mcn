@@ -265,6 +265,7 @@ class ContractField(Node):
     default:   Optional["Expr"]     = None
     unique:    bool                 = False
     choices:   List[str]            = field(default_factory=list)
+    ref:       str                  = ""        # company: ref Company
 
 
 @dataclass

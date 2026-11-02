@@ -1017,13 +1017,17 @@ class Parser:
                                 line=tok.line, col=tok.col)
 
     def _contract_field(self) -> ast.ContractField:
-        """name: type[?] [unique] [= default]   — type may be choice("a", "b")"""
+        """name: type[?] [unique] [= default]   — type may be choice("a", "b") or ref Contract"""
         name_tok = self._name("Expected field name")
         self._consume(TT.COLON, "Expected ':' after field name")
         type_tok = self._name("Expected type name (str, int, float, bool, "
-                              "text, date, datetime or choice(...))")
+                              "text, date, datetime, choice(...) or ref Contract)")
         type_name = type_tok.value
         choices: List[str] = []
+        ref = ""
+        if type_name == "ref":
+            ref = self._consume(TT.IDENTIFIER, "Expected a contract name after 'ref', "
+                                "e.g. company: ref Company").value
         if type_name == "choice":
             self._consume(TT.LPAREN, "Expected '(' after choice")
             while True:
@@ -1046,7 +1050,7 @@ class Parser:
         self._consume_end()
         return ast.ContractField(
             name=name_tok.value, type_name=type_name, optional=optional,
-            default=default, unique=unique, choices=choices,
+            default=default, unique=unique, choices=choices, ref=ref,
             line=name_tok.line, col=name_tok.col,
         )
 

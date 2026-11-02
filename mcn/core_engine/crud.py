@@ -54,9 +54,10 @@ def crud_names(contract_name: str) -> Dict[str, str]:
 # ── Field specs & validation ──────────────────────────────────────────────────
 
 FIELD_TYPES = {"str", "string", "text", "int", "float", "number", "bool",
-               "date", "datetime", "choice", "password", "any"}
+               "date", "datetime", "choice", "password", "ref", "any"}
 
-SQL_TYPES = {"int": "INTEGER", "bool": "INTEGER", "float": "REAL", "number": "REAL"}
+SQL_TYPES = {"int": "INTEGER", "bool": "INTEGER", "float": "REAL", "number": "REAL",
+             "ref": "INTEGER"}
 
 SYSTEM_FIELDS = ("id", "created_at", "updated_at")
 
@@ -64,7 +65,9 @@ SYSTEM_FIELDS = ("id", "created_at", "updated_at")
 class FieldSpec:
     def __init__(self, name: str, type_name: str, optional: bool = False,
                  default: Any = None, has_default: bool = False,
-                 unique: bool = False, choices: Optional[List[str]] = None):
+                 unique: bool = False, choices: Optional[List[str]] = None,
+                 ref: Optional[str] = None):
+        self.ref         = ref              # target contract for type "ref"
         self.name        = name
         self.type        = type_name
         self.optional    = optional
@@ -86,7 +89,18 @@ class FieldSpec:
             d["unique"] = True
         if self.choices:
             d["choices"] = self.choices
+        if self.ref:
+            d["ref"] = self.ref
         return d
+
+
+def display_field(specs: List["FieldSpec"]) -> Optional[str]:
+    """The field that names a record: name / title / label / email, else the first text field."""
+    texts = [s.name for s in specs if s.type in ("str", "string")]
+    for preferred in ("name", "title", "label", "email"):
+        if preferred in texts:
+            return preferred
+    return texts[0] if texts else None
 
 
 class ValidationErrors(Exception):
@@ -102,6 +116,14 @@ _FLOAT_RE = re.compile(r"^-?(\d+\.?\d*|\.\d+)$")
 def coerce(spec: FieldSpec, value: Any) -> Any:
     """Convert/validate one value; raises ValueError with a friendly message."""
     t = spec.type
+    if t == "ref":
+        if isinstance(value, dict) and "id" in value:
+            value = value["id"]
+        if isinstance(value, bool):
+            raise ValueError("must be a record id")
+        if isinstance(value, int) or (isinstance(value, str) and _INT_RE.match(value.strip())):
+            return int(value)
+        raise ValueError("must be a record id")
     if t in ("int",):
         if isinstance(value, bool):
             raise ValueError("must be a whole number")
@@ -228,7 +250,9 @@ class CrudResource:
     def __init__(self, contract, query: Callable, search: List[str] = (),
                  sort: str = "", page_size: int = 25, table: Optional[str] = None,
                  audit: Optional["AuditLog"] = None,
-                 actor: Optional[Callable[[], Optional[Dict[str, Any]]]] = None):
+                 actor: Optional[Callable[[], Optional[Dict[str, Any]]]] = None,
+                 registry: Optional[Dict[str, "CrudResource"]] = None):
+        self.registry  = registry if registry is not None else {}   # for ref fields
         self.contract  = contract
         self.specs: List[FieldSpec] = contract.specs
         self.query     = query
@@ -300,6 +324,9 @@ class CrudResource:
                               "errors": {"id": "is required"}})
 
     def _fetch(self, item_id: int) -> Dict[str, Any]:
+        return self._with_labels([self._fetch_raw(item_id)])[0]
+
+    def _fetch_raw(self, item_id: int) -> Dict[str, Any]:
         rows = self.query(f'SELECT * FROM "{self.table}" WHERE "id" = ?', (item_id,))
         if not rows:
             raise NotFound({"error": f"{self.label} {item_id} not found"})
@@ -321,9 +348,10 @@ class CrudResource:
 
     def _validated(self, data: Any, partial: bool,
                    exclude_id: Optional[int] = None) -> Dict[str, Any]:
-        """Field checks + uniqueness, reporting every problem at once."""
+        """Field checks + uniqueness + ref existence, reporting every problem at once."""
         if isinstance(data, dict):
-            data = {k: v for k, v in data.items() if k not in SYSTEM_FIELDS}
+            labels = {f"{s.name}_label" for s in self.specs if s.type == "ref"}
+            data = {k: v for k, v in data.items() if k not in SYSTEM_FIELDS and k not in labels}
         errors: Dict[str, str] = {}
         values: Dict[str, Any] = {}
         try:
@@ -337,10 +365,62 @@ class CrudResource:
                 self._check_unique(candidates, exclude_id=exclude_id)
             except ValidationErrors as exc:
                 errors.update(exc.errors)
+        for s in self.specs:                      # ref → the record must exist
+            if s.type == "ref" and values.get(s.name) is not None and s.name not in errors:
+                target = self.registry.get(s.ref)
+                if target is not None and not target.query(
+                        f'SELECT "id" FROM "{target.table}" WHERE "id" = ?', (values[s.name],)):
+                    errors[s.name] = f"must be an existing {snake(s.ref).replace('_', ' ')}"
         if errors:
             raise BadRequest({"error": "Please fix the highlighted fields",
                               "errors": errors})
         return values
+
+    # ── relations ─────────────────────────────────────────────────────────────
+
+    @property
+    def label_field(self) -> Optional[str]:
+        return display_field(self.specs)
+
+    def labels(self, ids) -> Dict[int, str]:
+        """{id: display label} for records of this resource."""
+        ids = sorted({int(i) for i in ids if i is not None})
+        if not ids:
+            return {}
+        field = self.label_field
+        col = f'"{field}"' if field else '"id"'
+        marks = ", ".join("?" for _ in ids)
+        rows = self.query(f'SELECT "id", {col} AS label FROM "{self.table}" '
+                          f'WHERE "id" IN ({marks})', tuple(ids))
+        return {r["id"]: (str(r["label"]) if r["label"] not in (None, "") else f"#{r['id']}")
+                for r in rows}
+
+    def _with_labels(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Add <field>_label next to every ref field (one query per ref field)."""
+        for s in self.specs:
+            target = self.registry.get(s.ref) if s.type == "ref" else None
+            if target is None:
+                continue
+            names = target.labels(r.get(s.name) for r in rows)
+            for r in rows:
+                r[f"{s.name}_label"] = names.get(r.get(s.name)) if r.get(s.name) is not None else None
+        return rows
+
+    def _check_not_referenced(self, row: Dict[str, Any]) -> None:
+        """Block deleting a record that other records still point at."""
+        uses = []
+        for other in self.registry.values():
+            for s in other.specs:
+                if s.type == "ref" and s.ref == self.contract.name:
+                    n = other.query(f'SELECT COUNT(*) AS n FROM "{other.table}" '
+                                    f'WHERE "{s.name}" = ?', (row["id"],))[0]["n"]
+                    if n:
+                        uses.append(f"{n} {other.names['plural' if n != 1 else 'singular'].replace('_', ' ')}")
+        if uses:
+            name = row.get(self.label_field) if self.label_field else None
+            what = f"{snake(self.contract.name).replace('_', ' ')}" + (f" “{name}”" if name else "")
+            raise BadRequest({"error": f"Can't delete {what}: used by {' and '.join(uses)}. "
+                                       "Change or delete those first."})
 
     # ── endpoints ─────────────────────────────────────────────────────────────
 
@@ -374,7 +454,7 @@ class CrudResource:
         rows = self.query(
             f'SELECT * FROM "{self.table}"{clause} ORDER BY "{field}" {direction}, "id" DESC '
             f"LIMIT ? OFFSET ?", tuple(params) + (page_size, (page - 1) * page_size))
-        return {"items": [self._row(r) for r in rows], "total": total,
+        return {"items": self._with_labels([self._row(r) for r in rows]), "total": total,
                 "page": page, "page_size": page_size}
 
     def get(self, payload: Any = None) -> Dict[str, Any]:
@@ -407,8 +487,10 @@ class CrudResource:
         self.query(f'UPDATE "{self.table}" SET {sets} WHERE "id" = ?',
                    tuple(values.values()) + (item_id,))
         after = self._fetch(item_id)
-        changes = {k: [before.get(k), after.get(k)] for k in clean
-                   if k in after and before.get(k) != after.get(k)}
+        refs = {sp.name for sp in self.specs if sp.type == "ref"}
+        changes = {k: ([before.get(f"{k}_label") or before.get(k), after.get(f"{k}_label") or after.get(k)]
+                       if k in refs else [before.get(k), after.get(k)])
+                   for k in clean if k in after and before.get(k) != after.get(k)}
         if any(s.type == "password" for s in self.specs if s.name in clean):
             changes["password"] = ["•••", "changed"]
         if changes:
@@ -418,6 +500,7 @@ class CrudResource:
     def delete(self, payload: Any = None) -> Dict[str, Any]:
         item_id = self._id(payload)
         before  = self._fetch(item_id)
+        self._check_not_referenced(before)
         self.before_delete(before)
         self.query(f'DELETE FROM "{self.table}" WHERE "id" = ?', (item_id,))
         self._log("delete", item_id, {k: v for k, v in before.items()

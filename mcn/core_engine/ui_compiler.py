@@ -402,7 +402,7 @@ class UICompiler:
         if self._crud_used:
             from .ui_crud import CRUD_TABLE_TSX, CRUD_SHADCN, models_ts
             models_path = src / "models.ts"
-            models_path.write_text(models_ts(list(self._crud_used.values())))
+            models_path.write_text(models_ts(list(self._crud_used.values()), self._contracts))
             crud_path = src / "components" / "CrudTable.tsx"
             crud_path.write_text(CRUD_TABLE_TSX)
             for p in (models_path, crud_path):

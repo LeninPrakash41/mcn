@@ -260,3 +260,88 @@ def test_format_number_and_currency():
     assert cur(123456) == "₹1,23,456"
     assert cur(-1500000) == "-₹15,00,000"
     assert cur(99.5, "$", 2) == "$99.50"
+
+
+# ── relations (ref) ───────────────────────────────────────────────────────────
+
+REL = '''
+contract Company
+    name: str unique
+contract Lead
+    name:    str
+    company: ref Company?
+contract Task
+    title: str
+    lead:  ref Lead
+service s
+    crud Lead
+        audit
+    crud Company
+    crud Task
+'''
+
+
+@pytest.fixture
+def rel(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    interp = MCNInterpreter()
+    interp.execute(REL, quiet=True)
+    return interp._evaluator.functions
+
+
+def test_ref_syntax():
+    decl = Parser(Lexer(REL).tokenize()).parse().body[1]
+    company = decl.fields[1]
+    assert (company.type_name, company.ref, company.optional) == ("ref", "Company", True)
+
+
+def test_ref_labels_validation_and_filters(rel):
+    from mcn.core_engine.crud import BadRequest
+    acme = rel["create_company"]({"name": "AcmeSoft"})
+    finly = rel["create_company"]({"name": "Finly"})
+    lead = rel["create_lead"]({"name": "Asha", "company": str(acme["id"])})   # id as text is fine
+    assert lead["company"] == acme["id"] and lead["company_label"] == "AcmeSoft"
+    assert rel["create_lead"]({"name": "Solo"})["company_label"] is None    # optional
+    with pytest.raises(BadRequest) as exc:
+        rel["create_lead"]({"name": "X", "company": 99})
+    assert exc.value.payload["errors"] == {"company": "must be an existing company"}
+    with pytest.raises(BadRequest) as exc:
+        rel["create_task"]({"title": "Call"})
+    assert exc.value.payload["errors"] == {"lead": "is required"}
+    moved = rel["update_lead"]({"id": lead["id"], "company": finly["id"], "company_label": "ignored"})
+    assert moved["company_label"] == "Finly"
+    assert [r["name"] for r in rel["list_leads"]({"company": finly["id"]})["items"]] == ["Asha"]
+    assert rel["list_audit_log"]({})["items"][0]["changes"] == {"company": ["AcmeSoft", "Finly"]}
+
+
+def test_ref_restricts_delete(rel):
+    from mcn.core_engine.crud import BadRequest
+    acme = rel["create_company"]({"name": "AcmeSoft"})
+    lead = rel["create_lead"]({"name": "Asha", "company": acme["id"]})
+    task = rel["create_task"]({"title": "Call", "lead": lead["id"]})
+    with pytest.raises(BadRequest, match="Can't delete company “AcmeSoft”: used by 1 lead"):
+        rel["delete_company"]({"id": acme["id"]})
+    with pytest.raises(BadRequest, match="used by 1 task"):
+        rel["delete_lead"]({"id": lead["id"]})
+    rel["delete_task"]({"id": task["id"]})
+    rel["delete_lead"]({"id": lead["id"]})
+    assert rel["delete_company"]({"id": acme["id"]})["deleted"] is True
+
+
+def test_ref_errors(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(Exception, match="no contract named 'Compny'"):
+        MCNInterpreter().execute("contract Lead\n    company: ref Compny\nservice s\n    crud Lead\n", quiet=True)
+    with pytest.raises(Exception, match="add 'crud Company' to the service"):
+        MCNInterpreter().execute("contract Company\n    name: str\ncontract Lead\n    company: ref Company\n"
+                                 "service s\n    crud Lead\n", quiet=True)
+
+
+def test_ref_in_ui(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _build(tmp_path / "fe", REL.split("service s")[0] +
+           "component Leads\n    render\n        crud_table Lead\n")
+    models = (tmp_path / "fe" / "src" / "models.ts").read_text()
+    assert '"list": "/list_companies"' in models and '"labelField": "name"' in models
+    crud = (tmp_path / "fe" / "src" / "components" / "CrudTable.tsx").read_text()
+    assert "function RefSelect" in crud and "_label`]" in crud

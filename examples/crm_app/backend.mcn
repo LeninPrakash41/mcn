@@ -8,7 +8,7 @@ service crm
     // Everyone can read; sales and admins can edit; only admins delete leads
     // and companies. Every change is recorded in the activity log.
     crud Lead
-        search       name, email, company
+        search       name, email
         sort         created_at desc
         page_size    10
         allow read:   admin, sales, viewer
@@ -25,7 +25,7 @@ service crm
         audit
 
     crud FollowUp
-        search       title, lead
+        search       title
         sort         due
         allow read:   admin, sales, viewer
         allow write:  admin, sales
@@ -49,7 +49,7 @@ service crm
             won_value:       format_currency(won.total),
             open_follow_ups: todo.n,
             stages:          stages,
-            upcoming:        query("SELECT title, lead, due, priority FROM follow_ups WHERE done = 0 ORDER BY due LIMIT 5")
+            upcoming:        query("SELECT f.title, l.name AS lead, f.due, f.priority FROM follow_ups f JOIN leads l ON l.id = f.lead WHERE f.done = 0 ORDER BY f.due LIMIT 5")
         }
 
 // Sample data on first run, so there's something to see

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from typing import Dict, List
 
-from .crud import crud_names, plural
+from .crud import crud_names, display_field, plural
 
 # shadcn/ui components used by CrudTable.tsx
 CRUD_SHADCN = ["badge", "button", "card", "dialog", "input", "label",
@@ -28,7 +28,7 @@ def _label(name: str) -> str:
     return text[:1].upper() + text[1:]
 
 
-def resource_ts(contract) -> str:
+def resource_ts(contract, contracts: Dict = None) -> str:
     names = crud_names(contract.name)
     fields = []
     for s in contract.specs:
@@ -41,6 +41,14 @@ def resource_ts(contract) -> str:
             f["default"] = s.default
         if s.unique:
             f["unique"] = True
+        if s.type == "ref":
+            target = (contracts or {}).get(s.ref)
+            f["ref"] = {
+                "resource": s.ref,
+                "label": _label(crud_names(s.ref)["singular"]),
+                "list": f"/{crud_names(s.ref)['list']}",
+                "labelField": display_field(target.specs) if target is not None else None,
+            }
         fields.append(f)
     resource = {
         "name": contract.name,
@@ -53,10 +61,10 @@ def resource_ts(contract) -> str:
     return f"export const {contract.name}Resource: Resource = {body}\n"
 
 
-def models_ts(contracts: List) -> str:
+def models_ts(contracts: List, all_contracts: Dict = None) -> str:
     parts = [MODELS_HEADER]
     for c in contracts:
-        parts.append(resource_ts(c))
+        parts.append(resource_ts(c, all_contracts))
     return "\n".join(parts)
 
 
@@ -77,6 +85,8 @@ export interface Field {
   required: boolean
   choices?: string[]
   pluralLabel?: string
+  /** For `ref` fields: the linked resource and how to name its records */
+  ref?: { resource: string; label: string; list: string; labelField: string | null }
   default?: unknown
   unique?: boolean
 }
@@ -150,12 +160,13 @@ const SEMANTIC: Record<string, string> = {
   pending: AMBER, contacted: AMBER, in_progress: AMBER, review: AMBER, medium: AMBER,
   qualified: AMBER, waiting: AMBER, on_hold: AMBER,
 }
+// Positional colours avoid red/green so they never suggest "bad"/"good"
 const BADGE_COLORS = [
   "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
-  "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
-  "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
   "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
+  "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200",
+  "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200",
   "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
 ]
 
@@ -164,11 +175,13 @@ function humanize(value: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-function displayValue(field: Field, value: any) {
+function displayValue(field: Field, value: any, row?: Row) {
   if (value === null || value === undefined || value === "") {
     return <span className="text-muted-foreground">—</span>
   }
   switch (field.type) {
+    case "ref":
+      return row?.[`${field.name}_label`] ?? `#${value}`
     case "choice": {
       const idx = Math.max(0, (field.choices ?? []).indexOf(String(value)))
       const color = SEMANTIC[String(value).toLowerCase()] ?? BADGE_COLORS[idx % BADGE_COLORS.length]
@@ -435,7 +448,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                 rows.map((row) => (
                   <TableRow key={row.id} className={loading ? "opacity-60" : ""}>
                     {visible.map((f) => (
-                      <TableCell key={f.name}>{displayValue(f, row[f.name])}</TableCell>
+                      <TableCell key={f.name}>{displayValue(f, row[f.name], row)}</TableCell>
                     ))}
                     {(canUpdate || canDelete) && (
                       <TableCell className="text-right">
@@ -538,6 +551,8 @@ function FieldInput({ field, value, onChange, editing }: {
 }) {
   const id = `f-${field.name}`
   switch (field.type) {
+    case "ref":
+      return <RefSelect id={id} field={field} value={value} onChange={onChange} />
     case "password":
       return <Input id={id} type="password" autoComplete="new-password" value={value ?? ""}
                     placeholder={editing ? "Leave blank to keep the current password" : "At least 8 characters"}
@@ -571,6 +586,40 @@ function FieldInput({ field, value, onChange, editing }: {
     default:
       return <Input id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
   }
+}
+
+/** Dropdown of records from a linked resource (`company: ref Company`). */
+function RefSelect({ id, field, value, onChange }: {
+  id: string; field: Field; value: any; onChange: (v: any) => void
+}) {
+  const [options, setOptions] = useState<{ id: number; label: string }[]>([])
+  const [error, setError] = useState("")
+  useEffect(() => {
+    if (!field.ref) return
+    const labelField = field.ref.labelField
+    const params = new URLSearchParams({ page_size: "200" })
+    if (labelField) params.set("sort", labelField)
+    api.get(`${field.ref.list}?${params}`)
+      .then((data) => setOptions((data.items ?? []).map((r: Row) => ({
+        id: r.id, label: labelField && r[labelField] ? String(r[labelField]) : `#${r.id}`,
+      }))))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+  }, [field])
+  const current = value === "" || value == null ? NONE : String(value)
+  return (
+    <>
+      <Select value={current} onValueChange={(v) => onChange(v === NONE ? "" : v)}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder={`Select ${(field.ref?.label ?? field.label).toLowerCase()}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {!field.required && <SelectItem value={NONE}>—</SelectItem>}
+          {options.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </>
+  )
 }
 
 export default CrudTable

@@ -1,5 +1,6 @@
 // Sales CRM — data model, shared by the backend and the UI.
 // Every contract becomes a database table, five API endpoints and a screen.
+// `ref` links records: a lead belongs to a company, a follow-up to a lead.
 
 // Sign-in with three roles. The first role is the administrator: it manages
 // users and sees the activity log.
@@ -11,7 +12,7 @@ contract Lead
     name:      str
     email:     str unique
     phone:     str?
-    company:   str?
+    company:   ref Company?
     stage:     choice("new", "contacted", "qualified", "won", "lost") = "new"
     value:     float = 0
     source:    choice("website", "referral", "event", "cold_call", "partner") = "website"
@@ -27,7 +28,7 @@ contract Company
 
 contract FollowUp
     title:    str
-    lead:     str?
+    lead:     ref Lead
     due:      date
     priority: choice("low", "medium", "high") = "medium"
     done:     bool = false

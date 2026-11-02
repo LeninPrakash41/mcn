@@ -7,31 +7,37 @@ if list_users().total == 0
     create_user({name: "Vani Viewer",  email: "viewer@crm.local", role: "viewer", password: "viewer1234"})
 
 if list_leads().total == 0
-    var leads = [
-        {name: "Asha Rao",     email: "asha@acmesoft.in",   company: "AcmeSoft",     stage: "qualified", value: 450000, source: "referral",  follow_up: "2026-11-12"},
-        {name: "Ravi Kumar",   email: "ravi@infrabuild.co", company: "InfraBuild",   stage: "contacted", value: 1200000, source: "event"},
-        {name: "Meera Iyer",   email: "meera@finly.io",     company: "Finly",        stage: "won",       value: 980000,  source: "website"},
-        {name: "Arjun Mehta",  email: "arjun@shipfast.in",  company: "ShipFast",     stage: "lost",      value: 150000,  source: "cold_call"},
-        {name: "Priya Nair",   email: "priya@healthx.in",   company: "HealthX",      stage: "new",       value: 300000,  source: "partner",   follow_up: "2026-11-08"},
-        {name: "Karthik S",    email: "karthik@buildco.in", company: "BuildCo",      stage: "new",       value: 220000,  source: "website"},
-        {name: "Fatima Shaikh", email: "fatima@retailpro.in", company: "RetailPro",  stage: "contacted", value: 640000,  source: "referral"},
-        {name: "Vikram Singh", email: "vikram@agrinova.in", company: "AgriNova",     stage: "won",       value: 1500000, source: "event"}
-    ]
-    for lead in leads
-        create_lead(lead)
-
+    // Companies first, remembering their ids so leads can link to them
+    var company = {}
     for c in [
         {name: "AcmeSoft",   industry: "software",      city: "Bengaluru", size: 120},
         {name: "InfraBuild", industry: "manufacturing", city: "Pune",      size: 850},
         {name: "Finly",      industry: "finance",       city: "Mumbai",    size: 60},
-        {name: "HealthX",    industry: "healthcare",    city: "Chennai",   size: 300}
+        {name: "HealthX",    industry: "healthcare",    city: "Chennai",   size: 300},
+        {name: "ShipFast",   industry: "retail",        city: "Delhi",     size: 45},
+        {name: "BuildCo",    industry: "manufacturing", city: "Ahmedabad", size: 210},
+        {name: "RetailPro",  industry: "retail",        city: "Kolkata",   size: 95},
+        {name: "AgriNova",   industry: "other",         city: "Hyderabad", size: 150}
     ]
-        create_company(c)
+        company[c.name] = create_company(c).id
+
+    var lead = {}
+    for l in [
+        {name: "Asha Rao",      email: "asha@acmesoft.in",    company: company["AcmeSoft"],   stage: "qualified", value: 450000,  source: "referral",  follow_up: "2026-11-12"},
+        {name: "Ravi Kumar",    email: "ravi@infrabuild.co",  company: company["InfraBuild"], stage: "contacted", value: 1200000, source: "event"},
+        {name: "Meera Iyer",    email: "meera@finly.io",      company: company["Finly"],      stage: "won",       value: 980000,  source: "website"},
+        {name: "Arjun Mehta",   email: "arjun@shipfast.in",   company: company["ShipFast"],   stage: "lost",      value: 150000,  source: "cold_call"},
+        {name: "Priya Nair",    email: "priya@healthx.in",    company: company["HealthX"],    stage: "new",       value: 300000,  source: "partner",   follow_up: "2026-11-08"},
+        {name: "Karthik S",     email: "karthik@buildco.in",  company: company["BuildCo"],    stage: "new",       value: 220000,  source: "website"},
+        {name: "Fatima Shaikh", email: "fatima@retailpro.in", company: company["RetailPro"],  stage: "contacted", value: 640000,  source: "referral"},
+        {name: "Vikram Singh",  email: "vikram@agrinova.in",  company: company["AgriNova"],   stage: "won",       value: 1500000, source: "event"}
+    ]
+        lead[l.name] = create_lead(l).id
 
     for f in [
-        {title: "Send proposal",        lead: "Asha Rao",   due: "2026-11-06", priority: "high"},
-        {title: "Demo for ops team",    lead: "Ravi Kumar", due: "2026-11-09", priority: "medium"},
-        {title: "Intro call",           lead: "Priya Nair", due: "2026-11-08", priority: "low"},
-        {title: "Contract signed",      lead: "Meera Iyer", due: "2026-10-30", priority: "high", done: true}
+        {title: "Send proposal",     lead: lead["Asha Rao"],   due: "2026-11-06", priority: "high"},
+        {title: "Demo for ops team", lead: lead["Ravi Kumar"], due: "2026-11-09", priority: "medium"},
+        {title: "Intro call",        lead: lead["Priya Nair"], due: "2026-11-08", priority: "low"},
+        {title: "Contract signed",   lead: lead["Meera Iyer"], due: "2026-10-30", priority: "high", done: true}
     ]
         create_follow_up(f)

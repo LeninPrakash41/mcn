@@ -46,7 +46,7 @@ Set `MCN_SECRET` in production so sessions are signed with your own secret.
 
 ## How it works
 
-A contract describes the data once:
+A contract describes the data once (`ref` links it to other contracts):
 
 ```mcn
 contract Lead
@@ -54,6 +54,7 @@ contract Lead
     email:  str unique
     stage:  choice("new", "contacted", "qualified", "won", "lost") = "new"
     value:  float = 0
+    company: ref Company?              // dropdown of companies, name shown in tables
     notes:  text?
 ```
 

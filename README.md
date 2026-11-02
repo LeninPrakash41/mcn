@@ -540,6 +540,13 @@ component Leads
 | `= value` | Default |
 | `unique` | No two records may share the value |
 | `choice("a", "b")` | Only these values (dropdown + coloured badge) |
+| `ref Company` | Link to a record of another contract (dropdown + name in tables) |
+
+**Relations.** `company: ref Company?` stores the company's id and returns
+`company_label` (its `name`, `title` or first text field) with every record. The id must
+exist (`"must be an existing company"`), `?company=3` filters, and a company can't be deleted
+while leads still use it (`"Can't delete company “AcmeSoft”: used by 2 leads"`).
+Edits to a ref are logged by name (`AcmeSoft → Finly`). `ref User` links to app users.
 
 `crud Lead` creates the `leads` table (plus `id`, `created_at`, `updated_at`) and:
 

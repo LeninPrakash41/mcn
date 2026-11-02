@@ -151,6 +151,7 @@ class Evaluator:
         self.auth_config:  Optional[ast.AuthDecl] = None
         self.app_auth      = None
         self.audit_log     = None
+        self.crud_resources: Dict[str, Any] = {}   # contract name → CrudResource (for ref)
         self.current_user: Optional[Dict[str, Any]] = None   # set per request by mcn serve
 
         # Boolean and null literals (JavaScript / JSON style)
@@ -665,6 +666,8 @@ class Evaluator:
                                     actor=lambda: self.current_user,
                                     permissions=self.permissions_for)
             self.audit_log = self.app_auth.audit
+            self.app_auth.users.registry = self.crud_resources
+            self.crud_resources["User"] = self.app_auth.users
         for name, fn in self.app_auth.endpoints().items():
             if name in self.function_params:
                 continue                         # already on an earlier service
@@ -784,6 +787,15 @@ class Evaluator:
         if self.auth_config is not None:
             self._ensure_app_auth(service, env)
 
+        # Every `ref X` needs X's table (crud X here or in an earlier service)
+        for resource in self.crud_resources.values():
+            for spec in resource.specs:
+                if spec.type == "ref" and spec.ref not in self.crud_resources:
+                    raise MCNError(
+                        f"{resource.contract.name}.{spec.name} is 'ref {spec.ref}': add "
+                        f"'crud {spec.ref}' to the service so {spec.ref} records exist",
+                        stmt.line, stmt.col)
+
         env.define(stmt.name, service)
         self.functions[stmt.name] = service
         return service
@@ -805,9 +817,16 @@ class Evaluator:
         try:
             resource = CrudResource(contract, self.functions["query"], search=crud.search,
                                     sort=crud.sort, page_size=crud.page_size,
-                                    audit=audit, actor=lambda: self.current_user)
+                                    audit=audit, actor=lambda: self.current_user,
+                                    registry=self.crud_resources)
         except ValueError as exc:
             raise MCNError(str(exc), crud.line, crud.col)
+        for spec in contract.specs:
+            if spec.type == "ref" and not isinstance(env.get(spec.ref), MCNContract):
+                raise MCNError(f"{contract.name}.{spec.name} is 'ref {spec.ref}', but there is "
+                               f"no contract named '{spec.ref}'" + self._did_you_mean(spec.ref, env),
+                               crud.line, crud.col)
+        self.crud_resources[contract.name] = resource
         resource.ensure_table()
         action_of = {"list": "read", "get": "read", "create": "write",
                      "update": "write", "delete": "delete"}
@@ -870,7 +889,7 @@ class Evaluator:
             default = self._eval(f.default, env) if f.default is not None else None
             specs.append(FieldSpec(f.name, f.type_name.lower(), optional=f.optional,
                                    default=default, has_default=f.default is not None,
-                                   unique=f.unique, choices=f.choices))
+                                   unique=f.unique, choices=f.choices, ref=f.ref or None))
         fields = [(f.name, f.type_name) for f in stmt.fields]
         contract = MCNContract(stmt.name, fields, specs)
         env.define(stmt.name, contract)
