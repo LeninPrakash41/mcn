@@ -308,6 +308,8 @@ class EndpointDecl(Node):
     params:   List[str]         = field(default_factory=list)
     defaults: Dict[str, "Expr"] = field(default_factory=dict)
     body:     List["Stmt"]      = field(default_factory=list)
+    allow:    List[str]         = field(default_factory=list)  # endpoint x() allow admin
+    public:   bool              = False                        # endpoint x() public
 
 
 @dataclass
@@ -338,6 +340,21 @@ class CrudDecl(Node):
     search:    List[str] = field(default_factory=list)
     sort:      str       = ""          # "field" or "field desc"
     page_size: int       = 25
+    allow:     Dict[str, List[str]] = field(default_factory=dict)  # read/write/delete → roles
+    audit:     bool      = False
+
+
+@dataclass
+class AuthDecl(Node):
+    """
+    Login and roles for the app (usually in models.mcn, shared by backend + UI):
+
+        auth
+            roles         admin, sales, viewer     # first role = administrator
+            session_hours 12
+    """
+    roles:         List[str] = field(default_factory=list)
+    session_hours: int       = 12
 
 
 @dataclass
@@ -564,6 +581,7 @@ class NavItem(Node):
     label:     str = ""
     icon:      str = ""
     component: str = ""   # component name to show when selected
+    allow:     List[str] = field(default_factory=list)   # roles that see this item
 
 
 @dataclass

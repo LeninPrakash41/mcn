@@ -1,17 +1,18 @@
 # Sales CRM — a full-stack MCN app
 
 Leads, companies and follow-ups with search, filters, sorting, pagination,
-create / edit / delete with validation, and a live dashboard.
-**Under 200 lines of MCN in 4 files** (blank lines and comments included), with no hand-written React, SQL schema or API code.
+create / edit / delete with validation, a live dashboard, **sign-in with
+roles**, user management and an **activity log** of every change.
+**About 220 lines of MCN in 4 files** (blank lines and comments included), with no hand-written React, SQL schema or API code.
 
 ![Dashboard](screenshots/dashboard.png)
 
 | File | What it does |
 |---|---|
-| `models.mcn` | The data model: three `contract`s, shared by backend and UI |
-| `backend.mcn` | `crud` for each contract + a custom `get_dashboard` endpoint |
-| `seed.mcn` | Sample data, inserted only when the database is empty |
-| `app.mcn` | Dashboard screen, three `crud_table` screens and the app shell |
+| `models.mcn` | Roles and the data model (three `contract`s), shared by backend and UI |
+| `backend.mcn` | `crud` with role rules and audit for each contract + a `get_dashboard` endpoint |
+| `seed.mcn` | Demo accounts and sample data, inserted only when the database is empty |
+| `app.mcn` | Dashboard, three `crud_table` screens, Users, Activity and the app shell |
 
 ## Run it
 
@@ -31,7 +32,17 @@ npx shadcn@latest add badge button card dialog input label select switch table t
 npm run dev
 ```
 
-Open the URL Vite prints (usually http://localhost:5173).
+Open the URL Vite prints (usually http://localhost:5173) and sign in with a demo account:
+
+| Email | Password | Role | Can |
+|---|---|---|---|
+| `admin@crm.local` | `admin1234` | admin | everything, plus **Users** and **Activity** |
+| `sales@crm.local` | `sales1234` | sales | add and edit leads, companies and follow-ups; delete follow-ups |
+| `viewer@crm.local` | `viewer1234` | viewer | look, but not change anything |
+
+The demo accounts come from `seed.mcn`. Delete those lines (and the database) to
+start empty: the app then asks you to create the first administrator.
+Set `MCN_SECRET` in production so sessions are signed with your own secret.
 
 ## How it works
 
@@ -58,6 +69,34 @@ dates), and a delete confirmation.
 
 Add a field to a contract and restart. The column is added to the table and
 appears in the form; existing data is kept.
+
+### Sign-in, roles and activity
+
+```mcn
+// models.mcn
+auth
+    roles admin, sales, viewer        // the first role is the administrator
+
+// backend.mcn
+crud Lead
+    allow read:   admin, sales, viewer
+    allow write:  admin, sales
+    allow delete: admin
+    audit                             // record every change
+
+// app.mcn
+nav "Users"    icon="shield"  component=Users     allow admin
+nav "Activity" icon="history" component=Activity  allow admin
+```
+
+The server enforces the rules (401 when signed out, 403 for the wrong role), and
+the UI hides what a role can't use. Users are a built-in `User` contract, so
+`crud_table User` is the user-management screen, and `audit_log` is the
+activity screen.
+
+| Sign in | Viewer: read-only | Activity log |
+|---|---|---|
+| ![](screenshots/login.png) | ![](screenshots/viewer.png) | ![](screenshots/activity.png) |
 
 | Leads | Form with validation |
 |---|---|

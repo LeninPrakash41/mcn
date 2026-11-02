@@ -103,6 +103,7 @@ import {
 } from "lucide-react"
 
 import { api, ApiError } from "../services/api"
+import { useAuth } from "../auth"
 import type { Field, Resource } from "../models"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -221,12 +222,17 @@ function recordName(resource: Resource, row: Row): string {
 
 export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: CrudTableProps) {
   const visible = useMemo<Field[]>(() => {
-    if (!columns || columns.length === 0) return resource.fields.slice(0, 5)
+    if (!columns || columns.length === 0)
+      return resource.fields.filter((f) => f.type !== "password").slice(0, 5)
     return columns
       .map((c) => resource.fields.find((f) => f.name === c))
       .filter((f): f is Field => Boolean(f))
   }, [resource, columns])
   const filterField = resource.fields.find((f) => f.type === "choice")
+  const { can } = useAuth()
+  const canCreate = can(resource.endpoints.create)
+  const canUpdate = can(resource.endpoints.update)
+  const canDelete = can(resource.endpoints.delete)
 
   const [rows, setRows] = useState<Row[]>([])
   const [total, setTotal] = useState(0)
@@ -300,6 +306,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
     setFormError("")
     try {
       if (editing) await api.post(resource.endpoints.update, { id: editing.id, ...form })
+      // (a blank password on edit means "keep the current one")
       else await api.post(resource.endpoints.create, form)
       setFormOpen(false)
       await load()
@@ -369,9 +376,11 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
               </SelectContent>
             </Select>
           )}
-          <Button onClick={openCreate}>
-            <Plus className="mr-1 h-4 w-4" /> Add {resource.label.toLowerCase()}
-          </Button>
+          {canCreate && (
+            <Button onClick={openCreate}>
+              <Plus className="mr-1 h-4 w-4" /> Add {resource.label.toLowerCase()}
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -397,25 +406,25 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                     </button>
                   </TableHead>
                 ))}
-                <TableHead className="w-24 text-right">Actions</TableHead>
+                {(canUpdate || canDelete) && <TableHead className="w-24 text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visible.length + 1} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={visible.length + (canUpdate || canDelete ? 1 : 0)} className="h-32 text-center text-muted-foreground">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visible.length + 1} className="h-40 text-center">
+                  <TableCell colSpan={visible.length + (canUpdate || canDelete ? 1 : 0)} className="h-40 text-center">
                     <p className="font-medium">
                       {query || filter !== ALL
                         ? `No ${resource.plural.toLowerCase()} match your search`
                         : `No ${resource.plural.toLowerCase()} yet`}
                     </p>
-                    {!query && filter === ALL && (
+                    {!query && filter === ALL && canCreate && (
                       <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
                         <Plus className="mr-1 h-4 w-4" /> Add your first {resource.label.toLowerCase()}
                       </Button>
@@ -428,14 +437,20 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                     {visible.map((f) => (
                       <TableCell key={f.name}>{displayValue(f, row[f.name])}</TableCell>
                     ))}
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => openEdit(row)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => setDeleting(row)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
+                    {(canUpdate || canDelete) && (
+                      <TableCell className="text-right">
+                        {canUpdate && (
+                          <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => openEdit(row)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => setDeleting(row)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -474,9 +489,10 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                 : "space-y-1.5"}>
                 <Label htmlFor={`f-${f.name}`}>
                   {f.label}
-                  {f.required && <span className="ml-0.5 text-destructive">*</span>}
+                  {f.required && !(editing && f.type === "password") && <span className="ml-0.5 text-destructive">*</span>}
                 </Label>
-                <FieldInput field={f} value={form[f.name]} onChange={(v) => setValue(f.name, v)} />
+                <FieldInput field={f} value={form[f.name]} editing={editing !== null}
+                            onChange={(v) => setValue(f.name, v)} />
                 {fieldErrors[f.name] && (
                   <p className="text-sm text-destructive">{f.label} {fieldErrors[f.name]}</p>
                 )}
@@ -517,9 +533,15 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
   )
 }
 
-function FieldInput({ field, value, onChange }: { field: Field; value: any; onChange: (v: any) => void }) {
+function FieldInput({ field, value, onChange, editing }: {
+  field: Field; value: any; onChange: (v: any) => void; editing?: boolean
+}) {
   const id = `f-${field.name}`
   switch (field.type) {
+    case "password":
+      return <Input id={id} type="password" autoComplete="new-password" value={value ?? ""}
+                    placeholder={editing ? "Leave blank to keep the current password" : "At least 8 characters"}
+                    onChange={(e) => onChange(e.target.value)} />
     case "bool":
       return <Switch id={id} checked={Boolean(value)} onCheckedChange={onChange} />
     case "text":

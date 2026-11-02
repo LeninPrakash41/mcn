@@ -147,11 +147,17 @@ class Evaluator:
         self.app_decl:   Optional[ast.AppDecl]        = None  # app declaration
         self.current_dir: Optional[str] = None   # dir of the running file (for include)
         self._included:   set           = set()
+        # Login & roles (auth block) — app_auth is created with the first service
+        self.auth_config:  Optional[ast.AuthDecl] = None
+        self.app_auth      = None
+        self.audit_log     = None
+        self.current_user: Optional[Dict[str, Any]] = None   # set per request by mcn serve
 
         # Boolean and null literals (JavaScript / JSON style)
         self.globals.define("true",  True)
         self.globals.define("false", False)
         self.globals.define("null",  None)
+        self.globals.define("current_user", None)    # signed-in user inside endpoints
 
         # Seed the global environment with request context
         self.globals.define("request_data", {
@@ -374,6 +380,9 @@ class Evaluator:
 
         if isinstance(stmt, ast.ContractDecl):
             return self._exec_contract_decl(stmt, env)
+
+        if isinstance(stmt, ast.AuthDecl):
+            return self._exec_auth_decl(stmt, env)
 
         # ── break / continue ──────────────────────────────────────────────────
         if isinstance(stmt, ast.BreakStmt):
@@ -620,6 +629,73 @@ class Evaluator:
             expr.line, expr.col,
         )
 
+    # ── auth & audit ──────────────────────────────────────────────────────────
+
+    def _exec_auth_decl(self, stmt: ast.AuthDecl, env: Environment) -> None:
+        """auth / roles … — defines the built-in User contract (no DB work yet)."""
+        from .auth import user_contract
+        if self.auth_config is not None and self.auth_config.roles != stmt.roles:
+            raise MCNError("auth is declared twice with different roles", stmt.line, stmt.col)
+        self.auth_config = stmt
+        contract = user_contract(stmt.roles)
+        env.define("User", contract)
+        self.functions["User"] = contract
+
+    def _checked_roles(self, roles: List[str], node) -> List[str]:
+        """Validate role names used in allow (typos would lock everyone out)."""
+        import difflib
+        if self.auth_config is None:
+            raise MCNError("'allow' needs an auth block with roles, e.g.\n"
+                           "auth\n    roles admin, staff", node.line, node.col)
+        known = self.auth_config.roles
+        for r in roles:
+            if r not in known:
+                close = difflib.get_close_matches(r, known, n=1)
+                hint = f" Did you mean '{close[0]}'?" if close else ""
+                raise MCNError(f"Unknown role '{r}' (roles: {', '.join(known)}).{hint}",
+                               node.line, node.col)
+        return list(roles)
+
+    def _ensure_app_auth(self, service, env: Environment) -> None:
+        """Create users table + login endpoints with the first service."""
+        from .auth import AppAuth
+        if self.app_auth is None:
+            cfg = self.auth_config
+            self.app_auth = AppAuth(cfg.roles, cfg.session_hours, self.functions["query"],
+                                    actor=lambda: self.current_user,
+                                    permissions=self.permissions_for)
+            self.audit_log = self.app_auth.audit
+        for name, fn in self.app_auth.endpoints().items():
+            if name in self.function_params:
+                continue                         # already on an earlier service
+            service.add_endpoint(name, ["payload"], fn)
+            env.define(name, fn)
+            self.functions[name] = fn
+            self.function_params[name] = ["payload"]
+
+    def _ensure_audit(self, service, env: Environment):
+        from .crud import AuditLog
+        if self.audit_log is None:
+            self.audit_log = AuditLog(self.functions["query"])
+            if self.auth_config is None:          # with auth, AppAuth adds it (admin-only)
+                fn = self.audit_log.list
+
+                def list_audit_log(payload: Any = None):
+                    return fn(payload)
+                list_audit_log._mcn_body = True
+                list_audit_log._mcn_access = "public"
+                service.add_endpoint("list_audit_log", ["payload"], list_audit_log)
+                env.define("list_audit_log", list_audit_log)
+                self.functions["list_audit_log"] = list_audit_log
+                self.function_params["list_audit_log"] = ["payload"]
+        return self.audit_log
+
+    def permissions_for(self, user: Optional[Dict[str, Any]]) -> List[str]:
+        """Endpoint names this user may call."""
+        from .auth import allowed
+        return sorted(name for name in self.function_params
+                      if allowed(getattr(self.functions.get(name), "_mcn_access", "user"), user))
+
     def _did_you_mean(self, name: str, env: Environment) -> str:
         """" Did you mean 'total'?" for the closest known names, or ""."""
         import difflib
@@ -693,6 +769,8 @@ class Evaluator:
                 return endpoint_fn
 
             fn = make_endpoint_fn(params, defaults, body, captured_env)
+            fn._mcn_access = ("public" if ep.public else
+                              self._checked_roles(ep.allow, ep) if ep.allow else "user")
             service.add_endpoint(ep.name, params, fn)
             # Also expose each endpoint as a top-level function so tests and
             # scripts can call submit_claim(...) directly without the service prefix.
@@ -702,6 +780,9 @@ class Evaluator:
 
         for crud in stmt.cruds:
             self._exec_crud(crud, service, env)
+
+        if self.auth_config is not None:
+            self._ensure_app_auth(service, env)
 
         env.define(stmt.name, service)
         self.functions[stmt.name] = service
@@ -720,13 +801,20 @@ class Evaluator:
                 crud.line, crud.col)
         if "query" not in self.functions:
             raise MCNError("crud needs a database (query) function", crud.line, crud.col)
+        audit = self._ensure_audit(service, env) if crud.audit else None
         try:
             resource = CrudResource(contract, self.functions["query"], search=crud.search,
-                                    sort=crud.sort, page_size=crud.page_size)
+                                    sort=crud.sort, page_size=crud.page_size,
+                                    audit=audit, actor=lambda: self.current_user)
         except ValueError as exc:
             raise MCNError(str(exc), crud.line, crud.col)
         resource.ensure_table()
-        for name, fn in resource.endpoints().items():
+        action_of = {"list": "read", "get": "read", "create": "write",
+                     "update": "write", "delete": "delete"}
+        for action, name in ((a, resource.names[a]) for a in action_of):
+            roles = crud.allow.get(action_of[action])
+            fn = resource.endpoints()[name]
+            fn._mcn_access = self._checked_roles(roles, crud) if roles else "user"
             service.add_endpoint(name, ["payload"], fn)
             env.define(name, fn)
             self.functions[name] = fn

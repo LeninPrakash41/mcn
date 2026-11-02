@@ -5,19 +5,34 @@ include "models.mcn"
 service crm
     port 8080
 
+    // Everyone can read; sales and admins can edit; only admins delete leads
+    // and companies. Every change is recorded in the activity log.
     crud Lead
-        search    name, email, company
-        sort      created_at desc
-        page_size 10
+        search       name, email, company
+        sort         created_at desc
+        page_size    10
+        allow read:   admin, sales, viewer
+        allow write:  admin, sales
+        allow delete: admin
+        audit
 
     crud Company
-        search name, city
-        sort   name
+        search       name, city
+        sort         name
+        allow read:   admin, sales, viewer
+        allow write:  admin, sales
+        allow delete: admin
+        audit
 
     crud FollowUp
-        search title, lead
-        sort   due
+        search       title, lead
+        sort         due
+        allow read:   admin, sales, viewer
+        allow write:  admin, sales
+        allow delete: admin, sales
+        audit
 
+    // Any signed-in user. (Use `allow admin, sales` to limit, or `public`.)
     endpoint get_dashboard()
         var open = query("SELECT COUNT(*) AS n, COALESCE(SUM(value), 0) AS total FROM leads WHERE stage NOT IN ('won', 'lost')")[0]
         var won  = query("SELECT COUNT(*) AS n, COALESCE(SUM(value), 0) AS total FROM leads WHERE stage = 'won'")[0]

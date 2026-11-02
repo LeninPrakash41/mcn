@@ -67,6 +67,14 @@ component FollowUps
     render
         crud_table FollowUp columns=["title", "lead", "due", "priority", "done"] title="Follow-ups"
 
+component Users
+    render
+        crud_table User columns=["name", "email", "role", "active"] title="Users"
+
+component Activity
+    render
+        audit_log
+
 app SalesCRM
     title "Sales CRM"
     theme "professional"
@@ -76,3 +84,5 @@ app SalesCRM
             nav "Leads"      icon="users"            component=Leads
             nav "Companies"  icon="building-2"       component=Companies
             nav "Follow-ups" icon="calendar-check"   component=FollowUps
+            nav "Users"      icon="shield"           component=Users     allow admin
+            nav "Activity"   icon="history"          component=Activity  allow admin

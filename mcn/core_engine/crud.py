@@ -54,7 +54,7 @@ def crud_names(contract_name: str) -> Dict[str, str]:
 # ── Field specs & validation ──────────────────────────────────────────────────
 
 FIELD_TYPES = {"str", "string", "text", "int", "float", "number", "bool",
-               "date", "datetime", "choice", "any"}
+               "date", "datetime", "choice", "password", "any"}
 
 SQL_TYPES = {"int": "INTEGER", "bool": "INTEGER", "float": "REAL", "number": "REAL"}
 
@@ -142,6 +142,12 @@ def coerce(spec: FieldSpec, value: Any) -> Any:
         if value not in spec.choices:
             raise ValueError("must be one of " + ", ".join(spec.choices))
         return value
+    if t == "password":
+        text = str(value)
+        if len(text) < 8:
+            raise ValueError("must be at least 8 characters")
+        from .auth_primitives import _hash_pw
+        return _hash_pw(text)               # stored hashed, never returned
     if t in ("str", "string", "text"):
         if isinstance(value, (dict, list)):
             raise ValueError("must be text")
@@ -171,8 +177,8 @@ def check(specs: List[FieldSpec], data: Dict[str, Any],
         if isinstance(value, str) and value.strip() == "" and spec.type != "choice":
             value = None
         if not present or value is None or value == "":
-            if partial and not present:
-                continue
+            if partial and (not present or spec.type == "password"):
+                continue                    # blank password on update = keep it
             if spec.has_default and not present:
                 clean[spec.name] = spec.default
             elif spec.optional:
@@ -220,12 +226,16 @@ class CrudResource:
     """Table + endpoints for one contract."""
 
     def __init__(self, contract, query: Callable, search: List[str] = (),
-                 sort: str = "", page_size: int = 25):
+                 sort: str = "", page_size: int = 25, table: Optional[str] = None,
+                 audit: Optional["AuditLog"] = None,
+                 actor: Optional[Callable[[], Optional[Dict[str, Any]]]] = None):
         self.contract  = contract
         self.specs: List[FieldSpec] = contract.specs
         self.query     = query
         self.names     = crud_names(contract.name)
-        self.table     = self.names["table"]
+        self.table     = table or self.names["table"]
+        self.audit     = audit           # AuditLog, or None
+        self.actor     = actor or (lambda: None)   # current user (for audit)
         self.label     = contract.name
         self.page_size = max(1, min(int(page_size or 25), 200))
         field_names    = {s.name for s in self.specs}
@@ -238,10 +248,14 @@ class CrudResource:
 
     # ── schema ────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _col(spec: FieldSpec) -> str:
+        return "password_hash" if spec.type == "password" else spec.name
+
     def ensure_table(self) -> None:
         cols = ['"id" INTEGER PRIMARY KEY AUTOINCREMENT']
         for s in self.specs:
-            col = f'"{s.name}" {SQL_TYPES.get(s.type, "TEXT")}'
+            col = f'"{self._col(s)}" {SQL_TYPES.get(s.type, "TEXT")}'
             if s.unique:
                 col += " UNIQUE"
             cols.append(col)
@@ -251,9 +265,9 @@ class CrudResource:
         existing = {r["name"] for r in self.query(
             f"SELECT name FROM pragma_table_info('{self.table}')")}
         for s in self.specs:
-            if s.name not in existing:
+            if self._col(s) not in existing:
                 self.query(f'ALTER TABLE "{self.table}" ADD COLUMN '
-                           f'"{s.name}" {SQL_TYPES.get(s.type, "TEXT")}')
+                           f'"{self._col(s)}" {SQL_TYPES.get(s.type, "TEXT")}')
         for sys_col in ("created_at", "updated_at"):
             if sys_col not in existing:
                 self.query(f'ALTER TABLE "{self.table}" ADD COLUMN "{sys_col}" TEXT')
@@ -265,12 +279,13 @@ class CrudResource:
         field = parts[0] if parts else "id"
         desc  = field.startswith("-") or (len(parts) > 1 and parts[1].lower() == "desc")
         field = field.lstrip("-")
-        allowed = {s.name for s in self.specs} | set(SYSTEM_FIELDS)
+        allowed = {s.name for s in self.specs if s.type != "password"} | set(SYSTEM_FIELDS)
         if field not in allowed:
             raise BadRequest({"error": f"Cannot sort by '{field}'"})
         return field, "DESC" if desc else "ASC"
 
     def _row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        row.pop("password_hash", None)       # never leaves the server
         for s in self.specs:
             if s.type == "bool" and row.get(s.name) is not None:
                 row[s.name] = bool(row[s.name])
@@ -344,6 +359,8 @@ class CrudResource:
             where.append("(" + " OR ".join(f'"{f}" LIKE ?' for f in self.search) + ")")
             params += [f"%{term}%"] * len(self.search)
         for s in self.specs:                      # ?stage=won → exact filter
+            if s.type == "password":
+                continue
             if s.name in p and p[s.name] not in (None, ""):
                 try:
                     value = coerce(s, p[s.name])
@@ -364,7 +381,7 @@ class CrudResource:
         return self._fetch(self._id(payload))
 
     def create(self, payload: Any = None) -> Dict[str, Any]:
-        values = self._validated(payload or {}, partial=False)
+        values = self._db_values(self._validated(payload or {}, partial=False))
         now  = _now()
         cols = list(values) + ["created_at", "updated_at"]
         vals = list(values.values()) + [now, now]
@@ -374,23 +391,55 @@ class CrudResource:
             self.query(f'INSERT INTO "{self.table}" ({col_sql}) '
                        f'VALUES ({", ".join("?" for _ in cols)})', tuple(vals))
             new_id = self.query("SELECT last_insert_rowid() AS id")[0]["id"]
-        return self._fetch(new_id)
+        row = self._fetch(new_id)
+        self._log("create", new_id, {k: v for k, v in row.items()
+                                     if k not in SYSTEM_FIELDS and v not in (None, "")})
+        return row
 
     def update(self, payload: Any = None) -> Dict[str, Any]:
         item_id = self._id(payload)
-        self._fetch(item_id)                       # 404 if missing
-        values = self._validated(payload, partial=True, exclude_id=item_id)
+        before  = self._fetch(item_id)             # 404 if missing
+        clean   = self._validated(payload, partial=True, exclude_id=item_id)
+        self.before_update(before, clean)
+        values = self._db_values(clean)
         values["updated_at"] = _now()
         sets = ", ".join(f'"{c}" = ?' for c in values)
         self.query(f'UPDATE "{self.table}" SET {sets} WHERE "id" = ?',
                    tuple(values.values()) + (item_id,))
-        return self._fetch(item_id)
+        after = self._fetch(item_id)
+        changes = {k: [before.get(k), after.get(k)] for k in clean
+                   if k in after and before.get(k) != after.get(k)}
+        if any(s.type == "password" for s in self.specs if s.name in clean):
+            changes["password"] = ["•••", "changed"]
+        if changes:
+            self._log("update", item_id, changes)
+        return after
 
     def delete(self, payload: Any = None) -> Dict[str, Any]:
         item_id = self._id(payload)
-        self._fetch(item_id)
+        before  = self._fetch(item_id)
+        self.before_delete(before)
         self.query(f'DELETE FROM "{self.table}" WHERE "id" = ?', (item_id,))
+        self._log("delete", item_id, {k: v for k, v in before.items()
+                                      if k not in SYSTEM_FIELDS and v not in (None, "")})
         return {"deleted": True, "id": item_id}
+
+    # ── hooks / helpers for create, update, delete ───────────────────────────
+
+    def before_update(self, before: Dict[str, Any], changes: Dict[str, Any]) -> None:
+        """Override to veto an update (raise BadRequest)."""
+
+    def before_delete(self, row: Dict[str, Any]) -> None:
+        """Override to veto a delete (raise BadRequest)."""
+
+    def _db_values(self, clean: Dict[str, Any]) -> Dict[str, Any]:
+        """Field names → column names (password → password_hash)."""
+        specs = {s.name: s for s in self.specs}
+        return {(self._col(specs[k]) if k in specs else k): v for k, v in clean.items()}
+
+    def _log(self, action: str, item_id: int, changes: Dict[str, Any]) -> None:
+        if self.audit is not None:
+            self.audit.record(action, self.contract.name, item_id, changes, self.actor())
 
     def endpoints(self) -> Dict[str, Callable]:
         """name → callable taking one payload dict (or an id)."""
@@ -405,3 +454,75 @@ class CrudResource:
             endpoint._mcn_body = True          # mcn serve passes the whole body/query
             out[self.names[action]] = endpoint
         return out
+
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+
+class AuditLog:
+    """Append-only record of who changed what: `audit` on a crud, logins."""
+
+    TABLE = "audit_log"
+
+    def __init__(self, query: Callable):
+        self.query = query
+        self.query(
+            f'CREATE TABLE IF NOT EXISTS "{self.TABLE}" ('
+            '"id" INTEGER PRIMARY KEY AUTOINCREMENT, "at" TEXT, "user_id" INTEGER, '
+            '"user_email" TEXT, "action" TEXT, "entity" TEXT, "entity_id" INTEGER, '
+            '"summary" TEXT, "changes" TEXT)')
+
+    @staticmethod
+    def _summary(action: str, entity: str, changes: Dict[str, Any]) -> str:
+        if action == "update":
+            return "Changed " + ", ".join(sorted(changes))
+        if action in ("create", "delete"):
+            name = next((v for k, v in changes.items()
+                         if k in ("name", "title", "email") and v), None)
+            verb = "Created" if action == "create" else "Deleted"
+            return f"{verb} {snake(entity).replace('_', ' ')}" + (f" “{name}”" if name else "")
+        return changes.get("note", action.replace("_", " ").capitalize())
+
+    def record(self, action: str, entity: str, entity_id: Optional[int],
+               changes: Dict[str, Any], user: Optional[Dict[str, Any]] = None) -> None:
+        import json as _json
+        self.query(
+            f'INSERT INTO "{self.TABLE}" ("at", "user_id", "user_email", "action", '
+            '"entity", "entity_id", "summary", "changes") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (_now(), (user or {}).get("id"), (user or {}).get("email"), action, entity,
+             entity_id, self._summary(action, entity, changes),
+             _json.dumps(changes, default=str, ensure_ascii=False)))
+
+    def list(self, payload: Any = None) -> Dict[str, Any]:
+        import json as _json
+        p = payload if isinstance(payload, dict) else {}
+        try:
+            page      = max(1, int(p.get("page") or 1))
+            page_size = max(1, min(int(p.get("page_size") or 25), 200))
+        except (TypeError, ValueError):
+            raise BadRequest({"error": "page and page_size must be numbers"})
+        where, params = [], []
+        term = str(p.get("search") or "").strip()
+        if term:
+            where.append('("summary" LIKE ? OR "user_email" LIKE ? OR "changes" LIKE ?)')
+            params += [f"%{term}%"] * 3
+        for key in ("entity", "action", "user_email"):
+            if p.get(key):
+                where.append(f'"{key}" = ?')
+                params.append(str(p[key]))
+        if p.get("entity_id"):
+            where.append('"entity_id" = ?')
+            params.append(int(p["entity_id"]))
+        clause = (" WHERE " + " AND ".join(where)) if where else ""
+        total = self.query(f'SELECT COUNT(*) AS n FROM "{self.TABLE}"{clause}',
+                           tuple(params) or None)[0]["n"]
+        rows = self.query(f'SELECT * FROM "{self.TABLE}"{clause} ORDER BY "id" DESC '
+                          'LIMIT ? OFFSET ?', tuple(params) + (page_size, (page - 1) * page_size))
+        for r in rows:
+            try:
+                r["changes"] = _json.loads(r["changes"] or "{}")
+            except ValueError:
+                pass
+        entities = [r["entity"] for r in self.query(
+            f'SELECT DISTINCT "entity" FROM "{self.TABLE}" ORDER BY "entity"')]
+        return {"items": rows, "total": total, "page": page, "page_size": page_size,
+                "entities": entities}

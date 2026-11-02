@@ -563,9 +563,11 @@ def create_v3_event_package(event_system: MCNEventSystem):
         event_system.on_event(event_name, handler)
         return f"Handler registered for event '{event_name}'"
     
-    def trigger_event(event_name: str, **data):
-        """Trigger an event"""
-        return event_system.trigger_event(event_name, data)
+    def trigger_event(event_name: str, data: Dict = None, **extra):
+        """Trigger an event:  trigger("name", {key: value})"""
+        payload = dict(data) if isinstance(data, dict) else ({} if data is None else {"value": data})
+        payload.update(extra)
+        return event_system.trigger_event(event_name, payload)
     
     return {
         "on": on_event,

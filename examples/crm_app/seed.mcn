@@ -1,5 +1,11 @@
 // Sample data — only inserted when the database is empty.
 
+// Demo accounts (change or delete them in the Users screen)
+if list_users().total == 0
+    create_user({name: "Anita Admin",  email: "admin@crm.local",  role: "admin",  password: "admin1234"})
+    create_user({name: "Sam Sales",    email: "sales@crm.local",  role: "sales",  password: "sales1234"})
+    create_user({name: "Vani Viewer",  email: "viewer@crm.local", role: "viewer", password: "viewer1234"})
+
 if list_leads().total == 0
     var leads = [
         {name: "Asha Rao",     email: "asha@acmesoft.in",   company: "AcmeSoft",     stage: "qualified", value: 450000, source: "referral",  follow_up: "2026-11-12"},

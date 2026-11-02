@@ -562,6 +562,59 @@ confirmation. It compiles to a readable `CrudTable.tsx` you can customise.
 
 Number helpers: `format_currency(123456)` → `₹1,23,456`, `format_number(1234567, 0, "intl")` → `1,234,567`.
 
+### Sign-in, roles and the activity log (`auth`, `allow`, `audit`)
+
+```mcn
+// models.mcn — shared by backend and UI
+auth
+    roles         admin, sales, viewer     // the first role is the administrator
+    session_hours 12
+
+// backend.mcn
+service crm
+    crud Lead
+        allow read:   admin, sales, viewer
+        allow write:  admin, sales         // create + update
+        allow delete: admin
+        audit                              // record every create / update / delete
+
+    endpoint get_dashboard()               // any signed-in user (default)
+        return {me: current_user.name}
+    endpoint pipeline() allow admin, sales
+        return ...
+    endpoint health() public               // no sign-in needed
+        return {ok: true}
+
+// app.mcn
+component Users
+    render
+        crud_table User                    // built-in user management
+component Activity
+    render
+        audit_log                          // who changed what, and when
+app CRM
+    layout
+        sidebar
+            nav "Leads"    icon="users"   component=Leads
+            nav "Users"    icon="shield"  component=Users     allow admin
+            nav "Activity" icon="history" component=Activity  allow admin
+```
+
+With an `auth` block:
+
+- Every endpoint needs a signed-in user unless it is marked `public`; `allow` limits it to roles.
+  The server answers 401 when signed out and 403 for the wrong role. Unknown role names are an error.
+- Built-in endpoints: `POST /login`, `GET /me` (user + the endpoints they may call),
+  `GET /auth_status`, `POST /setup` (creates the first administrator while there are no users),
+  and admin-only `list_users` / `create_user` / `update_user` / `delete_user` / `list_audit_log`.
+- Passwords are stored as PBKDF2 hashes and never returned. Admins can't remove their own access.
+- Inside endpoints, `current_user` is the signed-in user (`current_user.role`, `current_user.email`).
+- The UI gets a sign-in screen (and a "create the admin account" screen on first run), the signed-in
+  user with a sign-out button, nav items per role, and tables that hide Add / Edit / Delete when the
+  role can't use them.
+- `audit` records changes with before/after values; sign-ins and failed sign-ins are recorded too.
+- Sessions are signed with `MCN_SECRET`; without it, a random secret is generated once and kept in the database.
+
 ### Lists, conditions and row actions in `render`
 
 ```mcn

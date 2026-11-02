@@ -176,7 +176,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Access-Control-Allow-Origin",  cors_origin)
             self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
             self.wfile.write(body)
 
@@ -184,7 +184,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin",  cors_origin)
             self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
 
         def _resolve_endpoint(self, raw_path: str):
@@ -254,8 +254,25 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             self._call(evaluator.functions[fn_name], args)
 
         def _call(self, fn, args):
-            """Run an endpoint; map MCN HTTP errors to their status codes."""
+            """Check login/role, run an endpoint, map MCN errors to status codes."""
             from .crud import MCNHttpError, ValidationErrors
+            user = None
+            app_auth = getattr(evaluator, "app_auth", None)
+            if app_auth is not None:
+                from .auth import allowed
+                access = getattr(fn, "_mcn_access", "user")
+                header = self.headers.get("Authorization", "")
+                token = header[7:] if header.startswith("Bearer ") else None
+                user = app_auth.authenticate(token) if token else None
+                if not allowed(access, user):
+                    if user is None:
+                        self._send_json(401, {"error": "Please sign in"})
+                    else:
+                        self._send_json(403, {"error": f"Your role ({user.get('role')}) "
+                                                       "isn't allowed to do this"})
+                    return
+            evaluator.current_user = user
+            evaluator.globals.define("current_user", user)
             try:
                 result = fn(*args)
                 self._send_json(200, result if result is not None else {})
@@ -270,6 +287,9 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                     self._send_json(cause.status, cause.payload)
                 else:
                     self._send_json(500, {"error": str(exc)})
+            finally:
+                evaluator.current_user = None
+                evaluator.globals.define("current_user", None)
 
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)

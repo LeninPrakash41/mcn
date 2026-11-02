@@ -372,6 +372,8 @@ class UICompiler:
         self._contracts = {name: v for name, v in evaluator.globals.as_dict.items()
                            if isinstance(v, MCNContract)}
         self._crud_used: Dict[str, object] = {}
+        self._auth = getattr(evaluator, "auth_config", None)      # AuthDecl or None
+        self._audit_used = False
 
         theme = app_decl.theme if app_decl else "default"
 
@@ -379,6 +381,20 @@ class UICompiler:
         for name, comp in components.items():
             path = src / "components" / f"{name}.tsx"
             path.write_text(self._compile_component(comp))
+            written.append(path)
+            print(f"  write  {path.relative_to(self.out.parent)}")
+
+        # 1a. Auth (sign-in / permissions) and the audit_log screen
+        from .ui_auth import AUTH_TSX, AUTH_SHADCN, AUDIT_LOG_TSX, AUDIT_SHADCN
+        extra_files = []
+        if self._auth is not None or self._crud_used:
+            extra_files.append((src / "auth.tsx", AUTH_TSX))     # CrudTable uses useAuth
+            self._shadcn_needed.update(AUTH_SHADCN)
+        if self._audit_used:
+            extra_files.append((src / "components" / "AuditLog.tsx", AUDIT_LOG_TSX))
+            self._shadcn_needed.update(AUDIT_SHADCN)
+        for path, text in extra_files:
+            path.write_text(text)
             written.append(path)
             print(f"  write  {path.relative_to(self.out.parent)}")
 
@@ -711,6 +727,12 @@ class UICompiler:
             return self._ui_for_to_jsx(el, indent)
         if el.tag == "crud_table":
             return self._crud_table_jsx(el, indent)
+        if el.tag == "audit_log":
+            self._audit_used = True
+            self._extra_imports.add('import { AuditLog } from "./AuditLog"')
+            props = "".join(f" {_camel(a.key)}={{{_expr_to_ts(a.value)}}}"
+                            for a in el.attrs if a.value is not None and a.key in ("title", "page_size"))
+            return [f"{' ' * indent}<AuditLog{props} />"]
         pad   = " " * indent
         tag   = el.tag
         lines: List[str] = []
@@ -1599,6 +1621,20 @@ class UICompiler:
 
     def _gen_app_tsx(self, app: Optional[ast.AppDecl],
                      components: Dict[str, ast.ComponentDecl]) -> str:
+        code = self._gen_app_tsx_inner(app, components)
+        if getattr(self, "_auth", None) is not None and "<AuthProvider>" not in code:
+            # Layouts without the sidebar shell: gate the whole app behind sign-in
+            title = (app.title if app else "") or "MCN App"
+            code = code.replace("export default function App()", "function AppContent()", 1)
+            code = code.replace('import "./globals.css"',
+                                'import "./globals.css"\nimport { AuthGate, AuthProvider } from "./auth"', 1)
+            code += (f"\nexport default function App() {{\n"
+                     f"  return (\n    <AuthProvider>\n      <AuthGate title={json.dumps(title)}>\n"
+                     f"        <AppContent />\n      </AuthGate>\n    </AuthProvider>\n  )\n}}\n")
+        return code
+
+    def _gen_app_tsx_inner(self, app: Optional[ast.AppDecl],
+                           components: Dict[str, ast.ComponentDecl]) -> str:
         title = app.title if app else "MCN App"
 
         comp_imports = "\n".join(
@@ -1719,11 +1755,22 @@ export default function App() {{
         # Icons: the declared icon="layout-dashboard" (→ LayoutDashboard),
         # otherwise a guess from the label
         def nav_icon(n) -> str:
-            return _pascal(n.icon.replace("-", "_")) if n.icon else self._nav_icon(n.label)
+            # lucide-react exports every icon also as <Name>Icon; using that
+            # form avoids clashes with component names (Users, Calendar, …)
+            base = _pascal(n.icon.replace("-", "_")) if n.icon else self._nav_icon(n.label)
+            return base if base.endswith("Icon") else base + "Icon"
 
         icon_names = [nav_icon(n) for n in layout.sidebar]
+        auth = getattr(self, "_auth", None)
 
-        mobile_items = "\n".join(
+        def guard(n, jsx: str, pad: str = "          ") -> str:
+            """Show a nav item / page only to its allowed roles."""
+            if not (auth and n.allow):
+                return jsx
+            roles = ", ".join(json.dumps(r) for r in n.allow)
+            return f"{pad}{{hasRole({roles}) && (\n{jsx}\n{pad})}}"
+
+        mobile_items = "\n".join(guard(n, 
             f'          <button\n'
             f'            onClick={{() => setActive("{n.label}")}}\n'
             f'            className={{`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium ${{active === "{n.label}" '
@@ -1731,11 +1778,11 @@ export default function App() {{
             f'          >\n'
             f'            <{nav_icon(n)} className="h-4 w-4" />\n'
             f'            {n.label}\n'
-            f'          </button>'
+            f'          </button>')
             for n in layout.sidebar
         )
 
-        nav_items = "\n".join(
+        nav_items = "\n".join(guard(n, 
             f'          <button\n'
             f'            onClick={{() => setActive("{n.label}")}}\n'
             f'            className={{`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm '
@@ -1745,29 +1792,79 @@ export default function App() {{
             f'          >\n'
             f'            <{nav_icon(n)} className="w-4 h-4 shrink-0" />\n'
             f'            {n.label}\n'
-            f'          </button>'
+            f'          </button>')
             for n in layout.sidebar
         )
 
-        pages = "\n".join(
-            f'      {{active === "{n.label}" && <{n.component or _pascal(n.label)} />}}'
-            for n in layout.sidebar
-        )
+        def page(n) -> str:
+            cond = f'active === "{n.label}"'
+            if auth and n.allow:
+                cond += " && hasRole(" + ", ".join(json.dumps(r) for r in n.allow) + ")"
+            return f'      {{{cond} && <{n.component or _pascal(n.label)} />}}'
 
-        default_page = layout.sidebar[0].label if layout.sidebar else ""
+        pages = "\n".join(page(n) for n in layout.sidebar)
 
-        app_icon = self._nav_icon(title.split()[0].lower()) if title else "Circle"
-        all_icons = sorted(set(icon_names) | {app_icon, "LogOut", "ChevronRight"})
+        # Open on the first page everyone can see
+        open_first = next((n for n in layout.sidebar if not n.allow), None) if auth else None
+        default_page = (open_first or (layout.sidebar[0] if layout.sidebar else None))
+        default_page = default_page.label if default_page else ""
+
+        app_icon = (self._nav_icon(title.split()[0].lower()) if title else "Circle") + "Icon"
+        all_icons = sorted(set(icon_names) | {app_icon, "LogOutIcon", "ChevronRightIcon"})
         icons_import_full = ", ".join(all_icons)
 
-        return f'''\
+        if auth:
+            auth_import = 'import { AuthGate, AuthProvider, useAuth } from "./auth"\n'
+            app_wrapper = (
+                f"export default function App() {{\n"
+                f"  return (\n"
+                f"    <AuthProvider>\n"
+                f"      <AuthGate title={json.dumps(title or 'MCN App')}>\n"
+                f"        <Shell />\n"
+                f"      </AuthGate>\n"
+                f"    </AuthProvider>\n"
+                f"  )\n"
+                f"}}\n\n"
+            )
+            shell_head = ("function Shell() {\n"
+                          "  const { user, hasRole, logout } = useAuth()\n")
+            footer = (
+                '        {/* Signed-in user */}\n'
+                '        <div className="border-t p-3">\n'
+                '          <div className="flex items-center gap-3 rounded-lg px-2 py-2">\n'
+                '            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">\n'
+                '              {(user?.name ?? "?").slice(0, 1).toUpperCase()}\n'
+                '            </div>\n'
+                '            <div className="min-w-0 flex-1">\n'
+                '              <p className="truncate text-sm font-medium">{user?.name}</p>\n'
+                '              <p className="truncate text-xs text-muted-foreground"><span className="capitalize">{user?.role}</span> · {user?.email}</p>\n'
+                '            </div>\n'
+                '            <button onClick={logout} title="Sign out" aria-label="Sign out"\n'
+                '                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">\n'
+                '              <LogOutIcon className="h-4 w-4" />\n'
+                '            </button>\n'
+                '          </div>\n'
+                '        </div>'
+            )
+            mobile_signout = (
+                '\n          <button onClick={logout} aria-label="Sign out" className="ml-auto rounded-md p-1.5 text-muted-foreground hover:bg-accent">\n'
+                '            <LogOutIcon className="h-4 w-4" />\n'
+                '          </button>'
+            )
+        else:
+            auth_import = ""
+            app_wrapper = ""
+            shell_head = "export default function App() {\n"
+            footer = None
+            mobile_signout = ""
+
+        code = f'''\
 import React, {{ useState }} from "react"
 import {{ {icons_import_full} }} from "lucide-react"
 {comp_imports}
 import "./globals.css"
-
-export default function App() {{
-  const [active, setActive] = useState("{default_page}")
+{auth_import}
+{app_wrapper}{shell_head}  const [active, setActive] = useState("{default_page}")
 
   return (
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
@@ -1777,7 +1874,7 @@ export default function App() {{
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
             <{app_icon} className="h-4 w-4 text-primary-foreground" />
           </div>
-          <h2 className="text-sm font-bold">{title}</h2>
+          <h2 className="text-sm font-bold">{title}</h2>{mobile_signout}
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
 {mobile_items}
@@ -1812,7 +1909,7 @@ export default function App() {{
               <p className="text-xs font-medium truncate">User</p>
               <p className="text-xs text-muted-foreground truncate">user@example.com</p>
             </div>
-            <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ChevronRightIcon className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       </aside>
@@ -1826,6 +1923,11 @@ export default function App() {{
   )
 }}
 '''
+        if footer is not None:
+            start = code.index("        {/* User footer */}")
+            end = code.index("      </aside>")
+            code = code[:start] + footer + "\n" + code[end:]
+        return code
 
     def _gen_router_layout(self, app: ast.AppDecl,
                             components: Dict[str, ast.ComponentDecl],
@@ -1881,6 +1983,18 @@ export default function App() {{
  */
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080"
+const TOKEN_KEY = "mcn_token"
+
+/** Session token (set by sign-in; sent as `Authorization: Bearer …`). */
+export function getToken(): string | null {
+  try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
+}
+export function setToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch { /* storage unavailable */ }
+}
 
 /** Error from an MCN endpoint. `data.errors` maps field names to messages. */
 export class ApiError extends Error {
@@ -1894,11 +2008,15 @@ export class ApiError extends Error {
 }
 
 async function request<T = any>(path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(`${BASE}${path}`, {
     method:  body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body:    body ? JSON.stringify(body) : undefined,
   })
+  if (res.status === 401 && token) window.dispatchEvent(new Event("mcn:unauthorized"))
   const text = await res.text()
   let data: any = null
   try { data = text ? JSON.parse(text) : null } catch { data = { error: text } }

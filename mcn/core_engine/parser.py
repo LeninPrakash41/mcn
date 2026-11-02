@@ -11,7 +11,7 @@ Key improvements over v1:
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .lexer import Token, TT, KEYWORDS
 from . import ast_nodes as ast
@@ -192,6 +192,10 @@ class Parser:
         if tok.type == TT.USE:      return self._use_stmt()
         if tok.type == TT.FUNCTION: return self._function_decl()
         if tok.type == TT.RETURN:   return self._return_stmt()
+        if (tok.type == TT.IDENTIFIER and tok.value == "auth" and
+                self._pos + 1 < len(self._tokens) and
+                self._tokens[self._pos + 1].type == TT.NEWLINE):
+            return self._auth_decl()
         # 2030 language primitives
         if tok.type == TT.PIPELINE: return self._pipeline_decl()
         if tok.type == TT.SERVICE:  return self._service_decl()
@@ -893,10 +897,58 @@ class Parser:
         if self._match(TT.LPAREN):
             params, defaults, _ = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after endpoint parameters")
+        allow: List[str] = []
+        public = False
+        if self._check(TT.IDENTIFIER) and self._current().value == "allow":
+            self._advance()
+            allow = self._name_list("Expected a role name after 'allow'")
+        elif self._check(TT.IDENTIFIER) and self._current().value == "public":
+            self._advance()
+            public = True
         self._consume_end()
         body = self._block()
         return ast.EndpointDecl(name=name_tok.value, params=params, defaults=defaults,
-                                body=body, line=tok.line, col=tok.col)
+                                body=body, allow=allow, public=public,
+                                line=tok.line, col=tok.col)
+
+    def _name_list(self, message: str) -> List[str]:
+        """a, b, c  — one or more names separated by commas."""
+        names = [self._name(message).value]
+        while self._match(TT.COMMA):
+            names.append(self._name(message).value)
+        return names
+
+    def _auth_decl(self) -> ast.AuthDecl:
+        """
+        auth
+            roles         admin, sales, viewer
+            session_hours 12
+        """
+        tok = self._advance()                    # consume `auth`
+        self._consume_end()
+        roles: List[str] = []
+        hours = 12
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+                opt = self._name("Expected an auth option (roles or session_hours)")
+                if opt.value == "roles":
+                    roles = self._name_list("Expected a role name")
+                elif opt.value == "session_hours":
+                    hours = int(float(self._consume(TT.NUMBER, "Expected a number of hours").value))
+                else:
+                    raise ParseError(f"Unknown auth option '{opt.value}' "
+                                     "(expected roles or session_hours)", opt)
+                self._consume_end()
+            if self._check(TT.DEDENT):
+                self._advance()
+        if not roles:
+            raise ParseError("auth needs a roles line, e.g. roles admin, staff", tok)
+        return ast.AuthDecl(roles=roles, session_hours=hours, line=tok.line, col=tok.col)
 
     def _workflow_decl(self) -> ast.WorkflowDecl:
         """
@@ -1010,6 +1062,8 @@ class Parser:
         self._consume_end()
         search: List[str] = []
         sort, page_size = "", 25
+        allow: Dict[str, List[str]] = {}
+        audit = False
         self._skip_newlines()
         if self._check(TT.INDENT):
             self._advance()
@@ -1028,14 +1082,28 @@ class Parser:
                         sort += " " + self._advance().value
                 elif opt.value == "page_size":
                     page_size = int(float(self._consume(TT.NUMBER, "Expected a number").value))
+                elif opt.value == "audit":
+                    audit = True
+                elif opt.value == "allow":
+                    # allow read: a, b  |  allow write: a  |  allow delete: a  |  allow a, b
+                    actions = ["read", "write", "delete"]
+                    if (self._check(TT.IDENTIFIER) and self._current().value in actions and
+                            self._pos + 1 < len(self._tokens) and
+                            self._tokens[self._pos + 1].type == TT.COLON):
+                        actions = [self._advance().value]
+                        self._advance()          # ':'
+                    roles = self._name_list("Expected a role name")
+                    for a in actions:
+                        allow[a] = roles
                 else:
                     raise ParseError(f"Unknown crud option '{opt.value}' "
-                                     "(expected search, sort or page_size)", opt)
+                                     "(expected search, sort, page_size, allow or audit)", opt)
                 self._consume_end()
             if self._check(TT.DEDENT):
                 self._advance()
         return ast.CrudDecl(contract=contract, search=search, sort=sort,
-                            page_size=page_size, line=tok.line, col=tok.col)
+                            page_size=page_size, allow=allow, audit=audit,
+                            line=tok.line, col=tok.col)
 
     def _prompt_decl(self) -> ast.PromptDecl:
         """
@@ -1636,6 +1704,7 @@ class Parser:
                                 label_tok = self._consume(TT.STRING, "Expected nav label")
                                 icon = ""
                                 comp = ""
+                                nav_allow: List[str] = []
                                 while not self._at_eol():
                                     k = self._current()
                                     # key=value; the key may lex as a keyword
@@ -1649,6 +1718,9 @@ class Parser:
                                         val = val_tok.value.strip('"')
                                         if key == "icon":      icon = val
                                         if key == "component": comp = val
+                                    elif k.type == TT.IDENTIFIER and k.value == "allow":
+                                        self._advance()
+                                        nav_allow = self._name_list("Expected a role name")
                                     elif k.type == TT.IDENTIFIER and not comp:
                                         # positional form: nav "Label" ComponentName
                                         comp = self._advance().value
@@ -1657,7 +1729,7 @@ class Parser:
                                 self._consume_end()
                                 sidebar.append(ast.NavItem(
                                     label=label_tok.value, icon=icon,
-                                    component=comp,
+                                    component=comp, allow=nav_allow,
                                     line=c.line, col=c.col,
                                 ))
                             else:

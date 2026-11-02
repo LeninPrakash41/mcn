@@ -1,6 +1,12 @@
 // Sales CRM — data model, shared by the backend and the UI.
 // Every contract becomes a database table, five API endpoints and a screen.
 
+// Sign-in with three roles. The first role is the administrator: it manages
+// users and sees the activity log.
+auth
+    roles         admin, sales, viewer
+    session_hours 12
+
 contract Lead
     name:      str
     email:     str unique
