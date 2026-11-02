@@ -1430,13 +1430,30 @@ async function runActiveFile() {
   try {
     const r = await apiFetch('/api/execute', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: model.getValue() })
+      body: JSON.stringify({ code: model.getValue(), filename: _active })
     })
     const d = await r.json()
     for (const l of (d.output || [])) appendLog('', l)
-    if (!d.success) { appendLog('error', '✗ ' + d.error); setStatus('Error', 'err') }
+    showErrorMarkers(model, d.errors)
+    if (!d.success) { appendLog('error', d.error); setStatus('Error', 'err') }
     else setStatus('Done', 'ok')
   } catch (e) { appendLog('error', '✗ ' + e.message); setStatus('Error', 'err') }
+}
+
+// Red squiggles at the error locations reported by /api/execute
+function showErrorMarkers(model, errors) {
+  if (!window.monaco || !model) return
+  const markers = (errors || []).filter(e => e.line > 0).map(e => {
+    const line = Math.min(e.line, model.getLineCount())
+    const col  = Math.max(e.col || 1, 1)
+    return {
+      severity: monaco.MarkerSeverity.Error,
+      message: e.message,
+      startLineNumber: line, startColumn: col,
+      endLineNumber: line,   endColumn: model.getLineMaxColumn(line),
+    }
+  })
+  monaco.editor.setModelMarkers(model, 'mcn-run', markers)
 }
 
 // ── Format / Check / Test / Clear ────────────────────────────────────────

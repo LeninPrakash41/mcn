@@ -56,7 +56,7 @@ class MCNREPL:
             except KeyboardInterrupt:
                 print("\nUse 'exit' to quit")
             except Exception as e:
-                print(f"Error: {e}")
+                print(e.pretty().rstrip() if hasattr(e, "pretty") else f"Error: {e}")
 
     def _show_help(self):
         help_text = """
@@ -160,7 +160,15 @@ def run_file(filepath: str):
 
         return 0
     except Exception as e:
-        print(f"Error executing script: {e}")
+        try:
+            from .error_format import format_error, use_color
+        except ImportError:
+            from error_format import format_error, use_color
+        color = use_color(sys.stderr)
+        if hasattr(e, "pretty"):
+            sys.stderr.write(e.pretty(color=color))
+        else:
+            sys.stderr.write(format_error(e, None, filepath, color=color))
         return 1
 
 
@@ -257,7 +265,11 @@ def add_frontend(framework: str, path: str = "."):
 def show_logs(log_type: str = "all"):
     """Show MCN logs"""
     try:
-        logs_dir = Path("logs")
+        try:
+            from .mcn_logger import default_log_dir
+        except ImportError:
+            from mcn_logger import default_log_dir
+        logs_dir = default_log_dir()
         if not logs_dir.exists():
             print("No logs directory found")
             return 1

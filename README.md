@@ -111,6 +111,29 @@ catch
     var data = cache_get("last_response")
 ```
 
+### Rules worth knowing (they match Python)
+
+| Rule | Example |
+|---|---|
+| `null`, `false`, `0`, `""`, `[]`, `{}` are false | `if items` → only when the list has items |
+| `and` / `or` stop early and return a value | `user and user.name`, `name or "guest"` |
+| Variables declared in `if` / `for` / `while` / `try` / `catch` stay visible after the block | `for x in rows` … then use `x` |
+| Functions have their own local variables | a `var` inside a function never leaks out |
+| Negative indexes count from the end; out of range gives `null` | `items[-1]` |
+| `for k, v in dict` gives key and value; `for i, x in list` gives index and item | |
+
+Errors point at the exact spot, with a suggestion when you mistype a name:
+
+```
+error: Undefined variable 'totl'. Did you mean 'total'?
+  --> app.mcn:4:5
+  |
+4 | log(totl)
+  |     ^
+```
+
+Logs are written to `~/.mcn/logs` (override with `MCN_LOG_DIR`), not your project folder.
+
 ---
 
 ## AI Primitives

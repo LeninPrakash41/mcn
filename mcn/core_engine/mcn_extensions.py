@@ -51,30 +51,15 @@ class MCNPackageManager:
     """Simple package management system"""
 
     def __init__(self):
-        self.packages_dir = "mcn_packages"
+        # In-memory registry of the built-in db / http / ai packages.  (These
+        # used to be written to ./mcn_packages/*.json on every start, which
+        # littered the project directory, was never read back, and broke the
+        # v3 module system's loader of that folder.)
         self.installed_packages = {}
-        self._ensure_packages_dir()
-
-    def _ensure_packages_dir(self):
-        if not os.path.exists(self.packages_dir):
-            os.makedirs(self.packages_dir)
 
     def add_package(self, package_name: str, functions: Dict[str, Any]):
         """Add a package with functions"""
         self.installed_packages[package_name] = functions
-
-        # Save package info
-        package_file = os.path.join(self.packages_dir, f"{package_name}.json")
-        with open(package_file, "w") as f:
-            json.dump(
-                {
-                    "name": package_name,
-                    "functions": list(functions.keys()),
-                    "installed": True,
-                },
-                f,
-                indent=2,
-            )
 
     def get_package_functions(self, package_name: str) -> Dict[str, Any]:
         """Get functions from a package"""

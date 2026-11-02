@@ -126,7 +126,10 @@ class Parser:
                     return
             elif tok.type == TT.NEWLINE:
                 self._advance()
-                if depth == 0:
+                # An indented block right after the bad line belongs to the
+                # failed statement (e.g. a broken `if`) — skip it too, instead
+                # of reporting a confusing follow-on error.
+                if depth == 0 and not self._check(TT.INDENT):
                     return
             elif depth == 0 and tok.type in _STMT_STARTERS:
                 return

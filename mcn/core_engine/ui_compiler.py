@@ -143,6 +143,26 @@ def _field_key(label: str) -> str:
     return key or label
 
 
+_COMPARISON_OPS = {"==", "!=", ">", "<", ">=", "<="}
+
+
+def _cond_ts(expr: Optional[ast.Expr],
+             local_vars: Optional[Dict[str, str]] = None) -> str:
+    """A condition in TS with MCN truthiness ([] and {} are false, unlike JS).
+
+    Comparisons and boolean literals are already booleans and stay as-is."""
+    ts = _expr_to_ts(expr, local_vars)
+    if isinstance(expr, ast.Binary) and expr.operator in _COMPARISON_OPS:
+        return ts
+    if isinstance(expr, ast.Unary) and expr.operator == "not":
+        return ts
+    if isinstance(expr, ast.Literal) and isinstance(expr.value, bool):
+        return ts
+    if isinstance(expr, ast.Variable) and expr.name in ("true", "false"):
+        return ts
+    return f"truthy({ts})"
+
+
 def _singular(word: str) -> str:
     """leads → lead, categories → category, address → address."""
     if word.endswith("ies") and len(word) > 3:
@@ -204,12 +224,14 @@ def _expr_to_ts(expr: Optional[ast.Expr],
         return f"{left} {op} {right}"
     if isinstance(expr, ast.Unary):
         operand = _expr_to_ts(expr.operand, lv)
-        op = "!" if expr.operator == "not" else expr.operator
+        if expr.operator == "not":
+            return f"!{_cond_ts(expr.operand, lv)}"
+        op = expr.operator
         return f"{op}({operand})" if " " in operand else f"{op}{operand}"
     if isinstance(expr, ast.Index):
         return f"{_expr_to_ts(expr.object, lv)}[{_expr_to_ts(expr.index, lv)}]"
     if isinstance(expr, ast.TernaryExpr):
-        return (f"({_expr_to_ts(expr.condition, lv)} ? {_expr_to_ts(expr.then_expr, lv)}"
+        return (f"({_cond_ts(expr.condition, lv)} ? {_expr_to_ts(expr.then_expr, lv)}"
                 f" : {_expr_to_ts(expr.else_expr, lv)})")
     if isinstance(expr, ast.Call):
         if isinstance(expr.callee, ast.Variable):
@@ -289,6 +311,13 @@ class UICompiler:
             "\n"
             "export function cn(...inputs: ClassValue[]) {\n"
             "  return twMerge(clsx(inputs))\n"
+            "}\n"
+            "\n"
+            "/** MCN truthiness: null, false, 0, \"\", [] and {} are false. */\n"
+            "export function truthy(v: unknown): boolean {\n"
+            "  if (Array.isArray(v)) return v.length > 0\n"
+            "  if (v !== null && typeof v === \"object\") return Object.keys(v).length > 0\n"
+            "  return Boolean(v)\n"
             "}\n"
         )
         written.append(utils_path)
@@ -547,6 +576,9 @@ class UICompiler:
                 imports.append(f'import {{ {", ".join(sorted(set(lucide_icons)))} }} from "lucide-react"')
         for extra in sorted(other_extras):
             imports.append(extra)
+        body_text = "\n".join(hooks + handlers + jsx_lines)
+        if "truthy(" in body_text:
+            imports.append('import { truthy } from "@/lib/utils"')
 
         # Assemble
         lines = [
@@ -612,7 +644,7 @@ class UICompiler:
         # modal/dialog handle show= via their open= prop, not the generic wrapper
         show_attr = next((a for a in el.attrs if a.key == "show"), None)
         if show_attr and tag not in ("modal", "dialog"):
-            cond = _expr_to_ts(show_attr.value)
+            cond = _cond_ts(show_attr.value)
             inner_attrs = [a for a in el.attrs if a.key != "show"]
             inner_el = ast.UIElement(tag=el.tag, attrs=inner_attrs,
                                      text=el.text, children=el.children)
@@ -1328,7 +1360,7 @@ class UICompiler:
                     lines.append(f"{pad}{val}")
 
             elif isinstance(stmt, ast.IfStmt):
-                cond      = _expr_to_ts(stmt.condition, lv)
+                cond      = _cond_ts(stmt.condition, lv)
                 then_body = self._stmts_to_ts(stmt.then_body, indent + 2, lv, _hoisted)
                 lines.append(f"{pad}if ({cond}) {{")
                 if then_body.strip():

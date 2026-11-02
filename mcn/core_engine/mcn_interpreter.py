@@ -51,6 +51,24 @@ class ReturnValue(Exception):
 
 # ── Main interpreter ───────────────────────────────────────────────────────────
 
+
+class MCNScriptError(Exception):
+    """Raised by MCNInterpreter.execute().  str() keeps the legacy
+    "MCN <TYPE>: ..." text; pretty() renders a friendly, compiler-style
+    message with the file, line and a caret under the problem."""
+
+    def __init__(self, message: str, error_type: str,
+                 source: str = "", file_path: Optional[str] = None):
+        super().__init__(message)
+        self.error_type = error_type
+        self.source     = source
+        self.file_path  = file_path
+
+    def pretty(self, color: bool = False) -> str:
+        from .error_format import format_error
+        return format_error(self.__cause__ or self, self.source,
+                            self.file_path, color=color)
+
 class MCNInterpreter:
     """
     High-level MCN interpreter.
@@ -142,7 +160,7 @@ class MCNInterpreter:
 
             if "LexError" in msg or "ParseError" in msg:
                 error_type = "SYNTAX_ERROR"
-            elif "Undefined variable" in msg or "Undefined function" in msg:
+            elif "Undefined variable" in msg or "is not a function" in msg:
                 error_type = "REFERENCE_ERROR"
             elif "RuntimeError" in msg:
                 error_type = "RUNTIME_ERROR"
@@ -157,8 +175,10 @@ class MCNInterpreter:
                     "traceback": traceback.format_exc(),
                 },
                 file_path=file_path,
+                console=False,      # the caller shows the friendly message
             )
-            raise Exception(f"MCN {error_type}: {msg}") from exc
+            raise MCNScriptError(f"MCN {error_type}: {msg}", error_type,
+                                 code, file_path) from exc
 
     # ── Built-in function registration ─────────────────────────────────────────
 

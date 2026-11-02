@@ -44,6 +44,7 @@ class MCNError(Exception):
     def __init__(self, message: str, line: int = 0, col: int = 0):
         loc = f"[{line}:{col}] " if line else ""
         super().__init__(f"{loc}RuntimeError: {message}")
+        self.message = message      # without location prefix
         self.line = line
         self.col  = col
 
@@ -61,7 +62,8 @@ class Environment:
     Python's LEGB rule. This gives MCN:
       - Function-local variables that don't leak to the caller
       - True closure capture (the lambda in _exec_function_decl captures `env`)
-      - Loop variables scoped to the loop body
+      - Blocks (if / for / while / try / catch) share the enclosing scope,
+        as in Python
     """
 
     def __init__(self, parent: Optional["Environment"] = None):
@@ -82,6 +84,17 @@ class Environment:
     def define(self, name: str, value: Any):
         """Create or overwrite a binding in *this* scope."""
         self._vars[name] = value
+
+    def own(self, name: str) -> Any:
+        """Binding in *this* scope only (or _UNDEFINED)."""
+        return self._vars.get(name, _UNDEFINED)
+
+    def restore(self, name: str, old: Any):
+        """Put back a binding saved with own(); _UNDEFINED removes it."""
+        if old is _UNDEFINED:
+            self._vars.pop(name, None)
+        else:
+            self._vars[name] = old
 
     def assign(self, name: str, value: Any):
         """
@@ -223,20 +236,30 @@ class Evaluator:
         # ── for loop ──────────────────────────────────────────────────────────
         if isinstance(stmt, ast.ForStmt):
             iterable = self._eval(stmt.iterable, env)
-            if isinstance(iterable, dict):
+            is_dict  = isinstance(iterable, dict)
+            if is_dict:
                 iterable = list(iterable.items())   # dict → [(k,v), ...]
+            elif isinstance(iterable, str):
+                iterable = list(iterable)
             if not isinstance(iterable, (list, tuple)):
                 raise MCNError(
                     f"Cannot iterate over {type(iterable).__name__}",
                     stmt.line, stmt.col,
                 )
+            # Like Python, the loop body runs in the enclosing scope: variables
+            # declared inside the loop (and the loop variable) remain visible
+            # after it, exactly as they do for `if` blocks.
             for idx, item in enumerate(iterable):
-                loop_env = Environment(env)
-                loop_env.define(stmt.variable, item)
-                if stmt.index_var:
-                    loop_env.define(stmt.index_var, idx)
+                if stmt.index_var and is_dict:
+                    # for key, value in dict
+                    env.define(stmt.index_var, item[0])
+                    env.define(stmt.variable, item[1])
+                else:
+                    env.define(stmt.variable, item)
+                    if stmt.index_var:
+                        env.define(stmt.index_var, idx)   # for i, item in list
                 try:
-                    self._exec_block(stmt.body, loop_env)
+                    self._exec_block(stmt.body, env)
                 except BreakSignal:
                     break
                 except ContinueSignal:
@@ -273,17 +296,28 @@ class Evaluator:
                 raise                         # never swallow loop signals
             except Exception as exc:
                 if stmt.catch_body:
-                    catch_env = Environment(env)
                     # Named catch var:  catch e  →  e.message, e.type, e.raw
                     var = stmt.catch_var or "error"
+                    message = exc.message if isinstance(exc, MCNError) else str(exc)
                     err_obj = {
-                        "message": str(exc),
+                        "message": message,
                         "type":    type(exc).__name__,
                         "raw":     exc,
                     }
-                    catch_env.define(var, err_obj)
-                    catch_env.define("error", str(exc))  # legacy compat
-                    result = self._exec_block(stmt.catch_body, catch_env)
+                    # The catch body runs in the enclosing scope (so variables it
+                    # declares stay visible, as with `if`), but the error names
+                    # are temporary and must not clobber outer variables.
+                    bindings = {var: err_obj}
+                    if var != "error":
+                        bindings["error"] = message          # legacy compat
+                    saved = {n: env.own(n) for n in bindings}
+                    for n, v in bindings.items():
+                        env.define(n, v)
+                    try:
+                        result = self._exec_block(stmt.catch_body, env)
+                    finally:
+                        for n, old in saved.items():
+                            env.restore(n, old)
                 else:
                     raise
             finally:
@@ -449,14 +483,9 @@ class Evaluator:
                 return val
             if expr.name in self.functions:
                 return self.functions[expr.name]
-            # Helpful "did you mean?" hint
-            similar = [
-                k for k in env.all_names()
-                if k.lower().startswith(expr.name[:2].lower())
-            ]
-            hint = f" Did you mean: {', '.join(similar[:3])}?" if similar else ""
             raise MCNError(
-                f"Undefined variable: '{expr.name}'.{hint}",
+                f"Undefined variable '{expr.name}'."
+                + self._did_you_mean(expr.name, env),
                 expr.line, expr.col,
             )
 
@@ -481,6 +510,12 @@ class Evaluator:
             return arrow_fn
 
         if isinstance(expr, ast.Binary):
+            if expr.operator in ("and", "or"):
+                # Short-circuit: the right side runs only when it decides the result
+                left = self._eval(expr.left, env)
+                if self._truthy(left) == (expr.operator == "or"):
+                    return left
+                return self._eval(expr.right, env)
             left  = self._eval(expr.left,  env)
             right = self._eval(expr.right, env)
             return self._apply_binary(expr.operator, left, right,
@@ -515,9 +550,13 @@ class Evaluator:
         if isinstance(expr, ast.Index):
             obj   = self._eval(expr.object, env)
             index = self._eval(expr.index, env)
-            if isinstance(obj, (list, tuple)) and isinstance(index, int):
-                return obj[index] if 0 <= index < len(obj) else None
+            if isinstance(obj, (list, tuple, str)) and isinstance(index, int) \
+                    and not isinstance(index, bool):
+                # Python-style: items[-1] is the last item; out of range → null
+                return obj[index] if -len(obj) <= index < len(obj) else None
             if isinstance(obj, dict):
+                if index in obj:
+                    return obj[index]
                 return obj.get(str(index))
             return None
 
@@ -561,16 +600,22 @@ class Evaluator:
         if isinstance(callee, str) and callee in self.functions:
             return self.functions[callee](*args)
 
-        name    = getattr(expr.callee, "name", str(callee))
-        similar = [
-            k for k in self.functions
-            if k.lower().startswith(name[:2].lower())
-        ]
-        hint = f" Did you mean: {', '.join(similar[:3])}?" if similar else ""
+        name = getattr(expr.callee, "name", str(callee))
         raise MCNError(
-            f"Undefined function: '{name}'.{hint}",
+            f"'{name}' is not a function." + self._did_you_mean(name, env),
             expr.line, expr.col,
         )
+
+    def _did_you_mean(self, name: str, env: Environment) -> str:
+        """" Did you mean 'total'?" for the closest known names, or ""."""
+        import difflib
+        candidates = {n for n in env.all_names() if not n.startswith("_")}
+        candidates |= {n for n in self.functions if not n.startswith("_")}
+        candidates.discard(name)
+        matches = difflib.get_close_matches(name, sorted(candidates), n=2, cutoff=0.7)
+        if not matches:
+            return ""
+        return " Did you mean " + " or ".join(f"'{m}'" for m in matches) + "?"
 
     # ── 2030 Language Primitive Handlers ──────────────────────────────────────
 
@@ -922,6 +967,6 @@ class Evaluator:
             return False
         if isinstance(value, (int, float)) and value == 0:
             return False
-        if isinstance(value, str) and value == "":
-            return False
+        if isinstance(value, (str, list, tuple, dict)) and len(value) == 0:
+            return False     # "", [], {} are falsy (as in Python)
         return True

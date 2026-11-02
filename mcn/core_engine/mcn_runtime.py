@@ -460,9 +460,19 @@ class MCNRuntime:
 
     def _setup_logging(self):
         """Setup enhanced logging"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler("mcn_runtime.log"), logging.StreamHandler()],
-        )
+        # File-only logger.  (logging.basicConfig here used to reconfigure the
+        # host process's root logger and echo every record to the console.)
+        from .mcn_logger import default_log_dir
         self.logger = logging.getLogger(__name__)
+        if not self.logger.handlers:
+            try:
+                log_dir = default_log_dir()
+                log_dir.mkdir(parents=True, exist_ok=True)
+                handler = logging.FileHandler(log_dir / "mcn_runtime.log")
+                handler.setFormatter(logging.Formatter(
+                    "%(asctime)s - %(levelname)s - %(message)s"))
+                self.logger.addHandler(handler)
+            except OSError:
+                self.logger.addHandler(logging.NullHandler())
+            self.logger.setLevel(logging.INFO)
+            self.logger.propagate = False

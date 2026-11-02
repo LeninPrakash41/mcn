@@ -28,7 +28,7 @@ import os
 import time
 import traceback
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from .lexer     import Lexer
 from .parser    import Parser
@@ -50,8 +50,10 @@ def _dim(s: str)    -> str: return f"\033[2m{s}\033[0m"  if _IS_TTY else s
 
 class TestResult:
     def __init__(self, description: str, passed: bool,
-                 error: str = "", elapsed: float = 0.0):
+                 error: str = "", elapsed: float = 0.0,
+                 exc: Optional[BaseException] = None):
         self.description = description
+        self.exc         = exc
         self.passed      = passed
         self.error       = error
         self.elapsed     = elapsed
@@ -89,7 +91,8 @@ class TestRunner:
             tokens  = Lexer(source).tokenize()
             program = Parser(tokens).parse()
         except Exception as exc:
-            return [TestResult(f"<parse {label}>", False, str(exc))]
+            return [TestResult(f"<parse {label}>", False,
+                               self._fmt(exc, source, label))]
 
         # Separate setup statements from test blocks
         setup_stmts = [s for s in program.body if not isinstance(s, ast.TestDecl)]
@@ -106,12 +109,15 @@ class TestRunner:
             evaluator._exec_block(setup_stmts, evaluator.globals)
         except Exception as exc:
             return [TestResult("<setup>", False,
-                               f"Setup failed: {exc}\n{traceback.format_exc()}")]
+                               "Setup failed:\n" + self._fmt(exc, source, label))]
 
         # Run each test block in a fresh child scope
         results: List[TestResult] = []
         for decl in test_decls:
-            results.append(self._run_test(decl, evaluator))
+            result = self._run_test(decl, evaluator)
+            if not result.passed and result.exc is not None:
+                result.error = self._fmt(result.exc, source, label)
+            results.append(result)
 
         return results
 
@@ -139,12 +145,18 @@ class TestRunner:
         except MCNError as exc:
             elapsed = time.perf_counter() - start
             return TestResult(decl.description, False,
-                              error=str(exc), elapsed=elapsed)
+                              error=str(exc), elapsed=elapsed, exc=exc)
         except Exception as exc:
             elapsed = time.perf_counter() - start
             return TestResult(decl.description, False,
                               error=f"{type(exc).__name__}: {exc}",
                               elapsed=elapsed)
+
+    @staticmethod
+    def _fmt(exc: BaseException, source: str, label: str) -> str:
+        """Friendly compiler-style message (file, line, caret)."""
+        from .error_format import format_error
+        return format_error(exc, source, label).rstrip()
 
     def _register_builtins(self, functions: dict):
         """Wire the same built-ins the interpreter uses, plus test-specific helpers."""
@@ -281,7 +293,8 @@ class TestRunner:
                     print()
             else:
                 print(f"  {_red('✗')} {r.description}{elapsed_str}")
-                print(f"    {_red(r.error)}")
+                for line in r.error.splitlines():
+                    print(f"    {_red(line)}")
 
         total = len(results)
         print()

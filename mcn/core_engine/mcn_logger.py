@@ -9,15 +9,28 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
+import os
 import sys
+
+
+def default_log_dir() -> Path:
+    """Where MCN writes its log files: $MCN_LOG_DIR or ~/.mcn/logs.
+
+    Kept out of the project directory so running a script doesn't litter it."""
+    return Path(os.environ.get("MCN_LOG_DIR") or Path.home() / ".mcn" / "logs")
 
 
 class MCNLogger:
     """Enhanced logging system for MCN with developer-friendly error messages"""
 
-    def __init__(self, log_dir: str = "logs"):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True)
+    def __init__(self, log_dir: Optional[str] = None):
+        self.log_dir = Path(log_dir) if log_dir else default_log_dir()
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            import tempfile
+            self.log_dir = Path(tempfile.gettempdir()) / "mcn-logs"
+            self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Setup different log files
         self.setup_loggers()
@@ -43,9 +56,10 @@ class MCNLogger:
     def _setup_handlers(self):
         """Setup file and console handlers"""
 
-        # Console handler with colored output
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
+        # Console: warnings only.  Step / performance traces and error records
+        # go to the log files; user-facing errors are printed once by the CLI.
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setLevel(logging.WARNING)
         console_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
@@ -66,11 +80,15 @@ class MCNLogger:
         )
         debug_handler.setFormatter(debug_formatter)
 
-        # Add handlers to loggers
+        # Add handlers to loggers.  Child loggers don't propagate, so each
+        # record is written once, to the right file.
         self.mcn_logger.addHandler(console_handler)
         self.mcn_logger.addHandler(debug_handler)
+        self.mcn_logger.propagate = False
         self.error_logger.addHandler(error_handler)
+        self.error_logger.propagate = False
         self.dev_logger.addHandler(debug_handler)
+        self.dev_logger.propagate = False
 
     def log_mcn_error(
         self,
@@ -79,8 +97,12 @@ class MCNLogger:
         context: Dict[str, Any] = None,
         line_number: int = None,
         file_path: str = None,
+        console: bool = True,
     ):
-        """Log MCN-specific errors with context"""
+        """Log MCN-specific errors with context.
+
+        console=False writes the error file only (the caller reports the error
+        to the user itself, e.g. the interpreter's formatted message)."""
 
         error_data = {
             "timestamp": datetime.now().isoformat(),
@@ -96,7 +118,8 @@ class MCNLogger:
         self.error_logger.error(json.dumps(error_data, indent=2))
 
         # Developer-friendly console output
-        self._print_developer_error(error_data)
+        if console:
+            self._print_developer_error(error_data)
 
     def _print_developer_error(self, error_data: Dict[str, Any]):
         """Print developer-friendly error messages"""

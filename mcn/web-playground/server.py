@@ -513,7 +513,22 @@ def execute_mcn():
     except TimeoutError as e:
         return jsonify({"success": False, "error": str(e), "output": output_lines}), 408
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "output": output_lines})
+        return jsonify({"success": False, "output": output_lines,
+                        **_error_payload(e, code, data.get("filename"))})
+
+
+def _error_payload(exc: Exception, code: str, filename=None) -> dict:
+    """Friendly error text plus structured locations for editor markers."""
+    try:
+        from mcn.core_engine.error_format import format_error, error_entries
+    except ImportError:
+        return {"error": str(exc)}
+    cause = exc.__cause__ or exc
+    return {
+        "error": format_error(cause, code, filename or "main.mcn").rstrip(),
+        "errors": [{"line": l, "col": c, "kind": k, "message": m}
+                   for l, c, k, m in error_entries(cause)],
+    }
 
 
 @app.route("/api/format", methods=["POST"])
