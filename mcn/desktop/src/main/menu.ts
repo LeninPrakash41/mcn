@@ -87,7 +87,7 @@ export function buildMenu(win: BrowserWindow): void {
         { type: 'separator' },
         {
           label: 'Documentation',
-          click: () => shell.openExternal('https://github.com/zeroappz/mcn')
+          click: () => shell.openExternal('https://github.com/LeninPrakash41/mcn')
         },
         {
           label: 'Open Web Playground',

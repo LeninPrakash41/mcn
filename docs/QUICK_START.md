@@ -4,17 +4,17 @@
 
 ### 1. Download MCN
 ```bash
-git clone https://github.com/zeroappz/mcn.git
+git clone https://github.com/LeninPrakash41/mcn.git
 cd mcn
 ```
 
 ### 2. Run MCN Scripts
 ```bash
 # Use the runner script (works immediately)
-python run_mcn.py run mcn/examples/hello.mcn
+python run_mcn.py run examples/hello.mcn
 
 # Windows users can also use
-mcn.bat run mcn/examples/hello.mcn
+mcn.bat run examples/hello.mcn
 ```
 
 ### 3. Start REPL
@@ -24,7 +24,7 @@ python run_mcn.py repl
 
 ### 4. Serve as API
 ```bash
-python run_mcn.py serve --file mcn/examples/hello.mcn --port 8080
+python run_mcn.py serve --file examples/hello.mcn --port 8080
 ```
 
 ## For Production Use

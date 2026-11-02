@@ -95,8 +95,8 @@ setup(
     zip_safe=False,
     keywords="mcn scripting automation ai business workflow",
     project_urls={
-        "Bug Reports": "https://github.com/zeroappz/mcn/issues",
-        "Source": "https://github.com/zeroappz/mcn",
+        "Bug Reports": "https://github.com/LeninPrakash41/mcn/issues",
+        "Source": "https://github.com/LeninPrakash41/mcn",
         "Documentation": "https://docs.mslang.org",
     },
 )

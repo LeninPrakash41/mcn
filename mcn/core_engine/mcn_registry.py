@@ -77,7 +77,7 @@ class MCNPackageRegistry:
                 "keywords": ["ai", "machine-learning", "models", "fine-tuning"],
                 "dependencies": [],
                 "functions": ["register", "set_model", "run", "train", "list_models"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/ai_v3"
             },
             "iot": {
@@ -89,7 +89,7 @@ class MCNPackageRegistry:
                 "keywords": ["iot", "devices", "sensors", "edge-computing"],
                 "dependencies": ["events"],
                 "functions": ["register", "read", "command", "monitor"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/iot"
             },
             "events": {
@@ -101,7 +101,7 @@ class MCNPackageRegistry:
                 "keywords": ["events", "workflows", "automation", "triggers"],
                 "dependencies": [],
                 "functions": ["on", "trigger", "emit", "schedule"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/events"
             },
             "agents": {
@@ -113,7 +113,7 @@ class MCNPackageRegistry:
                 "keywords": ["agents", "ai", "autonomous", "memory"],
                 "dependencies": ["ai_v3"],
                 "functions": ["create", "activate", "think", "memory"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/agents"
             },
             "natural": {
@@ -125,7 +125,7 @@ class MCNPackageRegistry:
                 "keywords": ["natural-language", "code-generation", "ai"],
                 "dependencies": ["ai_v3"],
                 "functions": ["translate", "execute", "generate"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/natural"
             },
             "pipeline": {
@@ -137,7 +137,7 @@ class MCNPackageRegistry:
                 "keywords": ["data", "pipeline", "processing", "ai"],
                 "dependencies": ["ai_v3"],
                 "functions": ["create", "run", "transform", "analyze"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/pipeline"
             },
             "ui": {
@@ -149,7 +149,7 @@ class MCNPackageRegistry:
                 "keywords": ["ui", "frontend", "react", "components"],
                 "dependencies": [],
                 "functions": ["button", "input", "form", "table", "chart"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/ui"
             },
             "db": {
@@ -161,7 +161,7 @@ class MCNPackageRegistry:
                 "keywords": ["database", "sql", "nosql", "orm"],
                 "dependencies": [],
                 "functions": ["connect", "query", "insert", "update", "delete"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/db"
             },
             "http": {
@@ -173,7 +173,7 @@ class MCNPackageRegistry:
                 "keywords": ["http", "api", "rest", "client"],
                 "dependencies": [],
                 "functions": ["get", "post", "put", "delete", "fetch"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/http"
             },
             "auth": {
@@ -185,7 +185,7 @@ class MCNPackageRegistry:
                 "keywords": ["auth", "authentication", "jwt", "oauth"],
                 "dependencies": [],
                 "functions": ["login", "logout", "register", "verify"],
-                "repository": "https://github.com/zeroappz/mcn",
+                "repository": "https://github.com/LeninPrakash41/mcn",
                 "homepage": "https://mslang.org/packages/auth"
             }
         }

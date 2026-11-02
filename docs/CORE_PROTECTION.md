@@ -33,7 +33,7 @@ MCN_TRADEMARK_NOTICE = "MCN is a trademark of MCN Foundation"
 ## Community Protection
 
 ### Official Channels
-- **GitHub Repository**: https://github.com/zeroappz/mcn
+- **GitHub Repository**: https://github.com/LeninPrakash41/mcn
 - **Package Registry**: PyPI package `mcn`
 - **Official Website**: https://mslang.org
 

@@ -52,7 +52,7 @@ Unlike other app builders that generate separate frontend and backend codebases,
 Requires **Python 3.10+**. Node.js is optional.
 
 ```bash
-git clone https://github.com/zeroappz/mcn
+git clone https://github.com/LeninPrakash41/mcn
 cd mcn
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate

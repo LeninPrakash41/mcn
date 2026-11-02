@@ -7,7 +7,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/zeroappz/mcn"
+    "url": "https://github.com/LeninPrakash41/mcn"
   },
   "keywords": ["mcn", "macincode", "ui", "components", "react", "tailwind"],
   "dependencies": {

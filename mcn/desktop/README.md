@@ -157,7 +157,7 @@ const saved = await window.mcnDesktop.saveFileAs(content)
 // → { path: '/Users/.../new.mcn', success: true } | null
 
 // Open a URL in the system browser
-await window.mcnDesktop.openExternal('https://github.com/zeroappz/mcn')
+await window.mcnDesktop.openExternal('https://github.com/LeninPrakash41/mcn')
 
 // Detect desktop vs. browser
 if (window.mcnDesktop?.isDesktop) {
