@@ -38,7 +38,7 @@ Unlike other app builders that generate separate frontend and backend codebases,
 
 1. **Write an MCN Script (Low Code):** A single `.mcn` file defines your database schema, AI agents, and UI layout using simplified MCN syntax (`ui("table", ...)`).
 2. **Generate the Frontend:** The `ui("export", "./app")` command automatically translates your UI definitions into a production-ready React + Tailwind application. It also generates a dedicated `mcn-client.tsx` SDK that wires up all events directly to your backend.
-3. **Run the Backend:** Execute your script with `python run_mcn.py serve --file your_app.mcn`. The Python MCN engine instantly spins up a secure, live API server. 
+3. **Run the Backend:** Execute your script with `mcn serve --file your_app.mcn`. The Python MCN engine instantly spins up a secure, live API server. 
 
 ### Why this works:
 - **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to execute the Python-based MCN functions via HTTP/WebSockets.
@@ -69,6 +69,18 @@ python mcn/web-playground/server.py
 
 Pick a template from **Templates**, press **Run** to execute the backend, then **Preview** to see the app.
 The playground only accepts connections from your own machine. Set `MCN_VERBOSE=1` to see engine debug logs.
+
+**Mobile app (Flutter, optional).** With the backend running (press **Run** in the playground), start the generated app and point it at the backend:
+
+```bash
+cd mcn/web-playground/workspace/mobile
+flutter create --platforms=web .        # first time only
+flutter run -d chrome --dart-define=MCN_API_URL=http://localhost:8080
+```
+
+On an Android emulator use `--dart-define=MCN_API_URL=http://10.0.2.2:8080`. Without a running backend the app shows demo data.
+
+**AI features.** Set `ANTHROPIC_API_KEY` to enable `ai()` calls and the Copilot. MCN uses `claude-opus-5-5` by default; override with `MCN_AI_MODEL` (for `ai()`) or `MCN_CLAUDE_MODEL` (for Copilot).
 
 The Web Playground includes built-in **Interactive Simulators** in the preview pane:
 * **DB Explorer**: Inspect database tables, explore generated schemas, and write SQL queries against the live SQLite instance.

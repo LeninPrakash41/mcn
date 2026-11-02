@@ -16,6 +16,20 @@ import anthropic
 
 from .mcn_spec import MCN_SYSTEM_PROMPT, MCN_FIX_PROMPT
 
+# Single source of truth for the Claude model used by MCN's AI agents.
+# Override with MCN_CLAUDE_MODEL (e.g. a model your API key has access to).
+DEFAULT_MODEL = os.getenv("MCN_CLAUDE_MODEL", "claude-opus-5-5")
+# Code generation is quality-sensitive; Opus 5.5 defaults to "medium" effort.
+GENERATION_EFFORT = "high"
+
+
+def raise_if_refused(message) -> None:
+    """Turn a safety refusal into a readable error instead of empty output."""
+    if getattr(message, "stop_reason", None) == "refusal":
+        details = getattr(message, "stop_details", None)
+        reason = getattr(details, "explanation", None) or "the request was declined"
+        raise RuntimeError(f"Claude declined this request: {reason}. Try rephrasing the prompt.")
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -66,7 +80,7 @@ class MCNAgent:
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-opus-4-6"):
+    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
         self.model  = model
 
@@ -310,7 +324,8 @@ class MCNAgent:
 
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=8192,
+            max_tokens=64000,  # thinking tokens count toward this cap
+            output_config={"effort": GENERATION_EFFORT},
             system=system,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
@@ -318,6 +333,7 @@ class MCNAgent:
                 chunks.append(text)
                 if verbose:
                     print(text, end="", flush=True)
+            raise_if_refused(stream.get_final_message())
 
         if verbose:
             print()  # newline after stream ends

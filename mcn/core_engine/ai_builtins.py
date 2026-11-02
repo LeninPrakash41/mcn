@@ -73,7 +73,7 @@ def _provider_complete(prompt: str, opts: dict) -> str:
                                system=system, max_tokens=max_tok,
                                temperature=temp)
     # default → anthropic
-    return anthropic_complete(prompt, model=model or "claude-3-5-sonnet-20241022",
+    return anthropic_complete(prompt, model=model or None,
                               system=system, max_tokens=max_tok, temperature=temp)
 
 

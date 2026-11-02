@@ -6,9 +6,9 @@ Tests every server endpoint without needing a live server —
 uses Flask's built-in test client.
 
 Run:
-    cd mt-mcn
-    python3 mcn/web-playground/test_playground.py
+    python3 mcn/web-playground/test_playground.py      # standalone runner
     python3 mcn/web-playground/test_playground.py -v   # verbose
+    python3 -m pytest mcn/web-playground/test_playground.py   # pytest / CI
 """
 
 import sys
@@ -564,7 +564,7 @@ def test_generate_streams_sse(r):
         instance = MockAgent.return_value
         instance.generate.side_effect = _mock_generate
         instance.client = MagicMock()
-        instance.model  = "claude-opus-4-6"
+        instance.model  = "claude-opus-5-5"
 
         # Patch the threading in the generate endpoint to run synchronously
         q = _queue.Queue()
@@ -826,6 +826,42 @@ def test_telemetry_feedback(r):
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
+# ── Security: local-only access ──────────────────────────────────────────────
+
+def test_security_same_origin_allowed(r):
+    with app.test_client() as c:
+        res = c.post("/api/execute", json={"code": "log(1)"},
+                     headers={"Origin": "http://localhost:5003"})
+        r.eq(res.status_code, 200, "loopback origin may execute")
+
+
+def test_security_foreign_origin_blocked(r):
+    with app.test_client() as c:
+        # A cross-site "simple" POST must be refused before any code runs
+        res = c.post("/api/execute", data='{"code": "log(1)"}', content_type="text/plain",
+                     headers={"Origin": "https://evil.example"})
+        r.eq(res.status_code, 403, "foreign origin refused")
+
+
+def test_security_null_origin_blocked(r):
+    with app.test_client() as c:
+        res = c.post("/api/execute", json={"code": "log(1)"}, headers={"Origin": "null"})
+        r.eq(res.status_code, 403, "sandboxed null origin refused")
+
+
+def test_security_dns_rebinding_blocked(r):
+    with app.test_client() as c:
+        res = c.get("/api/health", headers={"Host": "attacker.example:5003"})
+        r.eq(res.status_code, 403, "non-loopback Host refused")
+
+
+def test_security_cors_preflight_loopback(r):
+    with app.test_client() as c:
+        res = c.open("/api/execute", method="OPTIONS", headers={
+            "Origin": "http://localhost:5174", "Access-Control-Request-Method": "POST"})
+        r.eq(res.headers.get("Access-Control-Allow-Origin"), "http://localhost:5174", "preview origin allowed")
+
+
 SUITES = {
     "Health & Static": [
         ("GET /api/health",    test_health),
@@ -895,6 +931,13 @@ SUITES = {
         ("GET  /api/download (Production Bundle)",     test_production_download_bundle),
         ("VS Code Extension (Grammar & Snippets)",     test_vscode_extension_files),
     ],
+    "Security: Local-Only Access": [
+        ("Loopback origin can execute",                test_security_same_origin_allowed),
+        ("Foreign origin is refused",                  test_security_foreign_origin_blocked),
+        ("Sandboxed null origin is refused",           test_security_null_origin_blocked),
+        ("DNS-rebinding Host is refused",              test_security_dns_rebinding_blocked),
+        ("CORS preflight allows loopback preview",     test_security_cors_preflight_loopback),
+    ],
     "Community Telemetry & Feedback": [
         ("GET  /api/telemetry/status",                 test_telemetry_status),
         ("POST /api/telemetry/register (Developer)",   test_telemetry_register),
@@ -928,6 +971,29 @@ def main():
     shutil.rmtree(_TMP_WORKSPACE, ignore_errors=True)
 
     sys.exit(0 if _failed == 0 else 1)
+
+
+# ── pytest entry point ────────────────────────────────────────────────────────
+# The helpers above take a Result instead of a fixture, so hide them from
+# pytest collection and run every SUITES entry through one parametrized test.
+for _tests in SUITES.values():
+    for _label, _fn in _tests:
+        _fn.__test__ = False
+
+try:
+    import pytest
+
+    @pytest.mark.parametrize(
+        "fn",
+        [fn for tests in SUITES.values() for _, fn in tests],
+        ids=[label.strip() for tests in SUITES.values() for label, _ in tests],
+    )
+    def test_playground_case(fn):
+        res = Result(fn.__name__)
+        fn(res)
+        assert res.ok, "\n".join(res.msgs)
+except ImportError:  # standalone runner does not need pytest
+    pass
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ import anthropic
 from pathlib import Path
 from typing import Optional
 
+from .mcn_agent import DEFAULT_MODEL, GENERATION_EFFORT, raise_if_refused
+
 # ── System prompts ─────────────────────────────────────────────────────────────
 
 MCN_UI_SYSTEM_PROMPT = """
@@ -62,7 +64,7 @@ IMPORTANT: Return ONLY the raw MCN backend code. Do not add explanations, do not
 
 
 class MCNCodingAgent:
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-opus-4-6"):
+    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
         self.model  = model
 
@@ -130,11 +132,14 @@ class MCNCodingAgent:
     def _call_llm(self, prompt: str, system: str = MCN_UI_SYSTEM_PROMPT) -> str:
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=8192,
+            max_tokens=16000,  # thinking tokens count toward this cap
+            output_config={"effort": GENERATION_EFFORT},
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )
-        content = "".join(block.text for block in response.content)
+        raise_if_refused(response)
+        # Opus 5.5 always thinks, so skip thinking blocks and keep only text
+        content = "".join(block.text for block in response.content if block.type == "text")
         # Strip markdown fences if the model returned them
         if "```" in content:
             m = re.search(r"```[a-zA-Z]*\n(.*?)\n```", content, re.DOTALL)

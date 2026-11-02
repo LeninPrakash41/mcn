@@ -731,7 +731,6 @@ class MCNMobileApp extends StatelessWidget {
           primary: Color(0xFF38BDF8),
           secondary: Color(0xFFFF6B6B),
           surface: Color(0xFF111C33),
-          background: Color(0xFF0A0F1D),
         ),
         useMaterial3: true,
       ),
@@ -742,8 +741,15 @@ class MCNMobileApp extends StatelessWidget {
 '''
 
 _DEFAULT_MOBILE_SCREEN = '''\
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import '../widgets/mcn_widgets.dart';
+
+// MCN backend URL. Pass --dart-define=MCN_API_URL=... (Android emulator: http://10.0.2.2:8080)
+const String kApiUrl = String.fromEnvironment('MCN_API_URL', defaultValue: 'http://localhost:8080');
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -753,88 +759,157 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _activeDeals = 14;
-  final String _pipelineValue = "\\$420,000";
-
-  final List<Map<String, dynamic>> _leads = [
-    {"name": "Sarah Jenkins", "company": "Acme Health", "value": "\\$75,000", "status": "Qualified"},
-    {"name": "David Lin", "company": "Vertex AI", "value": "\\$140,000", "status": "Proposal"},
-    {"name": "Elena Rostova", "company": "FinTech Cloud", "value": "\\$185,000", "status": "Closing"},
+  // Demo data shown until the backend responds (or if it is not running)
+  static const List<Map<String, dynamic>> _demoLeads = [
+    {"name": "Sarah Jenkins", "company": "Acme Health", "value": 75000, "status": "Qualified"},
+    {"name": "David Lin", "company": "Vertex AI", "value": 140000, "status": "Proposal"},
+    {"name": "Elena Rostova", "company": "FinTech Cloud", "value": 185000, "status": "Closing"},
   ];
+
+  String _title = "Sales Intelligence";
+  int _activeDeals = 14;
+  String _pipelineValue = "\\$420,000";
+  List<Map<String, dynamic>> _leads = _demoLeads;
+  bool _loading = true;
+  bool _live = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  // MCN services expose each endpoint as POST /<endpoint_name> with a JSON body
+  Future<dynamic> _call(String endpoint) async {
+    final res = await http
+        .post(Uri.parse('$kApiUrl/$endpoint'),
+            headers: {'Content-Type': 'application/json'}, body: '{}')
+        .timeout(const Duration(seconds: 5));
+    if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
+    return jsonDecode(res.body);
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final dashboard = await _call('get_dashboard') as Map<String, dynamic>;
+      final leads = (await _call('list_leads') as List).cast<Map<String, dynamic>>();
+      setState(() {
+        _title = dashboard['title']?.toString() ?? _title;
+        _activeDeals = (dashboard['active_deals'] as num?)?.toInt() ?? leads.length;
+        _pipelineValue = dashboard['pipeline_value']?.toString() ?? _pipelineValue;
+        _leads = leads;
+        _live = true;
+      });
+    } catch (_) {
+      setState(() => _live = false);
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  String _money(dynamic v) {
+    if (v is! num) return v?.toString() ?? '';
+    final digits = v.round().toString();
+    final out = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) out.write(',');
+      out.write(digits[i]);
+    }
+    return '\\$$out';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Sales Intelligence", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(_title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: const Color(0xFF111C33),
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF38BDF8)),
-            onPressed: () {
-              setState(() {
-                _activeDeals += 1;
-              });
-            },
+            icon: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh, color: Color(0xFF38BDF8)),
+            tooltip: 'Reload from MCN backend',
+            onPressed: _loading ? null : _load,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // KPI Stat Row
-            Row(
-              children: [
-                Expanded(
-                  child: MCNStatCard(
-                    label: "Active Deals",
-                    value: "$_activeDeals",
-                    change: "+12.5%",
-                    isPositive: true,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!_loading && !_live)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33F59E0B),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x66F59E0B)),
+                  ),
+                  child: const Text(
+                    "Showing demo data. Start the MCN backend (Run in MCN Studio) at $kApiUrl, then pull to refresh.",
+                    style: TextStyle(color: Color(0xFFFCD34D), fontSize: 12),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: MCNStatCard(
-                    label: "Pipeline Value",
-                    value: _pipelineValue,
-                    change: "+18.2%",
-                    isPositive: true,
+              // KPI Stat Row
+              Row(
+                children: [
+                  Expanded(
+                    child: MCNStatCard(
+                      label: "Active Deals",
+                      value: "$_activeDeals",
+                      change: _live ? "Live" : "Demo",
+                      isPositive: true,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: MCNStatCard(
+                      label: "Pipeline Value",
+                      value: _pipelineValue,
+                      change: _live ? "Live" : "Demo",
+                      isPositive: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-            // Section Header
-            const Text(
-              "Recent High-Value Leads",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
+              // Section Header
+              const Text(
+                "Recent High-Value Leads",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
 
-            // Leads List
-            ..._leads.map((lead) => MCNLeadTile(
-              name: lead["name"],
-              company: lead["company"],
-              value: lead["value"],
-              status: lead["status"],
-            )),
+              // Leads List
+              ..._leads.map((lead) => MCNLeadTile(
+                name: lead["name"]?.toString() ?? '',
+                company: lead["company"]?.toString() ?? '',
+                value: _money(lead["value"]),
+                status: lead["status"]?.toString() ?? '',
+              )),
 
-            const SizedBox(height: 20),
-            // Primary Action Button
-            MCNButton(
-              text: "+ Create New Deal Opportunity",
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Opportunity created via MCN Mobile API!")),
-                );
-              },
-            ),
-          ],
+              const SizedBox(height: 20),
+              // Primary Action Button
+              MCNButton(
+                text: "+ Create New Deal Opportunity",
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Add a create_deal endpoint to backend/main.mcn to save deals.")),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1412,7 +1487,7 @@ def agent_enhance_ui():
         except ImportError:
             from ai.mcn_coding_agent import MCNCodingAgent  # type: ignore
 
-        agent = MCNCodingAgent(api_key=api_key, model="claude-opus-4-6")
+        agent = MCNCodingAgent(api_key=api_key)
 
         if mode == "generate_backend":
             # Fresh generation — no existing file required
@@ -1710,13 +1785,13 @@ def generate_mcn():
     def _agent_thread():
         try:
             try:
-                from mcn.ai.mcn_agent import MCNAgent
+                from mcn.ai.mcn_agent import MCNAgent, GENERATION_EFFORT, raise_if_refused
                 from mcn.ai.mcn_spec  import MCN_SYSTEM_PROMPT
             except ImportError:
-                from ai.mcn_agent import MCNAgent          # type: ignore
+                from ai.mcn_agent import MCNAgent, GENERATION_EFFORT, raise_if_refused  # type: ignore
                 from ai.mcn_spec  import MCN_SYSTEM_PROMPT  # type: ignore
 
-            agent = MCNAgent(api_key=api_key, model="claude-opus-4-6")
+            agent = MCNAgent(api_key=api_key)
 
             # ── Patch _call_claude so every token goes into the SSE queue ──
             original_call = agent._call_claude.__func__  # unbound method
@@ -1725,13 +1800,15 @@ def generate_mcn():
                 chunks = []
                 with self_inner.client.messages.stream(
                     model=self_inner.model,
-                    max_tokens=8192,
+                    max_tokens=64000,  # thinking tokens count toward this cap
+                    output_config={"effort": GENERATION_EFFORT},
                     system=system,
                     messages=[{"role": "user", "content": prompt}],
                 ) as stream:
                     for text in stream.text_stream:
                         chunks.append(text)
                         token_queue.put({"type": "token", "text": text})
+                    raise_if_refused(stream.get_final_message())
                 return "".join(chunks)
 
             import types

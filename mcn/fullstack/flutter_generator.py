@@ -7,7 +7,7 @@ import os
 import json
 import shutil
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 
 
 class FlutterProjectGenerator:
@@ -98,17 +98,16 @@ class MCNClient {
   factory MCNClient() => _instance;
   MCNClient._internal();
 
-  String baseUrl = 'http://localhost:8000';
+  // Set with --dart-define=MCN_API_URL=... (Android emulator: http://10.0.2.2:8080)
+  String baseUrl = const String.fromEnvironment('MCN_API_URL', defaultValue: 'http://localhost:8080');
 
+  // MCN services expose each endpoint as POST /<endpoint_name> with a JSON body
   Future<Map<String, dynamic>> call(String action, Map<String, dynamic> payload) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/main'),
+        Uri.parse('$baseUrl/$action'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'action': action,
-          ...payload,
-        }),
+        body: json.encode(payload),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = json.decode(response.body);

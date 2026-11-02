@@ -5592,8 +5592,16 @@ function openPreviewFullscreen() {
   }
 }
 
+let _devPolling = false
 async function pollDevStatus() {
+  if (_devPolling) return  // one loop per page
+  _devPolling = true
   while (true) {
+    // Pause while the tab is in the background; resume as soon as it is visible
+    if (document.hidden) {
+      await new Promise(r => document.addEventListener('visibilitychange', r, { once: true }))
+      continue
+    }
     try {
       const r = await apiFetch('/api/devserver/status')
       const d = await r.json()
@@ -5624,7 +5632,8 @@ async function pollDevStatus() {
         }
       }
     } catch (_) {}
-    await new Promise(r => setTimeout(r, 5000))
+    // Poll faster only while a dev server is running and may change state
+    await new Promise(r => setTimeout(r, _devOn ? 5000 : 15000))
   }
 }
 

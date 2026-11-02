@@ -24,7 +24,7 @@ python run_mcn.py repl
 
 ### 4. Serve as API
 ```bash
-python run_mcn.py serve --file examples/hello.mcn --port 8080
+mcn serve --file examples/hello.mcn --port 8080
 ```
 
 ## For Production Use

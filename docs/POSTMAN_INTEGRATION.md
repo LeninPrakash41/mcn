@@ -19,7 +19,7 @@ MCN automatically generates Postman collections for all API endpoints, making it
 When you start an MCN server, Postman collections are automatically generated:
 
 ```bash
-python run_mcn.py serve --file api.mcn --port 8080
+mcn serve --file api.mcn --port 8080
 ```
 
 Output:

@@ -20,18 +20,16 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov psycopg2-binary pymongo sqlalchemy requests fastapi uvicorn python-dotenv
+        pip install -e .
+        pip install -r mcn/web-playground/requirements.txt pytest
 
     - name: Test MCN Examples
       run: |
-        export PYTHONPATH=$PWD
-        python run_mcn.py run examples/hello.mcn
-        python run_mcn.py run examples/business.mcn
+        mcn run examples/hello.mcn
+        mcn run examples/business.mcn
 
-    - name: Run Basic Tests Only
-      run: |
-        export PYTHONPATH=$PWD
-        python -m pytest test/test_basic.py -v --cov=mcn --tb=short
+    - name: Run test suite
+      run: python -m pytest
 
   quality:
     runs-on: ubuntu-latest
