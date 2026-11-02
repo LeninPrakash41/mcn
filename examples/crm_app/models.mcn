@@ -1,0 +1,27 @@
+// Sales CRM — data model, shared by the backend and the UI.
+// Every contract becomes a database table, five API endpoints and a screen.
+
+contract Lead
+    name:      str
+    email:     str unique
+    phone:     str?
+    company:   str?
+    stage:     choice("new", "contacted", "qualified", "won", "lost") = "new"
+    value:     float = 0
+    source:    choice("website", "referral", "event", "cold_call", "partner") = "website"
+    follow_up: date?
+    notes:     text?
+
+contract Company
+    name:     str unique
+    industry: choice("software", "manufacturing", "healthcare", "retail", "finance", "other") = "software"
+    city:     str?
+    website:  str?
+    size:     int?
+
+contract FollowUp
+    title:    str
+    lead:     str?
+    due:      date
+    priority: choice("low", "medium", "high") = "medium"
+    done:     bool = false

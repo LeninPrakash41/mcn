@@ -143,6 +143,8 @@ class MCNInterpreter:
                 log_step("Parsing complete", statements=len(program.body))
 
             # ── Evaluation ────────────────────────────────────────────────────
+            if file_path:
+                self._evaluator.current_dir = os.path.dirname(os.path.abspath(file_path))
             result = self._evaluator.execute_program(program)
             elapsed = time.time() - start
             if not quiet:

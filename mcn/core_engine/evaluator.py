@@ -145,6 +145,8 @@ class Evaluator:
         self.globals    = Environment()
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
         self.app_decl:   Optional[ast.AppDecl]        = None  # app declaration
+        self.current_dir: Optional[str] = None   # dir of the running file (for include)
+        self._included:   set           = set()
 
         # Boolean and null literals (JavaScript / JSON style)
         self.globals.define("true",  True)
@@ -422,14 +424,26 @@ class Evaluator:
         import os
         from .lexer  import Lexer
         from .parser import Parser
-        # Resolve path relative to cwd (caller sets cwd before evaluation)
-        path = os.path.abspath(stmt.path)
+        # Relative paths resolve from the directory of the file being run
+        # (falls back to the working directory for code without a file).
+        base = self.current_dir or os.getcwd()
+        path = os.path.abspath(os.path.join(base, stmt.path))
         if not os.path.exists(path):
-            raise MCNError(f"include: file not found: {path}")
-        code    = open(path, encoding="utf-8").read()
-        tokens  = Lexer(code).tokenize()
-        program = Parser(tokens).parse()
-        self.execute_program(program)   # merges into self.components, self.functions, etc.
+            raise MCNError(f"include: file not found: {stmt.path} (looked in {base})",
+                           stmt.line, stmt.col)
+        if path in self._included:
+            return None                     # each file is included once
+        self._included.add(path)
+        code = open(path, encoding="utf-8").read()
+        try:
+            program = Parser(Lexer(code).tokenize()).parse()
+        except Exception as exc:
+            raise MCNError(f"in included file {stmt.path}: {exc}", stmt.line, stmt.col)
+        saved, self.current_dir = self.current_dir, os.path.dirname(path)
+        try:
+            self.execute_program(program)   # merges components, functions, contracts
+        finally:
+            self.current_dir = saved
         return None
 
     def _exec_function_decl(self, stmt: ast.FunctionDecl, env: Environment):
@@ -686,9 +700,37 @@ class Evaluator:
             self.functions[ep.name] = fn
             self.function_params[ep.name] = params
 
+        for crud in stmt.cruds:
+            self._exec_crud(crud, service, env)
+
         env.define(stmt.name, service)
         self.functions[stmt.name] = service
         return service
+
+    def _exec_crud(self, crud: ast.CrudDecl, service, env: Environment) -> None:
+        """crud Lead → table + list/get/create/update/delete endpoints."""
+        from .runtime_types import MCNContract
+        from .crud import CrudResource
+        contract = env.get(crud.contract)
+        if not isinstance(contract, MCNContract):
+            raise MCNError(
+                f"crud {crud.contract}: no contract named '{crud.contract}'"
+                + self._did_you_mean(crud.contract, env)
+                + " (declare it, or include the file that does)",
+                crud.line, crud.col)
+        if "query" not in self.functions:
+            raise MCNError("crud needs a database (query) function", crud.line, crud.col)
+        try:
+            resource = CrudResource(contract, self.functions["query"], search=crud.search,
+                                    sort=crud.sort, page_size=crud.page_size)
+        except ValueError as exc:
+            raise MCNError(str(exc), crud.line, crud.col)
+        resource.ensure_table()
+        for name, fn in resource.endpoints().items():
+            service.add_endpoint(name, ["payload"], fn)
+            env.define(name, fn)
+            self.functions[name] = fn
+            self.function_params[name] = ["payload"]
 
     def _exec_workflow_decl(self, stmt: ast.WorkflowDecl,
                             env: Environment) -> Any:
@@ -729,8 +771,20 @@ class Evaluator:
         Build an MCNContract and bind it in the environment by name.
         """
         from .runtime_types import MCNContract
+        from .crud import FieldSpec, FIELD_TYPES
+        specs = []
+        for f in stmt.fields:
+            if f.type_name.lower() not in FIELD_TYPES and f.type_name.lower() not in (
+                    "list", "array", "dict", "object"):
+                raise MCNError(
+                    f"Unknown type '{f.type_name}' for field '{f.name}'. Use str, text, "
+                    f"int, float, bool, date, datetime or choice(...)", f.line, f.col)
+            default = self._eval(f.default, env) if f.default is not None else None
+            specs.append(FieldSpec(f.name, f.type_name.lower(), optional=f.optional,
+                                   default=default, has_default=f.default is not None,
+                                   unique=f.unique, choices=f.choices))
         fields = [(f.name, f.type_name) for f in stmt.fields]
-        contract = MCNContract(stmt.name, fields)
+        contract = MCNContract(stmt.name, fields, specs)
         env.define(stmt.name, contract)
         self.functions[stmt.name] = contract
         return contract

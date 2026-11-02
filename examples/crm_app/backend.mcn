@@ -1,0 +1,46 @@
+// Sales CRM — backend.   Run:  mcn serve --file backend.mcn --port 8080
+
+include "models.mcn"
+
+service crm
+    port 8080
+
+    crud Lead
+        search    name, email, company
+        sort      created_at desc
+        page_size 10
+
+    crud Company
+        search name, city
+        sort   name
+
+    crud FollowUp
+        search title, lead
+        sort   due
+
+    endpoint get_dashboard()
+        var open = query("SELECT COUNT(*) AS n, COALESCE(SUM(value), 0) AS total FROM leads WHERE stage NOT IN ('won', 'lost')")[0]
+        var won  = query("SELECT COUNT(*) AS n, COALESCE(SUM(value), 0) AS total FROM leads WHERE stage = 'won'")[0]
+        var todo = query("SELECT COUNT(*) AS n FROM follow_ups WHERE done = 0")[0]
+
+        var stages = []
+        for row in query("SELECT stage, COUNT(*) AS count, SUM(value) AS total FROM leads GROUP BY stage ORDER BY total DESC")
+            stages = stages + [{stage: row.stage, count: row.count, total: format_currency(row.total)}]
+
+        return {
+            open_leads:      open.n,
+            pipeline:        format_currency(open.total),
+            won_deals:       won.n,
+            won_value:       format_currency(won.total),
+            open_follow_ups: todo.n,
+            stages:          stages,
+            upcoming:        query("SELECT title, lead, due, priority FROM follow_ups WHERE done = 0 ORDER BY due LIMIT 5")
+        }
+
+// Sample data on first run, so there's something to see
+include "seed.mcn"
+
+test "dashboard adds up open pipeline"
+    var d = get_dashboard()
+    assert d.open_leads >= 0
+    assert d.pipeline != ""

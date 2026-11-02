@@ -105,6 +105,8 @@ class TestRunner:
         functions: dict = {}
         self._register_builtins(functions)
         evaluator = Evaluator(functions)
+        if label and os.path.exists(label):
+            evaluator.current_dir = os.path.dirname(os.path.abspath(label))
         try:
             evaluator._exec_block(setup_stmts, evaluator.globals)
         except Exception as exc:

@@ -14,6 +14,10 @@ from email.mime.multipart import MIMEMultipart
 import logging
 
 
+
+import threading as _threading
+_SQLITE_LOCK = _threading.RLock()
+
 class MCNRuntime:
     def __init__(self):
         self.db_connection = None
@@ -103,19 +107,22 @@ class MCNRuntime:
         if re.search(r'[;\\\x00]', sql):
             raise Exception("Invalid SQL query detected")
         
-        cursor = self.db_connection.cursor()
-        if params:
-            cursor.execute(sql, params)
-        else:
-            cursor.execute(sql)
+        # One connection shared across threads (servers, embedding apps):
+        # serialise access, since a sqlite3 connection isn't thread-safe.
+        with _SQLITE_LOCK:
+            cursor = self.db_connection.cursor()
+            if params:
+                cursor.execute(sql, params)
+            else:
+                cursor.execute(sql)
 
-        if sql.strip().upper().startswith("SELECT"):
-            columns = [description[0] for description in cursor.description]
-            rows = cursor.fetchall()
-            return [dict(zip(columns, row)) for row in rows]
-        else:
-            self.db_connection.commit()
-            return [{"affected_rows": cursor.rowcount}]
+            if sql.strip().upper().startswith("SELECT"):
+                columns = [description[0] for description in cursor.description]
+                rows = cursor.fetchall()
+                return [dict(zip(columns, row)) for row in rows]
+            else:
+                self.db_connection.commit()
+                return [{"affected_rows": cursor.rowcount}]
 
     def _query_postgresql(self, sql: str, params: tuple = None) -> List[Dict]:
         """PostgreSQL query execution"""
@@ -286,7 +293,7 @@ class MCNRuntime:
 
     def _init_database(self, db_path: str = "mcn_data.db"):
         """Initialize SQLite database connection"""
-        self.db_connection = sqlite3.connect(db_path)
+        self.db_connection = sqlite3.connect(db_path, check_same_thread=False)
 
         # Create sample tables for demo
         cursor = self.db_connection.cursor()
@@ -350,7 +357,7 @@ class MCNRuntime:
         """Connect to a specific database"""
         if self.db_connection:
             self.db_connection.close()
-        self.db_connection = sqlite3.connect(db_path)
+        self.db_connection = sqlite3.connect(db_path, check_same_thread=False)
 
     def close_database(self):
         """Close database connection"""

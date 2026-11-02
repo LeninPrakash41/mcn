@@ -1,0 +1,78 @@
+// Sales CRM — frontend.   Build:  mcn build app.mcn --out frontend
+
+include "models.mcn"
+
+component Dashboard
+    state stats   = {}
+    state loading = true
+
+    on load
+        stats   = get_dashboard()
+        loading = false
+
+    render
+        div class_name="space-y-6"
+            div
+                h1 "Dashboard" class_name="text-2xl font-semibold tracking-tight"
+                p "Your sales pipeline at a glance" class_name="text-sm text-muted-foreground"
+            if loading
+                p "Loading…" class_name="text-muted-foreground"
+            else
+                div grid_cols=4
+                    stat_card label="Open leads"      value=stats.open_leads      icon="Users"         color="blue"
+                    stat_card label="Pipeline value"  value=stats.pipeline        icon="TrendingUp"    color="purple"
+                    stat_card label="Won revenue"     value=stats.won_value       icon="Trophy"        color="green"
+                    stat_card label="Open follow-ups" value=stats.open_follow_ups icon="CalendarClock" color="amber"
+                div grid_cols=2
+                    card
+                        card_header "Pipeline by stage"
+                        card_content
+                            table
+                                table_header
+                                    table_row
+                                        table_head "Stage"
+                                        table_head "Leads"
+                                        table_head "Value"
+                                table_body
+                                    for s in stats.stages
+                                        table_row
+                                            table_cell
+                                                badge text=s.stage variant="secondary" class_name="capitalize"
+                                            table_cell "{s.count}"
+                                            table_cell "{s.total}" class_name="font-medium tabular-nums"
+                                    empty
+                                        table_row
+                                            table_cell "No leads yet" col_span=3
+                    card
+                        card_header "Upcoming follow-ups"
+                        card_content
+                            for f in stats.upcoming
+                                div class_name="flex items-center justify-between border-b py-3 last:border-0"
+                                    div
+                                        p "{f.title}" class_name="font-medium"
+                                        p "{f.lead} · due {f.due}" class_name="text-sm text-muted-foreground"
+                                    badge text=f.priority variant="outline" class_name="capitalize"
+                            empty
+                                p "Nothing due — nice work." class_name="text-sm text-muted-foreground"
+
+component Leads
+    render
+        crud_table Lead columns=["name", "company", "stage", "value", "source", "follow_up"]
+
+component Companies
+    render
+        crud_table Company columns=["name", "industry", "city", "size"]
+
+component FollowUps
+    render
+        crud_table FollowUp columns=["title", "lead", "due", "priority", "done"] title="Follow-ups"
+
+app SalesCRM
+    title "Sales CRM"
+    theme "professional"
+    layout
+        sidebar
+            nav "Dashboard"  icon="layout-dashboard" component=Dashboard
+            nav "Leads"      icon="users"            component=Leads
+            nav "Companies"  icon="building-2"       component=Companies
+            nav "Follow-ups" icon="calendar-check"   component=FollowUps

@@ -438,6 +438,42 @@ def mcn_abs(n: Any) -> float:
 def mcn_round(n: Any, digits: int = 0) -> float:
     return round(float(n), int(digits))
 
+def mcn_format_number(n: Any, decimals: int = 0, style: str = "in") -> str:
+    """format_number(1234567)        → "12,34,567"   (Indian grouping, default)
+       format_number(1234567, 0, "intl") → "1,234,567"
+       format_number(1234.5, 2)      → "1,234.50"
+    """
+    if n is None or n == "":
+        return ""
+    value = float(n)
+    decimals = int(decimals)
+    neg = value < 0
+    text = f"{abs(value):.{decimals}f}"
+    whole, _, frac = text.partition(".")
+    if style == "in" and len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        whole = ",".join(groups + [tail])
+    else:
+        whole = f"{int(whole):,}"
+    return ("-" if neg else "") + whole + (f".{frac}" if frac else "")
+
+def mcn_format_currency(n: Any, symbol: str = "₹", decimals: int = 0) -> str:
+    """format_currency(123456) → "₹1,23,456";  format_currency(99.5, "$", 2) → "$99.50"
+    Rupee amounts use Indian lakh/crore grouping; other symbols use 1,234,567."""
+    if n is None or n == "":
+        return ""
+    style = "in" if symbol in ("₹", "Rs", "Rs.", "INR") else "intl"
+    text = mcn_format_number(n, decimals, style)
+    if text.startswith("-"):
+        return "-" + symbol + text[1:]
+    return symbol + text
+
 def mcn_floor(n: Any) -> int:
     return math.floor(float(n))
 
@@ -645,6 +681,8 @@ def register_stdlib_builtins(functions: dict) -> None:
         "ceil":              mcn_ceil,
         "floor":             mcn_floor,
         "round":             mcn_round,
+        "format_number":     mcn_format_number,
+        "format_currency":   mcn_format_currency,
         "sqrt":              lambda n: __import__('math').sqrt(float(n)),
         "pow":               lambda b, e: float(b) ** float(e),
         "random":            mcn_random,

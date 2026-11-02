@@ -18,7 +18,7 @@ import re
 import sys
 from typing import List, Optional, Tuple
 
-_LOC_RE = re.compile(r"^\[(\d+):(\d+)\]\s*(LexError|ParseError|RuntimeError):\s*(.*)$", re.S)
+_LOC_RE = re.compile(r"^\[(\d+):(\d+)\]\s*(?:(LexError|ParseError|RuntimeError):)?\s*(.*)$", re.S)
 _GOT_RE = re.compile(r"\s*\(got ([A-Z_]+) (.*)\)\s*$")
 
 _TOKEN_NAMES = {
@@ -67,7 +67,7 @@ def error_entries(exc: BaseException) -> List[Tuple[int, int, str, str]]:
         errors = getattr(cur, "errors", None)
         if isinstance(errors, list) and errors and all(isinstance(e, str) for e in errors):
             return [_split(e) for e in errors]
-        if type(cur).__name__ in ("MCNError", "ParseError", "LexError"):
+        if type(cur).__name__ in ("MCNError", "ParseError", "LexError", "UICompileError"):
             line, col, label, text = _split(str(cur))
             msg = getattr(cur, "message", None)
             if label == "error" and isinstance(msg, str):

@@ -250,9 +250,21 @@ class ArrowFunc(Node):
 
 @dataclass
 class ContractField(Node):
-    """A single field in a contract: name: type"""
-    name:      str = ""
-    type_name: str = ""
+    """
+    A single field in a contract:
+
+        name:  str
+        phone: str?                      optional
+        value: float = 0                 default
+        email: str unique                unique
+        stage: choice("new", "won") = "new"
+    """
+    name:      str                  = ""
+    type_name: str                  = ""
+    optional:  bool                 = False
+    default:   Optional["Expr"]     = None
+    unique:    bool                 = False
+    choices:   List[str]            = field(default_factory=list)
 
 
 @dataclass
@@ -309,6 +321,23 @@ class ServiceDecl(Node):
     name:      str                = ""
     port:      Optional[int]      = None
     endpoints: List[EndpointDecl] = field(default_factory=list)
+    cruds:     List["CrudDecl"]   = field(default_factory=list)
+
+
+@dataclass
+class CrudDecl(Node):
+    """
+    Inside a service — generates list/get/create/update/delete endpoints:
+
+        crud Lead
+            search    name, email
+            sort      created_at desc
+            page_size 25
+    """
+    contract:  str       = ""
+    search:    List[str] = field(default_factory=list)
+    sort:      str       = ""          # "field" or "field desc"
+    page_size: int       = 25
 
 
 @dataclass

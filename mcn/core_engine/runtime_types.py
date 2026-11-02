@@ -276,9 +276,12 @@ class MCNContract:
     the type does not include null.
     """
 
-    def __init__(self, name: str, fields: List[Tuple[str, str]]):
+    def __init__(self, name: str, fields: List[Tuple[str, str]], specs=None):
+        from .crud import FieldSpec
         self.name   = name
         self.fields = fields  # [(field_name, type_name)]
+        # Full field metadata (optional / default / unique / choices)
+        self.specs  = specs or [FieldSpec(n, t) for n, t in fields]
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -288,9 +291,21 @@ class MCNContract:
         errors:   List[str] = []
         warnings: List[str] = []
 
+        specs = {s.name: s for s in self.specs}
         for field_name, type_name in self.fields:
+            spec = specs.get(field_name)
             if field_name not in data:
-                warnings.append(f"Missing field '{field_name}' ({type_name})")
+                if spec is None or spec.required:
+                    warnings.append(f"Missing field '{field_name}' ({type_name})")
+                continue
+            if data[field_name] is None and spec is not None and spec.optional:
+                continue
+            if spec is not None and spec.type in ("choice", "date", "datetime", "text"):
+                from .crud import coerce
+                try:
+                    coerce(spec, data[field_name])
+                except ValueError as exc:
+                    errors.append(f"Field '{field_name}': {exc}")
                 continue
 
             value     = data[field_name]
@@ -324,17 +339,26 @@ class MCNContract:
             )
         return dict(kwargs)
 
+    def check(self, data: Dict[str, Any], partial: bool = False) -> Dict[str, Any]:
+        """Validate + clean (defaults, coercion). Raises with field errors."""
+        from .crud import check
+        return check(self.specs, data, partial=partial)
+
     def schema(self) -> Dict[str, Any]:
         """Return a JSON-schema-like dict describing this contract."""
-        properties = {
-            name: {"type": type_name}
-            for name, type_name in self.fields
-        }
+        properties = {}
+        for spec in self.specs:
+            prop: Dict[str, Any] = {"type": spec.type}
+            if spec.choices:
+                prop["enum"] = spec.choices
+            if spec.has_default:
+                prop["default"] = spec.default
+            properties[spec.name] = prop
         return {
             "title":      self.name,
             "type":       "object",
             "properties": properties,
-            "required":   [name for name, _ in self.fields],
+            "required":   [s.name for s in self.specs if s.required],
         }
 
     def __repr__(self) -> str:

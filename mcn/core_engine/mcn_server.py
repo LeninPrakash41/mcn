@@ -136,6 +136,7 @@ def _load_evaluator(script_path: str) -> Evaluator:
     program = Parser(tokens).parse()
     interp  = MCNInterpreter()
     ev      = interp._evaluator
+    ev.current_dir = os.path.dirname(os.path.abspath(script_path))
     ev.execute_program(program)
     return ev
 
@@ -157,7 +158,7 @@ def _declares_endpoints(script_path: str) -> bool:
     from . import ast_nodes as ast
     with open(script_path, encoding="utf-8") as f:
         program = Parser(Lexer(f.read()).tokenize()).parse()
-    return any(isinstance(stmt, ast.ServiceDecl) and stmt.endpoints
+    return any(isinstance(stmt, ast.ServiceDecl) and (stmt.endpoints or stmt.cruds)
                for stmt in program.body)
 
 
@@ -221,6 +222,15 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
                 return
 
+            fn = evaluator.functions[fn_name]
+            if getattr(fn, "_mcn_body", False):
+                # CRUD endpoints take the whole query string (+ /<id>) as one dict
+                payload = dict(query_params)
+                if path_arg is not None:
+                    payload["id"] = path_arg
+                self._call(fn, [payload])
+                return
+
             # Build args: path_arg first (if any), then query string params
             params: List[str] = evaluator.function_params.get(fn_name, [])
             args = []
@@ -241,11 +251,25 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 else:
                     break  # remaining use MCN defaults
 
+            self._call(evaluator.functions[fn_name], args)
+
+        def _call(self, fn, args):
+            """Run an endpoint; map MCN HTTP errors to their status codes."""
+            from .crud import MCNHttpError, ValidationErrors
             try:
-                result = evaluator.functions[fn_name](*args)
+                result = fn(*args)
                 self._send_json(200, result if result is not None else {})
+            except MCNHttpError as exc:
+                self._send_json(exc.status, exc.payload)
+            except ValidationErrors as exc:
+                self._send_json(400, {"error": "Please fix the highlighted fields",
+                                      "errors": exc.errors})
             except Exception as exc:
-                self._send_json(500, {"error": str(exc)})
+                cause = exc.__cause__
+                if isinstance(cause, MCNHttpError):
+                    self._send_json(cause.status, cause.payload)
+                else:
+                    self._send_json(500, {"error": str(exc)})
 
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
@@ -262,6 +286,14 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 except json.JSONDecodeError:
                     self._send_json(400, {"error": "Invalid JSON body"})
                     return
+
+            fn = evaluator.functions[fn_name]
+            if getattr(fn, "_mcn_body", False):
+                payload = body if isinstance(body, dict) else {}
+                if path_arg is not None:
+                    payload["id"] = path_arg
+                self._call(fn, [payload])
+                return
 
             # Build args: path_arg first (if any), then positional `_args`
             # (sent by compiled MCN UIs), then body dict keys in param order.
@@ -286,11 +318,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                     break   # remaining use MCN defaults
                 args.append(body[p])
 
-            try:
-                result = evaluator.functions[fn_name](*args)
-                self._send_json(200, result if result is not None else {})
-            except Exception as exc:
-                self._send_json(500, {"error": str(exc)})
+            self._call(fn, args)
 
     return MCNHandler
 

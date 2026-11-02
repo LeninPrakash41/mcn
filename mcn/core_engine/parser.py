@@ -858,6 +858,7 @@ class Parser:
 
         port: Optional[int] = None
         endpoints: List[ast.EndpointDecl] = []
+        cruds: List[ast.CrudDecl] = []
 
         self._skip_newlines()
         if self._check(TT.INDENT):
@@ -873,13 +874,16 @@ class Parser:
                     self._consume_end()
                 elif self._check(TT.ENDPOINT):
                     endpoints.append(self._endpoint_decl())
+                elif self._check(TT.IDENTIFIER) and self._current().value == "crud":
+                    cruds.append(self._crud_decl())
                 else:
-                    self._advance()
+                    raise ParseError("Expected 'port', 'endpoint' or 'crud' inside a service",
+                                     self._current())
             if self._check(TT.DEDENT):
                 self._advance()      # consume DEDENT
 
         return ast.ServiceDecl(name=name_tok.value, port=port, endpoints=endpoints,
-                               line=tok.line, col=tok.col)
+                               cruds=cruds, line=tok.line, col=tok.col)
 
     def _endpoint_decl(self) -> ast.EndpointDecl:
         tok      = self._advance()   # consume ENDPOINT
@@ -953,19 +957,85 @@ class Parser:
                 self._skip_newlines()
                 if self._check(TT.DEDENT) or self._at_end():
                     break
-                field_name = self._consume(TT.IDENTIFIER, "Expected field name")
-                self._consume(TT.COLON, "Expected ':' after field name")
-                type_tok   = self._consume(TT.IDENTIFIER, "Expected type name")
-                self._consume_end()
-                fields.append(ast.ContractField(
-                    name=field_name.value, type_name=type_tok.value,
-                    line=field_name.line, col=field_name.col,
-                ))
+                fields.append(self._contract_field())
             if self._check(TT.DEDENT):
                 self._advance()      # consume DEDENT
 
         return ast.ContractDecl(name=name_tok.value, fields=fields,
                                 line=tok.line, col=tok.col)
+
+    def _contract_field(self) -> ast.ContractField:
+        """name: type[?] [unique] [= default]   — type may be choice("a", "b")"""
+        name_tok = self._name("Expected field name")
+        self._consume(TT.COLON, "Expected ':' after field name")
+        type_tok = self._name("Expected type name (str, int, float, bool, "
+                              "text, date, datetime or choice(...))")
+        type_name = type_tok.value
+        choices: List[str] = []
+        if type_name == "choice":
+            self._consume(TT.LPAREN, "Expected '(' after choice")
+            while True:
+                choices.append(self._consume(TT.STRING, "Expected a quoted choice value").value)
+                if not self._match(TT.COMMA):
+                    break
+            self._consume(TT.RPAREN, "Expected ')' after choice values")
+        optional = bool(self._match(TT.QUESTION))
+        unique = False
+        default: Optional[ast.Expr] = None
+        while not self._at_eol():
+            if self._check(TT.IDENTIFIER) and self._current().value == "unique":
+                self._advance()
+                unique = True
+            elif self._match(TT.ASSIGN):
+                default = self._expression()
+            else:
+                raise ParseError("Expected 'unique', '= default' or end of line "
+                                 "after the field type", self._current())
+        self._consume_end()
+        return ast.ContractField(
+            name=name_tok.value, type_name=type_name, optional=optional,
+            default=default, unique=unique, choices=choices,
+            line=name_tok.line, col=name_tok.col,
+        )
+
+    def _crud_decl(self) -> ast.CrudDecl:
+        """
+        crud Contract
+            search    field, field
+            sort      field [asc|desc]
+            page_size 25
+        """
+        tok = self._advance()                    # consume `crud`
+        contract = self._consume(TT.IDENTIFIER, "Expected contract name after 'crud'").value
+        self._consume_end()
+        search: List[str] = []
+        sort, page_size = "", 25
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+                opt = self._name("Expected a crud option (search, sort or page_size)")
+                if opt.value == "search":
+                    search.append(self._name("Expected a field name to search").value)
+                    while self._match(TT.COMMA):
+                        search.append(self._name("Expected a field name to search").value)
+                elif opt.value == "sort":
+                    sort = self._name("Expected a field name to sort by").value
+                    if self._check(TT.IDENTIFIER) and self._current().value in ("asc", "desc"):
+                        sort += " " + self._advance().value
+                elif opt.value == "page_size":
+                    page_size = int(float(self._consume(TT.NUMBER, "Expected a number").value))
+                else:
+                    raise ParseError(f"Unknown crud option '{opt.value}' "
+                                     "(expected search, sort or page_size)", opt)
+                self._consume_end()
+            if self._check(TT.DEDENT):
+                self._advance()
+        return ast.CrudDecl(contract=contract, search=search, sort=sort,
+                            page_size=page_size, line=tok.line, col=tok.col)
 
     def _prompt_decl(self) -> ast.PromptDecl:
         """

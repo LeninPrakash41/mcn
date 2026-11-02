@@ -502,6 +502,66 @@ mcn build ui/app.mcn --out frontend
 cd frontend && npm install && npm run dev
 ```
 
+### CRUD from a contract (`crud` + `crud_table`)
+
+Describe your data once; MCN creates the table, the API and the screen.
+See [`examples/crm_app`](examples/crm_app) for a complete Sales CRM.
+
+```mcn
+// models.mcn — shared by backend and UI
+contract Lead
+    name:      str                                    // required
+    email:     str unique
+    phone:     str?                                   // ? = optional
+    stage:     choice("new", "contacted", "won", "lost") = "new"
+    value:     float = 0
+    notes:     text?                                  // long text → textarea
+    follow_up: date?
+
+// backend.mcn
+include "models.mcn"
+service crm
+    crud Lead
+        search    name, email
+        sort      created_at desc
+        page_size 25
+
+// app.mcn
+include "models.mcn"
+component Leads
+    render
+        crud_table Lead columns=["name", "email", "stage", "value"]
+```
+
+| Field syntax | Meaning |
+|---|---|
+| `str`, `text`, `int`, `float`, `bool`, `date`, `datetime` | Type (also picks the form input) |
+| `?` after the type | Optional |
+| `= value` | Default |
+| `unique` | No two records may share the value |
+| `choice("a", "b")` | Only these values (dropdown + coloured badge) |
+
+`crud Lead` creates the `leads` table (plus `id`, `created_at`, `updated_at`) and:
+
+| Endpoint | Does |
+|---|---|
+| `GET /list_leads?search=&page=&page_size=&sort=value desc&stage=won` | `{items, total, page, page_size}` |
+| `GET /get_lead/<id>` | One record (404 if missing) |
+| `POST /create_lead` | Validate, then insert |
+| `POST /update_lead` | Validate the fields sent, then update |
+| `POST /delete_lead` | Delete |
+
+Invalid input returns `400 {"errors": {"email": "already exists", "stage": "must be one of …"}}`.
+Adding a field to a contract adds the column on the next start; columns are never dropped.
+`PurchaseOrder` becomes `list_purchase_orders`, table `purchase_orders`.
+From MCN code the endpoints are plain functions: `create_lead({name: "Asha", email: "a@x.in"})`.
+
+`crud_table` renders a table with search, a filter for the first `choice` field, sortable
+columns, pagination, an add/edit form generated from the contract, field errors and a delete
+confirmation. It compiles to a readable `CrudTable.tsx` you can customise.
+
+Number helpers: `format_currency(123456)` → `₹1,23,456`, `format_number(1234567, 0, "intl")` → `1,234,567`.
+
 ### Lists, conditions and row actions in `render`
 
 ```mcn

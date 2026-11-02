@@ -307,6 +307,10 @@ def _vars_needing_hoist(stmts: List[ast.Stmt]) -> Set[str]:
     return nested | {n for n, c in top.items() if c > 1}
 
 
+class UICompileError(Exception):
+    """A problem in the UI source found while compiling (has [line:col])."""
+
+
 # ── main compiler class ────────────────────────────────────────────────────────
 
 class UICompiler:
@@ -363,6 +367,12 @@ class UICompiler:
         app_decl: Optional[ast.AppDecl] = evaluator.app_decl
         components: Dict[str, ast.ComponentDecl] = evaluator.components
 
+        # Contracts available to `crud_table` (declared or included in the UI file)
+        from .runtime_types import MCNContract
+        self._contracts = {name: v for name, v in evaluator.globals.as_dict.items()
+                           if isinstance(v, MCNContract)}
+        self._crud_used: Dict[str, object] = {}
+
         theme = app_decl.theme if app_decl else "default"
 
         # 1. Compile each component
@@ -371,6 +381,18 @@ class UICompiler:
             path.write_text(self._compile_component(comp))
             written.append(path)
             print(f"  write  {path.relative_to(self.out.parent)}")
+
+        # 1b. Contract-driven CRUD screens (crud_table)
+        if self._crud_used:
+            from .ui_crud import CRUD_TABLE_TSX, CRUD_SHADCN, models_ts
+            models_path = src / "models.ts"
+            models_path.write_text(models_ts(list(self._crud_used.values())))
+            crud_path = src / "components" / "CrudTable.tsx"
+            crud_path.write_text(CRUD_TABLE_TSX)
+            for p in (models_path, crud_path):
+                written.append(p)
+                print(f"  write  {p.relative_to(self.out.parent)}")
+            self._shadcn_needed.update(CRUD_SHADCN)
 
         # 2. Generate API service layer
         api_path = src / "services" / "api.ts"
@@ -687,6 +709,8 @@ class UICompiler:
             return self._ui_if_to_jsx(el, indent)
         if isinstance(el, ast.UIFor):
             return self._ui_for_to_jsx(el, indent)
+        if el.tag == "crud_table":
+            return self._crud_table_jsx(el, indent)
         pad   = " " * indent
         tag   = el.tag
         lines: List[str] = []
@@ -1314,6 +1338,50 @@ class UICompiler:
             f"{pad}</TableBody>",
         ]
 
+    def _crud_table_jsx(self, el: ast.UIElement, indent: int) -> List[str]:
+        """crud_table Lead columns=[...] title="..." page_size=10"""
+        pad = " " * indent
+        name = next((a.key for a in el.attrs if a.value is None), None)
+        if name is None:
+            raise UICompileError(
+                f"[{el.line}:{el.col}] crud_table needs a contract name, e.g. crud_table Lead")
+        contracts = getattr(self, "_contracts", {})
+        if name not in contracts:
+            known = ", ".join(sorted(contracts)) or "none"
+            raise UICompileError(
+                f"[{el.line}:{el.col}] crud_table {name}: no contract named '{name}' "
+                f"in this file (known: {known}). Declare it, or include the file "
+                f"that does, e.g. include \"models.mcn\"")
+        contract = contracts[name]
+        self._crud_used[name] = contract
+        self._extra_imports.add('import { CrudTable } from "./CrudTable"')
+        self._extra_imports.add(f'import {{ {name}Resource }} from "../models"')
+
+        props = [f"resource={{{name}Resource}}"]
+        field_names = {s.name for s in contract.specs}
+        for a in el.attrs:
+            if a.value is None:
+                continue
+            if a.key == "columns":
+                if not isinstance(a.value, ast.Array):
+                    raise UICompileError(f"[{a.line}:{a.col}] columns must be a list, "
+                                         f'e.g. columns=["name", "email"]')
+                cols = []
+                for e in a.value.elements:
+                    col = e.value if isinstance(e, ast.Literal) else getattr(e, "name", None)
+                    if col not in field_names:
+                        raise UICompileError(
+                            f"[{a.line}:{a.col}] crud_table {name}: unknown column "
+                            f"'{col}' (fields: {', '.join(s.name for s in contract.specs)})")
+                    cols.append(col)
+                props.append(f"columns={{{json.dumps(cols)}}}")
+            elif a.key in ("title", "page_size"):
+                props.append(f"{_camel(a.key)}={{{_expr_to_ts(a.value)}}}")
+            else:
+                raise UICompileError(f"[{a.line}:{a.col}] crud_table: unknown option "
+                                     f"'{a.key}' (use columns, title or page_size)")
+        return [f"{pad}<CrudTable {' '.join(props)} />"]
+
     def _children_jsx(self, nodes: List[ast.UIElement], indent: int) -> List[str]:
         """JSX for a branch: a single element, or several in a fragment."""
         pad = " " * indent
@@ -1390,13 +1458,23 @@ class UICompiler:
             if key in ("label", "show", "options", "x_key", "y_key", "name_key",
                        "value_key", "data", "height", "page", "total", "page_size"):
                 continue
+            if key == "class_name" and tag == "div" and any(x.key == "grid_cols" for x in attrs):
+                continue    # merged into the grid className below
 
             # grid_cols=N → Tailwind grid className
             if key == "grid_cols" and tag == "div":
                 n = _expr_to_ts(val) if val else "3"
                 # strip quotes if it's a string literal
                 n = n.strip('"\'')
-                props.append(f'className="grid grid-cols-{n} gap-4"')
+                # Responsive: 1 column on phones, 2 on tablets, N on desktop
+                responsive = {"1": "grid-cols-1", "2": "grid-cols-1 md:grid-cols-2",
+                              "3": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}.get(
+                                  n, f"grid-cols-1 sm:grid-cols-2 lg:grid-cols-{n}")
+                extra = next((a for a in attrs if a.key == "class_name"), None)
+                cls = f"grid {responsive} gap-4"
+                if extra is not None and isinstance(extra.value, ast.Literal):
+                    cls += " " + str(extra.value.value)
+                props.append(f'className="{cls}"')
                 continue
 
             # bind=name  →  value={name} onChange={e => setName(...)}
@@ -1638,9 +1716,24 @@ export default function App() {{
         layout = app.layout
         title  = app.title
 
-        # Collect icon names used
-        icon_names = [self._nav_icon(n.label) for n in layout.sidebar]
-        icons_import = ", ".join(sorted(set(icon_names)))
+        # Icons: the declared icon="layout-dashboard" (→ LayoutDashboard),
+        # otherwise a guess from the label
+        def nav_icon(n) -> str:
+            return _pascal(n.icon.replace("-", "_")) if n.icon else self._nav_icon(n.label)
+
+        icon_names = [nav_icon(n) for n in layout.sidebar]
+
+        mobile_items = "\n".join(
+            f'          <button\n'
+            f'            onClick={{() => setActive("{n.label}")}}\n'
+            f'            className={{`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium ${{active === "{n.label}" '
+            f'? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}}`}}\n'
+            f'          >\n'
+            f'            <{nav_icon(n)} className="h-4 w-4" />\n'
+            f'            {n.label}\n'
+            f'          </button>'
+            for n in layout.sidebar
+        )
 
         nav_items = "\n".join(
             f'          <button\n'
@@ -1650,7 +1743,7 @@ export default function App() {{
             f'? "bg-primary text-primary-foreground" '
             f': "text-muted-foreground hover:bg-accent hover:text-foreground"}}`}}\n'
             f'          >\n'
-            f'            <{self._nav_icon(n.label)} className="w-4 h-4 shrink-0" />\n'
+            f'            <{nav_icon(n)} className="w-4 h-4 shrink-0" />\n'
             f'            {n.label}\n'
             f'          </button>'
             for n in layout.sidebar
@@ -1677,8 +1770,21 @@ export default function App() {{
   const [active, setActive] = useState("{default_page}")
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="w-64 border-r bg-card flex flex-col shadow-sm">
+    <div className="flex min-h-screen flex-col bg-background md:flex-row">
+      {{/* Mobile header + nav */}}
+      <header className="sticky top-0 z-40 border-b bg-card md:hidden">
+        <div className="flex items-center gap-2 px-4 py-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
+            <{app_icon} className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <h2 className="text-sm font-bold">{title}</h2>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
+{mobile_items}
+        </nav>
+      </header>
+
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-card shadow-sm md:flex">
         {{/* Header */}}
         <div className="flex items-center gap-3 px-4 py-4 border-b">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -1711,8 +1817,8 @@ export default function App() {{
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <div className="p-6">
+      <main className="min-w-0 flex-1 overflow-auto">
+        <div className="p-4 md:p-6">
 {pages}
         </div>
       </main>
@@ -1776,14 +1882,28 @@ export default function App() {{
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080"
 
+/** Error from an MCN endpoint. `data.errors` maps field names to messages. */
+export class ApiError extends Error {
+  status: number
+  data: any
+  constructor(status: number, data: any) {
+    super(data?.error ?? `Request failed (${status})`)
+    this.status = status
+    this.data = data
+  }
+}
+
 async function request<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method:  body ? "POST" : "GET",
     headers: { "Content-Type": "application/json" },
     body:    body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  const text = await res.text()
+  let data: any = null
+  try { data = text ? JSON.parse(text) : null } catch { data = { error: text } }
+  if (!res.ok) throw new ApiError(res.status, data ?? {})
+  return data as T
 }
 
 export const api = {
@@ -1943,15 +2063,37 @@ const config: Config = {
     extend: {
       colors: {
         border:     "hsl(var(--border))",
+        input:      "hsl(var(--input))",
+        ring:       "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT:    "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
+        secondary: {
+          DEFAULT:    "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT:    "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT:    "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         accent: {
           DEFAULT:    "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT:    "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT:    "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
       },
       borderRadius: {

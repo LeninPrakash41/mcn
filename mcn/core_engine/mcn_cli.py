@@ -350,7 +350,16 @@ def _cmd_build(mcn_file: str, out_dir: str) -> int:
     # Run evaluator — registers components/app but doesn't serve
     interp    = MCNInterpreter()
     evaluator = interp._evaluator
-    evaluator.execute_program(program)
+    evaluator.current_dir = str(src.resolve().parent)
+    try:
+        evaluator.execute_program(program)
+    except Exception as exc:
+        try:
+            from .error_format import format_error, use_color
+        except ImportError:
+            from error_format import format_error, use_color
+        sys.stderr.write(format_error(exc, code, str(src), color=use_color()))
+        return 1
 
     n_components = len(evaluator.components)
     has_app      = evaluator.app_decl is not None
@@ -365,7 +374,17 @@ def _cmd_build(mcn_file: str, out_dir: str) -> int:
     print(f"Output:    {out}/\n")
 
     compiler = UICompiler(output_dir=out)
-    compiler.compile(evaluator)
+    try:
+        compiler.compile(evaluator)
+    except Exception as exc:
+        if type(exc).__name__ != "UICompileError":
+            raise
+        try:
+            from .error_format import format_error, use_color
+        except ImportError:
+            from error_format import format_error, use_color
+        sys.stderr.write(format_error(exc, code, str(src), color=use_color()))
+        return 1
 
     print(f"\n✓ Frontend generated in {out}/")
     print(f"\nNext steps:")
