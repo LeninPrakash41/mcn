@@ -460,9 +460,11 @@ class MCNRuntime:
 
     def _setup_logging(self):
         """Setup enhanced logging"""
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO if os.environ.get("MCN_VERBOSE") else logging.WARNING)
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler("mcn_runtime.log"), logging.StreamHandler()],
+            handlers=[logging.FileHandler("mcn_runtime.log"), console],
         )
         self.logger = logging.getLogger(__name__)

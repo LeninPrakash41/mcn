@@ -49,20 +49,26 @@ Unlike other app builders that generate separate frontend and backend codebases,
 
 ## Quick Start
 
+Requires **Python 3.10+**. Node.js is optional.
+
 ```bash
 git clone https://github.com/zeroappz/mcn
-cd mt-mcn
+cd mcn
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .
 mcn run examples/hello.mcn
 ```
 
-Or open the web playground:
+Then open the web playground (MCN Studio) — a browser IDE to write, run, and preview full-stack apps:
 
 ```bash
-cd mcn/web-playground
-python server.py
-# → http://localhost:7842
+python mcn/web-playground/server.py
+# → open http://localhost:5003
 ```
+
+Pick a template from **Templates**, press **Run** to execute the backend, then **Preview** to see the app.
+The playground only accepts connections from your own machine. Set `MCN_VERBOSE=1` to see engine debug logs.
 
 The Web Playground includes built-in **Interactive Simulators** in the preview pane:
 * **DB Explorer**: Inspect database tables, explore generated schemas, and write SQL queries against the live SQLite instance.

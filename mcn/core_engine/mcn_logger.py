@@ -4,6 +4,7 @@ Provides comprehensive error tracking and developer-friendly debugging
 """
 
 import logging
+import os
 import json
 import traceback
 from datetime import datetime
@@ -44,8 +45,9 @@ class MCNLogger:
         """Setup file and console handlers"""
 
         # Console handler with colored output
+        # Keep program output clean by default; MCN_VERBOSE=1 shows engine steps
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.INFO if os.environ.get("MCN_VERBOSE") else logging.WARNING)
         console_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )

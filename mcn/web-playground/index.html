@@ -2422,6 +2422,13 @@
       backdrop-filter: none !important;
     }
     .templates-menu-item:hover { background: var(--accent-bg) !important; }
+    .copilot-hdr { background: var(--bg-alt); border-bottom: 1px solid #393B40; }
+    .copilot-hdr-icon { background: #393B40 !important; border: none !important; box-shadow: none !important; }
+    .copilot-badge-pill { background: transparent; border: 1px solid var(--border-ctrl); color: var(--text-dim); border-radius: 4px; }
+    .copilot-badge-pulse { background: var(--green) !important; box-shadow: none !important; }
+    .copilot-seg-btn.active, .si-step-tab.active { background: var(--accent-bg) !important; border-color: var(--accent) !important; color: #fff !important; box-shadow: none !important; }
+    .copilot-chip-item, .si-preset-chip, .dialog-chip { background: var(--bg) !important; border: 1px solid #393B40 !important; border-radius: 4px !important; }
+    .copilot-chip-item:hover, .si-preset-chip:hover, .dialog-chip:hover { background: var(--surface2) !important; border-color: var(--border-ctrl) !important; }
     .templates-menu-group-title { color: var(--muted) !important; letter-spacing: 0.02em; }
 
     /* Narrow windows: collapse menus before anything overlaps */
@@ -3352,7 +3359,7 @@
       </div>
       <div class="copilot-badge-pill">
         <span class="copilot-badge-pulse"></span>
-        <span>Gemini 2.5 Pro Active</span>
+        <span>Claude AI</span>
       </div>
     </div>
     <div class="modal-body" style="gap:14px;">
@@ -5807,9 +5814,14 @@ async function refreshAIInspector() {
   if (!traceContainer) return
   try {
     const r = await apiFetch('/api/ai/trace')
+    if (r.status === 404) {
+      // Tracing endpoint not available in this build; show the empty state instead of an error
+      traceContainer.innerHTML = '<div style="color:var(--muted);font-style:italic;">AI tracing is not available yet. AI calls in your code still run normally.</div>'
+      return
+    }
     const d = await r.json()
     if (d.success) {
-      document.getElementById('ai-active-model').textContent = d.model + " (Gemini integration enabled)"
+      document.getElementById('ai-active-model').textContent = d.model
       
       if (d.trace && d.trace.length > 0) {
         traceContainer.innerHTML = d.trace.slice().reverse().map(t => `

@@ -7,7 +7,7 @@ A browser-based IDE for writing, running, building, and testing MCN scripts — 
 ```bash
 cd mcn/web-playground
 python server.py
-# → http://localhost:7842
+# → http://localhost:5003
 ```
 
 ## What it does
