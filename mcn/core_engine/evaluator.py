@@ -152,6 +152,17 @@ class Evaluator:
         self.app_auth      = None
         self.audit_log     = None
         self.crud_resources: Dict[str, Any] = {}   # contract name → CrudResource (for ref)
+        self.triggers: Dict[tuple, List[Callable]] = {}   # (event, contract) → handlers
+        self.jobs: List[Any] = []                  # workflow.Job
+        self._trigger_depth = 0
+        self._files = None                         # FileStore (lazy)
+        self._mailer = None                        # Mailer (lazy)
+        import threading as _threading
+        self.lock = _threading.RLock()             # serialises requests and jobs
+        # Email / PDF / files built-ins (replace the older SMTP-only send_email)
+        self.functions["send_email"] = self._send_email
+        self.functions["make_pdf"]   = self._make_pdf
+        self.functions["file_url"]   = lambda file_id: self.file_store().url(int(file_id))
         self.current_user: Optional[Dict[str, Any]] = None   # set per request by mcn serve
 
         # Boolean and null literals (JavaScript / JSON style)
@@ -667,6 +678,8 @@ class Evaluator:
                                     permissions=self.permissions_for)
             self.audit_log = self.app_auth.audit
             self.app_auth.users.registry = self.crud_resources
+            if cfg.sso is not None:
+                self.app_auth.sso = self._make_sso(cfg, env)
             self.crud_resources["User"] = self.app_auth.users
         for name, fn in self.app_auth.endpoints().items():
             if name in self.function_params:
@@ -675,6 +688,22 @@ class Evaluator:
             env.define(name, fn)
             self.functions[name] = fn
             self.function_params[name] = ["payload"]
+
+    def _make_sso(self, cfg: ast.AuthDecl, env: Environment):
+        from .auth import SSO
+        d = cfg.sso
+        values = {}
+        for key in ("issuer", "client_id", "client_secret"):
+            v = self._eval(getattr(d, key), env)
+            if not v:
+                raise MCNError(f"sso {key} is empty — set it (e.g. the environment variable "
+                               f"it reads) before starting the server", d.line, d.col)
+            values[key] = str(v)
+        sso = SSO(self.app_auth, values["issuer"], values["client_id"], values["client_secret"],
+                  [str(self._eval(x, env)) for x in d.allow_domains], d.default_role,
+                  str(self._eval(d.label, env)) if d.label is not None else "", d.auto_create)
+        sso.request_base = lambda: getattr(self, "request_base", "")
+        return sso
 
     def _ensure_audit(self, service, env: Environment):
         from .crud import AuditLog
@@ -692,6 +721,134 @@ class Evaluator:
                 self.functions["list_audit_log"] = list_audit_log
                 self.function_params["list_audit_log"] = ["payload"]
         return self.audit_log
+
+    # ── triggers, jobs, files, email ────────────────────────────────────────
+
+    def _register_trigger(self, trig: ast.TriggerDecl, env: Environment) -> None:
+        from .runtime_types import MCNContract
+        if not isinstance(env.get(trig.contract), MCNContract):
+            raise MCNError(f"on {trig.event} {trig.contract}: no contract named "
+                           f"'{trig.contract}'" + self._did_you_mean(trig.contract, env),
+                           trig.line, trig.col)
+        body = trig.body
+
+        def handler(record, old, _body=body, _env=env):
+            scope = Environment(_env)
+            scope.define("record", record)
+            scope.define("old", old)
+            scope.define("changed", lambda field: (old or {}).get(field) != (record or {}).get(field))
+            try:
+                self._exec_block(_body, scope)
+            except ReturnSignal:
+                pass
+        handler.__name__ = f"on {trig.event} {trig.contract}"
+        self.triggers.setdefault((trig.event, trig.contract), []).append(handler)
+
+    def _fire(self, event: str, contract: str, record, old) -> None:
+        """Run `on <event> <contract>` handlers after a change has been saved.
+        A failing handler is reported but doesn't undo the change."""
+        handlers = self.triggers.get((event, contract), [])
+        if not handlers:
+            return
+        if self._trigger_depth >= 5:
+            print(f"[mcn] on {event} {contract}: skipped (triggers nested 5 deep — loop?)")
+            return
+        self._trigger_depth += 1
+        try:
+            for h in handlers:
+                try:
+                    h(record, old)
+                except Exception as exc:
+                    print(f"[mcn] {h.__name__} failed: {exc}")
+                    if self.audit_log is not None:
+                        self.audit_log.record("trigger_failed", contract, (record or {}).get("id"),
+                                              {"note": f"{h.__name__} failed: {exc}"},
+                                              self.current_user)
+        finally:
+            self._trigger_depth -= 1
+
+    def _register_job(self, job: ast.JobDecl, service, env: Environment) -> None:
+        from .workflow import Job
+        if any(j.name == job.name for j in self.jobs):
+            raise MCNError(f"There are two jobs named '{job.name}'", job.line, job.col)
+        body = job.body
+
+        def run(_body=body, _env=env):
+            try:
+                self._exec_block(_body, Environment(_env))
+            except ReturnSignal:
+                pass
+        self.jobs.append(Job(job.name, job.every, job.unit, job.at, run))
+
+    def _add_platform_endpoints(self, service, env: Environment) -> None:
+        """upload / list_jobs / run_job / list_outbox (once)."""
+        admin = [self.auth_config.roles[0]] if self.auth_config else "public"
+        signed_in = "user" if self.auth_config else "public"
+
+        def list_jobs(payload=None):
+            return {"items": [j.info() for j in self.jobs]}
+
+        def run_job(payload=None):
+            from .crud import BadRequest, NotFound
+            name = (payload or {}).get("name") if isinstance(payload, dict) else payload
+            job = next((j for j in self.jobs if j.name == name), None)
+            if job is None:
+                raise NotFound({"error": f"No job named '{name}'"})
+            return job.run()
+
+        def upload(payload=None):
+            return self.file_store().upload(payload, self.current_user)
+
+        def list_outbox(payload=None):
+            return self.mailer().list(payload)
+
+        for name, fn, access in (("list_jobs", list_jobs, admin), ("run_job", run_job, admin),
+                                 ("upload", upload, signed_in), ("list_outbox", list_outbox, admin)):
+            if name in self.function_params:
+                continue
+            fn._mcn_body = True
+            fn._mcn_access = access
+            service.add_endpoint(name, ["payload"], fn)
+            env.define(name, fn)
+            self.functions[name] = fn
+            self.function_params[name] = ["payload"]
+
+    def app_secret(self) -> str:
+        """$MCN_SECRET, else one random secret kept in the app database."""
+        import os, secrets as _secrets
+        if os.environ.get("MCN_SECRET"):
+            return os.environ["MCN_SECRET"]
+        q = self.functions["query"]
+        q('CREATE TABLE IF NOT EXISTS "mcn_meta" ("key" TEXT PRIMARY KEY, "value" TEXT)')
+        rows = q('SELECT "value" FROM "mcn_meta" WHERE "key" = ?', ("auth_secret",))
+        if rows:
+            return rows[0]["value"]
+        value = _secrets.token_hex(32)
+        q('INSERT INTO "mcn_meta" ("key", "value") VALUES (?, ?)', ("auth_secret", value))
+        return value
+
+    def file_store(self):
+        from .files import FileStore
+        if self._files is None:
+            self._files = FileStore(self.functions["query"], self.app_secret())
+        return self._files
+
+    def mailer(self):
+        from .files import Mailer
+        if self._mailer is None:
+            self._mailer = Mailer(self.functions["query"], self.file_store())
+        return self._mailer
+
+    def _send_email(self, to, subject, body="", attachments=None):
+        """send_email(to, subject, body, [attachments])"""
+        return self.mailer().send(to, str(subject), str(body), attachments)
+
+    def _make_pdf(self, title, content=None, filename=None):
+        """make_pdf(title, content) → file {id, name, url} (attach to emails, link in UI)."""
+        from .files import build_pdf
+        data = build_pdf(str(title), content if content is not None else "")
+        name = filename or (_re.sub(r"[^\w\-]+", "-", str(title)).strip("-").lower() or "document") + ".pdf"
+        return self.file_store().save(data, name, "application/pdf", self.current_user)
 
     def permissions_for(self, user: Optional[Dict[str, Any]]) -> List[str]:
         """Endpoint names this user may call."""
@@ -787,7 +944,23 @@ class Evaluator:
         if self.auth_config is not None:
             self._ensure_app_auth(service, env)
 
+        for trig in stmt.triggers:
+            self._register_trigger(trig, env)
+        for job in stmt.jobs:
+            self._register_job(job, service, env)
+        if any(sp.type == "file" for r in self.crud_resources.values() for sp in r.specs) \
+                or stmt.jobs or stmt.triggers:
+            self._add_platform_endpoints(service, env)
+
         # Every `ref X` needs X's table (crud X here or in an earlier service)
+        for trig in stmt.triggers:
+            if trig.contract not in self.crud_resources:
+                raise MCNError(f"on {trig.event} {trig.contract}: add 'crud {trig.contract}' "
+                               "to the service (triggers run when records change)",
+                               trig.line, trig.col)
+            if trig.event in ("approve", "reject") and not self.crud_resources[trig.contract].approval:
+                raise MCNError(f"on {trig.event} {trig.contract}: crud {trig.contract} has no "
+                               "approval block", trig.line, trig.col)
         for resource in self.crud_resources.values():
             for spec in resource.specs:
                 if spec.type == "ref" and spec.ref not in self.crud_resources:
@@ -815,10 +988,27 @@ class Evaluator:
             raise MCNError("crud needs a database (query) function", crud.line, crud.col)
         audit = self._ensure_audit(service, env) if crud.audit else None
         try:
+            approval = None
+            if crud.approval is not None:
+                when_expr = crud.approval.when
+
+                def when(record, _expr=when_expr, _env=env):
+                    if _expr is None:
+                        return True
+                    scope = Environment(_env)
+                    scope.define("record", record)
+                    return self._truthy(self._eval(_expr, scope))
+
+                approval = {"approvers": self._checked_roles(crud.approval.approvers, crud.approval),
+                            "when": when}
             resource = CrudResource(contract, self.functions["query"], search=crud.search,
                                     sort=crud.sort, page_size=crud.page_size,
                                     audit=audit, actor=lambda: self.current_user,
-                                    registry=self.crud_resources)
+                                    registry=self.crud_resources,
+                                    files=self.file_store() if any(sp.type == "file" for sp in contract.specs) else None,
+                                    hooks=lambda ev, rec, old, _c=contract.name: self._fire(ev, _c, rec, old),
+                                    approval=approval, csv_import=crud.csv_import,
+                                    csv_export=crud.csv_export)
         except ValueError as exc:
             raise MCNError(str(exc), crud.line, crud.col)
         for spec in contract.specs:
@@ -828,12 +1018,15 @@ class Evaluator:
                                crud.line, crud.col)
         self.crud_resources[contract.name] = resource
         resource.ensure_table()
-        action_of = {"list": "read", "get": "read", "create": "write",
-                     "update": "write", "delete": "delete"}
-        for action, name in ((a, resource.names[a]) for a in action_of):
-            roles = crud.allow.get(action_of[action])
-            fn = resource.endpoints()[name]
-            fn._mcn_access = self._checked_roles(roles, crud) if roles else "user"
+        action_of = {"list": "read", "get": "read", "export": "read", "create": "write",
+                     "update": "write", "import": "write", "delete": "delete"}
+        for name, fn in resource.endpoints().items():
+            action = fn._mcn_action
+            if action in ("approve", "reject"):
+                fn._mcn_access = approval["approvers"]
+            else:
+                roles = crud.allow.get(action_of[action])
+                fn._mcn_access = self._checked_roles(roles, crud) if roles else "user"
             service.add_endpoint(name, ["payload"], fn)
             env.define(name, fn)
             self.functions[name] = fn
@@ -889,7 +1082,9 @@ class Evaluator:
             default = self._eval(f.default, env) if f.default is not None else None
             specs.append(FieldSpec(f.name, f.type_name.lower(), optional=f.optional,
                                    default=default, has_default=f.default is not None,
-                                   unique=f.unique, choices=f.choices, ref=f.ref or None))
+                                   unique=f.unique, choices=f.choices, ref=f.ref or None,
+                                   read_roles=self._checked_roles(f.read_roles, f) if f.read_roles else None,
+                                   write_roles=self._checked_roles(f.write_roles, f) if f.write_roles else None))
         fields = [(f.name, f.type_name) for f in stmt.fields]
         contract = MCNContract(stmt.name, fields, specs)
         env.define(stmt.name, contract)
@@ -984,7 +1179,61 @@ class Evaluator:
                 return m.group(0)   # leave {expr} untouched
             return "" if val is None else str(val)
 
-        return self._INTERP_RE.sub(_replace, s)
+        s = self._INTERP_RE.sub(_replace, s)
+        if "{" in s and _re.search(r"[(+\-*/%?<>=!]", s):
+            s = self._interp_expressions(s, env)
+        return s
+
+    def _interp_expressions(self, s: str, env: Environment) -> str:
+        """{format_currency(total)}, {price * qty}, {list_x({a: 1}).total} —
+        balanced braces, quotes respected; anything that isn't a valid
+        expression is left exactly as written."""
+        out, i, n = [], 0, len(s)
+        while i < n:
+            if s[i] != "{":
+                out.append(s[i])
+                i += 1
+                continue
+            depth, j, quote = 0, i, None
+            while j < n:
+                ch = s[j]
+                if quote:
+                    if ch == quote:
+                        quote = None
+                elif ch in "'\"":
+                    quote = ch
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            if j >= n:                       # unbalanced: keep the rest as is
+                out.append(s[i:])
+                break
+            out.append(self._interp_expr(s[i + 1:j], env, s[i:j + 1]))
+            i = j + 1
+        return "".join(out)
+
+    def _interp_expr(self, text: str, env: Environment, original: str) -> str:
+        """Evaluate an expression placeholder; leave it as written if it isn't one."""
+        if not _re.search(r"[A-Za-z_(]", text) or not _re.search(r"[(+\-*/%?<>=!]", text):
+            return original
+        from .lexer import Lexer
+        from .parser import Parser
+        try:
+            tokens = Lexer(text).tokenize()
+            parser = Parser(tokens)
+            parser.errors = []
+            expr = parser._expression()
+            parser._skip_newlines()
+            if not parser._at_end():
+                return original
+            value = self._eval(expr, env)
+        except Exception:
+            return original
+        return "" if value is None else str(value)
 
     def _exec_prompt_decl(self, stmt: ast.PromptDecl,
                           env: Environment) -> Any:

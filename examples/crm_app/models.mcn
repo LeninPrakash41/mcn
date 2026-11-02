@@ -7,6 +7,14 @@
 auth
     roles         admin, sales, viewer
     session_hours 12
+    // Single sign-on: uncomment and set the environment variables
+    // (register <backend>/sso_callback as the redirect URL at your provider)
+    // sso
+    //     issuer        "https://accounts.google.com"
+    //     client_id     env("SSO_CLIENT_ID")
+    //     client_secret env("SSO_CLIENT_SECRET")
+    //     allow_domains "yourcompany.com"
+    //     default_role  viewer
 
 contract Lead
     name:      str
@@ -16,8 +24,10 @@ contract Lead
     stage:     choice("new", "contacted", "qualified", "won", "lost") = "new"
     value:     float = 0
     source:    choice("website", "referral", "event", "cold_call", "partner") = "website"
-    follow_up: date?
-    notes:     text?
+    follow_up:  date?
+    proposal:   file?                                   // upload a PDF / doc
+    commission: float?  read admin  write admin         // only admins see this
+    notes:      text?
 
 contract Company
     name:     str unique
@@ -32,3 +42,10 @@ contract FollowUp
     due:      date
     priority: choice("low", "medium", "high") = "medium"
     done:     bool = false
+
+contract Quote
+    title:    str
+    lead:     ref Lead
+    amount:   float
+    discount: float = 0                                 // percent
+    valid_until: date?

@@ -376,6 +376,7 @@ class UICompiler:
         self._audit_used = False
 
         theme = app_decl.theme if app_decl else "default"
+        self._theme = theme
 
         # 1. Compile each component
         for name, comp in components.items():
@@ -497,6 +498,13 @@ class UICompiler:
         index_html.write_text(self._gen_index_html(title))
         written.append(index_html)
         print(f"  write  {index_html.relative_to(self.out.parent)}")
+
+        # 13. Installable app (PWA): manifest, icons, service worker
+        from .ui_pwa import write_pwa
+        primary = _THEMES.get(theme, _THEMES.get("default", {})).get("--primary", "221.2 83.2% 53.3%")
+        for path in write_pwa(self.out, title, primary):
+            written.append(path)
+            print(f"  write  {path.relative_to(self.out.parent)}")
 
         # Print shadcn install command
         if self._shadcn_needed:
@@ -2024,6 +2032,11 @@ async function request<T = any>(path: string, body?: unknown): Promise<T> {
   return data as T
 }
 
+/** Absolute URL for a backend path (e.g. a file link "/files/3?sig=…"). */
+export function apiUrl(path: string): string {
+  return /^https?:/.test(path) ? path : `${BASE}${path}`
+}
+
 export const api = {
   get:  <T = any>(path: string)              => request<T>(path),
   post: <T = any>(path: string, body: unknown) => request<T>(path, body),
@@ -2042,6 +2055,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>
 )
+
+// Installable app: register the service worker in production builds
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}))
+}
 '''
 
     def _gen_globals_css(self, theme: str) -> str:
@@ -2298,6 +2316,12 @@ export default {
             "references": [{"path": "./tsconfig.node.json"}],
         }, indent=2)
 
+    def _pwa_head(self, title: str) -> str:
+        from .ui_pwa import index_head
+        theme = getattr(self, "_theme", "default")
+        primary = _THEMES.get(theme, _THEMES.get("default", {})).get("--primary", "221.2 83.2% 53.3%")
+        return index_head(title, primary)
+
     def _gen_index_html(self, title: str) -> str:
         return f'''\
 <!DOCTYPE html>
@@ -2305,7 +2329,7 @@ export default {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+{self._pwa_head(title)}    <title>{title}</title>
   </head>
   <body>
     <div id="root"></div>

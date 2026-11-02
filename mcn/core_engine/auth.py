@@ -154,8 +154,13 @@ class AppAuth:
             raise Unauthorized({"error": "Please sign in"})
         return {"user": user, "permissions": self.permissions(user)}
 
+    sso: Optional["SSO"] = None
+
     def status(self, payload: Any = None) -> Dict[str, Any]:
-        return {"needs_setup": not self.has_users(), "roles": self.roles}
+        out = {"needs_setup": not self.has_users(), "roles": self.roles}
+        if self.sso is not None:
+            out["sso"] = {"label": self.sso.label}
+        return out
 
     def setup(self, payload: Any = None) -> Dict[str, Any]:
         """Create the first administrator. Only works while there are no users."""
@@ -180,6 +185,8 @@ class AppAuth:
         for name, fn in self.users.endpoints().items():
             fn._mcn_access = [self.admin_role]
             out[name] = fn
+        if self.sso is not None:
+            out.update(self.sso.endpoints())
         return out
 
 
@@ -201,3 +208,169 @@ def allowed(access, user: Optional[Dict[str, Any]]) -> bool:
     if access in (None, "user"):
         return True
     return user.get("role") in access
+
+
+# ── Single sign-on (OpenID Connect, authorization-code flow) ─────────────────
+
+class SSO:
+    """
+    auth
+        roles admin, staff
+        sso
+            issuer        "https://accounts.google.com"     # or Microsoft / Okta / Keycloak / Zoho
+            client_id     env("SSO_CLIENT_ID")
+            client_secret env("SSO_CLIENT_SECRET")
+            allow_domains "acme.in"
+            default_role  staff
+
+    Register  <backend>/sso_callback  as the redirect URL at your provider.
+    The browser is sent back to the app with the session token only if the
+    app's address is in $MCN_APP_URL (comma-separated) — or is localhost.
+    """
+
+    def __init__(self, auth: AppAuth, issuer: str, client_id: str, client_secret: str,
+                 allow_domains: List[str], default_role: str, label: str = "",
+                 auto_create: bool = True):
+        self.auth = auth
+        self.issuer = issuer.rstrip("/")
+        self.client_id, self.client_secret = client_id, client_secret
+        self.allow_domains = [d.lower().lstrip("@") for d in allow_domains if d]
+        self.default_role = default_role or auth.roles[-1]
+        self.label = label or _provider_label(self.issuer)
+        self.auto_create = auto_create
+        self._config: Optional[Dict[str, Any]] = None
+        self.request_base: Callable[[], str] = lambda: os.environ.get("MCN_PUBLIC_URL", "")
+
+    # ── provider ──────────────────────────────────────────────────────────────
+
+    def config(self) -> Dict[str, Any]:
+        if self._config is None:
+            self._config = _http_json(f"{self.issuer}/.well-known/openid-configuration")
+        return self._config
+
+    def redirect_uri(self) -> str:
+        base = (os.environ.get("MCN_PUBLIC_URL") or self.request_base()).rstrip("/")
+        return f"{base}/sso_callback"
+
+    # ── endpoints ─────────────────────────────────────────────────────────────
+
+    def start(self, payload: Any = None) -> Dict[str, Any]:
+        """GET /sso_start?return_to=<app url> → {url} to send the browser to."""
+        from urllib.parse import urlencode
+        from .auth_primitives import _make_token
+        p = payload if isinstance(payload, dict) else {}
+        return_to = str(p.get("return_to") or "")
+        if not _allowed_return(return_to):
+            raise BadRequest({"error": "This app address isn't allowed for sign-in. "
+                                       "Add it to MCN_APP_URL on the server."})
+        state = _make_token({"rt": return_to, "n": secrets.token_hex(8)}, self.auth.secret, 600)
+        params = {"response_type": "code", "client_id": self.client_id,
+                  "redirect_uri": self.redirect_uri(), "scope": "openid email profile",
+                  "state": state}
+        return {"url": f"{self.config()['authorization_endpoint']}?{urlencode(params)}"}
+
+    def callback(self, payload: Any = None) -> Dict[str, Any]:
+        """GET /sso_callback?code&state → redirect to the app with #mcn_token=…"""
+        from urllib.parse import quote
+        from .auth_primitives import _decode_token
+        p = payload if isinstance(payload, dict) else {}
+        state = _decode_token(str(p.get("state") or ""), self.auth.secret)
+        if not state or not _allowed_return(state.get("rt", "")):
+            raise BadRequest({"error": "Sign-in expired or was tampered with. Please try again."})
+        return_to = state["rt"]
+        try:
+            if p.get("error"):
+                raise PermissionError(str(p.get("error_description") or p["error"]))
+            user = self._user_for(self._userinfo(str(p.get("code") or "")))
+            token = self.auth._token(user)
+            self.auth.audit.record("login", "User", user["id"],
+                                   {"note": f"Signed in with {self.label}"}, user)
+            return {"_redirect": f"{return_to}#mcn_token={quote(token)}"}
+        except Exception as exc:
+            return {"_redirect": f"{return_to}#mcn_error={quote(str(exc))}"}
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _userinfo(self, code: str) -> Dict[str, Any]:
+        if not code:
+            raise PermissionError("The sign-in provider didn't return a code")
+        cfg = self.config()
+        tokens = _http_json(cfg["token_endpoint"], form={
+            "grant_type": "authorization_code", "code": code,
+            "redirect_uri": self.redirect_uri(), "client_id": self.client_id,
+            "client_secret": self.client_secret})
+        if "access_token" not in tokens:
+            raise PermissionError(tokens.get("error_description") or "Sign-in was refused")
+        # Read the profile from the provider over TLS (OIDC Core §3.1.3.7 lets a
+        # confidential client rely on the TLS channel instead of the ID-token signature)
+        return _http_json(cfg["userinfo_endpoint"], bearer=tokens["access_token"])
+
+    def _user_for(self, info: Dict[str, Any]) -> Dict[str, Any]:
+        email = str(info.get("email") or "").strip().lower()
+        if not email:
+            raise PermissionError("Your account has no email address")
+        if info.get("email_verified") is False:
+            raise PermissionError("Your email address isn't verified with the provider")
+        domain = email.rsplit("@", 1)[-1]
+        if self.allow_domains and domain not in self.allow_domains:
+            raise PermissionError(f"Accounts from {domain} can't sign in to this app")
+        rows = self.auth.query(f'SELECT * FROM "{USERS_TABLE}" WHERE lower("email") = ?', (email,))
+        if rows:
+            user = self.auth.users._row(dict(rows[0]))
+            if not user.get("active"):
+                raise PermissionError("This account is disabled. Ask an administrator.")
+            return user
+        if not self.auto_create and self.auth.has_users():
+            raise PermissionError("No account for this email. Ask an administrator to add you.")
+        role = self.auth.admin_role if not self.auth.has_users() else self.default_role
+        name = str(info.get("name") or email.split("@")[0])
+        return self.auth.users.create({"name": name, "email": email, "role": role,
+                                       "password": secrets.token_urlsafe(24)})
+
+    def endpoints(self) -> Dict[str, Callable]:
+        return {"sso_start": _endpoint("sso_start", self.start, "public"),
+                "sso_callback": _endpoint("sso_callback", self.callback, "public")}
+
+
+def _provider_label(issuer: str) -> str:
+    for key, name in (("google", "Google"), ("microsoft", "Microsoft"), ("okta", "Okta"),
+                      ("zoho", "Zoho"), ("keycloak", "Keycloak"), ("auth0", "Auth0")):
+        if key in issuer:
+            return name
+    return "SSO"
+
+
+def _allowed_return(url: str) -> bool:
+    from urllib.parse import urlparse
+    u = urlparse(str(url))
+    if u.scheme not in ("http", "https") or not u.netloc:
+        return False
+    origin = f"{u.scheme}://{u.netloc}".lower()
+    allowed = [a.strip().rstrip("/").lower() for a in os.environ.get("MCN_APP_URL", "").split(",")
+               if a.strip()]
+    if allowed:
+        return any(origin == urlparse(a).scheme + "://" + urlparse(a).netloc for a in allowed)
+    return u.hostname in ("localhost", "127.0.0.1")       # development default
+
+
+def _http_json(url: str, form: Optional[Dict[str, str]] = None,
+               bearer: Optional[str] = None) -> Dict[str, Any]:
+    import json as _json
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError
+    headers = {"Accept": "application/json"}
+    data = None
+    if form is not None:
+        data = urlencode(form).encode()
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    try:
+        with urlopen(Request(url, data=data, headers=headers), timeout=15) as resp:
+            return _json.loads(resp.read() or b"{}")
+    except HTTPError as exc:
+        try:
+            return _json.loads(exc.read() or b"{}")
+        except ValueError:
+            raise PermissionError(f"Sign-in provider error ({exc.code})")

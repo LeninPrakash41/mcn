@@ -15,6 +15,8 @@ service crm
         allow write:  admin, sales
         allow delete: admin
         audit
+        import
+        export
 
     crud Company
         search       name, city
@@ -23,6 +25,19 @@ service crm
         allow write:  admin, sales
         allow delete: admin
         audit
+        import
+        export
+
+    // Quotes with more than 10% discount wait for an admin's approval
+    crud Quote
+        search       title
+        allow read:   admin, sales, viewer
+        allow write:  admin, sales
+        allow delete: admin
+        audit
+        approval
+            approvers admin
+            when      record.discount > 10
 
     crud FollowUp
         search       title
@@ -51,6 +66,37 @@ service crm
             stages:          stages,
             upcoming:        query("SELECT f.title, l.name AS lead, f.due, f.priority FROM follow_ups f JOIN leads l ON l.id = f.lead WHERE f.done = 0 ORDER BY f.due LIMIT 5")
         }
+
+    // ── Workflows ────────────────────────────────────────────────────────────
+
+    // When a lead is won: tell the manager and book the kick-off
+    on update Lead
+        if changed("stage") and record.stage == "won"
+            send_email("manager@crm.local", "Won: {record.name} ({format_currency(record.value)})",
+                       "{record.name} from {record.company_label} is now a customer.")
+            create_follow_up({title: "Kick-off meeting", lead: record.id, due: add_days(today(), 2), priority: "high"})
+
+    // Approved quote → PDF emailed to the sales team
+    on approve Quote
+        var net = record.amount * (100 - record.discount) / 100
+        var pdf = make_pdf("Quote: {record.title}", [
+            "For {record.lead_label}. Approved by {record.approval_by}.",
+            [["Item", "Amount"],
+             ["List price", format_currency(record.amount)],
+             ["Discount", "{record.discount}%"],
+             ["Total", format_currency(net)]]
+        ])
+        send_email("sales@crm.local", "Quote approved: {record.title}", "The approved quote is attached.", [pdf])
+
+    on reject Quote
+        send_email("sales@crm.local", "Quote rejected: {record.title}", "Reason: {record.approval_note}")
+
+    // Every morning: overdue follow-ups, as a PDF
+    job overdue_digest every day at "09:00"
+        var overdue = query("SELECT f.title, l.name AS lead, f.due FROM follow_ups f JOIN leads l ON l.id = f.lead WHERE f.done = 0 AND f.due < date('now') ORDER BY f.due")
+        if overdue
+            var pdf = make_pdf("Overdue follow-ups", [overdue])
+            send_email("manager@crm.local", "{overdue.length} overdue follow-ups", "See attached.", [pdf])
 
 // Sample data on first run, so there's something to see
 include "seed.mcn"

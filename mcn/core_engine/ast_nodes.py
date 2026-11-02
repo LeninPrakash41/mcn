@@ -266,6 +266,8 @@ class ContractField(Node):
     unique:    bool                 = False
     choices:   List[str]            = field(default_factory=list)
     ref:       str                  = ""        # company: ref Company
+    read_roles:  List[str]          = field(default_factory=list)   # salary: float  read admin
+    write_roles: List[str]          = field(default_factory=list)   #               write admin
 
 
 @dataclass
@@ -325,6 +327,45 @@ class ServiceDecl(Node):
     port:      Optional[int]      = None
     endpoints: List[EndpointDecl] = field(default_factory=list)
     cruds:     List["CrudDecl"]   = field(default_factory=list)
+    triggers:  List["TriggerDecl"] = field(default_factory=list)
+    jobs:      List["JobDecl"]    = field(default_factory=list)
+
+
+@dataclass
+class TriggerDecl(Node):
+    """
+    on update Lead                      (create | update | delete | approve | reject)
+        if changed("stage") and record.stage == "won"
+            send_email(...)
+    """
+    event:    str          = ""
+    contract: str          = ""
+    body:     List["Stmt"] = field(default_factory=list)
+
+
+@dataclass
+class JobDecl(Node):
+    """
+    job daily_digest every day at "09:00"
+    job sync every 15 minutes
+    job weekly_report every monday at "08:30"
+    """
+    name:  str          = ""
+    every: int          = 1
+    unit:  str          = "day"        # minute | hour | day | week | monday … sunday
+    at:    str          = ""           # "HH:MM" (server local time)
+    body:  List["Stmt"] = field(default_factory=list)
+
+
+@dataclass
+class ApprovalDecl(Node):
+    """
+    approval
+        approvers admin, manager
+        when record.amount > 10000
+    """
+    approvers: List[str]        = field(default_factory=list)
+    when:      Optional["Expr"] = None
 
 
 @dataclass
@@ -343,6 +384,9 @@ class CrudDecl(Node):
     page_size: int       = 25
     allow:     Dict[str, List[str]] = field(default_factory=dict)  # read/write/delete → roles
     audit:     bool      = False
+    approval:  Optional[ApprovalDecl] = None
+    csv_import: bool     = False
+    csv_export: bool     = False
 
 
 @dataclass
@@ -356,6 +400,27 @@ class AuthDecl(Node):
     """
     roles:         List[str] = field(default_factory=list)
     session_hours: int       = 12
+    sso:           Optional["SSODecl"] = None
+
+
+@dataclass
+class SSODecl(Node):
+    """
+    sso
+        issuer        "https://accounts.google.com"
+        client_id     env("SSO_CLIENT_ID")
+        client_secret env("SSO_CLIENT_SECRET")
+        allow_domains "acme.in", "acme.com"
+        default_role  staff
+        label         "Google"
+    """
+    issuer:        Optional["Expr"] = None
+    client_id:     Optional["Expr"] = None
+    client_secret: Optional["Expr"] = None
+    allow_domains: List["Expr"]     = field(default_factory=list)
+    default_role:  str              = ""
+    label:         Optional["Expr"] = None
+    auto_create:   bool             = True
 
 
 @dataclass

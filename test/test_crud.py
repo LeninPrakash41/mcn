@@ -63,7 +63,7 @@ def test_unknown_field_type_is_reported(tmp_path, monkeypatch):
 
 
 def test_unknown_service_line_is_a_syntax_error():
-    with pytest.raises(ParseError, match="Expected 'port', 'endpoint' or 'crud'"):
+    with pytest.raises(ParseError, match="Expected 'port', 'endpoint', 'crud', 'on' or 'job'"):
         Parser(Lexer("service s\n    endpont x()\n        return 1\n").tokenize()).parse()
 
 

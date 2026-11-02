@@ -474,6 +474,17 @@ def mcn_format_currency(n: Any, symbol: str = "₹", decimals: int = 0) -> str:
         return "-" + symbol + text[1:]
     return symbol + text
 
+def mcn_today() -> str:
+    """today() → "2026-11-02" (server local date)."""
+    import datetime as _dt
+    return _dt.date.today().isoformat()
+
+def mcn_add_days(day: Any, n: Any) -> str:
+    """add_days("2026-11-02", 3) → "2026-11-05";  add_days(today(), -7)."""
+    import datetime as _dt
+    base = _dt.date.fromisoformat(str(day)[:10])
+    return (base + _dt.timedelta(days=int(n))).isoformat()
+
 def mcn_floor(n: Any) -> int:
     return math.floor(float(n))
 
@@ -682,6 +693,8 @@ def register_stdlib_builtins(functions: dict) -> None:
         "floor":             mcn_floor,
         "round":             mcn_round,
         "format_number":     mcn_format_number,
+        "today":             mcn_today,
+        "add_days":          mcn_add_days,
         "format_currency":   mcn_format_currency,
         "sqrt":              lambda n: __import__('math').sqrt(float(n)),
         "pow":               lambda b, e: float(b) ** float(e),

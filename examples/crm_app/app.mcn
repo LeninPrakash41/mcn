@@ -57,7 +57,7 @@ component Dashboard
 
 component Leads
     render
-        crud_table Lead columns=["name", "company", "stage", "value", "source", "follow_up"]
+        crud_table Lead columns=["name", "company", "stage", "value", "proposal", "commission"]
 
 component Companies
     render
@@ -66,6 +66,10 @@ component Companies
 component FollowUps
     render
         crud_table FollowUp columns=["title", "lead", "due", "priority", "done"] title="Follow-ups"
+
+component Quotes
+    render
+        crud_table Quote columns=["title", "lead", "amount", "discount", "valid_until"]
 
 component Users
     render
@@ -84,5 +88,6 @@ app SalesCRM
             nav "Leads"      icon="users"            component=Leads
             nav "Companies"  icon="building-2"       component=Companies
             nav "Follow-ups" icon="calendar-check"   component=FollowUps
+            nav "Quotes"     icon="file-text"        component=Quotes
             nav "Users"      icon="shield"           component=Users     allow admin
             nav "Activity"   icon="history"          component=Activity  allow admin

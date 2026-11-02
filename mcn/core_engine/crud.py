@@ -54,10 +54,14 @@ def crud_names(contract_name: str) -> Dict[str, str]:
 # ── Field specs & validation ──────────────────────────────────────────────────
 
 FIELD_TYPES = {"str", "string", "text", "int", "float", "number", "bool",
-               "date", "datetime", "choice", "password", "ref", "any"}
+               "date", "datetime", "choice", "password", "ref", "file", "any"}
 
 SQL_TYPES = {"int": "INTEGER", "bool": "INTEGER", "float": "REAL", "number": "REAL",
-             "ref": "INTEGER"}
+             "ref": "INTEGER", "file": "INTEGER"}
+
+# Columns added by `approval` (never writable through create / update)
+APPROVAL_FIELDS = ("approval_status", "approval_by", "approval_at", "approval_note",
+                   "requested_by")
 
 SYSTEM_FIELDS = ("id", "created_at", "updated_at")
 
@@ -66,8 +70,11 @@ class FieldSpec:
     def __init__(self, name: str, type_name: str, optional: bool = False,
                  default: Any = None, has_default: bool = False,
                  unique: bool = False, choices: Optional[List[str]] = None,
-                 ref: Optional[str] = None):
+                 ref: Optional[str] = None, read_roles: Optional[List[str]] = None,
+                 write_roles: Optional[List[str]] = None):
         self.ref         = ref              # target contract for type "ref"
+        self.read_roles  = list(read_roles or [])    # empty = everyone
+        self.write_roles = list(write_roles or [])
         self.name        = name
         self.type        = type_name
         self.optional    = optional
@@ -116,14 +123,14 @@ _FLOAT_RE = re.compile(r"^-?(\d+\.?\d*|\.\d+)$")
 def coerce(spec: FieldSpec, value: Any) -> Any:
     """Convert/validate one value; raises ValueError with a friendly message."""
     t = spec.type
-    if t == "ref":
+    if t in ("ref", "file"):
         if isinstance(value, dict) and "id" in value:
             value = value["id"]
         if isinstance(value, bool):
             raise ValueError("must be a record id")
         if isinstance(value, int) or (isinstance(value, str) and _INT_RE.match(value.strip())):
             return int(value)
-        raise ValueError("must be a record id")
+        raise ValueError("must be an uploaded file" if t == "file" else "must be a record id")
     if t in ("int",):
         if isinstance(value, bool):
             raise ValueError("must be a whole number")
@@ -251,8 +258,15 @@ class CrudResource:
                  sort: str = "", page_size: int = 25, table: Optional[str] = None,
                  audit: Optional["AuditLog"] = None,
                  actor: Optional[Callable[[], Optional[Dict[str, Any]]]] = None,
-                 registry: Optional[Dict[str, "CrudResource"]] = None):
+                 registry: Optional[Dict[str, "CrudResource"]] = None,
+                 files=None, hooks: Optional[Callable] = None,
+                 approval: Optional[Dict[str, Any]] = None,
+                 csv_import: bool = False, csv_export: bool = False):
         self.registry  = registry if registry is not None else {}   # for ref fields
+        self.files     = files           # FileStore, for `file` fields
+        self.hooks     = hooks or (lambda event, record, old: None)  # triggers
+        self.approval  = approval        # {"approvers": [...], "when": callable(record)}
+        self.csv_import, self.csv_export = csv_import, csv_export
         self.contract  = contract
         self.specs: List[FieldSpec] = contract.specs
         self.query     = query
@@ -292,7 +306,8 @@ class CrudResource:
             if self._col(s) not in existing:
                 self.query(f'ALTER TABLE "{self.table}" ADD COLUMN '
                            f'"{self._col(s)}" {SQL_TYPES.get(s.type, "TEXT")}')
-        for sys_col in ("created_at", "updated_at"):
+        extra = ("created_at", "updated_at") + (APPROVAL_FIELDS if self.approval else ())
+        for sys_col in extra:
             if sys_col not in existing:
                 self.query(f'ALTER TABLE "{self.table}" ADD COLUMN "{sys_col}" TEXT')
 
@@ -303,10 +318,37 @@ class CrudResource:
         field = parts[0] if parts else "id"
         desc  = field.startswith("-") or (len(parts) > 1 and parts[1].lower() == "desc")
         field = field.lstrip("-")
-        allowed = {s.name for s in self.specs if s.type != "password"} | set(SYSTEM_FIELDS)
+        allowed = {s.name for s in self.specs if s.type != "password" and self.can_read(s)} \
+            | set(SYSTEM_FIELDS) | (set(APPROVAL_FIELDS) if self.approval else set())
         if field not in allowed:
             raise BadRequest({"error": f"Cannot sort by '{field}'"})
         return field, "DESC" if desc else "ASC"
+
+    # ── field-level permissions (`read …` / `write …` on contract fields) ─────
+
+    def _role(self) -> Optional[str]:
+        user = self.actor()
+        return None if user is None else user.get("role")
+
+    def can_read(self, spec: FieldSpec) -> bool:
+        if self.actor() is None or not spec.read_roles:   # system code / no rule
+            return True
+        return self._role() in spec.read_roles
+
+    def can_write(self, spec: FieldSpec) -> bool:
+        if self.actor() is None:
+            return True
+        if not self.can_read(spec):
+            return False
+        return not spec.write_roles or self._role() in spec.write_roles
+
+    def _visible(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        hidden = [s.name for s in self.specs if not self.can_read(s)]
+        for r in rows:
+            for name in hidden:
+                for key in (name, f"{name}_label", f"{name}_file"):
+                    r.pop(key, None)
+        return rows
 
     def _row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         row.pop("password_hash", None)       # never leaves the server
@@ -324,6 +366,10 @@ class CrudResource:
                               "errors": {"id": "is required"}})
 
     def _fetch(self, item_id: int) -> Dict[str, Any]:
+        return self._visible(self._with_labels([self._fetch_raw(item_id)]))[0]
+
+    def _fetch_full(self, item_id: int) -> Dict[str, Any]:
+        """Like _fetch but ignoring field permissions (for triggers / audit)."""
         return self._with_labels([self._fetch_raw(item_id)])[0]
 
     def _fetch_raw(self, item_id: int) -> Dict[str, Any]:
@@ -349,11 +395,17 @@ class CrudResource:
     def _validated(self, data: Any, partial: bool,
                    exclude_id: Optional[int] = None) -> Dict[str, Any]:
         """Field checks + uniqueness + ref existence, reporting every problem at once."""
-        if isinstance(data, dict):
-            labels = {f"{s.name}_label" for s in self.specs if s.type == "ref"}
-            data = {k: v for k, v in data.items() if k not in SYSTEM_FIELDS and k not in labels}
         errors: Dict[str, str] = {}
         values: Dict[str, Any] = {}
+        if isinstance(data, dict):
+            derived = {f"{s.name}_label" for s in self.specs if s.type == "ref"} | \
+                      {f"{s.name}_file" for s in self.specs if s.type == "file"}
+            data = {k: v for k, v in data.items()
+                    if k not in SYSTEM_FIELDS and k not in derived and k not in APPROVAL_FIELDS}
+            for spec in self.specs:
+                if spec.name in data and not self.can_write(spec):
+                    errors[spec.name] = "can't be changed with your role"
+            data = {k: v for k, v in data.items() if k not in errors}
         try:
             values = check(self.specs, data, partial=partial)
         except ValidationErrors as exc:
@@ -371,6 +423,9 @@ class CrudResource:
                 if target is not None and not target.query(
                         f'SELECT "id" FROM "{target.table}" WHERE "id" = ?', (values[s.name],)):
                     errors[s.name] = f"must be an existing {snake(s.ref).replace('_', ' ')}"
+            if s.type == "file" and values.get(s.name) is not None and s.name not in errors:
+                if self.files is None or self.files.record(values[s.name]) is None:
+                    errors[s.name] = "must be an uploaded file"
         if errors:
             raise BadRequest({"error": "Please fix the highlighted fields",
                               "errors": errors})
@@ -396,8 +451,14 @@ class CrudResource:
                 for r in rows}
 
     def _with_labels(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Add <field>_label next to every ref field (one query per ref field)."""
+        """Add <field>_label next to ref fields and <field>_file next to file fields."""
         for s in self.specs:
+            if s.type == "file":
+                for r in rows:
+                    fid = r.get(s.name)
+                    r[f"{s.name}_file"] = (self.files.info(fid) if self.files and fid is not None
+                                           else None)
+                continue
             target = self.registry.get(s.ref) if s.type == "ref" else None
             if target is None:
                 continue
@@ -433,13 +494,29 @@ class CrudResource:
             raise BadRequest({"error": "page and page_size must be numbers"})
         field, direction = (self._parse_sort(p["sort"]) if p.get("sort")
                             else self.default_sort)
+        clause, params = self._where(p)
+        total = self.query(f'SELECT COUNT(*) AS n FROM "{self.table}"{clause}',
+                           tuple(params) or None)[0]["n"]
+        rows = self.query(
+            f'SELECT * FROM "{self.table}"{clause} ORDER BY "{field}" {direction}, "id" DESC '
+            f"LIMIT ? OFFSET ?", tuple(params) + (page_size, (page - 1) * page_size))
+        return {"items": self._visible(self._with_labels([self._row(r) for r in rows])),
+                "total": total, "page": page, "page_size": page_size}
+
+    def _where(self, p: Dict[str, Any]) -> Tuple[str, List[Any]]:
+        """Search + exact filters (?stage=won, ?approval_status=pending)."""
         where, params = [], []
         term = str(p.get("search") or "").strip()
-        if term and self.search:
-            where.append("(" + " OR ".join(f'"{f}" LIKE ?' for f in self.search) + ")")
-            params += [f"%{term}%"] * len(self.search)
+        readable = {s.name for s in self.specs if self.can_read(s)}
+        search = [f for f in self.search if f in readable]
+        if term and search:
+            where.append("(" + " OR ".join(f'"{f}" LIKE ?' for f in search) + ")")
+            params += [f"%{term}%"] * len(search)
+        if self.approval and p.get("approval_status"):
+            where.append('"approval_status" = ?')
+            params.append(str(p["approval_status"]))
         for s in self.specs:                      # ?stage=won → exact filter
-            if s.type == "password":
+            if s.type == "password" or s.name not in readable:
                 continue
             if s.name in p and p[s.name] not in (None, ""):
                 try:
@@ -448,14 +525,7 @@ class CrudResource:
                     raise BadRequest({"error": f"{s.name} {exc}"})
                 where.append(f'"{s.name}" = ?')
                 params.append(value)
-        clause = (" WHERE " + " AND ".join(where)) if where else ""
-        total = self.query(f'SELECT COUNT(*) AS n FROM "{self.table}"{clause}',
-                           tuple(params) or None)[0]["n"]
-        rows = self.query(
-            f'SELECT * FROM "{self.table}"{clause} ORDER BY "{field}" {direction}, "id" DESC '
-            f"LIMIT ? OFFSET ?", tuple(params) + (page_size, (page - 1) * page_size))
-        return {"items": self._with_labels([self._row(r) for r in rows]), "total": total,
-                "page": page, "page_size": page_size}
+        return ((" WHERE " + " AND ".join(where)) if where else ""), params
 
     def get(self, payload: Any = None) -> Dict[str, Any]:
         return self._fetch(self._id(payload))
@@ -471,14 +541,22 @@ class CrudResource:
             self.query(f'INSERT INTO "{self.table}" ({col_sql}) '
                        f'VALUES ({", ".join("?" for _ in cols)})', tuple(vals))
             new_id = self.query("SELECT last_insert_rowid() AS id")[0]["id"]
-        row = self._fetch(new_id)
-        self._log("create", new_id, {k: v for k, v in row.items()
-                                     if k not in SYSTEM_FIELDS and v not in (None, "")})
-        return row
+        full = self._fetch_full(new_id)
+        if self.approval:
+            needs = self.approval["when"](full)
+            user = self.actor() or {}
+            self.query(f'UPDATE "{self.table}" SET "approval_status" = ?, "requested_by" = ? '
+                       'WHERE "id" = ?', ("pending" if needs else "approved", user.get("email"), new_id))
+            full = self._fetch_full(new_id)
+        self._log("create", new_id, {k: v for k, v in full.items()
+                                     if k not in SYSTEM_FIELDS and k not in APPROVAL_FIELDS
+                                     and v not in (None, "")})
+        self.hooks("create", full, None)
+        return self._fetch(new_id)
 
     def update(self, payload: Any = None) -> Dict[str, Any]:
         item_id = self._id(payload)
-        before  = self._fetch(item_id)             # 404 if missing
+        before  = self._fetch_full(item_id)        # 404 if missing
         clean   = self._validated(payload, partial=True, exclude_id=item_id)
         self.before_update(before, clean)
         values = self._db_values(clean)
@@ -486,7 +564,7 @@ class CrudResource:
         sets = ", ".join(f'"{c}" = ?' for c in values)
         self.query(f'UPDATE "{self.table}" SET {sets} WHERE "id" = ?',
                    tuple(values.values()) + (item_id,))
-        after = self._fetch(item_id)
+        after = self._fetch_full(item_id)
         refs = {sp.name for sp in self.specs if sp.type == "ref"}
         changes = {k: ([before.get(f"{k}_label") or before.get(k), after.get(f"{k}_label") or after.get(k)]
                        if k in refs else [before.get(k), after.get(k)])
@@ -495,17 +573,175 @@ class CrudResource:
             changes["password"] = ["•••", "changed"]
         if changes:
             self._log("update", item_id, changes)
-        return after
+            if self.approval and not self._is_approver():
+                # An edit by the requester sends it back for approval
+                status = "pending" if self.approval["when"](after) else "approved"
+                if status != after.get("approval_status"):
+                    self.query(f'UPDATE "{self.table}" SET "approval_status" = ?, '
+                               '"approval_by" = NULL, "approval_at" = NULL, '
+                               '"approval_note" = NULL WHERE "id" = ?', (status, item_id))
+                    after = self._fetch_full(item_id)
+            self.hooks("update", after, before)
+        return self._fetch(item_id)
 
     def delete(self, payload: Any = None) -> Dict[str, Any]:
         item_id = self._id(payload)
-        before  = self._fetch(item_id)
+        before  = self._fetch_full(item_id)
         self._check_not_referenced(before)
         self.before_delete(before)
         self.query(f'DELETE FROM "{self.table}" WHERE "id" = ?', (item_id,))
         self._log("delete", item_id, {k: v for k, v in before.items()
-                                      if k not in SYSTEM_FIELDS and v not in (None, "")})
+                                      if k not in SYSTEM_FIELDS and k not in APPROVAL_FIELDS
+                                      and v not in (None, "")})
+        self.hooks("delete", before, before)
         return {"deleted": True, "id": item_id}
+
+    # ── approvals ─────────────────────────────────────────────────────────────
+
+    def _is_approver(self) -> bool:
+        return bool(self.approval) and self._role() in self.approval["approvers"]
+
+    def _decide(self, payload: Any, decision: str) -> Dict[str, Any]:
+        item_id = self._id(payload)
+        before = self._fetch_full(item_id)
+        if before.get("approval_status") != "pending":
+            raise BadRequest({"error": f"Only pending requests can be {decision}d "
+                                       f"(this one is {before.get('approval_status')})"})
+        user = self.actor() or {}
+        if user and user.get("email") and user.get("email") == before.get("requested_by"):
+            raise BadRequest({"error": f"You can't {decision} your own request"})
+        note = str((payload or {}).get("note") or "").strip() if isinstance(payload, dict) else ""
+        status = "approved" if decision == "approve" else "rejected"
+        self.query(f'UPDATE "{self.table}" SET "approval_status" = ?, "approval_by" = ?, '
+                   '"approval_at" = ?, "approval_note" = ? WHERE "id" = ?',
+                   (status, user.get("email"), _now(), note or None, item_id))
+        after = self._fetch_full(item_id)
+        self._log(decision, item_id, {"note": (f"{status.capitalize()}" + (f": {note}" if note else ""))})
+        self.hooks(decision, after, before)
+        return self._fetch(item_id)
+
+    def approve(self, payload: Any = None) -> Dict[str, Any]:
+        return self._decide(payload, "approve")
+
+    def reject(self, payload: Any = None) -> Dict[str, Any]:
+        return self._decide(payload, "reject")
+
+    # ── CSV import / export ──────────────────────────────────────────────────
+
+    def _csv_columns(self) -> List[FieldSpec]:
+        return [s for s in self.specs if s.type != "password" and self.can_read(s)]
+
+    def export(self, payload: Any = None) -> Dict[str, Any]:
+        """All matching rows (search + filters apply) as CSV text."""
+        import csv
+        import io
+        p = payload if isinstance(payload, dict) else {}
+        clause, params = self._where(p)
+        rows = self.query(f'SELECT * FROM "{self.table}"{clause} ORDER BY "id" LIMIT 50000',
+                          tuple(params) or None)
+        rows = self._visible(self._with_labels([self._row(r) for r in rows]))
+        cols = self._csv_columns()
+        extra = list(APPROVAL_FIELDS[:2]) if self.approval else []
+        buf = io.StringIO()
+        out = csv.writer(buf)
+        out.writerow(["id"] + [s.name for s in cols] + extra + ["created_at", "updated_at"])
+        for r in rows:
+            line = [r.get("id")]
+            for s in cols:
+                v = r.get(s.name)
+                if s.type == "ref":
+                    v = r.get(f"{s.name}_label") if v is not None else ""
+                elif s.type == "file":
+                    v = (r.get(f"{s.name}_file") or {}).get("name", "")
+                elif isinstance(v, bool):
+                    v = "true" if v else "false"
+                if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+                    v = "'" + v          # stop spreadsheets running it as a formula
+                line.append("" if v is None else v)
+            line += [r.get(c) or "" for c in extra] + [r.get("created_at"), r.get("updated_at")]
+            out.writerow(line)
+        stamp = datetime.now().strftime("%Y-%m-%d")
+        return {"filename": f"{self.names['plural']}-{stamp}.csv", "content": buf.getvalue(),
+                "count": len(rows)}
+
+    def import_csv(self, payload: Any = None) -> Dict[str, Any]:
+        """Create one record per CSV row. Headers match field names or labels;
+        refs accept an id or the linked record's name. Rows that fail are
+        reported (with their line number) and the rest are imported."""
+        import csv
+        import io
+        p = payload if isinstance(payload, dict) else {}
+        text = str(p.get("csv") or p.get("content") or "")
+        dry_run = bool(p.get("dry_run"))
+        if not text.strip():
+            raise BadRequest({"error": "The CSV is empty"})
+        reader = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+        try:
+            header = next(reader)
+        except StopIteration:
+            raise BadRequest({"error": "The CSV is empty"})
+        by_key = {}
+        for s in self.specs:
+            for key in (s.name, s.name.replace("_", " "), s.name.replace("_", "")):
+                by_key[key.lower()] = s
+        mapping: List[Optional[FieldSpec]] = []
+        for h in header:
+            key = h.strip().lower()
+            if key in ("id", "created_at", "updated_at", "created at", "updated at") or \
+                    key in APPROVAL_FIELDS or not key:
+                mapping.append(None)                 # exported columns we ignore
+                continue
+            spec = by_key.get(key) or by_key.get(key.replace(" ", "_"))
+            if spec is None:
+                raise BadRequest({"error": f"Unknown column '{h.strip()}'. Columns must match "
+                                           f"fields: {', '.join(s.name for s in self.specs)}"})
+            if not self.can_write(spec):
+                raise BadRequest({"error": f"Your role can't import the '{spec.name}' column"})
+            mapping.append(spec)
+        created, failed, total = 0, [], 0
+        for line_no, cells in enumerate(reader, start=2):
+            if not any(c.strip() for c in cells):
+                continue
+            total += 1
+            if total > 10000:
+                raise BadRequest({"error": "Import at most 10,000 rows at a time"})
+            data, errors = {}, {}
+            for spec, cell in zip(mapping, cells):
+                if spec is None or cell.strip() == "":
+                    continue
+                value: Any = cell.strip()
+                if spec.type == "ref" and not _INT_RE.match(value):
+                    found = self._ref_by_label(spec, value)
+                    if found is None:
+                        errors[spec.name] = f"no {snake(spec.ref).replace('_', ' ')} named '{value}'"
+                        continue
+                    value = found
+                data[spec.name] = value
+            try:
+                if errors:                       # unknown ref names: report the other
+                    try:                         # problems on this line too
+                        self._validated(data, partial=False)
+                    except BadRequest as exc:
+                        errors = {**(exc.payload.get("errors") or {}), **errors}
+                    raise BadRequest({"errors": errors})
+                if dry_run:
+                    self._validated(data, partial=False)
+                else:
+                    self.create(data)
+                created += 1
+            except BadRequest as exc:
+                failed.append({"line": line_no, "errors": exc.payload.get("errors")
+                               or {"_": exc.payload.get("error")}})
+        return {"created": 0 if dry_run else created, "valid": created, "failed": failed,
+                "total": total, "dry_run": dry_run}
+
+    def _ref_by_label(self, spec: FieldSpec, label: str) -> Optional[int]:
+        target = self.registry.get(spec.ref)
+        if target is None or not target.label_field:
+            return None
+        rows = target.query(f'SELECT "id" FROM "{target.table}" WHERE lower("{target.label_field}") = ?',
+                            (label.lower(),))
+        return rows[0]["id"] if rows else None
 
     # ── hooks / helpers for create, update, delete ───────────────────────────
 
@@ -527,16 +763,28 @@ class CrudResource:
     def endpoints(self) -> Dict[str, Callable]:
         """name → callable taking one payload dict (or an id)."""
         out = {}
-        for action in ("list", "get", "create", "update", "delete"):
-            fn = getattr(self, action)
-
+        for action, name, fn in self.actions():
             def endpoint(payload: Any = None, _fn=fn):
                 return _fn(payload)
 
-            endpoint.__name__  = self.names[action]
+            endpoint.__name__  = name
             endpoint._mcn_body = True          # mcn serve passes the whole body/query
-            out[self.names[action]] = endpoint
+            endpoint._mcn_action = action
+            out[name] = endpoint
         return out
+
+    def actions(self) -> List[Tuple[str, str, Callable]]:
+        """(action, endpoint name, method) for every endpoint this resource has."""
+        n = self.names
+        acts = [(a, n[a], getattr(self, a)) for a in ("list", "get", "create", "update", "delete")]
+        if self.approval:
+            acts += [("approve", f"approve_{n['singular']}", self.approve),
+                     ("reject", f"reject_{n['singular']}", self.reject)]
+        if self.csv_export:
+            acts.append(("export", f"export_{n['plural']}", self.export))
+        if self.csv_import:
+            acts.append(("import", f"import_{n['plural']}", self.import_csv))
+        return acts
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────

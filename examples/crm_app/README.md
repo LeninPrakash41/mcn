@@ -2,8 +2,11 @@
 
 Leads, companies and follow-ups with search, filters, sorting, pagination,
 create / edit / delete with validation, a live dashboard, **sign-in with
-roles**, user management and an **activity log** of every change.
-**About 220 lines of MCN in 4 files** (blank lines and comments included), with no hand-written React, SQL schema or API code.
+roles**, user management, an **activity log**, **quote approvals**, **automatic
+emails with PDF quotes**, a **daily digest job**, **CSV import/export**, file
+uploads, an admin-only field, optional **single sign-on**, and it installs on
+phones as an app.
+**About 300 lines of MCN in 4 files** (blank lines and comments included), with no hand-written React, SQL schema or API code.
 
 ![Dashboard](screenshots/dashboard.png)
 
@@ -70,6 +73,24 @@ dates), and a delete confirmation.
 
 Add a field to a contract and restart. The column is added to the table and
 appears in the form; existing data is kept.
+
+### Workflows the CRM runs
+
+| When | What happens (`backend.mcn`) |
+|---|---|
+| A lead's stage changes to **won** | The manager gets an email and a "Kick-off meeting" follow-up is created |
+| A quote has more than **10% discount** | It waits for an admin to approve or reject it |
+| A quote is **approved** | A PDF quote is generated and emailed to sales |
+| A quote is **rejected** | Sales get an email with the reason |
+| Every day at **09:00** | The manager gets a PDF of overdue follow-ups |
+
+Emails are printed in the server console and kept in the outbox until you set `MCN_SMTP_HOST`
+(see the main README). Leads also have a **proposal** upload and a **commission** field that only
+admins can see, and the Leads and Companies screens have **Import** / **Export** (CSV).
+
+| Quote approvals | Upload + admin-only field | CSV import report |
+|---|---|---|
+| ![](screenshots/quotes.png) | ![](screenshots/upload.png) | ![](screenshots/import.png) |
 
 ### Sign-in, roles and activity
 

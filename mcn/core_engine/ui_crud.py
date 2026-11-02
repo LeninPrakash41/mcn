@@ -28,7 +28,7 @@ def _label(name: str) -> str:
     return text[:1].upper() + text[1:]
 
 
-def resource_ts(contract, contracts: Dict = None) -> str:
+def resource_ts(contract, contracts: Dict = None, resource=None) -> str:
     names = crud_names(contract.name)
     fields = []
     for s in contract.specs:
@@ -41,6 +41,10 @@ def resource_ts(contract, contracts: Dict = None) -> str:
             f["default"] = s.default
         if s.unique:
             f["unique"] = True
+        if s.read_roles:
+            f["readRoles"] = s.read_roles
+        if s.write_roles:
+            f["writeRoles"] = s.write_roles
         if s.type == "ref":
             target = (contracts or {}).get(s.ref)
             f["ref"] = {
@@ -50,21 +54,26 @@ def resource_ts(contract, contracts: Dict = None) -> str:
                 "labelField": display_field(target.specs) if target is not None else None,
             }
         fields.append(f)
-    resource = {
+    resource_d = {
         "name": contract.name,
         "label": _label(names["singular"]),
         "plural": _label(names["plural"]),
         "endpoints": {k: f"/{names[k]}" for k in ("list", "get", "create", "update", "delete")},
         "fields": fields,
     }
-    body = json.dumps(resource, indent=2, ensure_ascii=False)
+    # Optional endpoints (approval / CSV) — CrudTable checks with the server
+    # which of these exist, since they're enabled in the backend's crud block
+    resource_d["endpoints"].update(
+        approve=f"/approve_{names['singular']}", reject=f"/reject_{names['singular']}",
+        export=f"/export_{names['plural']}", **{"import": f"/import_{names['plural']}"})
+    body = json.dumps(resource_d, indent=2, ensure_ascii=False)
     return f"export const {contract.name}Resource: Resource = {body}\n"
 
 
-def models_ts(contracts: List, all_contracts: Dict = None) -> str:
+def models_ts(contracts: List, all_contracts: Dict = None, options: Dict = None) -> str:
     parts = [MODELS_HEADER]
     for c in contracts:
-        parts.append(resource_ts(c, all_contracts))
+        parts.append(resource_ts(c, all_contracts, (options or {}).get(c.name)))
     return "\n".join(parts)
 
 
@@ -87,6 +96,9 @@ export interface Field {
   pluralLabel?: string
   /** For `ref` fields: the linked resource and how to name its records */
   ref?: { resource: string; label: string; list: string; labelField: string | null }
+  /** Field-level permissions: roles that may see / change the field (empty = everyone) */
+  readRoles?: string[]
+  writeRoles?: string[]
   default?: unknown
   unique?: boolean
 }
@@ -95,7 +107,10 @@ export interface Resource {
   name: string
   label: string
   plural: string
-  endpoints: { list: string; get: string; create: string; update: string; delete: string }
+  endpoints: {
+    list: string; get: string; create: string; update: string; delete: string
+    approve?: string; reject?: string; export?: string; import?: string
+  }
   fields: Field[]
 }
 '''
@@ -109,10 +124,11 @@ CRUD_TABLE_TSX = r'''/**
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { FormEvent } from "react"
 import {
-  ChevronLeft, ChevronRight, ArrowUpDown, Loader2, Pencil, Plus, Search, Trash2,
+  ArrowUpDown, Check, ChevronLeft, ChevronRight, Download, Loader2, Paperclip, Pencil, Plus,
+  Search, Trash2, Upload, X,
 } from "lucide-react"
 
-import { api, ApiError } from "../services/api"
+import { api, apiUrl, ApiError } from "../services/api"
 import { useAuth } from "../auth"
 import type { Field, Resource } from "../models"
 import { Badge } from "@/components/ui/badge"
@@ -182,6 +198,15 @@ function displayValue(field: Field, value: any, row?: Row) {
   switch (field.type) {
     case "ref":
       return row?.[`${field.name}_label`] ?? `#${value}`
+    case "file": {
+      const f = row?.[`${field.name}_file`]
+      return f ? (
+        <a href={apiUrl(f.url)} target="_blank" rel="noreferrer"
+           className="inline-flex items-center gap-1 text-primary hover:underline">
+          <Paperclip className="h-3.5 w-3.5" />{f.name}
+        </a>
+      ) : `#${value}`
+    }
     case "choice": {
       const idx = Math.max(0, (field.choices ?? []).indexOf(String(value)))
       const color = SEMANTIC[String(value).toLowerCase()] ?? BADGE_COLORS[idx % BADGE_COLORS.length]
@@ -242,10 +267,28 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
       .filter((f): f is Field => Boolean(f))
   }, [resource, columns])
   const filterField = resource.fields.find((f) => f.type === "choice")
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const canCreate = can(resource.endpoints.create)
   const canUpdate = can(resource.endpoints.update)
   const canDelete = can(resource.endpoints.delete)
+  // Which optional endpoints (approval, CSV) the backend has enabled
+  const [available, setAvailable] = useState<string[]>([])
+  useEffect(() => {
+    api.get("/").then((d) => setAvailable((d.endpoints ?? []).map((e: any) => `/${e.name}`)))
+      .catch(() => setAvailable([]))
+  }, [])
+  const has = (ep?: string) => !!ep && available.includes(ep)
+  const approval = has(resource.endpoints.approve)
+  const canApprove = approval && can(resource.endpoints.approve!)
+  const canExport = has(resource.endpoints.export) && can(resource.endpoints.export!)
+  const canImport = has(resource.endpoints.import) && can(resource.endpoints.import!)
+  const showActions = canUpdate || canDelete || canApprove
+  // Field-level permissions (`read …` / `write …` in the contract)
+  const canRead = (f: Field) => !f.readRoles?.length || !user || f.readRoles.includes(user.role)
+  const canWrite = (f: Field) => canRead(f) && (!f.writeRoles?.length || !user || f.writeRoles.includes(user.role))
+  const columnsShown = visible.filter(canRead)
+  const formFields = resource.fields.filter(canRead)
+  const colCount = columnsShown.length + (approval ? 1 : 0) + (showActions ? 1 : 0)
 
   const [rows, setRows] = useState<Row[]>([])
   const [total, setTotal] = useState(0)
@@ -268,6 +311,13 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
   const [deleting, setDeleting] = useState<Row | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
+  const [approvalFilter, setApprovalFilter] = useState(ALL)
+  const [deciding, setDeciding] = useState<{ row: Row; decision: "approve" | "reject" } | null>(null)
+  const [note, setNote] = useState("")
+  const [decideError, setDecideError] = useState("")
+  const [importResult, setImportResult] = useState<any>(null)
+  const [csvBusy, setCsvBusy] = useState(false)
+
   // Debounce the search box
   useEffect(() => {
     const t = setTimeout(() => { setQuery(search.trim()); setPage(1) }, 300)
@@ -282,6 +332,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
     if (query) params.set("search", query)
     if (filterField && filter !== ALL) params.set(filterField.name, filter)
     if (sort) params.set("sort", `${sort.field} ${sort.desc ? "desc" : "asc"}`)
+    if (approval && approvalFilter !== ALL) params.set("approval_status", approvalFilter)
     try {
       const data = await api.get(`${resource.endpoints.list}?${params}`)
       setRows(data.items ?? [])
@@ -292,7 +343,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
     } finally {
       setLoading(false)
     }
-  }, [resource, page, pageSizeProp, query, filter, filterField, sort])
+  }, [resource, page, pageSizeProp, query, filter, filterField, sort, approval, approvalFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -318,9 +369,11 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
     setFieldErrors({})
     setFormError("")
     try {
-      if (editing) await api.post(resource.endpoints.update, { id: editing.id, ...form })
-      // (a blank password on edit means "keep the current one")
-      else await api.post(resource.endpoints.create, form)
+      // Only send fields this role may change (a blank password on edit = keep it)
+      const payload = Object.fromEntries(
+        resource.fields.filter(canWrite).map((f) => [f.name, form[f.name]]))
+      if (editing) await api.post(resource.endpoints.update, { id: editing.id, ...payload })
+      else await api.post(resource.endpoints.create, payload)
       setFormOpen(false)
       await load()
     } catch (err) {
@@ -344,6 +397,54 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
       setDeleting(null)
     } finally {
       setDeleteBusy(false)
+    }
+  }
+
+  const decide = async () => {
+    if (!deciding) return
+    const endpoint = deciding.decision === "approve" ? resource.endpoints.approve : resource.endpoints.reject
+    setDecideError("")
+    try {
+      await api.post(endpoint!, { id: deciding.row.id, note })
+      setDeciding(null)
+      setNote("")
+      await load()
+    } catch (err) {
+      setDecideError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const exportCsv = async () => {
+    setCsvBusy(true)
+    try {
+      const params = new URLSearchParams()
+      if (query) params.set("search", query)
+      if (filterField && filter !== ALL) params.set(filterField.name, filter)
+      if (approval && approvalFilter !== ALL) params.set("approval_status", approvalFilter)
+      const data = await api.get(`${resource.endpoints.export}?${params}`)
+      const url = URL.createObjectURL(new Blob([data.content], { type: "text/csv" }))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = data.filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCsvBusy(false)
+    }
+  }
+
+  const importCsv = async (file: File | undefined) => {
+    if (!file) return
+    setCsvBusy(true)
+    try {
+      setImportResult(await api.post(resource.endpoints.import!, { csv: await file.text() }))
+      await load()
+    } catch (err) {
+      setImportResult({ error: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setCsvBusy(false)
     }
   }
 
@@ -389,6 +490,20 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
               </SelectContent>
             </Select>
           )}
+          {canExport && (
+            <Button variant="outline" onClick={exportCsv} disabled={csvBusy}>
+              <Download className="mr-1 h-4 w-4" /> Export
+            </Button>
+          )}
+          {canImport && (
+            <Button variant="outline" asChild disabled={csvBusy}>
+              <label className="cursor-pointer">
+                <Upload className="mr-1 h-4 w-4" /> Import
+                <input type="file" accept=".csv,text/csv" className="hidden" aria-label="Import CSV"
+                       onChange={(e) => { importCsv(e.target.files?.[0]); e.target.value = "" }} />
+              </label>
+            </Button>
+          )}
           {canCreate && (
             <Button onClick={openCreate}>
               <Plus className="mr-1 h-4 w-4" /> Add {resource.label.toLowerCase()}
@@ -403,11 +518,23 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
             {loadError}
           </div>
         )}
+        {approval && (
+          <div className="mb-4 inline-flex rounded-lg border bg-muted/40 p-1 text-sm" role="tablist">
+            {[ALL, "pending", "approved", "rejected"].map((s) => (
+              <button key={s} type="button" role="tab" aria-selected={approvalFilter === s}
+                      onClick={() => { setApprovalFilter(s); setPage(1) }}
+                      className={`rounded-md px-3 py-1 font-medium ${approvalFilter === s
+                        ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                {s === ALL ? "All" : humanize(s)}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                {visible.map((f) => (
+                {columnsShown.map((f) => (
                   <TableHead key={f.name}>
                     <button
                       type="button"
@@ -419,19 +546,20 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                     </button>
                   </TableHead>
                 ))}
-                {(canUpdate || canDelete) && <TableHead className="w-24 text-right">Actions</TableHead>}
+                {approval && <TableHead>Approval</TableHead>}
+                {showActions && <TableHead className="w-28 text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visible.length + (canUpdate || canDelete ? 1 : 0)} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={colCount} className="h-32 text-center text-muted-foreground">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={visible.length + (canUpdate || canDelete ? 1 : 0)} className="h-40 text-center">
+                  <TableCell colSpan={colCount} className="h-40 text-center">
                     <p className="font-medium">
                       {query || filter !== ALL
                         ? `No ${resource.plural.toLowerCase()} match your search`
@@ -447,11 +575,28 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
               ) : (
                 rows.map((row) => (
                   <TableRow key={row.id} className={loading ? "opacity-60" : ""}>
-                    {visible.map((f) => (
+                    {columnsShown.map((f) => (
                       <TableCell key={f.name}>{displayValue(f, row[f.name], row)}</TableCell>
                     ))}
-                    {(canUpdate || canDelete) && (
-                      <TableCell className="text-right">
+                    {approval && (
+                      <TableCell>
+                        <ApprovalBadge row={row} />
+                      </TableCell>
+                    )}
+                    {showActions && (
+                      <TableCell className="whitespace-nowrap text-right">
+                        {canApprove && row.approval_status === "pending" && (
+                          <>
+                            <Button variant="ghost" size="icon" aria-label="Approve"
+                                    onClick={() => { setDeciding({ row, decision: "approve" }); setNote(""); setDecideError("") }}>
+                              <Check className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                            <Button variant="ghost" size="icon" aria-label="Reject"
+                                    onClick={() => { setDeciding({ row, decision: "reject" }); setNote(""); setDecideError("") }}>
+                              <X className="h-4 w-4 text-rose-600" />
+                            </Button>
+                          </>
+                        )}
                         {canUpdate && (
                           <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => openEdit(row)}>
                             <Pencil className="h-4 w-4" />
@@ -495,7 +640,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={save} className="grid gap-4 sm:grid-cols-2" noValidate>
-            {resource.fields.map((f) => (
+            {formFields.map((f) => (
               <div key={f.name} className={
                 f.type === "text" ? "space-y-1.5 sm:col-span-2"
                 : f.type === "bool" ? "flex items-center justify-between gap-3 self-end rounded-md border px-3 py-2"
@@ -505,6 +650,7 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
                   {f.required && !(editing && f.type === "password") && <span className="ml-0.5 text-destructive">*</span>}
                 </Label>
                 <FieldInput field={f} value={form[f.name]} editing={editing !== null}
+                            disabled={!canWrite(f)} file={editing?.[`${f.name}_file`]}
                             onChange={(v) => setValue(f.name, v)} />
                 {fieldErrors[f.name] && (
                   <p className="text-sm text-destructive">{f.label} {fieldErrors[f.name]}</p>
@@ -522,6 +668,58 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve / reject */}
+      <Dialog open={deciding !== null} onOpenChange={(open) => { if (!open) setDeciding(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{deciding?.decision === "approve" ? "Approve" : "Reject"} {resource.label.toLowerCase()}?</DialogTitle>
+            <DialogDescription>
+              {deciding ? `“${recordName(resource, deciding.row)}”` : ""}
+              {deciding?.row.requested_by ? ` — requested by ${deciding.row.requested_by}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="approval-note">Note {deciding?.decision === "reject" ? "(tell them why)" : "(optional)"}</Label>
+            <Textarea id="approval-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          {decideError && <p className="text-sm text-destructive">{decideError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeciding(null)}>Cancel</Button>
+            <Button variant={deciding?.decision === "reject" ? "destructive" : "default"} onClick={decide}>
+              {deciding?.decision === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV import results */}
+      <Dialog open={importResult !== null} onOpenChange={(open) => { if (!open) setImportResult(null) }}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import {importResult?.error ? "failed" : "finished"}</DialogTitle>
+            <DialogDescription>
+              {importResult?.error ?? `${importResult?.created ?? 0} of ${importResult?.total ?? 0} rows imported.`}
+            </DialogDescription>
+          </DialogHeader>
+          {importResult?.failed?.length > 0 && (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">These rows were skipped:</p>
+              <ul className="space-y-1">
+                {importResult.failed.map((f: any) => (
+                  <li key={f.line} className="rounded-md bg-muted px-3 py-2">
+                    <span className="font-medium">Line {f.line}:</span>{" "}
+                    {Object.entries(f.errors ?? {}).map(([k, v]) => (k === "_" ? String(v) : `${k} ${v}`)).join("; ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setImportResult(null)}>Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -546,11 +744,24 @@ export function CrudTable({ resource, columns, title, pageSize: pageSizeProp }: 
   )
 }
 
-function FieldInput({ field, value, onChange, editing }: {
+function FieldInput(props: {
   field: Field; value: any; onChange: (v: any) => void; editing?: boolean
+  disabled?: boolean; file?: { name: string; url: string } | null
+}) {
+  if (props.disabled) {
+    return <fieldset disabled className="opacity-70"><FieldInputInner {...props} /></fieldset>
+  }
+  return <FieldInputInner {...props} />
+}
+
+function FieldInputInner({ field, value, onChange, editing, file }: {
+  field: Field; value: any; onChange: (v: any) => void; editing?: boolean
+  file?: { name: string; url: string } | null
 }) {
   const id = `f-${field.name}`
   switch (field.type) {
+    case "file":
+      return <FileInput id={id} value={value} file={file ?? null} onChange={onChange} />
     case "ref":
       return <RefSelect id={id} field={field} value={value} onChange={onChange} />
     case "password":
@@ -586,6 +797,73 @@ function FieldInput({ field, value, onChange, editing }: {
     default:
       return <Input id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
   }
+}
+
+function ApprovalBadge({ row }: { row: Row }) {
+  const status = String(row.approval_status ?? "pending")
+  const color = status === "approved" ? GREEN : status === "rejected" ? RED : AMBER
+  const by = row.approval_by ? ` by ${row.approval_by}` : ""
+  return (
+    <Badge variant="outline" className={`border-transparent font-medium ${color}`}
+           title={`${humanize(status)}${by}${row.approval_note ? ` — ${row.approval_note}` : ""}`}>
+      {humanize(status)}
+    </Badge>
+  )
+}
+
+/** Upload a file (sent as base64 to /upload); the field stores the file id. */
+function FileInput({ id, value, file, onChange }: {
+  id: string; value: any; file: { name: string; url: string } | null; onChange: (v: any) => void
+}) {
+  const [current, setCurrent] = useState<{ name: string; url?: string } | null>(value ? file : null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const pick = async (f: File | undefined) => {
+    if (!f) return
+    setBusy(true)
+    setError("")
+    try {
+      const data: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(f)
+      })
+      const saved = await api.post("/upload", { name: f.name, type: f.type, data })
+      setCurrent(saved)
+      onChange(String(saved.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" asChild disabled={busy}>
+          <label htmlFor={id} className="cursor-pointer">
+            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
+            {current ? "Replace" : "Upload"}
+          </label>
+        </Button>
+        <input id={id} type="file" className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = "" }} />
+        {current && (
+          <span className="flex min-w-0 items-center gap-1 text-sm">
+            <Paperclip className="h-3.5 w-3.5 shrink-0" />
+            {current.url
+              ? <a href={apiUrl(current.url)} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">{current.name}</a>
+              : <span className="truncate">{current.name}</span>}
+            <button type="button" aria-label="Remove file" className="text-muted-foreground hover:text-foreground"
+                    onClick={() => { setCurrent(null); onChange("") }}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        )}
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  )
 }
 
 /** Dropdown of records from a linked resource (`company: ref Company`). */

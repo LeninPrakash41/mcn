@@ -206,8 +206,41 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             query_params = {k: v[0] if len(v) == 1 else v for k, v in qs.items()}
             return fn_name, path_arg, query_params
 
+        def _send_file(self, file_id, query_params):
+            """GET /files/<id>?exp=…&sig=… (signed link from a file field / make_pdf)."""
+            store = evaluator.file_store()
+            try:
+                fid = int(file_id)
+            except (TypeError, ValueError):
+                self._send_json(404, {"error": "File not found"})
+                return
+            if not store.check_signature(fid, query_params.get("exp"), query_params.get("sig")):
+                self._send_json(403, {"error": "This file link has expired or is invalid"})
+                return
+            try:
+                rec, data = store.read(fid)
+            except FileNotFoundError:
+                self._send_json(404, {"error": "File not found"})
+                return
+            # Only types that can't run script are shown in the browser (no SVG / HTML)
+            inline = (rec["type"] or "") in ("image/png", "image/jpeg", "image/gif", "image/webp",
+                                             "application/pdf", "text/plain")
+            safe = (rec["name"] or "file").replace('"', "")
+            self.send_response(200)
+            self.send_header("Content-Type", rec["type"] or "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Content-Disposition", f'{"inline" if inline else "attachment"}; filename="{safe}"')
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.end_headers()
+            self.wfile.write(data)
+
         def do_GET(self):
             fn_name, path_arg, query_params = self._resolve_endpoint(self.path)
+            if fn_name == "files" and path_arg:
+                with evaluator.lock:
+                    self._send_file(path_arg.split("/")[0], query_params)
+                return
 
             if not fn_name:
                 # Health / route list
@@ -271,10 +304,18 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                         self._send_json(403, {"error": f"Your role ({user.get('role')}) "
                                                        "isn't allowed to do this"})
                     return
+            evaluator.lock.acquire()
+            proto = self.headers.get("X-Forwarded-Proto", "http")
+            evaluator.request_base = f"{proto}://{self.headers.get('Host', 'localhost')}"
             evaluator.current_user = user
             evaluator.globals.define("current_user", user)
             try:
                 result = fn(*args)
+                if isinstance(result, dict) and "_redirect" in result:
+                    self.send_response(302)
+                    self.send_header("Location", result["_redirect"])
+                    self.end_headers()
+                    return
                 self._send_json(200, result if result is not None else {})
             except MCNHttpError as exc:
                 self._send_json(exc.status, exc.payload)
@@ -290,6 +331,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             finally:
                 evaluator.current_user = None
                 evaluator.globals.define("current_user", None)
+                evaluator.lock.release()
 
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
@@ -299,6 +341,10 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
 
             # Read JSON body (optional)
             length = int(self.headers.get("Content-Length", 0))
+            from .files import MAX_UPLOAD_MB
+            if length > (MAX_UPLOAD_MB * 1.4 + 1) * 1024 * 1024:   # base64 overhead
+                self._send_json(413, {"error": f"Request too large (max {MAX_UPLOAD_MB:g} MB file)"})
+                return
             body: Dict[str, Any] = {}
             if length:
                 try:
@@ -368,6 +414,8 @@ def serve_script(script_path: str, host: str = "0.0.0.0", port: int = 8080):
 
     handler = _make_handler(ev)
     server  = HTTPServer((host, port), handler)
+    from .workflow import Scheduler
+    Scheduler(ev.jobs, ev.lock).start()
 
     print(f"\nMCN server running on http://{host}:{port}")
     print("Endpoints:")

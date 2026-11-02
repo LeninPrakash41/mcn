@@ -622,6 +622,110 @@ With an `auth` block:
 - `audit` records changes with before/after values; sign-ins and failed sign-ins are recorded too.
 - Sessions are signed with `MCN_SECRET`; without it, a random secret is generated once and kept in the database.
 
+### Workflows, schedules and approvals
+
+```mcn
+service crm
+    crud Quote
+        approval                              // approve / reject before it counts
+            approvers admin, manager
+            when      record.discount > 10    // optional: only some records need it
+        import                                // CSV import  (import_quotes)
+        export                                // CSV export  (export_quotes)
+
+    // Triggers run after a change is saved: create | update | delete | approve | reject
+    on update Lead
+        if changed("stage") and record.stage == "won"
+            send_email("manager@acme.in", "Won: {record.name} ({format_currency(record.value)})", "🎉")
+            create_follow_up({title: "Kick-off", lead: record.id, due: add_days(today(), 2)})
+
+    on approve Quote
+        var pdf = make_pdf("Quote {record.title}", ["Approved by {record.approval_by}",
+                           [["Item", "Amount"], ["Total", format_currency(record.amount)]]])
+        send_email("sales@acme.in", "Approved: {record.title}", "Attached.", [pdf])
+
+    // Scheduled jobs (server local time): every N minutes|hours|days|weeks, or a weekday
+    job overdue_digest every day at "09:00"
+        ...
+    job sync every 15 minutes
+        ...
+```
+
+- **Triggers** see `record` (after), `old` (before) and `changed("field")`. A failing trigger is
+  logged (and recorded in the activity log) but doesn't undo the change; triggers nested more than
+  5 deep are skipped to stop loops.
+- **Approvals** add `approval_status` (pending / approved / rejected), `approval_by`, `approval_at`,
+  `approval_note` and `requested_by`, plus `approve_quote` / `reject_quote` endpoints for the
+  approver roles. Nobody can approve their own request, and an edit by the requester sends it back
+  for approval. The UI shows Pending / Approved / Rejected tabs and approve / reject buttons.
+- **Jobs**: `mcn serve` runs them in the background; admins can see them with `list_jobs` and run one
+  now with `run_job {name}`.
+- **CSV**: imports match columns by field name or label, accept a linked record's name for `ref`
+  fields, and report every bad row with its line number while importing the rest.
+
+### Files, PDFs and email
+
+```mcn
+contract Expense
+    receipt: file?                    // upload in the form, link in the table
+
+var pdf = make_pdf("Invoice #42", ["Thanks for your order.", [["Item", "Qty"], ["Pen", 2]]])
+send_email("a@x.in, b@x.in", "Your invoice", "Attached.", [pdf])
+```
+
+- Uploads go to `POST /upload` (signed-in users) and are stored in `uploads/`; links are signed and
+  expire after 24 hours, so they work in `<a href>` without a token.
+- `make_pdf(title, content)` needs no dependencies: content is text, a list of paragraphs,
+  tables (lists of rows or of objects) and `{heading: "…"}`.
+- `send_email` uses SMTP when `MCN_SMTP_HOST` is set. Without it, emails are printed and kept in the
+  outbox (`list_outbox`, admin) — handy in development.
+
+### Field-level permissions
+
+```mcn
+contract Employee
+    name:   str
+    salary: float?  read admin, hr  write admin     // hidden from everyone else
+```
+
+Hidden fields are removed from responses, exports, search and sorting; writing a field your role
+can't change is a validation error. The UI hides the column and the form field, or shows it read-only.
+
+### Single sign-on
+
+```mcn
+auth
+    roles admin, staff
+    sso
+        issuer        "https://accounts.google.com"    // Microsoft, Okta, Keycloak, Zoho … (OpenID Connect)
+        client_id     env("SSO_CLIENT_ID")
+        client_secret env("SSO_CLIENT_SECRET")
+        allow_domains "acme.in"
+        default_role  staff
+```
+
+Register `<backend>/sso_callback` as the redirect URL at your provider. The sign-in screen gets a
+"Sign in with Google" button; new people are created with `default_role` (the very first one becomes
+the administrator). Set `MCN_APP_URL` to your app's address in production — the session token is only
+sent back to allowed addresses (localhost is allowed for development).
+
+### Mobile
+
+Every `mcn build` output is an installable web app: a manifest, icons and a service worker that caches
+the app itself (never API data). On Android and iOS, "Add to Home Screen" gives a full-screen app with
+its own icon; the layout switches to a phone-friendly header and navigation.
+
+### Configuration (environment variables)
+
+| Variable | Purpose |
+|---|---|
+| `MCN_SECRET` | Signs sessions and file links (else a random secret is kept in the database) |
+| `MCN_APP_URL` | Your app's address(es), comma-separated — where SSO may send people back |
+| `MCN_PUBLIC_URL` | The backend's public address (for the SSO redirect URL behind a proxy) |
+| `MCN_SMTP_HOST`, `MCN_SMTP_PORT`, `MCN_SMTP_USER`, `MCN_SMTP_PASSWORD`, `MCN_SMTP_FROM`, `MCN_SMTP_TLS` | Email delivery |
+| `MCN_UPLOAD_DIR`, `MCN_MAX_UPLOAD_MB` | Where uploads are stored (default `uploads/`) and the size limit (default 10) |
+| `MCN_LOG_DIR` | Log files (default `~/.mcn/logs`) |
+
 ### Lists, conditions and row actions in `render`
 
 ```mcn

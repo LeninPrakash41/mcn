@@ -863,6 +863,8 @@ class Parser:
         port: Optional[int] = None
         endpoints: List[ast.EndpointDecl] = []
         cruds: List[ast.CrudDecl] = []
+        triggers: List[ast.TriggerDecl] = []
+        jobs: List[ast.JobDecl] = []
 
         self._skip_newlines()
         if self._check(TT.INDENT):
@@ -880,14 +882,69 @@ class Parser:
                     endpoints.append(self._endpoint_decl())
                 elif self._check(TT.IDENTIFIER) and self._current().value == "crud":
                     cruds.append(self._crud_decl())
+                elif self._check(TT.ON):
+                    triggers.append(self._trigger_decl())
+                elif self._check(TT.IDENTIFIER) and self._current().value == "job":
+                    jobs.append(self._job_decl())
                 else:
-                    raise ParseError("Expected 'port', 'endpoint' or 'crud' inside a service",
-                                     self._current())
+                    raise ParseError("Expected 'port', 'endpoint', 'crud', 'on' or 'job' "
+                                     "inside a service", self._current())
             if self._check(TT.DEDENT):
                 self._advance()      # consume DEDENT
 
         return ast.ServiceDecl(name=name_tok.value, port=port, endpoints=endpoints,
-                               cruds=cruds, line=tok.line, col=tok.col)
+                               cruds=cruds, triggers=triggers, jobs=jobs,
+                               line=tok.line, col=tok.col)
+
+    _TRIGGER_EVENTS = ("create", "update", "delete", "approve", "reject")
+    _JOB_UNITS = {"minute": "minute", "minutes": "minute", "hour": "hour", "hours": "hour",
+                  "day": "day", "days": "day", "week": "week", "weeks": "week",
+                  "monday": "monday", "tuesday": "tuesday", "wednesday": "wednesday",
+                  "thursday": "thursday", "friday": "friday", "saturday": "saturday",
+                  "sunday": "sunday"}
+
+    def _trigger_decl(self) -> ast.TriggerDecl:
+        """on create|update|delete|approve|reject Contract  + indented body"""
+        tok = self._advance()                    # consume ON
+        ev = self._name("Expected create, update, delete, approve or reject after 'on'")
+        if ev.value not in self._TRIGGER_EVENTS:
+            raise ParseError(f"Unknown trigger '{ev.value}' (expected create, update, "
+                             "delete, approve or reject)", ev)
+        contract = self._consume(TT.IDENTIFIER, f"Expected a contract name, e.g. on {ev.value} Lead").value
+        self._consume_end()
+        body = self._block()
+        return ast.TriggerDecl(event=ev.value, contract=contract, body=body,
+                               line=tok.line, col=tok.col)
+
+    def _job_decl(self) -> ast.JobDecl:
+        """job name every [N] minute(s)|hour(s)|day(s)|week(s)|monday… [at "HH:MM"]"""
+        tok = self._advance()                    # consume `job`
+        name = self._name("Expected a job name, e.g. job daily_digest every day")
+        every_tok = self._name("Expected 'every' after the job name")
+        if every_tok.value != "every":
+            raise ParseError("Expected 'every', e.g. job sync every 15 minutes", every_tok)
+        every = 1
+        if self._check(TT.NUMBER):
+            every = int(float(self._advance().value))
+        unit_tok = self._name("Expected minutes, hours, day(s), week(s) or a weekday")
+        unit = self._JOB_UNITS.get(unit_tok.value)
+        if unit is None or every < 1:
+            raise ParseError(f"Unknown schedule '{unit_tok.value}' (use minutes, hours, days, "
+                             "weeks or monday … sunday)", unit_tok)
+        at = ""
+        if self._check(TT.IDENTIFIER) and self._current().value == "at":
+            self._advance()
+            at_tok = self._consume(TT.STRING, 'Expected a time like "09:00"')
+            import re as _re
+            if not _re.match(r"^([01]?\d|2[0-3]):[0-5]\d$", at_tok.value):
+                raise ParseError('Time must look like "09:00" (24-hour)', at_tok)
+            if unit in ("minute", "hour"):
+                raise ParseError("'at' only works with days, weeks or weekdays", at_tok)
+            at = at_tok.value
+        self._consume_end()
+        body = self._block()
+        return ast.JobDecl(name=name.value, every=every, unit=unit, at=at, body=body,
+                           line=tok.line, col=tok.col)
 
     def _endpoint_decl(self) -> ast.EndpointDecl:
         tok      = self._advance()   # consume ENDPOINT
@@ -928,6 +985,7 @@ class Parser:
         self._consume_end()
         roles: List[str] = []
         hours = 12
+        sso: Optional[ast.SSODecl] = None
         self._skip_newlines()
         if self._check(TT.INDENT):
             self._advance()
@@ -940,15 +998,56 @@ class Parser:
                     roles = self._name_list("Expected a role name")
                 elif opt.value == "session_hours":
                     hours = int(float(self._consume(TT.NUMBER, "Expected a number of hours").value))
+                elif opt.value == "sso":
+                    sso = self._sso_decl(opt)
+                    continue                     # block consumed its own lines
                 else:
                     raise ParseError(f"Unknown auth option '{opt.value}' "
-                                     "(expected roles or session_hours)", opt)
+                                     "(expected roles, session_hours or sso)", opt)
                 self._consume_end()
             if self._check(TT.DEDENT):
                 self._advance()
         if not roles:
             raise ParseError("auth needs a roles line, e.g. roles admin, staff", tok)
-        return ast.AuthDecl(roles=roles, session_hours=hours, line=tok.line, col=tok.col)
+        if sso is not None and sso.default_role and sso.default_role not in roles:
+            raise ParseError(f"sso default_role '{sso.default_role}' is not one of the roles "
+                             f"({', '.join(roles)})", tok)
+        return ast.AuthDecl(roles=roles, session_hours=hours, sso=sso,
+                            line=tok.line, col=tok.col)
+
+    def _sso_decl(self, tok: Token) -> ast.SSODecl:
+        """sso / issuer … / client_id … / client_secret … / allow_domains … / default_role …"""
+        self._consume_end()
+        d = ast.SSODecl(line=tok.line, col=tok.col)
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+                opt = self._name("Expected an sso option")
+                if opt.value in ("issuer", "client_id", "client_secret", "label"):
+                    setattr(d, opt.value, self._expression())
+                elif opt.value == "allow_domains":
+                    d.allow_domains = [self._expression()]
+                    while self._match(TT.COMMA):
+                        d.allow_domains.append(self._expression())
+                elif opt.value == "default_role":
+                    d.default_role = self._name("Expected a role name").value
+                elif opt.value == "auto_create":
+                    d.auto_create = self._name("Expected true or false").value == "true"
+                else:
+                    raise ParseError(f"Unknown sso option '{opt.value}' (expected issuer, "
+                                     "client_id, client_secret, allow_domains, default_role, "
+                                     "label or auto_create)", opt)
+                self._consume_end()
+            if self._check(TT.DEDENT):
+                self._advance()
+        for need in ("issuer", "client_id", "client_secret"):
+            if getattr(d, need) is None:
+                raise ParseError(f"sso needs '{need}'", tok)
+        return d
 
     def _workflow_decl(self) -> ast.WorkflowDecl:
         """
@@ -1038,19 +1137,26 @@ class Parser:
         optional = bool(self._match(TT.QUESTION))
         unique = False
         default: Optional[ast.Expr] = None
+        read_roles: List[str] = []
+        write_roles: List[str] = []
         while not self._at_eol():
             if self._check(TT.IDENTIFIER) and self._current().value == "unique":
                 self._advance()
                 unique = True
+            elif self._check(TT.IDENTIFIER) and self._current().value in ("read", "write"):
+                which = self._advance().value
+                roles = self._name_list(f"Expected a role name after '{which}'")
+                (read_roles if which == "read" else write_roles).extend(roles)
             elif self._match(TT.ASSIGN):
                 default = self._expression()
             else:
-                raise ParseError("Expected 'unique', '= default' or end of line "
-                                 "after the field type", self._current())
+                raise ParseError("Expected 'unique', 'read …', 'write …', '= default' or end "
+                                 "of line after the field type", self._current())
         self._consume_end()
         return ast.ContractField(
             name=name_tok.value, type_name=type_name, optional=optional,
             default=default, unique=unique, choices=choices, ref=ref,
+            read_roles=read_roles, write_roles=write_roles,
             line=name_tok.line, col=name_tok.col,
         )
 
@@ -1068,6 +1174,8 @@ class Parser:
         sort, page_size = "", 25
         allow: Dict[str, List[str]] = {}
         audit = False
+        approval: Optional[ast.ApprovalDecl] = None
+        csv_import = csv_export = False
         self._skip_newlines()
         if self._check(TT.INDENT):
             self._advance()
@@ -1088,6 +1196,13 @@ class Parser:
                     page_size = int(float(self._consume(TT.NUMBER, "Expected a number").value))
                 elif opt.value == "audit":
                     audit = True
+                elif opt.value == "import":
+                    csv_import = True
+                elif opt.value == "export":
+                    csv_export = True
+                elif opt.value == "approval":
+                    approval = self._approval_decl(opt)
+                    continue                     # block already consumed its lines
                 elif opt.value == "allow":
                     # allow read: a, b  |  allow write: a  |  allow delete: a  |  allow a, b
                     actions = ["read", "write", "delete"]
@@ -1100,14 +1215,42 @@ class Parser:
                     for a in actions:
                         allow[a] = roles
                 else:
-                    raise ParseError(f"Unknown crud option '{opt.value}' "
-                                     "(expected search, sort, page_size, allow or audit)", opt)
+                    raise ParseError(f"Unknown crud option '{opt.value}' (expected search, sort, "
+                                     "page_size, allow, audit, approval, import or export)", opt)
                 self._consume_end()
             if self._check(TT.DEDENT):
                 self._advance()
         return ast.CrudDecl(contract=contract, search=search, sort=sort,
                             page_size=page_size, allow=allow, audit=audit,
+                            approval=approval, csv_import=csv_import, csv_export=csv_export,
                             line=tok.line, col=tok.col)
+
+    def _approval_decl(self, tok: Token) -> ast.ApprovalDecl:
+        """approval  /  approvers a, b  /  when <expr>"""
+        self._consume_end()
+        approvers: List[str] = []
+        when: Optional[ast.Expr] = None
+        self._skip_newlines()
+        if self._check(TT.INDENT):
+            self._advance()
+            while not self._at_end() and not self._check(TT.DEDENT):
+                self._skip_newlines()
+                if self._check(TT.DEDENT) or self._at_end():
+                    break
+                opt = self._name("Expected 'approvers' or 'when'")
+                if opt.value == "approvers":
+                    approvers = self._name_list("Expected a role name")
+                elif opt.value == "when":
+                    when = self._expression()
+                else:
+                    raise ParseError(f"Unknown approval option '{opt.value}' "
+                                     "(expected approvers or when)", opt)
+                self._consume_end()
+            if self._check(TT.DEDENT):
+                self._advance()
+        if not approvers:
+            raise ParseError("approval needs an 'approvers' line, e.g. approvers manager", tok)
+        return ast.ApprovalDecl(approvers=approvers, when=when, line=tok.line, col=tok.col)
 
     def _prompt_decl(self) -> ast.PromptDecl:
         """

@@ -62,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [status, setStatus] = useState(statusLoading)
+  const [sso, setSso] = useState<{ label: string } | null>(null)
+  const [ssoError, setSsoError] = useState("")
 
   const signedIn = (data: any) => {
     if (data.token) setToken(data.token)
@@ -78,6 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Back from single sign-on: #mcn_token=… or #mcn_error=…
+    const hash = new URLSearchParams(window.location.hash.slice(1))
+    if (hash.get("mcn_token")) setToken(hash.get("mcn_token"))
+    if (hash.get("mcn_error")) setSsoError(hash.get("mcn_error") ?? "")
+    if (hash.get("mcn_token") || hash.get("mcn_error")) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search)
+    }
     ;(async () => {
       try {
         if (getToken()) {
@@ -89,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const s = await api.get("/auth_status")
-        setStatus(s.needs_setup ? statusSetup : statusSignedOut)
+        setSso(s.sso ?? null)
+        setStatus(s.needs_setup && !s.sso ? statusSetup : statusSignedOut)
       } catch {
         setStatus(statusSignedOut)
       }
@@ -111,12 +121,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      <AuthStatusContext.Provider value={status}>{children}</AuthStatusContext.Provider>
+      <AuthStatusContext.Provider value={status}>
+        <SsoContext.Provider value={{ sso, error: ssoError }}>{children}</SsoContext.Provider>
+      </AuthStatusContext.Provider>
     </AuthContext.Provider>
   )
 }
 
 const AuthStatusContext = createContext(statusReady)
+const SsoContext = createContext<{ sso: { label: string } | null; error: string }>({ sso: null, error: "" })
 
 /** Shows sign-in / setup screens until a user is signed in. */
 export function AuthGate({ title, children }: { title: string; children: ReactNode }) {
@@ -135,6 +148,19 @@ export function AuthGate({ title, children }: { title: string; children: ReactNo
 
 function AuthScreen({ title, mode }: { title: string; mode: "login" | "setup" }) {
   const { login, setup } = useAuth()
+  const { sso, error: ssoError } = useContext(SsoContext)
+  const [redirecting, setRedirecting] = useState(false)
+  const startSso = async () => {
+    setRedirecting(true)
+    try {
+      const returnTo = window.location.origin + window.location.pathname
+      const { url } = await api.get(`/sso_start?return_to=${encodeURIComponent(returnTo)}`)
+      window.location.href = url
+    } catch (err) {
+      setRedirecting(false)
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -173,6 +199,18 @@ function AuthScreen({ title, mode }: { title: string; mode: "login" | "setup" })
           </p>
         </CardHeader>
         <CardContent>
+          {mode === "login" && sso && (
+            <>
+              <Button type="button" variant="outline" className="w-full" onClick={startSso} disabled={redirecting}>
+                {redirecting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Sign in with {sso.label}
+              </Button>
+              {ssoError && <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{ssoError}</p>}
+              <div className="my-4 flex items-center gap-3 text-xs uppercase text-muted-foreground">
+                <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
           <form onSubmit={submit} className="space-y-4" noValidate>
             {mode === "setup" && (
               <div className="space-y-1.5">
