@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Mummy</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="stat"><span class="label">Level</span><span id="hud-level">1</span></div>
+    <div class="stat"><span class="label">Scarabs</span><span id="hud-scarabs">0 / 0</span></div>
+    <div class="stat"><span class="label">Score</span><span id="hud-score">0</span></div>
+    <div class="stat"><span class="label">Time</span><span id="hud-time">0:00</span></div>
+  </div>
+  <div class="bars">
+    <div class="bar"><span class="label">Health</span><div class="track"><div id="bar-health" class="fill health"></div></div></div>
+    <div class="bar"><span class="label">Torch</span><div class="track"><div id="bar-oil" class="fill oil"></div></div></div>
+    <div class="bar"><span class="label">Stamina</span><div class="track"><div id="bar-stamina" class="fill stamina"></div></div></div>
+  </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="message"></div>
+  <div id="crosshair"></div>
+  <div id="damage"></div>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>The Mummy</h1>
+    <p class="tag">The tomb remembers every thief.</p>
+    <p>Find every <b class="gold">golden scarab</b> in the labyrinth to open the sealed door and escape to the next level.
+       Your torch burns down, so pick up <b class="oil-c">oil jars</b> to keep it lit. The mummies wake when they see your light.</p>
+    <label for="name">Explorer name</label>
+    <input id="name" maxlength="20" placeholder="Your name" autocomplete="off">
+    <button id="start">Enter the Tomb</button>
+    <div class="controls">
+      <span><kbd>W A S D</kbd> move</span>
+      <span><kbd>Mouse</kbd> look</span>
+      <span><kbd>Shift</kbd> sprint</span>
+      <span><kbd>Esc</kbd> pause</span>
+    </div>
+    <h2>Hall of Explorers</h2>
+    <ol id="scores-menu" class="scores"></ol>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="panel small">
+    <h2>Paused</h2>
+    <p>Click to return to the tomb.</p>
+    <button id="resume">Resume</button>
+  </div>
+</div>
+
+<div id="level-done" class="overlay hidden">
+  <div class="panel small">
+    <h2>You escaped!</h2>
+    <p id="level-summary"></p>
+    <button id="next-level">Descend deeper</button>
+  </div>
+</div>
+
+<div id="gameover" class="overlay hidden">
+  <div class="panel">
+    <h2>Entombed</h2>
+    <p id="final-summary"></p>
+    <h2>Hall of Explorers</h2>
+    <ol id="scores-over" class="scores"></ol>
+    <button id="restart">Try again</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
