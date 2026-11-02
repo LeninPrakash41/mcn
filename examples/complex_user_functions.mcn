@@ -29,7 +29,7 @@ function process_user_data(name, age)
         var status = "minor"
 
     // Store in database
-    query("INSERT INTO users (name, age, status) VALUES (?, ?, ?)", (name, age, status))
+    query("INSERT INTO user_profiles (name, age, status) VALUES (?, ?, ?)", (name, age, status))
 
     return status
 
@@ -39,6 +39,9 @@ function analyze_sentiment(text)
     var analysis = ai("Analyze the sentiment of this text: " + text)
     log "AI Analysis: " + analysis
     return analysis
+
+// Create the table process_user_data writes to
+query("CREATE TABLE IF NOT EXISTS user_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER, status TEXT)")
 
 // Call the functions
 log "=== Testing User Functions ==="

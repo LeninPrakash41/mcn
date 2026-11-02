@@ -568,6 +568,7 @@ app MyApp
 | `mcn generate "<description>"` | AI-generate a full app from natural language |
 | `mcn config set api_key <key>` | Save Claude/OpenAI API key |
 | `mcn config show` | Show saved config |
+| `mcn config set demo_tables 1` | Create the demo tables (`users`, `tasks`, `ai_content`, `weather_logs`) in `mcn_data.db`; off by default. `MCN_DEMO_TABLES=1` does the same and overrides the config |
 | `mcn install <package>` | Install a MCN package |
 | `mcn packages list` | List installed packages |
 | `mcn deploy --target zip` | Package app for deployment |

@@ -682,6 +682,7 @@ mcn new-package myorg/retail --path .  # scaffold a new SI package
 mcn config set api_key sk-ant-...
 mcn config get api_key
 mcn config show
+mcn config set demo_tables 1           # opt in to demo tables (or MCN_DEMO_TABLES=1)
 
 # ── Project ──────────────────────────────────────────────────────────────
 mcn init my-app

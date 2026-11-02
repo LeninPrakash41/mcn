@@ -756,7 +756,7 @@ def main():
     config_sub = config_parser.add_subparsers(dest="config_action")
 
     cfg_set = config_sub.add_parser("set", help="Set a config value")
-    cfg_set.add_argument("key",   help="Config key   (e.g. api_key)")
+    cfg_set.add_argument("key",   help="Config key   (e.g. api_key, demo_tables)")
     cfg_set.add_argument("value", help="Config value (e.g. sk-ant-...)")
 
     cfg_get = config_sub.add_parser("get", help="Get a config value")

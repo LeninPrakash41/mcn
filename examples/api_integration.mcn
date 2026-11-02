@@ -2,6 +2,9 @@
 
 log "=== MCN API Integration Demo ==="
 
+// Create the table this example uses
+query("CREATE TABLE IF NOT EXISTS weather_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT, temperature REAL, description TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
 // Weather API integration example
 var city = "New York"
 var api_key = "your_api_key_here"

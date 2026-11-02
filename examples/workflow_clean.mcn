@@ -1,5 +1,9 @@
 log "=== MCN Workflow Automation Demo ==="
 
+// Create the tables this example uses
+query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE, age INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'pending', user_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
 var new_user = "Alice Smith"
 var new_email = "alice@company.com"
 var department = "Engineering"

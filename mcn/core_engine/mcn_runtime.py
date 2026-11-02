@@ -284,11 +284,37 @@ class MCNRuntime:
         except Exception as e:
             return f"Google AI Error: {str(e)}"
 
+    @staticmethod
+    def _demo_tables_enabled() -> bool:
+        """Whether the demo tables (users, tasks, ai_content, weather_logs)
+        should be created in the default database.
+
+        Off by default so they never clash with an app's own schema.
+        Enable with the ``MCN_DEMO_TABLES=1`` environment variable or
+        ``mcn config set demo_tables 1`` (stored in ~/.mcn/config.json).
+        The environment variable takes precedence over the config file.
+        """
+        truthy = {"1", "true", "yes", "on"}
+        env = os.getenv("MCN_DEMO_TABLES")
+        if env is not None:
+            return env.strip().lower() in truthy
+        config_path = os.path.join(os.path.expanduser("~"), ".mcn", "config.json")
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                value = json.load(f).get("demo_tables")
+        except (OSError, ValueError, AttributeError):
+            return False
+        return str(value).strip().lower() in truthy
+
     def _init_database(self, db_path: str = "mcn_data.db"):
         """Initialize SQLite database connection"""
         self.db_connection = sqlite3.connect(db_path)
 
-        # Create sample tables for demo
+        if self._demo_tables_enabled():
+            self._create_demo_tables()
+
+    def _create_demo_tables(self):
+        """Create sample tables used by the bundled demos (opt-in)."""
         cursor = self.db_connection.cursor()
         cursor.execute(
             """
