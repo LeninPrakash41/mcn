@@ -739,6 +739,33 @@ Every `mcn build` output is an installable web app: a manifest, icons and a serv
 the app itself (never API data). On Android and iOS, "Add to Home Screen" gives a full-screen app with
 its own icon; the layout switches to a phone-friendly header and navigation.
 
+For a native Android/iOS app, build the same source for Flutter:
+
+```bash
+mcn build ui/app.mcn --target flutter --out mobile
+cd mobile
+flutter create --platforms=android,ios .     # adds the android/ and ios/ folders
+flutter pub get
+flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080
+```
+
+The Flutter app talks to the same `mcn serve` backend and keeps the same rules:
+
+| MCN | Flutter |
+|---|---|
+| `crud_table Lead` | Searchable list with filters, pull-to-refresh, a form screen for add/edit, delete, approve/reject |
+| `ref`, `file`, `choice`, `date` fields | Dropdown of related records, upload/open, dropdown, date picker |
+| `read admin` / `write admin` on a field | Hidden or read-only for other roles |
+| `auth` | Sign-in and first-run setup screens; the session is kept on the device |
+| `nav … allow admin` | Navigation shows only the screens your role can open (bottom bar, or a drawer for more than 5) |
+| `audit_log` | Activity screen |
+| `state`, `on load`, `on remove(id)`, `if`/`for`/`empty`, `toast`, `confirm` | A Flutter screen with the same state, handlers and conditions |
+| `card`, `stat_card`, `badge`, `alert`, `table`, `input bind=`, `select`, `switch`, `div grid_cols=N` | Material 3 widgets; grids collapse to one column on phones |
+
+Charts, data grids, Gantt charts and modals are web-only for now and show a note in the app.
+`10.0.2.2` is your computer as seen from the Android emulator; Android blocks plain `http://` unless
+you allow it for development (see the generated `README.md`).
+
 ### Configuration (environment variables)
 
 | Variable | Purpose |
@@ -965,6 +992,7 @@ mcn repl
 mcn generate "An invoice app with PDF export"  # AI-generated app
 mcn generate "..." --out ./myapp --build       # generate + compile
 mcn build ui/app.mcn --out frontend           # compile MCN UI → React
+mcn build ui/app.mcn --target flutter          # compile MCN UI → Flutter (mobile/)
 
 # ── Server ───────────────────────────────────────────────────────────────
 mcn serve --file backend/main.mcn --port 8080

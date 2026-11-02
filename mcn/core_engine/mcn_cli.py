@@ -305,9 +305,9 @@ def show_logs(log_type: str = "all"):
         return 1
 
 
-def _cmd_build(mcn_file: str, out_dir: str) -> int:
+def _cmd_build(mcn_file: str, out_dir: str, target: str = "web") -> int:
     """
-    mcn build <file> [--out <dir>]
+    mcn build <file> [--out <dir>] [--target web|flutter]
 
     Parses the MCN file, collects all component/app declarations via the
     evaluator, then runs the UICompiler to emit a React + shadcn/ui project.
@@ -372,6 +372,29 @@ def _cmd_build(mcn_file: str, out_dir: str) -> int:
     print(f"\nBuilding: {app_name}")
     print(f"Components: {', '.join(evaluator.components) or 'none'}")
     print(f"Output:    {out}/\n")
+
+    if target == "flutter":
+        try:
+            from mcn.fullstack.flutter_app import FlutterAppCompiler, FlutterCompileError
+        except ImportError:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+            from mcn.fullstack.flutter_app import FlutterAppCompiler, FlutterCompileError
+        try:
+            FlutterAppCompiler(out, project_name=app_name).compile(evaluator)
+        except FlutterCompileError as exc:
+            try:
+                from .error_format import format_error, use_color
+            except ImportError:
+                from error_format import format_error, use_color
+            sys.stderr.write(format_error(exc, code, str(src), color=use_color()))
+            return 1
+        print(f"\n✓ Flutter app generated in {out}/")
+        print("\nNext steps:")
+        print(f"  cd {out}")
+        print("  flutter create --platforms=android,ios .")
+        print("  flutter pub get")
+        print("  flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080")
+        return 0
 
     compiler = UICompiler(output_dir=out)
     try:
@@ -848,7 +871,11 @@ def main():
     )
     build_parser.add_argument(
         "--out", default="frontend",
-        help="Output directory for generated React project (default: frontend/)"
+        help="Output directory for the generated project (default: frontend/, or mobile/ for flutter)"
+    )
+    build_parser.add_argument(
+        "--target", choices=["web", "flutter"], default="web",
+        help="web: React + shadcn/ui (default); flutter: a Flutter mobile app"
     )
 
     # Generate command — AI agent: natural language → MCN → React app
@@ -986,7 +1013,10 @@ def main():
         return _cmd_config(args)
 
     elif args.command == "build":
-        return _cmd_build(args.file, args.out)
+        out = args.out
+        if args.target == "flutter" and out == "frontend":
+            out = "mobile"
+        return _cmd_build(args.file, out, args.target)
 
     elif args.command == "test":
         try:

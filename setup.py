@@ -92,6 +92,7 @@ setup(
             "web-playground/*.html",
             "web-playground/*.js",
             "web-playground/*.css",
+            "fullstack/flutter_runtime/*.dart",
         ],
     },
     zip_safe=False,

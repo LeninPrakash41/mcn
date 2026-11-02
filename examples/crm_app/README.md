@@ -47,6 +47,19 @@ The demo accounts come from `seed.mcn`. Delete those lines (and the database) to
 start empty: the app then asks you to create the first administrator.
 Set `MCN_SECRET` in production so sessions are signed with your own secret.
 
+### As a mobile app (Flutter)
+
+```bash
+mcn build app.mcn --target flutter --out mobile
+cd mobile
+flutter create --platforms=android,ios .
+flutter pub get
+flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080
+```
+
+Same screens, roles and rules as the web app, against the same backend. For plain `http://`
+on Android during development, see `mobile/README.md`.
+
 ## How it works
 
 A contract describes the data once (`ref` links it to other contracts):
