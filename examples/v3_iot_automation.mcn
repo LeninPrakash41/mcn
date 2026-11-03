@@ -9,11 +9,6 @@ device("register", "humidity_sensor_1", {"type": "humidity_sensor", "location": 
 device("register", "motion_sensor_1", {"type": "motion_sensor", "location": "entrance"})
 device("register", "smart_light_1", {"type": "smart_light", "location": "office"})
 
-// Set up event handlers for automation
-on event "high_temperature" handle_high_temp
-on event "motion_detected" handle_motion
-on event "low_humidity" handle_humidity
-
 function handle_high_temp(data) {
     log("High temperature detected: " + data.temperature + "°C")
     device("command", "smart_light_1", {"command": "dim", "level": 50})
@@ -30,12 +25,17 @@ function handle_humidity(data) {
     // Could trigger humidifier or HVAC system
 }
 
+// Set up event handlers for automation
+on event "high_temperature" handle_high_temp
+on event "motion_detected" handle_motion
+on event "low_humidity" handle_humidity
+
 // Main monitoring loop
 for i in [1, 2, 3, 4, 5] {
     // Read sensor data
-    var temperature = device("read", "temp_sensor_1")
-    var humidity = device("read", "humidity_sensor_1")
-    var motion = device("read", "motion_sensor_1")
+    var temperature = device("read", "temp_sensor_1").value
+    var humidity = device("read", "humidity_sensor_1").value
+    var motion = device("read", "motion_sensor_1").value
     
     log("Sensor readings - Temp: " + temperature + "°C, Humidity: " + humidity + "%, Motion: " + motion)
     

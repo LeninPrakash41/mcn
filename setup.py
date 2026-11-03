@@ -5,6 +5,7 @@ MCN (Macincode Scripting Language) Setup
 
 from setuptools import setup, find_packages
 import os
+import re
 
 
 # Read README for long description
@@ -34,7 +35,7 @@ def read_requirements():
 
 setup(
     name="mcn-lang",
-    version="2.0.0",
+    version=re.search(r'__version__ = "([^"]+)"', open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcn", "version.py")).read()).group(1),
     author="MCN Foundation from Macincode",
     author_email="dev@mslang.org",
     description="Business automation scripting language with AI integration",
@@ -81,19 +82,18 @@ setup(
     include_package_data=True,
     package_data={
         "mcn": [
-            "examples/*.mcn",
-            "use-cases/*.mcn",
-            "mcn_packages/*.json",
-            "docs/*.md",
+            "version.py",
             "studio/vscode-mcn/syntaxes/*.json",
             "studio/vscode-mcn/package.json",
-            "web-playground/*.html",
-            "web-playground/*.js",
-            "web-playground/*.css",
-            "web-playground/*.py",
+            "studio/vscode-mcn/*.vsix",
+            "web-playground/index.html",
+            "web-playground/server.py",
             "web-playground/requirements.txt",
             "web-playground/static/css/*.css",
             "web-playground/static/js/*.js",
+            "web-playground/scaffolds/*",
+            "web-playground/scaffolds/.env.example",
+            "web-playground/scaffolds/.github/workflows/*.yml",
             "web-playground/playground_server/*.py",
             "web-playground/playground_server/*.html",
             "web-playground/playground_server/templates/*.json",
@@ -101,6 +101,7 @@ setup(
             "web-playground/playground_server/templates/*/*/*",
         ],
     },
+    exclude_package_data={"mcn": ["web-playground/workspace/*", "web-playground/node_modules/*"]},
     zip_safe=False,
     keywords="mcn scripting automation ai business workflow",
     project_urls={

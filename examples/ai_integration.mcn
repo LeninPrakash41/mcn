@@ -53,6 +53,7 @@ log email_response
 
 // Store AI-generated content in database
 log "Saving AI content to database"
+query("CREATE TABLE IF NOT EXISTS ai_content (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, prompt TEXT, response TEXT, created_at TEXT)")
 query("INSERT INTO ai_content (type, prompt, response, created_at) VALUES (?, ?, ?, datetime('now'))", ("product_description", description_prompt, product_description))
 query("INSERT INTO ai_content (type, prompt, response, created_at) VALUES (?, ?, ?, datetime('now'))", ("social_posts", social_prompt, social_posts))
 query("INSERT INTO ai_content (type, prompt, response, created_at) VALUES (?, ?, ?, datetime('now'))", ("feedback_analysis", analysis_prompt, feedback_analysis))

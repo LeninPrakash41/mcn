@@ -94,21 +94,46 @@ MCN Syntax:
             print("No command history")
 
 
-def check_file(filepath: str, strict: bool = False) -> int:
+def _mcn_version() -> str:
+    try:
+        from mcn.version import __version__
+        return __version__
+    except ImportError:
+        return "dev"
+
+
+def install_vscode_extension() -> int:
+    """Install the .vsix bundled with this MCN version via `code --install-extension`."""
+    import shutil, subprocess
+    ext_dir = Path(__file__).resolve().parent.parent / "studio" / "vscode-mcn"
+    vsix = sorted(ext_dir.glob("mcn-vscode-*.vsix"))
+    if not vsix:
+        print(f"error: no packaged extension in {ext_dir}")
+        return 1
+    code = shutil.which("code") or shutil.which("code-insiders") or shutil.which("cursor")
+    if not code:
+        print("The `code` command isn't on your PATH. In VS Code run 'Shell Command: Install code command in PATH',")
+        print(f"or install manually: Extensions view → … → Install from VSIX → {vsix[-1]}")
+        return 1
+    return subprocess.call([code, "--install-extension", str(vsix[-1]), "--force"])
+
+
+def check_file(filepath: str, strict: bool = False, as_json: bool = False) -> int:
     """
     Static-check a MCN script without executing it.
 
-    Runs:
-      1. Lexing + parsing  — catches syntax errors
-      2. Type inference    — catches type errors and suspicious patterns
+    Reports syntax errors and names that are never defined (the same problems
+    `mcn run` would hit), then type errors and suspicious patterns.
 
     Exit codes:
       0  — no issues (or only warnings when --strict is NOT set)
       1  — at least one ERROR found (or any issue when --strict IS set)
     """
     try:
+        from .diagnostics import check, render, Diagnostic
         from .type_checker import check_source, Severity
     except ImportError:
+        from diagnostics import check, render, Diagnostic
         from type_checker import check_source, Severity
 
     if not os.path.exists(filepath):
@@ -118,26 +143,33 @@ def check_file(filepath: str, strict: bool = False) -> int:
     with open(filepath, "r", encoding="utf-8") as f:
         code = f.read()
 
-    issues = check_source(code)
+    diags = check(code)
+    if not any(d.kind == "Syntax error" for d in diags):
+        for issue in check_source(code):
+            is_error = issue.severity == Severity.ERROR
+            diags.append(Diagnostic(
+                kind="Type error" if is_error else "Warning", message=issue.message,
+                line=issue.line, col=issue.col, severity="error" if is_error else "warning",
+            ))
+    diags.sort(key=lambda d: (d.line, d.col))
 
-    if not issues:
+    if as_json:
+        print(json.dumps({"file": filepath, "diagnostics": [d.to_dict() for d in diags]}))
+    elif not diags:
         print(f"ok  {filepath}")
-        return 0
+    else:
+        for d in diags:
+            print(f"{filepath}:{d.line}:{d.col}")
+            print(render(d, code) + "\n")
 
-    errors   = [i for i in issues if i.severity == Severity.ERROR]
-    warnings = [i for i in issues if i.severity == Severity.WARNING]
-
-    for issue in sorted(issues, key=lambda i: (i.line, i.col)):
-        print(f"{filepath}:{issue}")
-
-    total = len(errors)
-    if strict:
-        total += len(warnings)
-
-    summary = []
-    if errors:   summary.append(f"{len(errors)} error(s)")
-    if warnings: summary.append(f"{len(warnings)} warning(s)")
-    print(f"\n{'FAIL' if total else 'PASS'}  {', '.join(summary)}")
+    errors   = sum(d.severity == "error" for d in diags)
+    warnings = len(diags) - errors
+    total = errors + (warnings if strict else 0)
+    if diags and not as_json:
+        summary = []
+        if errors:   summary.append(f"{errors} error(s)")
+        if warnings: summary.append(f"{warnings} warning(s)")
+        print(f"{'FAIL' if total else 'PASS'}  {', '.join(summary)}")
 
     return 1 if total else 0
 
@@ -165,60 +197,22 @@ def run_file(filepath: str):
         return 1
 
 
-def init_project(name: str, frontend: str = None):
-    """Initialize new MCN project"""
+def init_project(name: str) -> int:
+    """Create a new full-stack MCN project (see project_init.py)."""
     try:
-        result = mcn_project_manager.create_project_structure(
-            name, include_frontend=bool(frontend), frontend_framework=frontend
-        )
-
-        print(f"Created MCN project: {name}")
-        print(f"Project path: {result['project_path']}")
-
-        if frontend:
-            print(f"Frontend framework: {frontend}")
-            print(f"API client generated")
-
-        print("\nNext steps:")
-        print(f"   cd {name}")
-        print("   pip install -r requirements.txt")
-        print("   python -m mcn.mcn_cli mcn/main.mcn")
-
-        return 0
-    except Exception as e:
-        log_error("PROJECT_INIT_ERROR", f"Failed to initialize project: {e}")
-        return 1
+        from .project_init import init_project as _init
+    except ImportError:
+        from project_init import init_project as _init
+    return _init(name)
 
 
-def validate_project(path: str = "."):
-    """Validate MCN project structure"""
+def validate_project(path: str = ".") -> int:
+    """Check every .mcn file in a project."""
     try:
-        result = mcn_project_manager.validate_project_structure(path)
-
-        if result["valid"]:
-            print("Project structure is valid")
-        else:
-            print("Project structure issues found:")
-
-            if result["missing_files"]:
-                print("\nMissing files:")
-                for file in result["missing_files"]:
-                    print(f"  - {file}")
-
-            if result["missing_dirs"]:
-                print("\nMissing directories:")
-                for dir in result["missing_dirs"]:
-                    print(f"  - {dir}")
-
-            if result["recommendations"]:
-                print("\n💡 Recommendations:")
-                for rec in result["recommendations"]:
-                    print(f"  • {rec}")
-
-        return 0 if result["valid"] else 1
-    except Exception as e:
-        log_error("PROJECT_VALIDATION_ERROR", f"Failed to validate project: {e}")
-        return 1
+        from .project_init import validate_project as _validate
+    except ImportError:
+        from project_init import validate_project as _validate
+    return _validate(path)
 
 
 def add_frontend(framework: str, path: str = "."):
@@ -257,7 +251,7 @@ def add_frontend(framework: str, path: str = "."):
 def show_logs(log_type: str = "all"):
     """Show MCN logs"""
     try:
-        logs_dir = Path("logs")
+        logs_dir = mcn_logger.log_dir
         if not logs_dir.exists():
             print("No logs directory found")
             return 1
@@ -722,17 +716,12 @@ def main():
     run_parser.add_argument("--port", type=int, default=8000, help="Server port")
 
     # Init command
-    init_parser = subparsers.add_parser("init", help="Initialize new MCN project")
-    init_parser.add_argument("name", help="Project name")
-    init_parser.add_argument(
-        "--frontend",
-        choices=["react", "vue", "angular", "vanilla"],
-        help="Include frontend framework",
-    )
+    init_parser = subparsers.add_parser("init", help="Create a new full-stack MCN project")
+    init_parser.add_argument("name", help="Project directory to create")
 
     # Validate command
     validate_parser = subparsers.add_parser(
-        "validate", help="Validate project structure"
+        "validate", help="Check every .mcn file in a project for errors"
     )
     validate_parser.add_argument("--path", default=".", help="Project path to validate")
 
@@ -764,6 +753,10 @@ def main():
     check_parser.add_argument(
         "--strict", action="store_true",
         help="Treat warnings as errors (exit 1 if any issues)"
+    )
+    check_parser.add_argument(
+        "--json", action="store_true",
+        help="Print diagnostics as JSON (for editors and CI)"
     )
 
     # Test command
@@ -897,16 +890,21 @@ def main():
     )
 
     # Serve command
-    serve_parser = subparsers.add_parser("serve", help="Serve MCN scripts as APIs")
+    serve_parser = subparsers.add_parser("serve", help="Serve an MCN service as an HTTP API")
+    serve_parser.add_argument("target", nargs="?", help="MCN file (or folder of files) to serve")
     serve_parser.add_argument("--dir", help="Directory containing MCN scripts")
     serve_parser.add_argument("--file", help="Single MCN script to serve")
-    serve_parser.add_argument("--host", default="127.0.0.1", help="Server host")
-    serve_parser.add_argument("--port", type=int, default=8000, help="Server port")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Server host (default: 127.0.0.1)")
+    serve_parser.add_argument("--port", type=int, default=None, help="Server port (default: the service's `port`, else 8080)")
+    serve_parser.add_argument("--postman", action="store_true", help="Also write a Postman collection to postman_exports/")
 
     # Playground / Studio / Web IDE command
-    playground_parser = subparsers.add_parser("playground", aliases=["studio", "ide"], help="Launch the MCN Web IDE & Playground")
+    playground_parser = subparsers.add_parser("studio", aliases=["playground", "ide"], help="Open MCN Studio, the browser IDE")
+    playground_parser.add_argument("dir", nargs="?", help="Project folder to open (default: Studio's own workspace in ~/.mcn/playground)")
     playground_parser.add_argument("--port", type=int, default=5003, help="Port to listen on (default: 5003)")
-    playground_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
+    playground_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1, this machine only)")
+
+    subparsers.add_parser("vscode", help="Install the MCN extension into VS Code")
 
     # Legacy support - direct file execution
     parser.add_argument("--repl", action="store_true", help="Start REPL mode (legacy)")
@@ -916,7 +914,7 @@ def main():
     parser.add_argument("--serve-dir", help="Serve directory as APIs (legacy)")
     parser.add_argument("--host", default="127.0.0.1", help="Server host (legacy)")
     parser.add_argument("--port", type=int, default=8000, help="Server port (legacy)")
-    parser.add_argument("--version", action="version", version="MCN 2.0")
+    parser.add_argument("--version", action="version", version=f"MCN {_mcn_version()}")
 
     args = parser.parse_args()
 
@@ -965,9 +963,10 @@ def main():
         return _cmd_agent(args)
 
     elif args.command == "check":
-        return check_file(args.file, strict=getattr(args, "strict", False))
+        return check_file(args.file, strict=getattr(args, "strict", False),
+                          as_json=getattr(args, "json", False))
     elif args.command == "init":
-        return init_project(args.name, args.frontend)
+        return init_project(args.name)
     elif args.command == "validate":
         return validate_project(args.path)
     elif args.command == "add-frontend":
@@ -993,19 +992,34 @@ def main():
         import subprocess
         env = os.environ.copy()
         env["MCN_PLAYGROUND_PORT"] = str(args.port)
-        return subprocess.call([sys.executable, str(playground_server)], env=env)
+        env["MCN_PLAYGROUND_HOST"] = args.host
+        if args.dir:
+            project = Path(args.dir).resolve()
+            if not project.is_dir():
+                print(f"error: '{args.dir}' is not a folder")
+                return 1
+            env["MCN_WORKSPACE"] = str(project)
+        try:
+            return subprocess.call([sys.executable, str(playground_server)], env=env)
+        except KeyboardInterrupt:
+            return 0
+
+    elif args.command == "vscode":
+        return install_vscode_extension()
 
     elif args.command == "serve":
         try:
             from .mcn_server import serve_script, serve_directory
         except ImportError:
             from mcn_server import serve_script, serve_directory
-        if args.file:
-            serve_script(args.file, args.host, args.port)
-        elif args.dir:
-            serve_directory(args.dir, args.host, args.port)
+        target_file = args.file or (args.target if args.target and os.path.isfile(args.target) else None)
+        target_dir  = args.dir or (args.target if args.target and os.path.isdir(args.target) else None)
+        if target_file:
+            serve_script(target_file, args.host, args.port, postman=args.postman)
+        elif target_dir:
+            serve_directory(target_dir, args.host, args.port or 8080, postman=args.postman)
         else:
-            print("Error: Must specify --file or --dir for serve command")
+            print("Usage: mcn serve backend/main.mcn   (or a folder of .mcn files)")
             return 1
         return 0
 

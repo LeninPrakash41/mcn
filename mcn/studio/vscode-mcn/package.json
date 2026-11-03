@@ -1,8 +1,8 @@
 {
   "name": "mcn-vscode",
   "displayName": "MCN Language Support",
-  "description": "MCN (Macincode Scripting Language) — syntax highlighting, completions, hover docs, run/test/format/check/serve commands",
-  "version": "2.1.0",
+  "description": "MCN (Macincode Scripting Language) \u2014 syntax highlighting, completions, hover docs, run/test/format/check/serve commands",
+  "version": "2.4.0",
   "publisher": "macincode",
   "license": "MIT",
   "repository": {
@@ -12,26 +12,41 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Programming Languages", "Snippets", "Linters", "Formatters"],
-  "keywords": ["mcn", "macincode", "ai", "scripting", "pipeline", "agent"],
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "mcn",
+    "macincode",
+    "ai",
+    "scripting",
+    "pipeline",
+    "agent"
+  ],
   "icon": "icons/mcn-logo.png",
   "main": "./out/extension.js",
-
   "contributes": {
-
     "languages": [
       {
         "id": "mcn",
-        "aliases": ["MCN", "Macincode"],
-        "extensions": [".mcn", ".mx"],
+        "aliases": [
+          "MCN",
+          "Macincode"
+        ],
+        "extensions": [
+          ".mcn",
+          ".mx"
+        ],
         "configuration": "./language-configuration.json",
         "icon": {
           "light": "./icons/mcn-light.svg",
-          "dark":  "./icons/mcn-dark.svg"
+          "dark": "./icons/mcn-dark.svg"
         }
       }
     ],
-
     "grammars": [
       {
         "language": "mcn",
@@ -39,14 +54,12 @@
         "path": "./syntaxes/mcn.tmLanguage.json"
       }
     ],
-
     "snippets": [
       {
         "language": "mcn",
         "path": "./snippets/mcn.json"
       }
     ],
-
     "commands": [
       {
         "command": "mcn.runScript",
@@ -86,18 +99,17 @@
       },
       {
         "command": "mcn.openPlayground",
-        "title": "Open Web Playground",
+        "title": "Open Studio",
         "category": "MCN",
         "icon": "$(globe)"
       },
       {
         "command": "mcn.aiAssistant",
-        "title": "AI Assistant",
+        "title": "Generate App with AI",
         "category": "MCN",
         "icon": "$(sparkle)"
       }
     ],
-
     "keybindings": [
       {
         "command": "mcn.runScript",
@@ -118,7 +130,6 @@
         "when": "editorTextFocus && resourceExtname =~ /\\.(mcn|mx)$/"
       }
     ],
-
     "menus": {
       "editor/title": [
         {
@@ -165,7 +176,6 @@
         }
       ]
     },
-
     "configuration": {
       "type": "object",
       "title": "MCN",
@@ -182,7 +192,11 @@
         },
         "mcn.aiProvider": {
           "type": "string",
-          "enum": ["anthropic", "openai", "auto"],
+          "enum": [
+            "anthropic",
+            "openai",
+            "auto"
+          ],
           "default": "auto",
           "description": "AI provider. 'auto' detects from API keys (Anthropic wins if both present)"
         },
@@ -198,8 +212,8 @@
         },
         "mcn.playgroundPort": {
           "type": "number",
-          "default": 5000,
-          "description": "Port the MCN web playground server is running on"
+          "default": 5003,
+          "description": "Port for MCN Studio (`mcn studio`)"
         },
         "mcn.formatOnSave": {
           "type": "boolean",
@@ -209,22 +223,21 @@
       }
     }
   },
-
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile":           "tsc -p ./",
-    "watch":             "tsc -watch -p ./",
-    "package":           "vsce package"
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
   },
-
   "devDependencies": {
-    "@types/vscode":  "^1.85.0",
-    "@types/node":    "^20.0.0",
-    "typescript":     "^5.3.0",
-    "@vscode/vsce":   "^2.22.0"
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
   },
-
   "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
   }
 }

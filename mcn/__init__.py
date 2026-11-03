@@ -12,7 +12,7 @@ except ImportError:
     # Fallback for development
     pass
 
-__version__ = "2.0.0"
+from .version import __version__
 __author__ = "MCN Development Team"
 __description__ = "Business automation scripting language with AI integration"
 

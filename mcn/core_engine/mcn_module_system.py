@@ -42,8 +42,12 @@ class MCNPackage:
 class MCNModuleSystem:
     """Enhanced module system for MCN packages"""
     
-    def __init__(self, packages_dir: str = "mcn_packages"):
-        self.packages_dir = Path(packages_dir)
+    def __init__(self, packages_dir: str = None):
+        try:
+            from .paths import mcn_home
+        except ImportError:
+            from paths import mcn_home
+        self.packages_dir = Path(packages_dir) if packages_dir else mcn_home("packages")
         self.registry_url = "https://registry.mslang.org"
         self.installed_packages: Dict[str, MCNPackage] = {}
         self.loaded_modules: Dict[str, Dict[str, Any]] = {}

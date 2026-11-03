@@ -91,9 +91,9 @@ for data in business_data {
 
 // Pipeline performance monitoring
 function monitor_pipeline_performance(pipeline_name, test_data) {
-    var start_time = now()
+    var start_time = now_ms()
     var result = pipeline("run", pipeline_name, test_data)
-    var end_time = now()
+    var end_time = now_ms()
     
     log("Pipeline: " + pipeline_name)
     log("Processing time: " + (end_time - start_time) + "ms")

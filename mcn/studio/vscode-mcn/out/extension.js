@@ -70,13 +70,14 @@ function activeFilePath() {
 // ── Activate ──────────────────────────────────────────────────────────────────
 function activate(context) {
     // ── Language Server ─────────────────────────────────────────────────────────
-    const serverModule = context.asAbsolutePath(path.join('..', 'mcn-language-server', 'out', 'server.js'));
+    const serverModule = context.asAbsolutePath(path.join('out', 'server.js'));
     const serverOptions = {
         run: { module: serverModule, transport: node_1.TransportKind.ipc },
         debug: { module: serverModule, transport: node_1.TransportKind.ipc }
     };
     const clientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'mcn' }],
+        documentSelector: [{ scheme: 'file', language: 'mcn' }, { scheme: 'untitled', language: 'mcn' }],
+        initializationOptions: { cliPath: mcnCmd() },
         synchronize: {
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{mcn,mx}')
         }
@@ -152,31 +153,27 @@ function activate(context) {
         });
         if (!port)
             return;
-        runInTerminal('MCN: Serve', `serve --file "${file}" --port ${port}`);
+        runInTerminal('MCN: Serve', `serve "${file}" --port ${port}`);
         vscode.window.showInformationMessage(`MCN serving ${path.basename(file)} on port ${port}`);
     });
-    /** Open the web playground in the browser */
+    /** Start MCN Studio on the open folder and show it in the browser */
     const cmdPlayground = vscode.commands.registerCommand('mcn.openPlayground', () => {
         const cfg = vscode.workspace.getConfiguration('mcn');
-        const port = cfg.get('playgroundPort', 5000);
-        vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
+        const port = cfg.get('playgroundPort', 5003);
+        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        runInTerminal('MCN Studio', `studio ${folder ? `"${folder}" ` : ''}--port ${port}`);
+        setTimeout(() => vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`)), 2500);
     });
-    /** AI assistant side panel */
-    const cmdAi = vscode.commands.registerCommand('mcn.aiAssistant', () => {
-        const panel = vscode.window.createWebviewPanel('mcnAiAssistant', 'MCN AI Assistant', vscode.ViewColumn.Beside, { enableScripts: true, retainContextWhenHidden: true });
-        panel.webview.html = aiAssistantHtml();
-        panel.webview.onDidReceiveMessage(async (msg) => {
-            if (msg.command === 'generate') {
-                const code = generateSnippet(msg.prompt);
-                panel.webview.postMessage({ command: 'result', code });
-            }
-            if (msg.command === 'insertCode') {
-                const editor = vscode.window.activeTextEditor;
-                if (editor) {
-                    editor.edit(eb => eb.insert(editor.selection.active, msg.code));
-                }
-            }
+    /** mcn generate "<description>" — builds a full-stack app with Claude */
+    const cmdAi = vscode.commands.registerCommand('mcn.aiAssistant', async () => {
+        const description = await vscode.window.showInputBox({
+            prompt: 'Describe the app to generate (needs ANTHROPIC_API_KEY)',
+            placeHolder: 'A leave request tracker with manager approval',
         });
+        if (!description)
+            return;
+        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '.';
+        runInTerminal('MCN: Generate', `generate ${JSON.stringify(description)} --out "${folder}"`);
     });
     context.subscriptions.push(cmdRun, cmdTest, cmdFmt, cmdCheck, cmdRepl, cmdServe, cmdPlayground, cmdAi);
     // Status bar item — shows "MCN" when editing an MCN file
@@ -199,168 +196,5 @@ function activate(context) {
 }
 function deactivate() {
     return client?.stop();
-}
-// ── AI Assistant webview ──────────────────────────────────────────────────────
-function aiAssistantHtml() {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--vscode-font-family); font-size: 13px;
-           background: var(--vscode-editor-background);
-           color: var(--vscode-editor-foreground); padding: 12px; }
-    h3 { margin-bottom: 10px; font-size: 14px; }
-    textarea { width: 100%; height: 70px; resize: vertical; padding: 8px;
-               background: var(--vscode-input-background);
-               color: var(--vscode-input-foreground);
-               border: 1px solid var(--vscode-input-border, #555);
-               border-radius: 3px; font-family: inherit; font-size: 13px; }
-    .row { display: flex; gap: 8px; margin: 8px 0; }
-    button { padding: 6px 14px; border: none; border-radius: 3px; cursor: pointer;
-             background: var(--vscode-button-background);
-             color: var(--vscode-button-foreground); font-size: 12px; font-weight: 600; }
-    button:hover { background: var(--vscode-button-hoverBackground); }
-    .btn-insert { background: var(--vscode-button-secondaryBackground);
-                  color: var(--vscode-button-secondaryForeground); }
-    pre { background: var(--vscode-textCodeBlock-background, #1e1e1e);
-          border: 1px solid var(--vscode-panel-border, #444);
-          border-radius: 3px; padding: 10px; overflow-x: auto;
-          font-family: var(--vscode-editor-font-family, monospace);
-          font-size: 12px; white-space: pre-wrap; margin-top: 10px; }
-    .hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
-  </style>
-</head>
-<body>
-  <h3>MCN AI Assistant</h3>
-  <textarea id="prompt" placeholder="Describe what you want to build…
-e.g. &quot;a service that classifies customer feedback&quot;"></textarea>
-  <div class="row">
-    <button onclick="generate()">Generate</button>
-  </div>
-  <div id="output" style="display:none">
-    <pre id="code"></pre>
-    <div class="row">
-      <button class="btn-insert" onclick="insertCode()">Insert into editor</button>
-    </div>
-  </div>
-  <div class="hint">Tip: Ctrl+Enter to run the file after inserting.</div>
-
-  <script>
-    const vscode = acquireVsCodeApi();
-    let lastCode = '';
-
-    document.getElementById('prompt').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
-    });
-
-    function generate() {
-      const prompt = document.getElementById('prompt').value.trim();
-      if (!prompt) return;
-      vscode.postMessage({ command: 'generate', prompt });
-    }
-
-    function insertCode() {
-      if (lastCode) vscode.postMessage({ command: 'insertCode', code: lastCode });
-    }
-
-    window.addEventListener('message', e => {
-      if (e.data.command === 'result') {
-        lastCode = e.data.code;
-        document.getElementById('code').textContent = lastCode;
-        document.getElementById('output').style.display = 'block';
-      }
-    });
-  </script>
-</body>
-</html>`;
-}
-// ── Snippet generator (offline fallback) ──────────────────────────────────────
-function generateSnippet(prompt) {
-    const p = prompt.toLowerCase();
-    if (p.includes('sentiment') || p.includes('classify') || p.includes('feedback')) {
-        return `contract Feedback
-    sentiment: str
-    score:     int
-
-service feedback_api
-    port 8080
-
-    endpoint analyze(text)
-        var result = extract(text, Feedback)
-        return result`;
-    }
-    if (p.includes('agent') || p.includes('researcher')) {
-        return `agent researcher
-    model  "claude-3-5-sonnet-20241022"
-    tools  ai, fetch
-    memory session
-
-    task analyze(topic)
-        var data     = fetch("https://api.example.com?q=" + topic)
-        var findings = ai("Key insights from: " + data)
-        return findings`;
-    }
-    if (p.includes('pipeline') || p.includes('etl') || p.includes('data')) {
-        return `pipeline data_pipeline
-    stage extract
-        var rows = query("SELECT * FROM events WHERE processed = false")
-        return rows
-
-    stage transform(data)
-        var clean = ai("Normalize and deduplicate: " + data)
-        return clean
-
-    stage load(data)
-        query("INSERT INTO clean_events VALUES ?", data)
-        log("Loaded {data} records")`;
-    }
-    if (p.includes('api') || p.includes('service') || p.includes('endpoint')) {
-        return `service my_api
-    port 8080
-
-    endpoint get_item(id)
-        var item = query("SELECT * FROM items WHERE id = ?", (id,))
-        if not item
-            throw "Item not found: {id}"
-        return item
-
-    endpoint create_item(name, description)
-        query("INSERT INTO items (name, description) VALUES (?, ?)", (name, description))
-        return {success: true, name: name}`;
-    }
-    if (p.includes('test') || p.includes('unit')) {
-        return `function add(a, b)
-    return a + b
-
-function clamp(val, lo, hi)
-    if val < lo
-        return lo
-    if val > hi
-        return hi
-    return val
-
-test "addition works"
-    assert add(2, 3) == 5
-    assert add(-1, 1) == 0
-
-test "clamping"
-    assert clamp(15, 0, 10) == 10
-    assert clamp(-5, 0, 10) == 0`;
-    }
-    if (p.includes('prompt') || p.includes('template')) {
-        return `prompt support_reply
-    system "You are a helpful customer support agent. Be concise and friendly."
-    user   "Customer message: {{message}}"
-    format text
-
-var reply = support_reply.run({message: customer_input})
-log(reply)`;
-    }
-    // Generic fallback
-    return `// MCN snippet for: ${prompt}
-var result = ai("${prompt}")
-log("Result: {result}")`;
 }
 //# sourceMappingURL=extension.js.map

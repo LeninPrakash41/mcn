@@ -1,4 +1,5 @@
 // User-Defined Functions in MCN
+query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER, status TEXT)")
 
 // Simple function with no parameters
 function greet()

@@ -45,12 +45,36 @@ except ImportError:
     HAS_FASTAPI = False
 
 
+def _coerce(raw):
+    """Query-string values arrive as text; '10' → 10, '2.5' → 2.5."""
+    for convert in (int, float):
+        try:
+            return convert(raw)
+        except (ValueError, TypeError):
+            pass
+    return raw
+
+
+def _get_args(params: List[str], path_arg, query_params: Dict[str, Any]) -> list:
+    """GET /get_user/42?expand=true → [42, "true"]: the path segment fills the
+    first parameter, query values fill the rest by name, until one is missing."""
+    args = []
+    if path_arg is not None and params:
+        args.append(_coerce(path_arg))
+        params = params[1:]
+    for p in params:
+        if p not in query_params:
+            break  # remaining use MCN defaults
+        args.append(_coerce(query_params[p]))
+    return args
+
+
 class MCNServer:
     """FastAPI-based server runtime from develop branch."""
 
     def __init__(self):
         if HAS_FASTAPI:
-            self.app = FastAPI(title="MCN Server Runtime", version="2.0")
+            self.app = FastAPI(title="MCN API", version=__import__("mcn.version", fromlist=["x"]).__version__)
 
             # Add CORS middleware
             from fastapi.middleware.cors import CORSMiddleware
@@ -71,6 +95,7 @@ class MCNServer:
             self.app = None
         self.interpreters = {}
         self.routes = {}
+        self.evaluators: List[Evaluator] = []
 
     def load_script(self, script_path: str, endpoint: str = None):
         """Load MCN script as API endpoint"""
@@ -82,16 +107,14 @@ class MCNServer:
             raise FileNotFoundError(f"Script not found: {script_path}")
 
         # Check if the script defines service endpoints
-        try:
-            ev = _load_evaluator(script_path)
-        except Exception:
-            ev = None
+        ev = _load_evaluator(script_path)
 
         if ev:
             # Register endpoints
             if ev.function_params:
                 for fn_name, params in ev.function_params.items():
                     self._register_fastapi_endpoint(fn_name, params, ev)
+                self.evaluators.append(ev)
                 self.routes[f"/{os.path.basename(script_path)}"] = f"service endpoints ({len(ev.function_params)})"
             
             # Register schedules
@@ -149,37 +172,48 @@ class MCNServer:
         return endpoint
 
     def _register_fastapi_endpoint(self, fn_name: str, params: List[str], evaluator: Evaluator):
-        @self.app.post(f"/{fn_name}")
-        async def execute_endpoint(request: Request):
+        def run(args):
+            try:
+                result = evaluator.functions[fn_name](*args)
+                return JSONResponse(result if result is not None else {})
+            except Exception as e:
+                return JSONResponse({"error": str(e)}, status_code=500)
+
+        async def post_endpoint(request: Request):
             content_type = request.headers.get("content-type", "")
             if "multipart/form-data" in content_type:
-                form = await request.form()
-                body = dict(form)
+                body = dict(await request.form())
             else:
                 try: body = await request.json()
                 except Exception: body = {}
-            
             args = []
             for p in params:
                 if p not in body:
                     break
                 args.append(body[p])
-            try:
-                result = evaluator.functions[fn_name](*args)
-                return JSONResponse(result if result is not None else {})
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+            return run(args)
 
-    def serve(self, host: str = "127.0.0.1", port: int = 8000, auto_postman: bool = True):
+        async def get_endpoint(request: Request, path_arg: str = None):
+            return run(_get_args(params, path_arg, dict(request.query_params)))
+
+        self.app.add_api_route(f"/{fn_name}", post_endpoint, methods=["POST"])
+        self.app.add_api_route(f"/{fn_name}", get_endpoint, methods=["GET"])
+        self.app.add_api_route(f"/{fn_name}/{{path_arg}}", get_endpoint, methods=["GET"])
+
+    def serve(self, host: str = "127.0.0.1", port: int = 8080, auto_postman: bool = False):
         """Start the MCN server"""
         if not HAS_FASTAPI:
             print("Error: FastAPI/Uvicorn are required to use MCNServer. Please install them or use the standard HTTP server.")
             return
 
-        print(f"MCN Server starting on http://{host}:{port}")
-        print("Loaded endpoints:")
-        for endpoint, script_path in self.routes.items():
-            print(f"  POST {endpoint} -> {script_path}")
+        @self.app.get("/")
+        async def route_list():
+            return {"status": "ok", "endpoints": [
+                {"name": n, "params": p, "methods": ["GET", "POST"]}
+                for ev in self.evaluators for n, p in ev.function_params.items()]}
+
+        for ev in self.evaluators:
+            _print_routes(ev, host, port, docs=True)
         
         # Auto-generate Postman collection
         if auto_postman:
@@ -199,14 +233,33 @@ class MCNServer:
 # ── Standard BaseHTTPRequestHandler server from main ───────────────────────────
 
 def _load_evaluator(script_path: str) -> Evaluator:
-    """Parse and evaluate an MCN file; return the populated evaluator."""
+    """Run an MCN file (refusing any syntax error) and return the populated evaluator."""
     code = open(script_path, encoding="utf-8").read()
-    tokens  = Lexer(code).tokenize()
-    program = Parser(tokens).parse()
-    interp  = MCNInterpreter()
-    ev      = interp._evaluator
-    ev.execute_program(program)
-    return ev
+    interp = MCNInterpreter()
+    interp.execute(code, script_path, quiet=True)
+    return interp._evaluator
+
+
+def declared_port(script_path: str) -> Optional[int]:
+    """The `port` from the file's `service` block, if it has one."""
+    try:
+        program = Parser(Lexer(open(script_path, encoding="utf-8").read()).tokenize()).parse()
+    except Exception:
+        return None
+    for stmt in program.body:
+        if type(stmt).__name__ == "ServiceDecl" and stmt.port:
+            return int(stmt.port)
+    return None
+
+
+def _print_routes(evaluator: Evaluator, host: str, port: int, docs: bool):
+    shown = "localhost" if host in ("127.0.0.1", "0.0.0.0", "::") else host
+    print(f"\nMCN API running on http://{shown}:{port}")
+    for name, params in evaluator.function_params.items():
+        print(f"  GET/POST /{name}  ({', '.join(params) or 'no parameters'})")
+    if docs:
+        print(f"Interactive docs: http://{shown}:{port}/docs")
+    print("Press Ctrl+C to stop.\n")
 
 
 def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
@@ -269,25 +322,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
                 return
 
-            # Build args: path_arg first (if any), then query string params
-            params: List[str] = evaluator.function_params.get(fn_name, [])
-            args = []
-            if path_arg is not None and params:
-                args.append(path_arg)
-                params = params[1:]  # skip first param (consumed by path)
-            for p in params:
-                if p in query_params:
-                    # Try numeric coercion for convenience
-                    raw = query_params[p]
-                    try:
-                        args.append(int(raw))
-                    except (ValueError, TypeError):
-                        try:
-                            args.append(float(raw))
-                        except (ValueError, TypeError):
-                            args.append(raw)
-                else:
-                    break  # remaining use MCN defaults
+            args = _get_args(evaluator.function_params.get(fn_name, []), path_arg, query_params)
 
             try:
                 result = evaluator.functions[fn_name](*args)
@@ -331,34 +366,33 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
     return MCNHandler
 
 
-def serve_script(script_path: str, host: str = "0.0.0.0", port: int = 8080):
-    """Evaluate an MCN service file and serve each endpoint as a POST route."""
-    # Use FastAPI-based server if installed, otherwise fallback to stdlib http
-    if HAS_FASTAPI:
-        server = MCNServer()
-        server.load_script(script_path)
-        server.serve(host, port)
-        return
+def serve_script(script_path: str, host: str = "127.0.0.1", port: Optional[int] = None,
+                 postman: bool = False):
+    """Serve each endpoint of an MCN service file over HTTP (GET and POST).
 
+    The port defaults to the service's own `port` line, then 8080.
+    """
     if not os.path.exists(script_path):
         print(f"Error: file not found: {script_path}", file=sys.stderr)
         sys.exit(1)
-
-    print(f"Loading: {script_path}")
-    ev = _load_evaluator(script_path)
+    port = port or declared_port(script_path) or 8080
+    try:
+        if HAS_FASTAPI:
+            server = MCNServer()
+            server.load_script(script_path)
+            server.serve(host, port, auto_postman=postman)
+            return
+        ev = _load_evaluator(script_path)
+    except Exception as exc:   # the interpreter's message already shows line, caret and hint
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
     if not ev.function_params:
         print("Warning: no service endpoints found — serving raw functions only")
 
     handler = _make_handler(ev)
     server  = HTTPServer((host, port), handler)
-
-    print(f"\nMCN server running on http://{host}:{port}")
-    print("Endpoints:")
-    for name, params in ev.function_params.items():
-        sig = ", ".join(params) if params else "(no params)"
-        print(f"  POST /{name}  ← {sig}")
-    print("\nPress Ctrl+C to stop.\n")
+    _print_routes(ev, host, port, docs=False)
 
     try:
         server.serve_forever()
@@ -366,7 +400,7 @@ def serve_script(script_path: str, host: str = "0.0.0.0", port: int = 8080):
         print("\nServer stopped.")
 
 
-def serve_directory(directory: str, host: str = "0.0.0.0", port: int = 8080):
+def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, postman: bool = False):
     """Serve all .mcn files in a directory (loads each, merges endpoints)."""
     if HAS_FASTAPI:
         server = MCNServer()
@@ -374,7 +408,7 @@ def serve_directory(directory: str, host: str = "0.0.0.0", port: int = 8080):
             if filename.endswith(".mcn"):
                 script_path = os.path.join(directory, filename)
                 server.load_script(script_path)
-        server.serve(host, port)
+        server.serve(host, port, auto_postman=postman)
         return
 
     # Merge all evaluators by loading each file

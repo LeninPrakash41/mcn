@@ -36,20 +36,30 @@ MCN is designed to act as an **Internal Low/No-Code Platform** engine (ideal for
 
 Unlike other app builders that generate separate frontend and backend codebases, **MCN itself acts as the backend server.**
 
-1. **Write an MCN Script (Low Code):** A single `.mcn` file defines your database schema, AI agents, and UI layout using simplified MCN syntax (`ui("table", ...)`).
-2. **Generate the Frontend:** The `ui("export", "./app")` command automatically translates your UI definitions into a production-ready React + Tailwind application. It also generates a dedicated `mcn-client.tsx` SDK that wires up all events directly to your backend.
-3. **Run the Backend:** Execute your script with `mcn serve --file your_app.mcn`. The Python MCN engine instantly spins up a secure, live API server. 
+1. **Write the backend (`backend/main.mcn`):** tables, a `service` with `endpoint`s, AI calls and `test` blocks.
+2. **Write the UI (`ui/app.mcn`):** `component`s with `state`, `on submit` / `on load` handlers and a `render` tree, plus an `app` layout. `mcn build ui/app.mcn` compiles it to a React + Tailwind + shadcn/ui project whose API client calls your endpoints; Studio also renders it as a Flutter app.
+3. **Run the backend:** `mcn serve backend/main.mcn` starts an HTTP API (GET and POST for every endpoint, interactive docs at `/docs`).
 
 ### Why this works:
 - **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to execute the Python-based MCN functions via HTTP/WebSockets.
-- **Natural Language Translation:** Non-technical staff can use the `ai_v3` translate module (`translate("show all products")`) to generate applications purely from text.
+- **Generate from a description:** `mcn generate "A leave tracker with manager approval"` writes the backend and UI with Claude, then validates them.
 - **Secure Integration:** Database credentials and API keys stay firmly on the MCN backend server, never touching the React View layer.
 
 ---
 
 ## Quick Start
 
-Requires **Python 3.10+**. Node.js is optional.
+Requires **Python 3.10+**. Node.js is only needed to run the generated React app.
+
+```bash
+pip install mcn-lang              # from a clone: pip install -e .
+mcn init my-app                   # a working full-stack app: backend, tests, UI
+cd my-app
+mcn test backend/main.mcn         # run its tests
+mcn studio .                      # open it in MCN Studio → http://localhost:5003
+```
+
+From a clone of this repository, use `pip install -e .` instead (inside a virtual environment):
 
 ```bash
 git clone https://github.com/LeninPrakash41/mcn
@@ -57,18 +67,22 @@ cd mcn
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .
-mcn run examples/hello.mcn
 ```
 
-Then open the web playground (MCN Studio) — a browser IDE to write, run, and preview full-stack apps:
+**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, and inspect the database, IoT devices and AI calls. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** menu has 18 starter apps. Studio only accepts connections from your own machine.
 
-```bash
-python mcn/web-playground/server.py
-# → open http://localhost:5003
+**Editor support.** `mcn vscode` installs the bundled VS Code extension: highlighting, completions, hover docs, errors underlined as you type, and commands to run, test, serve and open Studio.
+
+**Errors** show the line, a caret and a hint:
+
+```
+Name error on line 2, column 5: Undefined variable 'totl'
+   2 | log(totl)
+     |     ^^^^
+Hint: Did you mean 'total'?
 ```
 
-Pick a template from **Templates**, press **Run** to execute the backend, then **Preview** to see the app.
-The playground only accepts connections from your own machine. Set `MCN_VERBOSE=1` to see engine debug logs.
+`mcn check file.mcn` finds the same errors without running the code (`--json` for editors and CI). Set `MCN_VERBOSE=1` to see engine debug logs; MCN's own logs go to `~/.mcn/logs`.
 
 **Mobile app (Flutter, optional).** With the backend running (press **Run** in the playground), start the generated app and point it at the backend:
 
@@ -448,7 +462,7 @@ log("Pipeline processed: {result.status}")
 
 ## Services (HTTP APIs)
 
-Endpoints starting with `get_`, `list_`, `fetch_`, `find_` are served on **GET** (query string → args). All endpoints also accept **POST** with a JSON body. Path parameters (`/get_user/42`) are mapped to the first positional arg.
+Every endpoint accepts **POST** with a JSON body and **GET** with a query string (`/list_users?limit=10`, numbers converted). A path segment fills the first parameter (`/get_user/42`). `GET /` lists the endpoints; with FastAPI installed, `/docs` is interactive API documentation.
 
 ```mcn
 service users_api
@@ -471,7 +485,7 @@ service users_api
 ```
 
 ```bash
-mcn serve --file backend/main.mcn --port 8080
+mcn serve backend/main.mcn       # port comes from the service's `port` line (default 8080)
 
 # GET /list_users?limit=10
 # GET /get_user/42
@@ -690,29 +704,34 @@ trigger("high_temp", {temp: 28})
 ## CLI Reference
 
 ```bash
-# ── Script execution ─────────────────────────────────────────────────────
+# ── Projects ─────────────────────────────────────────────────────────────
+mcn init my-app                        # new full-stack project (backend, tests, UI)
+mcn studio [folder]                    # browser IDE (default port 5003)
+mcn validate [--path .]                # check every .mcn file in a project
+mcn vscode                             # install the VS Code extension
+
+# ── Running ──────────────────────────────────────────────────────────────
 mcn run script.mcn
 mcn repl
-
-# ── Full-stack ───────────────────────────────────────────────────────────
-mcn generate "An invoice app with PDF export"  # AI-generated app
-mcn generate "..." --out ./myapp --build       # generate + compile
-mcn build ui/app.mcn --out frontend           # compile MCN UI → React
-
-# ── Server ───────────────────────────────────────────────────────────────
-mcn serve --file backend/main.mcn --port 8080
-mcn serve --dir endpoints/ --port 8080
+mcn serve backend/main.mcn             # HTTP API; --port N, --postman to export a collection
+mcn serve endpoints/                   # every .mcn file in a folder
 
 # ── Quality ──────────────────────────────────────────────────────────────
 mcn test script.mcn                    # run test blocks
 mcn test tests/ --verbose              # all .mcn files in directory
-mcn check script.mcn                   # static type check
+mcn check script.mcn                   # syntax, undefined names, types — without running
+mcn check --json script.mcn            # machine-readable, for editors and CI
 mcn check --strict script.mcn          # warnings as errors
 mcn fmt script.mcn                     # format and print
 mcn fmt --write src/                   # rewrite in place
 mcn fmt --check src/                   # CI check (exit 1 if dirty)
 
-# ── Package management ───────────────────────────────────────────────────
+# ── Full-stack ───────────────────────────────────────────────────────────
+mcn build ui/app.mcn --out frontend    # compile MCN UI → React
+mcn generate "An invoice app with PDF export"  # AI-generated app (needs ANTHROPIC_API_KEY)
+mcn generate "..." --out ./myapp --build       # generate + compile
+
+# ── Packages ─────────────────────────────────────────────────────────────
 mcn packages list                      # all available packages
 mcn packages info healthcare           # exports + docs
 mcn install stripe                     # verify bundled package
@@ -722,13 +741,16 @@ mcn new-package myorg/retail --path .  # scaffold a new SI package
 
 # ── Config ───────────────────────────────────────────────────────────────
 mcn config set api_key sk-ant-...
-mcn config get api_key
 mcn config show
-
-# ── Project ──────────────────────────────────────────────────────────────
-mcn init my-app
-mcn validate
 ```
+
+| Environment variable | Effect |
+|---|---|
+| `ANTHROPIC_API_KEY` | Enables `ai()`, `classify()`, `extract()`, `mcn generate` and the Copilot (mock replies without it) |
+| `MCN_AI_MODEL`, `MCN_CLAUDE_MODEL` | Override the model (default `claude-opus-5-5`) |
+| `MCN_HOME` | Where MCN keeps logs, packages and Studio's workspace (default `~/.mcn`) |
+| `MCN_HTTP_TIMEOUT` | Seconds before `trigger()` gives up (default 5s to connect, 30s to respond) |
+| `MCN_VERBOSE` | Print engine debug logs |
 
 ---
 
@@ -765,7 +787,7 @@ print(result["ui_path"])        # ./leave_app/ui/app.mcn
 ## Project Structure
 
 ```
-mt-mcn/
+mcn/
 ├── mcn/
 │   ├── core_engine/
 │   │   ├── lexer.py            # Tokeniser
@@ -777,6 +799,9 @@ mt-mcn/
 │   │   ├── mcn_packages.py     # Package registry (stripe, healthcare, finance, ...)
 │   │   ├── ui_compiler.py      # MCN → React + shadcn/ui
 │   │   ├── type_checker.py     # Static type checker
+│   │   ├── diagnostics.py      # Error reports (line, caret, hint) and `mcn check`
+│   │   ├── name_check.py       # Undefined-name detection
+│   │   ├── project_init.py     # `mcn init` / `mcn validate`
 │   │   ├── formatter.py        # Code formatter
 │   │   ├── test_runner.py      # Test framework + 15 assertion helpers
 │   │   ├── mcn_server.py       # HTTP server (GET/POST, path params, query strings)
@@ -787,10 +812,14 @@ mt-mcn/
 │   ├── providers/
 │   │   ├── anthropic_provider.py
 │   │   └── openai_provider.py
-│   ├── web-playground/         # Browser-based IDE (Monaco + Python server)
+│   ├── web-playground/         # MCN Studio: server.py, playground_server/ blueprints, static/, templates
+│   ├── studio/vscode-mcn/      # VS Code extension + language server (TypeScript)
+│   ├── fullstack/              # Flutter project generator
 │   └── plugin/                 # Embed MCN in Python apps
-├── examples/                   # Ready-to-run .mcn scripts
-└── use-cases/                  # Real-world scenario scripts
+├── examples/                   # Ready-to-run .mcn scripts (each one is run in CI)
+├── use-cases/                  # Real-world scenario scripts
+├── docs/                       # Guides, language spec, student pilot kit
+└── tests/                      # pytest suite
 ```
 
 ---
@@ -802,9 +831,9 @@ To package and deploy MCN across enterprise clusters and edge environments:
 ### 1. Python Wheel & Source Build
 Compile MCN into a universal wheel distribution:
 ```bash
-python3 setup.py sdist bdist_wheel
+pip install build && python3 -m build
 ```
-This produces PEP 517 artifacts in `dist/` that can be pushed to secure private PyPI registries (e.g., AWS CodeArtifact, JFrog Artifactory) and installed via:
+This produces a wheel and source archive in `dist/` that can be pushed to a private PyPI registry (e.g., AWS CodeArtifact, JFrog Artifactory) and installed via:
 ```bash
 pip install mcn-lang --extra-index-url https://registry.company.com/simple
 ```
@@ -822,12 +851,10 @@ This spins up the production API execution server and playground in an isolated,
 
 | Version | Status | Focus |
 |---|---|---|
-| v2.0 | Released | Pipelines, services, workflows, contracts, AI primitives |
-| v2.1 | Released | Test runner, formatter, type checker, MCN Agent |
-| v2.2 | Released | Full-stack compiler, CRUD, charts, modals, routing |
-| **v2.3** | **Current** | **100+ stdlib built-ins, package system (stripe/twilio/healthcare/finance), else-if, ternary, compound assign, property/index assign, rich test assertions, GET endpoints + path params** |
-| v2.4 | Planned | `try/catch` error variable, `finally`, arrow functions, `for i, val in list`, type annotations |
-| v3.0 | Planned | Cloud runtime (1-click deploy), VS Code extension, public package registry, local LLM (Ollama) |
+| v2.0–2.3 | Released | Pipelines, services, workflows, AI primitives, test runner, formatter, full-stack compiler, 100+ built-ins, packages |
+| **v2.4** | **Current** | Friendly errors and `mcn check` (syntax + undefined names), `mcn init` full-stack projects, `mcn studio <folder>`, working VS Code extension with live errors, GET for every endpoint, parallel `task`/`await`, every example run in CI |
+| v2.5 | Planned | Error on null property access (opt-in strict mode), arrow functions with statement bodies, public package registry |
+| v3.0 | Planned | Hosted Studio, 1-click deploy, local LLM (Ollama) |
 
 ---
 
@@ -835,12 +862,14 @@ This spins up the production API execution server and playground in an isolated,
 
 1. Fork the repository
 2. Write your feature — cover it with `test` blocks in the `.mcn` file itself
-3. Run `mcn test` and `mcn check --strict` before submitting
+3. Run `mcn test`, `mcn check --strict` and `python -m pytest` before submitting
 4. Open a pull request
+
+To work on the VS Code extension: `cd mcn/studio/vscode-mcn && npm install && npm run compile`, then `npx vsce package` to rebuild the `.vsix` that `mcn vscode` installs.
 
 **Areas actively needed:**
 - Cloud runtime / deploy button
-- VS Code extension with MCN syntax highlighting + IntelliSense
+- Rewriting the scripts in `examples/legacy/` for current MCN
 - Public package registry (npm-style, for SI packages)
 - More domain packages (`payments`, `logistics`, `hr`, `legal`)
 
@@ -854,4 +883,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-*MCN v2.3 — write less, ship more. AI is a primitive, not a library.*
+*MCN v2.4 — write less, ship more. AI is a primitive, not a library.*

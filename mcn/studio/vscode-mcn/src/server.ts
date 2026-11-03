@@ -30,6 +30,7 @@ let hasConfigurationCapability   = false;
 let hasWorkspaceFolderCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
+  mcnCli = params.initializationOptions?.cliPath || 'mcn';
   const caps = params.capabilities;
   hasConfigurationCapability   = !!(caps.workspace?.configuration);
   hasWorkspaceFolderCapability = !!(caps.workspace?.workspaceFolders);
@@ -122,19 +123,11 @@ const CORE_BUILTINS: CompletionItem[] = [
   fn('trigger',    'trigger(url, payload, method?) → obj', 'HTTP POST.\n\n```mcn\ntrigger("https://api.example.com/orders", {id: id})\n```', 'trigger("$1", {$2})'),
   fn('http_get',   'http_get(url, headers?) → obj',  'HTTP GET with headers.',  'http_get("$1")'),
   fn('http_post',  'http_post(url, body?, headers?) → obj', 'HTTP POST.', 'http_post("$1", {$2})'),
-  fn('http_put',   'http_put(url, body?, headers?) → obj',  'HTTP PUT.',  'http_put("$1", {$2})'),
-  fn('http_delete','http_delete(url, headers?) → obj', 'HTTP DELETE.', 'http_delete("$1")'),
   fn('query',      'query(sql, params?) → list',  'SQL query.\n\n```mcn\nvar rows = query("SELECT * FROM users WHERE active = ?", (true,))\n```', 'query("$1")'),
-  fn('query_one',  'query_one(sql, params?) → obj|null', 'SQL — first row or null.', 'query_one("$1")'),
-  fn('execute',    'execute(sql, params?)',    'SQL INSERT/UPDATE/DELETE.',  'execute("$1")'),
-  fn('db_insert',  'db_insert(table, row)',    'Insert dict into table.',    'db_insert("$1", $2)'),
-  fn('db_update',  'db_update(table, row, where)', 'Update rows.',           'db_update("$1", $2, $3)'),
-  fn('db_delete',  'db_delete(table, where)',  'Delete rows.',               'db_delete("$1", $2)'),
   fn('env',        'env(key) → str',           'Read environment variable.\n\n```mcn\nvar key = env("STRIPE_SECRET_KEY")\n```', 'env("$1")'),
   fn('read_file',  'read_file(path) → str',    'Read text file.',            'read_file("$1")'),
   fn('write_file', 'write_file(path, content)','Write text file.',           'write_file("$1", $2)'),
   fn('append_file','append_file(path, content)','Append to file.',           'append_file("$1", $2)'),
-  fn('wait',       'wait(ms)',                 'Pause execution (milliseconds).', 'wait($1)'),
 ];
 
 // ── Session & Cache ───────────────────────────────────────────────────────────
@@ -241,11 +234,10 @@ const MATH_BUILTINS: CompletionItem[] = [
 
 // ── Date / Time ───────────────────────────────────────────────────────────────
 const DATE_BUILTINS: CompletionItem[] = [
-  fn('now',         'now() → str',                'Current UTC timestamp (ISO 8601).', 'now()'),
-  fn('date_parse',  'date_parse(s) → obj',        'Parse date string.',               'date_parse($1)'),
-  fn('date_format', 'date_format(ts, fmt) → str', 'Format timestamp.',                'date_format($1, "$2")'),
-  fn('date_add',    'date_add(ts, n, unit) → str','Add time to timestamp.',           'date_add($1, $2, "$3")'),
-  fn('date_diff',   'date_diff(a, b, unit) → num','Difference between timestamps.',   'date_diff($1, $2, "$3")'),
+  fn('now',         'now() → str',                'Current local time (ISO 8601).',   'now()'),
+  fn('now_ms',      'now_ms() → int',             'Milliseconds since 1970, for timing.', 'now_ms()'),
+  fn('format_date', 'format_date(iso, fmt?) → str', 'Format an ISO date, e.g. "%d %b %Y".', 'format_date($1, "$2")'),
+  fn('sleep',       'sleep(seconds)',             'Pause (fractions allowed, max 60).', 'sleep($1)'),
 ];
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
@@ -555,47 +547,41 @@ connection.onHover((params): Hover | null => {
 
 // ── Diagnostics ───────────────────────────────────────────────────────────────
 
-/** Run `mcn check` as subprocess, parse output. Resolves quickly. */
+/** `mcn` CLI path, sent by the extension from the `mcn.cliPath` setting. */
+let mcnCli = 'mcn';
+let cliMissing = false;
+
+/** Run `mcn check --json` on the unsaved text — the same checks `mcn run` makes. */
 async function validateWithCLI(doc: TextDocument): Promise<any[]> {
+  if (cliMissing) return validateDocument(doc);
+  const tmp = path.join(os.tmpdir(), `mcn_check_${process.pid}_${Date.now()}.mcn`);
+  try {
+    fs.writeFileSync(tmp, doc.getText(), 'utf8');
+  } catch {
+    return validateDocument(doc);
+  }
   return new Promise((resolve) => {
-    const tmp = path.join(os.tmpdir(), `mcn_check_${Date.now()}.mcn`);
-    try {
-      fs.writeFileSync(tmp, doc.getText(), 'utf8');
-    } catch {
-      resolve(validateDocument(doc));
-      return;
-    }
-
-    cp.exec(`mcn check "${tmp}"`, { timeout: 10000 }, (err, stdout, stderr) => {
+    cp.execFile(mcnCli, ['check', '--json', tmp], { timeout: 15000 }, (err: any, stdout) => {
       try { fs.unlinkSync(tmp); } catch { /* ignore */ }
-      const output = stdout + '\n' + (stderr || '');
-      const diags: any[] = [];
-
-      for (const line of output.split('\n')) {
-        // Match:  path:[line:col] error   message
-        //      or path:[line:col] warning  message
-        const m = line.match(/\[(\d+):(\d+)\]\s+(error|warning)\s+(.*)/i);
-        if (m) {
-          const [, lineStr, colStr, sev, msg] = m;
-          const ln  = Math.max(0, parseInt(lineStr, 10) - 1);
-          const col = Math.max(0, parseInt(colStr, 10) - 1);
-          diags.push({
-            severity: sev.toLowerCase() === 'error'
-              ? DiagnosticSeverity.Error
-              : DiagnosticSeverity.Warning,
-            range: {
-              start: { line: ln, character: col },
-              end:   { line: ln, character: 1000 }
-            },
-            message: msg.trim(),
-            source: 'mcn'
-          });
-        }
+      if (err && err.code === 'ENOENT') {
+        cliMissing = true;
+        connection.window.showWarningMessage(
+          `MCN: '${mcnCli}' was not found, so only basic checks run. Install MCN (pip install mcn-lang) or set "mcn.cliPath".`);
+        resolve(validateDocument(doc));
+        return;
       }
-
-      // If CLI succeeded but produced no parseable diagnostics, fall back to
-      // lightweight regex checks so the server still gives useful feedback.
-      resolve(diags.length > 0 ? diags : validateDocument(doc));
+      let report: any;
+      try { report = JSON.parse(stdout); } catch { resolve([]); return; }
+      resolve((report.diagnostics || []).map((d: any) => {
+        const line = Math.max(0, (d.line || 1) - 1);
+        const col  = Math.max(0, (d.col || 1) - 1);
+        return {
+          severity: d.severity === 'error' ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+          range: { start: { line, character: col }, end: { line, character: col + Math.max(1, d.length || 1) } },
+          message: d.hint ? `${d.message}\n${d.hint}` : d.message,
+          source: 'mcn',
+        };
+      }));
     });
   });
 }

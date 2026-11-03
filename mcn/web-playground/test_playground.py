@@ -766,16 +766,16 @@ def test_production_download_bundle(r):
 
 
 def test_vscode_extension_files(r):
-    ext_dir = Path(__file__).parent.parent.parent / "mcn-vscode-extension"
+    ext_dir = Path(__file__).parent.parent / "studio" / "vscode-mcn"
     r.check((ext_dir / "package.json").exists(), f"package.json exists in {ext_dir}")
     r.check((ext_dir / "syntaxes" / "mcn.tmLanguage.json").exists(), "mcn.tmLanguage.json exists")
-    r.check((ext_dir / "snippets" / "mcn.code-snippets").exists(), "mcn.code-snippets exists")
+    r.check((ext_dir / "src" / "server.ts").exists(), "language server source exists")
     r.check((ext_dir / "language-configuration.json").exists(), "language-configuration.json exists")
-    
+
     if (ext_dir / "package.json").exists():
         pkg = json.loads((ext_dir / "package.json").read_text(encoding="utf-8"))
-        r.eq(pkg.get("name"), "mcn-lang", "extension package name")
-        r.check("contributes" in pkg, "contributes field present")
+        r.eq(pkg.get("name"), "mcn-vscode", "extension package name")
+        r.check((ext_dir / f"mcn-vscode-{pkg['version']}.vsix").exists(), "packaged .vsix matches the version")
 
 
 def test_telemetry_status(r):

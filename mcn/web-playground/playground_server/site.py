@@ -15,6 +15,14 @@ bp = Blueprint("site", __name__)
 
 _WEBSITE_DIR = os.path.join(_ROOT_DIR, "website")
 
+
+def _version() -> str:
+    try:
+        from mcn.version import __version__
+        return __version__
+    except ImportError:
+        return "dev"
+
 @bp.route("/")
 @bp.route("/ide")
 @bp.route("/playground")
@@ -35,4 +43,4 @@ def website_static(filename):
 
 @bp.route("/api/health")
 def health():
-    return jsonify({"status": "ok", "version": "2.2", "auth": _AUTH_AVAILABLE})
+    return jsonify({"status": "ok", "version": _version(), "auth": _AUTH_AVAILABLE})

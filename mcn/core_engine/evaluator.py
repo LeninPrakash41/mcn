@@ -63,6 +63,23 @@ def _did_you_mean(name: str, candidates) -> str:
     return " Did you mean " + " or ".join(f"'{c}'" for c in close) + "?"
 
 
+def _describe(value) -> str:
+    """'a number (3)', 'null', 'an object' — for operator type errors."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return f"a boolean ({str(value).lower()})"
+    if isinstance(value, (int, float)):
+        return f"a number ({value})"
+    if isinstance(value, str):
+        return f"text ({value[:20]!r})"
+    if isinstance(value, dict):
+        return "an object"
+    if isinstance(value, (list, tuple)):
+        return "a list"
+    return f"a {type(value).__name__}"
+
+
 def _friendly_call_error(name: str, exc: Exception) -> str:
     """Rewrite Python's argument errors in terms of the MCN call."""
     import re
@@ -345,11 +362,11 @@ class Evaluator:
 
         # ── task ──────────────────────────────────────────────────────────────
         if isinstance(stmt, ast.TaskStmt):
-            name      = str(self._eval(stmt.name, env))
-            func_name = str(self._eval(stmt.function, env))
-            args      = [self._eval(a, env) for a in stmt.arguments]
+            name = str(self._eval(stmt.name, env))
+            func = self._eval(stmt.function, env)   # a function, or its name as a string
+            args = [self._eval(a, env) for a in stmt.arguments]
             if "task" in self.functions:
-                return self.functions["task"](name, func_name, *args)
+                return self.functions["task"](name, func, *args)
             raise MCNError("Task system not initialised", stmt.line, stmt.col)
 
         # ── use (package import) ───────────────────────────────────────────────
@@ -545,8 +562,14 @@ class Evaluator:
         if isinstance(expr, ast.Binary):
             left  = self._eval(expr.left,  env)
             right = self._eval(expr.right, env)
-            return self._apply_binary(expr.operator, left, right,
-                                      expr.line, expr.col)
+            try:
+                return self._apply_binary(expr.operator, left, right,
+                                          expr.line, expr.col)
+            except TypeError:
+                raise MCNError(
+                    f"Can't use '{expr.operator}' with {_describe(left)} and {_describe(right)}",
+                    expr.line, expr.col,
+                ) from None
 
         if isinstance(expr, ast.Unary):
             operand = self._eval(expr.operand, env)
@@ -609,6 +632,26 @@ class Evaluator:
 
         raise MCNError(f"Unknown expression type: {type(expr).__name__}")
 
+    def _method(self, prop: ast.Property, env: Environment, value: Any) -> Any:
+        """`x.name(args)` where x has no such method: call the built-in or user
+        function `name(x, args)` instead, so text.contains("a") == contains(text, "a")."""
+        obj = self._eval(prop.object, env)
+        if obj is None:
+            if prop.safe:
+                return lambda *a, **k: None
+            raise MCNError(f"Can't call '.{prop.name}()' on null", prop.line, prop.col)
+        fn = env.get(prop.name)
+        if fn is _UNDEFINED:
+            fn = self.functions.get(prop.name)
+        if callable(fn):
+            return lambda *a, **k: fn(obj, *a, **k)
+        if isinstance(obj, dict) and prop.name in obj:
+            return value        # a dict key holding a non-function — let the call fail normally
+        kind = {dict: "object", list: "list", str: "text", int: "number", float: "number", bool: "boolean"}.get(type(obj), type(obj).__name__)
+        known = [n for n in dir(obj) if not n.startswith("_")] + list(self.functions)
+        raise MCNError(f"A {kind} value has no method '{prop.name}'.{_did_you_mean(prop.name, known)}",
+                       prop.line, prop.col)
+
     def _eval_call(self, expr: ast.Call, env: Environment) -> Any:
         if isinstance(expr.callee, ast.Variable) and env.get(expr.callee.name) is _UNDEFINED \
                 and expr.callee.name not in self.functions:
@@ -618,6 +661,8 @@ class Evaluator:
                 expr.line, expr.col,
             )
         callee = self._eval(expr.callee, env)
+        if isinstance(expr.callee, ast.Property) and not callable(callee):
+            callee = self._method(expr.callee, env, callee)
         pos_args = []
         kw_args = {}
         for a in expr.arguments:
@@ -649,6 +694,9 @@ class Evaluator:
             return fn(*pos_args)
 
         name    = getattr(expr.callee, "name", str(callee))
+        if isinstance(expr.callee, ast.Property):
+            raise MCNError(f"'{name}' holds a {type(callee).__name__} value, not a function, so it can't be called",
+                           expr.line, expr.col)
         similar = [
             k for k in self.functions
             if k.lower().startswith(name[:2].lower())

@@ -555,6 +555,21 @@ def mcn_md5(text: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# TIME
+# ─────────────────────────────────────────────────────────────────────────────
+
+def mcn_sleep(seconds: Any) -> None:
+    """Pause for `seconds` (fractions allowed, capped at 60)."""
+    import time
+    time.sleep(min(max(float(seconds), 0.0), 60.0))
+
+def mcn_now_ms() -> int:
+    """Milliseconds since the Unix epoch, for measuring durations."""
+    import time
+    return int(time.time() * 1000)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # JWT FLAT BUILTINS (delegated to auth_primitives to avoid code duplication)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -674,6 +689,9 @@ def register_stdlib_builtins(functions: dict) -> None:
         "uuid":              mcn_uuid,
         "sha256":            mcn_sha256,
         "md5":               mcn_md5,
+        # Time
+        "sleep":             mcn_sleep,
+        "now_ms":            mcn_now_ms,
         # ── Friendly aliases (match IntelliSense names) ──────────────────────
         # String aliases
         "to_upper":          mcn_upper,

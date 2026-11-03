@@ -1,5 +1,6 @@
 """Default files seeded into a new playground workspace."""
 import json
+import os
 from pathlib import Path
 from .core import (
     _request_workspace,
@@ -613,9 +614,10 @@ def _seed_workspace(ws: Path | None = None):
     if not mobile_manifest.exists():
         mobile_manifest.write_text(json.dumps(_DEFAULT_MOBILE_MANIFEST, indent=2), encoding="utf-8")
 
-    # Clean up legacy flutter folder if present in workspace
+    # Clean up the legacy generated flutter folder — only in Studio's own
+    # workspace, never in a developer's project opened with `mcn studio <dir>`
     legacy_flutter = ws / "flutter"
-    if legacy_flutter.exists():
+    if legacy_flutter.exists() and not os.environ.get("MCN_WORKSPACE"):
         import shutil
         shutil.rmtree(legacy_flutter, ignore_errors=True)
 

@@ -254,6 +254,8 @@ BUILTIN_RETURN_TYPES: Dict[str, MCNType] = {
     "queue_clear":       MCNType.NULL,
     # Crypto / UUID
     "uuid":              MCNType.STR,
+    "sleep":             MCNType.NULL,
+    "now_ms":            MCNType.INT,
     "sha256":            MCNType.STR,
     "md5":               MCNType.STR,
 }
@@ -267,15 +269,15 @@ BUILTIN_ARG_COUNTS: Dict[str, Tuple[int, int]] = {
     "write_file":        (2, 2),
     "now":               (0, 0),
     "hash_data":         (1, 2),
-    "fetch":             (1, 1),
-    "trigger":           (1, 2),
+    "fetch":             (1, 4),
+    "trigger":           (1, -1),
     "query":             (1, 2),
     "ai":                (1, 3),
     "llm":               (2, 3),
-    "embed":             (1, 1),
+    "embed":             (1, 2),
     "extract":           (2, 2),
     "classify":          (2, 2),
-    "checkpoint":        (2, 2),
+    "checkpoint":        (1, 2),
     # Session
     "session_set":       (2, 2),
     "session_get":       (1, 2),
@@ -358,6 +360,8 @@ BUILTIN_ARG_COUNTS: Dict[str, Tuple[int, int]] = {
     "queue_clear":       (1, 1),
     # Crypto / UUID
     "uuid":              (0, 0),
+    "sleep":             (1, 1),
+    "now_ms":            (0, 0),
     "sha256":            (1, 1),
     "md5":               (1, 1),
 }
@@ -678,6 +682,8 @@ class TypeChecker:
                 return MCNType.FLOAT
             if left_t == MCNType.ANY or right_t == MCNType.ANY:
                 return MCNType.ANY
+            if left_t == MCNType.LIST and right_t == MCNType.LIST:
+                return MCNType.LIST     # [1] + [2] concatenates
             self._warn(
                 f"Operator '+' on '{left_t.value}' and '{right_t.value}'",
                 expr.line, expr.col,

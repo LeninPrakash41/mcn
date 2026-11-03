@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MCN Web Playground Server v2.2
+MCN Studio server (the browser IDE)
 
 Endpoints:
   GET  /                          — serve the playground UI
@@ -114,6 +114,6 @@ if __name__ == "__main__":
         _LOCAL_ONLY = False
         print(f"WARNING: binding to {args.host} exposes unauthenticated code execution to the network. "
               "Only do this inside an isolated container or sandbox.")
-    print(f"MCN Web Playground v2.2 — http://localhost:{port}")
+    print(f"MCN Studio — http://localhost:{port}")
     print(f"Workspace: {app.config['WORKSPACE']}")
     app.run(debug=False, host=args.host, port=port, threaded=True)

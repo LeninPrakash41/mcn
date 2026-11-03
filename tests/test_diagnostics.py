@@ -85,3 +85,26 @@ def test_cli_prints_only_the_report(tmp_path):
     out = (proc.stdout + proc.stderr).strip().splitlines()
     assert out[0] == "Name error on line 2, column 5: Undefined variable 'totl'"
     assert len(out) == 4   # message, source line, caret, hint
+
+
+def test_type_checker_arity_table_matches_real_builtins():
+    """`mcn check` must never reject a call the runtime accepts."""
+    import inspect
+    from mcn.core_engine.type_checker import BUILTIN_ARG_COUNTS
+    from mcn.core_engine.name_check import runtime_names
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    runtime_names()
+    fns = MCNInterpreter()._evaluator.functions
+    too_strict = []
+    for name, (lo, hi) in BUILTIN_ARG_COUNTS.items():
+        try:
+            params = inspect.signature(fns[name]).parameters.values()
+        except (KeyError, TypeError, ValueError):
+            continue
+        positional = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+        required = sum(p.default is p.empty for p in positional)
+        unbounded = any(p.kind == p.VAR_POSITIONAL for p in params)
+        # variadic builtins like max_val(*values) may still demand at least one value
+        if (lo > required and not unbounded) or (hi != -1 and (unbounded or hi < len(positional))):
+            too_strict.append((name, (lo, hi)))
+    assert not too_strict

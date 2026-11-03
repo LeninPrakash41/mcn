@@ -1,4 +1,6 @@
 // MCN Database CRUD Example
+query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE, age INTEGER)")
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'pending', user_id INTEGER)")
 
 log "=== MCN Database CRUD Demo ==="
 
@@ -9,7 +11,7 @@ var user_age = 28
 
 log "Creating user: " + user_name
 
-query("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", (user_name, user_email, user_age))
+query("INSERT OR IGNORE INTO users (name, email, age) VALUES (?, ?, ?)", (user_name, user_email, user_age))
 
 // Read users
 log "Fetching all users:"

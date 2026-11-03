@@ -5,6 +5,14 @@ use "ai"
 use "db"
 use "http"
 
+// Demo schema and sample data, so the script runs on a fresh database
+query("CREATE TABLE IF NOT EXISTS customer_data (id INTEGER PRIMARY KEY, tenure INTEGER, monthly_charges REAL, churned INTEGER, created_date TEXT)")
+query("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, name TEXT, prediction_needed INTEGER, churn_probability REAL, prediction_date TEXT)")
+query("CREATE TABLE IF NOT EXISTS ml_models (name TEXT, model_id TEXT, accuracy REAL, precision REAL, recall REAL, status TEXT, endpoint TEXT, deployed_at TEXT)")
+if query("SELECT COUNT(*) as n FROM customer_data")[0].n == 0
+    query("INSERT INTO customer_data (tenure, monthly_charges, churned, created_date) VALUES (3, 79.5, 1, '2025-08-01'), (40, 55.0, 0, '2025-08-15'), (12, 99.9, 1, '2025-09-10'), (28, 45.0, 0, '2025-10-05'), (2, 89.0, 1, '2025-10-20')")
+    query("INSERT INTO customers (name, prediction_needed) VALUES ('Acme Ltd', 1), ('Globex', 1), ('Initech', 0)")
+
 // ML Pipeline Configuration
 var model_config = {
     "name": "customer_churn_predictor",
@@ -46,10 +54,20 @@ var training_response = trigger("https://ml-platform.com/api/train", training_re
 // Monitor Training Progress
 var model_id = training_response.model_id
 var training_status = "training"
+var model_endpoint = null
+if not training_response.success
+    log "ML platform unavailable, skipping remote training: " + training_response.data
+    training_status = "unavailable"
 
-while training_status != "completed"
+var attempts = 0
+while training_status == "training" and attempts < 30
+    attempts += 1
     var status_check = trigger("https://ml-platform.com/api/models/" + model_id + "/status")
+    if not status_check.success
+        log "Lost contact with the ML platform"
+        break
     training_status = status_check.status
+    sleep(2)
     
     if training_status == "failed"
         log "Model training failed: " + status_check.error
@@ -77,6 +95,7 @@ if training_status == "completed"
                                         {"environment": "production"}, "POST")
         
         log "Model deployed successfully: " + deployment_response.endpoint
+        model_endpoint = deployment_response.endpoint
         
         // Update model status
         query("UPDATE ml_models SET endpoint = ?, deployed_at = datetime('now') WHERE model_id = ?",
@@ -96,8 +115,8 @@ if training_status == "completed"
 // Batch Prediction Example
 var prediction_data = query("SELECT * FROM customers WHERE prediction_needed = 1 LIMIT 100")
 
-if prediction_data.length > 0
-    var batch_predictions = trigger(deployment_response.endpoint + "/predict", 
+if prediction_data.length > 0 and model_endpoint
+    var batch_predictions = trigger(model_endpoint + "/predict", 
                                   {"data": prediction_data}, "POST")
     
     // Store predictions

@@ -18,14 +18,17 @@ var weather_params = {
 
 var weather_response = trigger(weather_url, weather_params, "GET")
 
+var temp = "n/a"
+var description = "unavailable"
 if weather_response.success
     log "Weather data received successfully"
-    var temp = weather_response.data.main.temp
-    var description = weather_response.data.weather[0].description
+    temp = weather_response.data.main.temp
+    description = weather_response.data.weather[0].description
     log "Temperature: " + temp + "°C"
     log "Condition: " + description
 
     // Store weather data in database
+    query("CREATE TABLE IF NOT EXISTS weather_logs (city TEXT, temperature REAL, description TEXT, timestamp TEXT)")
     query("INSERT INTO weather_logs (city, temperature, description, timestamp) VALUES (?, ?, ?, datetime('now'))", (city, temp, description))
     log "Weather data saved to database"
 else

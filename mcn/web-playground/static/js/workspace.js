@@ -329,14 +329,14 @@ function showVsCodeExtensionModal() {
         <button onclick="closeModal('vscode-ext-modal')" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;">✕</button>
       </div>
       <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">
-        The official VS Code extension provides full TextMate syntax highlighting for <code>.mcn</code> contracts, services, endpoints, RBAC guards, and UI components, along with rich code snippets.
+        Syntax highlighting, completions, hover docs, and errors underlined as you type (the same checks as <code>mcn check</code>), plus commands to run, test, serve and open Studio.
       </div>
       <div style="background:#080e21;border:1px solid #1e293b;border-radius:8px;padding:10px;font-family:monospace;font-size:11px;color:#38bdf8;">
-        # Install into local VS Code extensions folder:<br>
-        cp -r mcn-vscode-extension ~/.vscode/extensions/mcn-lang
+        # Installs the extension bundled with MCN (needs the <code>code</code> command on PATH):<br>
+        mcn vscode
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button onclick="navigator.clipboard.writeText('cp -r mcn-vscode-extension ~/.vscode/extensions/mcn-lang'); showToast('Install command copied!', 'success');" class="btn btn-hero-run" style="padding:6px 14px;font-size:11px;">📋 Copy Install Command</button>
+        <button onclick="navigator.clipboard.writeText('mcn vscode'); showToast('Install command copied!', 'success');" class="btn btn-hero-run" style="padding:6px 14px;font-size:11px;">📋 Copy Install Command</button>
         <button onclick="closeModal('vscode-ext-modal')" class="btn" style="padding:6px 12px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;">Close</button>
       </div>
     </div>
@@ -387,6 +387,9 @@ async function resetWorkspace() {
       appendLog('success', 'Workspace reset to default starter template');
       await loadFileTree();
       await openFile('backend/main.mcn');
+    } else {
+      appendLog('error', '✗ ' + d.error);
+      await loadFileTree();
     }
   } catch (err) {
     appendLog('error', 'Reset workspace failed: ' + err.message);
@@ -475,7 +478,7 @@ async function loadExample(ex) {
       body: JSON.stringify({ files: ex.files })
     })
     const d = await r.json()
-    if (!d.success) { appendLog('error', '✗ ' + d.error); return }
+    if (!d.success) { appendLog('error', '✗ ' + d.error); await loadFileTree(); return }
     _devOn = false
     _built = false
     const btnToggle = document.getElementById('btn-toggle-server')

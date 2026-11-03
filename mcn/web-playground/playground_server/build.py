@@ -1,6 +1,7 @@
 """Compile UI to React/Flutter, download and deploy projects, SQL migrations."""
 import io
 import json
+import os
 import re
 import traceback
 import zipfile
@@ -46,7 +47,8 @@ def build_mcn():
 
         # Clean up legacy flutter dir if present
         legacy_flutter = _request_workspace() / "flutter"
-        if legacy_flutter.exists():
+        # Only Studio's own workspace — never a developer's project (`mcn studio <dir>`)
+        if legacy_flutter.exists() and not os.environ.get("MCN_WORKSPACE"):
             import shutil
             shutil.rmtree(legacy_flutter, ignore_errors=True)
 

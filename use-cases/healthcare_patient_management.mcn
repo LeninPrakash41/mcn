@@ -5,8 +5,15 @@ use "db"
 use "ai"
 use "http"
 
+// Demo schema, so the script runs on a fresh database
+query("CREATE TABLE IF NOT EXISTS patients (id TEXT PRIMARY KEY, name TEXT, age INTEGER, medical_history TEXT, care_plan TEXT, last_assessment TEXT)")
+query("CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY, patient_id TEXT, type TEXT, priority TEXT, status TEXT)")
+
 // Patient registration workflow
-var patient_data = request_data
+// Served as an API this is the request body; run directly it uses a sample patient
+var sample_patient = {"id": "P-1001", "name": "Sample Patient", "age": 64, "history": "hypertension",
+                      "vitals": {"blood_pressure": 150, "heart_rate": 88, "temperature": 37.1}}
+var patient_data = request_data if request_data.id else sample_patient
 
 // Validate and store patient data
 type "patient_id" "string"
@@ -16,7 +23,7 @@ var patient_id = patient_data.id
 var vitals = patient_data.vitals
 
 // Store patient information
-query("INSERT INTO patients (id, name, age, medical_history) VALUES (?, ?, ?, ?)", 
+query("INSERT OR REPLACE INTO patients (id, name, age, medical_history) VALUES (?, ?, ?, ?)", 
       (patient_id, patient_data.name, patient_data.age, patient_data.history))
 
 // Analyze vital signs with AI

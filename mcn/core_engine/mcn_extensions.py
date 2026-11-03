@@ -51,7 +51,11 @@ class MCNPackageManager:
     """Simple package management system"""
 
     def __init__(self):
-        self.packages_dir = "mcn_packages"
+        try:
+            from .paths import mcn_home
+        except ImportError:
+            from paths import mcn_home
+        self.packages_dir = str(mcn_home("packages"))
         self.installed_packages = {}
         self._ensure_packages_dir()
 
@@ -85,46 +89,47 @@ class MCNPackageManager:
         return list(self.installed_packages.keys())
 
 
+class TaskResults(dict):
+    """`await` results: by task name (results.report) or by position (results[0])."""
+
+    def get(self, key, default=None):
+        if key not in self and isinstance(key, str) and key.isdigit():
+            values = list(self.values())
+            return values[int(key)] if int(key) < len(values) else default
+        return super().get(key, default)
+
+
 class MCNAsyncRuntime:
-    """Async runtime for parallel task execution"""
+    """Runs `task` statements in parallel threads; `await` collects results."""
 
     def __init__(self):
         self.tasks = {}
-        self.executor = ThreadPoolExecutor(max_workers=4)
+        self.executor = ThreadPoolExecutor(max_workers=8)
 
     def create_task(self, name: str, func, *args, **kwargs):
-        """Create a named task"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        async def task_wrapper():
-            if asyncio.iscoroutinefunction(func):
-                return await func(*args, **kwargs)
-            else:
-                return func(*args, **kwargs)
-
-        task = MCNTask(name=name, coroutine=task_wrapper())
+        """Start func(*args) in the background under `name`."""
+        task = MCNTask(name=name, coroutine=self.executor.submit(func, *args, **kwargs))
         self.tasks[name] = task
         return task
 
-    async def await_tasks(self, *task_names):
-        """Wait for multiple tasks to complete"""
-        tasks_to_wait = []
-        for name in task_names:
-            if name in self.tasks:
-                tasks_to_wait.append(self.tasks[name].coroutine)
+    def await_tasks(self, *task_names):
+        """Block until the named tasks (all tasks if none named) finish.
 
-        if tasks_to_wait:
-            results = await asyncio.gather(*tasks_to_wait, return_exceptions=True)
-
-            # Update task results
-            for i, name in enumerate(task_names):
-                if name in self.tasks:
-                    self.tasks[name].result = results[i]
-                    self.tasks[name].completed = True
-
-            return results
-        return []
+        Returns results by name and position. A failed task raises, naming the task.
+        """
+        names = task_names or tuple(self.tasks)
+        results = TaskResults()
+        for name in names:
+            if name not in self.tasks:
+                raise Exception(f"await: no task named '{name}'. Start it first with: task \"{name}\" function_name args")
+            task = self.tasks[name]
+            try:
+                task.result = task.coroutine.result()
+            except Exception as exc:
+                raise Exception(f"Task '{name}' failed: {exc}") from exc
+            task.completed = True
+            results[name] = task.result
+        return results
 
 
 class MCNTypeChecker:

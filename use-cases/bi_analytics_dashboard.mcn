@@ -5,6 +5,21 @@ use "db"
 use "ai"
 use "http"
 
+// Demo schema and sample data, so the script runs on a fresh database
+query("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, amount REAL, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, total_spent REAL, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS website_sessions (id INTEGER PRIMARY KEY, converted INTEGER, date TEXT)")
+query("CREATE TABLE IF NOT EXISTS daily_revenue (date TEXT PRIMARY KEY, revenue REAL)")
+query("CREATE TABLE IF NOT EXISTS product_sales (product_name TEXT, quantity INTEGER, revenue REAL, rating REAL, date TEXT)")
+query("CREATE TABLE IF NOT EXISTS dashboard_snapshots (name TEXT PRIMARY KEY, data TEXT, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS scheduled_tasks (task_name TEXT, next_run TEXT, script_path TEXT)")
+if query("SELECT COUNT(*) as n FROM orders")[0].n == 0
+    query("INSERT INTO orders (amount, created_at) VALUES (1200, date('now', '-2 days')), (340, date('now', '-1 days')), (980, date('now'))")
+    query("INSERT INTO customers (total_spent, created_at) VALUES (1500, date('now', '-40 days')), (620, date('now', '-3 days')), (90, date('now'))")
+    query("INSERT INTO website_sessions (converted, date) VALUES (1, date('now')), (0, date('now')), (0, date('now', '-1 days')), (1, date('now', '-2 days'))")
+    query("INSERT INTO daily_revenue (date, revenue) VALUES (date('now', '-2 days'), 1200), (date('now', '-1 days'), 340), (date('now'), 980)")
+    query("INSERT INTO product_sales VALUES ('Starter plan', 12, 1188, 4.4, date('now')), ('Pro plan', 4, 1196, 4.7, date('now', '-1 days'))")
+
 // BI Dashboard Configuration
 var dashboard_config = {
     "name": "executive_dashboard",

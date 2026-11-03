@@ -666,6 +666,9 @@ class Parser:
             args: List[ast.Expr] = []
             while not self._at_eol():
                 args.append(self._expression())
+            # await("a", "b") parses as one tuple — spread it into arguments
+            if len(args) == 1 and isinstance(args[0], ast.MCNTuple):
+                args = list(args[0].elements)
             callee = ast.Variable(name="await", line=tok.line, col=tok.col)
             return ast.Call(callee=callee, arguments=args,
                             line=tok.line, col=tok.col)

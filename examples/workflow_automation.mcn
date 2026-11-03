@@ -1,4 +1,6 @@
 // MCN Workflow Automation Example
+query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE, age INTEGER)")
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'pending', user_id INTEGER)")
 
 log "=== MCN Workflow Automation Demo ==="
 
@@ -11,7 +13,7 @@ log "Starting user onboarding workflow for: " + new_user
 
 // Step 1: Create user account
 log "Step 1: Creating user account"
-var user_result = query("INSERT INTO users (name, email, age) VALUES (?, ?, ?)", (new_user, new_email, 25))
+var user_result = query("INSERT OR IGNORE INTO users (name, email, age) VALUES (?, ?, ?)", (new_user, new_email, 25))
 
 if user_result
     log "✓ User account created successfully"

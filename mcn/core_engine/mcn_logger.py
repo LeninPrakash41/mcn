@@ -16,9 +16,13 @@ import sys
 class MCNLogger:
     """Enhanced logging system for MCN with developer-friendly error messages"""
 
-    def __init__(self, log_dir: str = "logs"):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True)
+    def __init__(self, log_dir: str = None):
+        try:
+            from .paths import mcn_home
+        except ImportError:
+            from paths import mcn_home
+        self.log_dir = Path(log_dir) if log_dir else mcn_home("logs")
+        self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Setup different log files
         self.setup_loggers()

@@ -36,6 +36,10 @@ _HINTS = [
 
     (r"Expected '\]'.*end of the file",
      "A '[' is never closed. Add the missing ']'."),
+    (r"Can't use '.*' with .*null",
+     "One side is null: a variable that was never set, a missing object key, or a query that returned no rows."),
+    (r"Can't use '.*' with",
+     "Convert first, e.g. int(text) or str(number), or check which value has the wrong type."),
     (r"Division by zero",
      "Check that the divisor isn't 0 before dividing."),
     (r"Undefined variable",
@@ -57,6 +61,7 @@ class Diagnostic:
     col: int = 0
     hint: str = ""
     length: int = 1    # how many characters to underline
+    severity: str = "error"   # "error" | "warning"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -121,6 +126,28 @@ def render(diag: Diagnostic, source: str = "") -> str:
     if diag.hint:
         out.append(f"Hint: {diag.hint}")
     return "\n".join(out)
+
+def check(source: str) -> list:
+    """Find problems without running the code: the first syntax error, or
+    else every reference to a name that is never defined.
+
+    Shared by `mcn check`, the Studio editor and the VS Code extension, so all
+    three report exactly what `mcn run` would.
+    """
+    from .lexer import Lexer
+    from .parser import Parser
+    from .name_check import undefined_names, did_you_mean
+    try:
+        parser = Parser(Lexer(source).tokenize())
+        program = parser.parse()
+    except Exception as exc:
+        return [diagnose(str(exc))]
+    if parser.errors:
+        return [diagnose(str(parser.errors[0]))]
+    return [
+        diagnose(f"[{line}:{col}] RuntimeError: Undefined {kind}: '{name}'.{did_you_mean(name, program)}")
+        for name, line, col, kind in undefined_names(program)
+    ]
 
 
 class MCNDiagnosticError(Exception):

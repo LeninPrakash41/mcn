@@ -389,24 +389,16 @@ class MCNInterpreter:
         except Exception as exc:
             return {"status_code": 0, "data": str(exc), "success": False}
 
-    def _create_task(self, name: str, func_name: str, *args: Any) -> str:
-        if func_name in self._functions:
-            task = self.async_runtime.create_task(
-                name, self._functions[func_name], *args
-            )
-            return f"Task '{name}' created"
-        raise Exception(f"Function '{func_name}' not found")
+    def _create_task(self, name: str, func: Any, *args: Any) -> str:
+        if not callable(func):
+            func = self._evaluator.functions.get(func) or self._functions.get(func)
+        if func is None:
+            raise Exception(f"task '{name}': no function to run")
+        self.async_runtime.create_task(name, func, *args)
+        return f"Task '{name}' created"
 
     def _await_tasks(self, *task_names: str) -> Any:
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(
-                self.async_runtime.await_tasks(*task_names)
-            )
-        finally:
-            loop.close()
+        return self.async_runtime.await_tasks(*task_names)
 
     def _ensure_v3_systems(self):
         if not hasattr(self, 'module_system'):
@@ -500,7 +492,10 @@ class MCNInterpreter:
 
     # ── MCN v3.0 Primitives implementations ─────────────────────────────────────
 
-    def _train_ml_model(self, model_type: str, dataset_name: str, target_column: str, **kwargs):
+    def _train_ml_model(self, model_type: str, dataset_name: str, target_column: str,
+                        params: dict = None, **kwargs):
+        # Hyperparameters as a dict (train(..., {"n_estimators": 50})) or as named args
+        kwargs = {**(params or {}), **kwargs}
         try:
             from .mcn_ml_system import get_ml_system
             ml_system = get_ml_system()
@@ -564,7 +559,9 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": f"Model export failed: {str(e)}"}
     
-    def _fine_tune_model(self, base_model: str, training_data: str, new_model_name: str, **kwargs):
+    def _fine_tune_model(self, base_model: str, training_data: str, new_model_name: str,
+                         params: dict = None, **kwargs):
+        kwargs = {**(params or {}), **kwargs}
         try:
             from .mcn_ml_system import get_ml_system
             ml_system = get_ml_system()

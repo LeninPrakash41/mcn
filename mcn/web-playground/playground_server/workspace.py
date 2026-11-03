@@ -1,4 +1,5 @@
 """Workspace file listing, reading, saving and reset."""
+import os
 from . import core
 from flask import Blueprint
 from .core import (
@@ -23,6 +24,10 @@ def workspace_reset():
     ws   = _request_workspace()
     data = request.get_json(silent=True) or {}
     files_payload = data.get("files")  # [{path, content}, ...] for project templates
+    if os.environ.get("MCN_WORKSPACE") and ws == core.WORKSPACE:
+        return jsonify({"success": False, "error":
+            "Studio is open on your own project folder, so templates can't replace its files. "
+            "Run `mcn studio` without a folder to try templates in Studio's scratch workspace."}), 409
     try:
         # Stop any running dev server and backend before wiping the workspace
         _stop_process(core._dev_server);  core._dev_server  = None

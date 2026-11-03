@@ -1,3 +1,4 @@
+query("CREATE TABLE IF NOT EXISTS logs (message TEXT)")
 task "email" "trigger" "https://mail.api.com/send" {"to": "user@example.com"}
 task "database" "query" "INSERT INTO logs VALUES (?)" "Email sent"
 task "ai" "ai" "Generate follow-up message"

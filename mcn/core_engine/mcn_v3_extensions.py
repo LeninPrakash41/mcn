@@ -242,7 +242,7 @@ class MCNIoTConnector:
             return reading
         elif device["type"] == "humidity_sensor":
             # Realistic humidity based on temperature correlation
-            temp_factor = device.get("last_reading", {}).get("temperature", 22)
+            temp_factor = (device.get("last_reading") or {}).get("temperature", 22)
             base_humidity = 60 - (temp_factor - 20) * 2
             noise = (hash(str(current_time)[:9]) % 100) / 100 * 10 - 5
             reading = max(20, min(90, round(base_humidity + noise, 1)))

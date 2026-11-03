@@ -386,7 +386,8 @@ class MCNMLSystem:
             if X_numeric.empty:
                 return {"error": "No numeric features found for training"}
             
-            model_id = f"{model_type}_{dataset_name}_{int(time.time())}"\n            
+            model_id = f"{model_type}_{dataset_name}_{int(time.time())}"
+
             # Train based on model type
             if model_type == "linear_regression":
                 from sklearn.linear_model import LinearRegression
