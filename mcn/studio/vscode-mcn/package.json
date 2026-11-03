@@ -185,11 +185,6 @@
           "default": "mcn",
           "description": "Path to the `mcn` CLI executable (default: 'mcn' on PATH)"
         },
-        "mcn.pythonPath": {
-          "type": "string",
-          "default": "python3",
-          "description": "Python executable used as fallback when mcn CLI is not installed"
-        },
         "mcn.aiProvider": {
           "type": "string",
           "enum": [

@@ -1,7 +1,7 @@
 # MCN Pilot Exercises
 
 Eight exercises, from first program to your own full-stack app. Each takes
-20–45 minutes. Work in MCN Studio (`python mcn/web-playground/server.py`) or
+20–45 minutes. Work in MCN Studio (`mcn studio`) or
 with `mcn run file.mcn`.
 
 Every exercise lists what "done" means. Exercises 1–7 have checks you can run

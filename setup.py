@@ -17,20 +17,27 @@ def read_readme():
     return "MCN - Business automation scripting language with AI integration"
 
 
-# Read requirements
-def read_requirements():
-    req_path = os.path.join(os.path.dirname(__file__), "mcn", "requirements.txt")
-    if os.path.exists(req_path):
-        with open(req_path, "r", encoding="utf-8") as f:
-            return [
-                line.strip() for line in f if line.strip() and not line.startswith("#")
-            ]
-    return [
-        "requests>=2.25.0",
-        "fastapi>=0.68.0",
-        "uvicorn>=0.15.0",
-        "python-dotenv>=0.19.0",
-    ]
+# Runtime dependencies. Kept here (not read from a file) so every build — wheel,
+# sdist or the one-line installer — gets the same list.
+INSTALL_REQUIRES = [
+    "requests>=2.28.0",
+    "PyJWT>=2.8.0",
+    "python-dotenv>=0.19.0",
+    "anthropic>=0.84.0",       # ai(), Copilot, mcn generate
+    "flask>=3.0.0",            # MCN Studio
+    "flask-cors>=4.0.0",
+    "fastapi>=0.104.0",        # mcn serve (with /docs)
+    "uvicorn>=0.24.0",
+]
+
+# Optional features, installed with `mcn add <feature>` (see FEATURES in mcn_cli.py)
+EXTRAS_REQUIRE = {
+    "postgres": ["psycopg2-binary>=2.9.0"],
+    "mongodb": ["pymongo>=4.0.0"],
+    "ml": ["scikit-learn>=1.3.0", "pandas>=2.0.0", "numpy>=1.24.0"],
+    "scheduler": ["apscheduler>=3.10.0"],
+    "dev": ["pytest>=7.0", "pytest-cov>=4.0"],
+}
 
 
 setup(
@@ -57,23 +64,8 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     python_requires=">=3.10",
-    install_requires=read_requirements(),
-    extras_require={
-        "dev": [
-            "pytest>=6.0",
-            "pytest-cov>=2.0",
-            "black>=21.0",
-            "flake8>=3.8",
-            "mypy>=0.800",
-        ],
-        "ai": ["openai>=0.27.0", "anthropic>=0.3.0"],
-        "database": ["sqlalchemy>=1.4.0", "psycopg2-binary>=2.9.0", "pymongo>=3.12.0"],
-        "cloud": [
-            "boto3>=1.20.0",
-            "azure-storage-blob>=12.0.0",
-            "google-cloud-storage>=2.0.0",
-        ],
-    },
+    install_requires=INSTALL_REQUIRES,
+    extras_require=EXTRAS_REQUIRE,
     entry_points={
         "console_scripts": [
             "mcn=mcn.core_engine.mcn_cli:main",

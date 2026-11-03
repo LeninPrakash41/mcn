@@ -133,8 +133,8 @@ class MCNService:
             import uvicorn
         except ImportError:
             raise RuntimeError(
-                "FastAPI and uvicorn are required to start a MCN service. "
-                "Run: pip install fastapi uvicorn"
+                "This MCN installation is missing its server components. "
+                "Run: mcn upgrade"
             )
 
         app = fastapi.FastAPI(title=self.name)

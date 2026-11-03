@@ -34,9 +34,12 @@ def runtime_names() -> Set[str]:
     if _runtime_names is None:
         import contextlib, io
         from .mcn_interpreter import MCNInterpreter
+        from .test_runner import TestRunner
+        helpers: dict = {}
         with contextlib.redirect_stdout(io.StringIO()):
             ev = MCNInterpreter()._evaluator
-        _runtime_names = set(ev.functions) | set(ev.globals.as_dict)
+            TestRunner()._register_builtins(helpers)     # assert_equal & co. for test blocks
+        _runtime_names = set(ev.functions) | set(ev.globals.as_dict) | set(helpers)
     return _runtime_names
 
 

@@ -16,6 +16,7 @@ Separation of concerns:
 """
 from __future__ import annotations
 
+import inspect
 import re as _re
 from typing import Any, Callable, Dict, List, Optional
 
@@ -80,8 +81,10 @@ def _describe(value) -> str:
     return f"a {type(value).__name__}"
 
 
-def _friendly_call_error(name: str, exc: Exception) -> str:
-    """Rewrite Python's argument errors in terms of the MCN call."""
+def _friendly_call_error(name: str, exc: Exception, bound: bool = False) -> str:
+    """Rewrite Python's argument errors in terms of the MCN call.
+
+    `bound` — the built-in is a Python method, whose counts include `self`."""
     import re
     msg = str(exc)
     m = re.search(r"missing (\d+) required positional arguments?: (.+)$", msg)
@@ -90,7 +93,7 @@ def _friendly_call_error(name: str, exc: Exception) -> str:
         return f"{name}() is missing {'an argument' if m.group(1) == '1' else 'arguments'}: {missing}"
     m = re.search(r"takes (?:from )?(\d+)(?: to (\d+))? positional arguments? but (\d+) (?:was|were) given", msg)
     if m:
-        lo, hi, got = m.group(1), m.group(2), m.group(3)
+        lo, hi, got = (str(int(g) - bound) if g else g for g in m.groups())
         takes = f"{lo} to {hi}" if hi else lo
         return f"{name}() takes {takes} argument{'s' if (hi or lo) != '1' else ''} but {got} {'was' if got == '1' else 'were'} given"
     m = re.search(r"got an unexpected keyword argument '(\w+)'", msg)
@@ -206,6 +209,11 @@ class Evaluator:
     # ── Program entry point ────────────────────────────────────────────────────
 
     def execute_program(self, program: ast.Program) -> Any:
+        # Top-level functions are hoisted: a script can call a function defined
+        # further down (each declaration runs again in order, so later ones win).
+        for stmt in program.body:
+            if isinstance(stmt, ast.FunctionDecl):
+                self._exec_function_decl(stmt, self.globals)
         try:
             return self._exec_block(program.body, self.globals)
         except ReturnSignal as ret:
@@ -340,13 +348,16 @@ class Evaluator:
                     catch_env = Environment(env)
                     # Named catch var:  catch e  →  e.message, e.type, e.raw
                     var = stmt.catch_var or "error"
+                    # `throw "boom"` → e.message == "boom" (no location prefix)
+                    message = exc.message if isinstance(exc, MCNError) else str(exc)
                     err_obj = {
-                        "message": str(exc),
+                        "message": message,
                         "type":    type(exc).__name__,
+                        "line":    getattr(exc, "line", 0),
                         "raw":     exc,
                     }
                     catch_env.define(var, err_obj)
-                    catch_env.define("error", str(exc))  # legacy compat
+                    catch_env.define("error", message)  # legacy compat
                     result = self._exec_block(stmt.catch_body, catch_env)
                 else:
                     raise
@@ -684,7 +695,8 @@ class Evaluator:
                 raise
             except Exception as exc:
                 name = getattr(expr.callee, "name", "?")
-                raise MCNError(_friendly_call_error(name, exc), expr.line, expr.col) from exc
+                raise MCNError(_friendly_call_error(name, exc, bound=inspect.ismethod(callee)),
+                               expr.line, expr.col) from exc
 
         # Callee resolved to a string (legacy edge-case)
         if isinstance(callee, str) and callee in self.functions:

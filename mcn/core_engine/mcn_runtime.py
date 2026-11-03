@@ -1,8 +1,6 @@
 import requests
 import sqlite3
 import threading
-import psycopg2
-import pymongo
 import json
 import os
 import smtplib
@@ -414,6 +412,10 @@ class MCNRuntime:
     ):
         """Connect to PostgreSQL database"""
         try:
+            import psycopg2
+        except ImportError:
+            return {"success": False, "error": "PostgreSQL support isn't installed. Run: mcn add postgres"}
+        try:
             self.db_connection = psycopg2.connect(
                 host=host, database=database, user=user, password=password, port=port
             )
@@ -424,6 +426,10 @@ class MCNRuntime:
 
     def connect_mongodb(self, connection_string: str, database_name: str):
         """Connect to MongoDB database"""
+        try:
+            import pymongo
+        except ImportError:
+            return {"success": False, "error": "MongoDB support isn't installed. Run: mcn add mongodb"}
         try:
             client = pymongo.MongoClient(connection_string)
             self.db_connection = client[database_name]

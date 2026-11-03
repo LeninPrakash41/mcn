@@ -17,11 +17,6 @@ function mcnCmd(): string {
   return cfg.get<string>('cliPath', 'mcn');
 }
 
-function pythonCmd(): string {
-  const cfg = vscode.workspace.getConfiguration('mcn');
-  return cfg.get<string>('pythonPath', 'python3');
-}
-
 /** Run `mcn <args>` in a terminal with a given name. */
 function runInTerminal(name: string, args: string): vscode.Terminal {
   const terminal = vscode.window.createTerminal(name);

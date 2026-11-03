@@ -125,7 +125,7 @@ class MCNServer:
                         from apscheduler.triggers.cron import CronTrigger
                         self.scheduler.add_job(obj.fn, CronTrigger.from_crontab(obj.cron_expr), id=name)
                     else:
-                        print(f"Warning: apscheduler not installed. Cannot schedule '{name}'.")
+                        print(f"Warning: can't schedule '{name}': scheduling isn't installed. Run: mcn add scheduler")
             
             if ev.function_params:
                 return f"/{os.path.basename(script_path)}"

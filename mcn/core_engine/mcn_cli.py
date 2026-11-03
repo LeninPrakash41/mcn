@@ -438,11 +438,11 @@ def _cmd_generate(args) -> int:
             sys.path.insert(0, str(Path(__file__).parent.parent))
             from ai.mcn_agent import MCNAgent
     except ImportError as exc:
-        print(f"Error: could not import MCNAgent — {exc}")
-        print("       Make sure `anthropic` is installed:  pip install anthropic")
+        print(f"Error: app generation isn't available in this installation ({exc}).")
+        print("       Run: mcn upgrade")
         return 1
 
-    agent = MCNAgent(api_key=api_key, model=args.model)
+    agent = MCNAgent(api_key=api_key, **({"model": args.model} if args.model else {}))
     verbose = not args.quiet
 
     if getattr(args, "build", False):
@@ -823,8 +823,8 @@ def main():
         help="Also run `mcn build` on the generated UI after writing files"
     )
     gen_parser.add_argument(
-        "--model", default="claude-opus-4-6",
-        help="Claude model to use (default: claude-opus-4-6)"
+        "--model", default=None,
+        help="Claude model to use (default: $MCN_CLAUDE_MODEL, else claude-opus-5-5)"
     )
     gen_parser.add_argument(
         "--api-key", dest="api_key", default=None,
@@ -905,6 +905,11 @@ def main():
     playground_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1, this machine only)")
 
     subparsers.add_parser("vscode", help="Install the MCN extension into VS Code")
+    add_parser = subparsers.add_parser("add", help="Add an optional feature (run `mcn add` to list them)")
+    add_parser.add_argument("features", nargs="*", help="Features to add, e.g. ml postgres")
+    subparsers.add_parser("upgrade", help="Upgrade MCN to the latest version")
+    uninstall_parser = subparsers.add_parser("uninstall", help="Remove MCN from this computer")
+    uninstall_parser.add_argument("--all", action="store_true", help="Also remove settings, logs and Studio's workspace")
 
     # Legacy support - direct file execution
     parser.add_argument("--repl", action="store_true", help="Start REPL mode (legacy)")
@@ -1006,6 +1011,17 @@ def main():
 
     elif args.command == "vscode":
         return install_vscode_extension()
+
+    elif args.command in ("add", "upgrade", "uninstall"):
+        try:
+            from . import runtime_manager
+        except ImportError:
+            import runtime_manager
+        if args.command == "add":
+            return runtime_manager.add_features(args.features)
+        if args.command == "upgrade":
+            return runtime_manager.upgrade()
+        return runtime_manager.uninstall(everything=args.all)
 
     elif args.command == "serve":
         try:

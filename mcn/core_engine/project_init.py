@@ -88,7 +88,7 @@ An [MCN](https://github.com/LeninPrakash41/mcn) app.
 | File | What it is |
 |---|---|
 | `backend/main.mcn` | Database, API endpoints and tests |
-| `ui/app.mcn` | Web UI (compiles to React; Studio also renders it as a Flutter app) |
+| `ui/app.mcn` | Web UI (compiles to React with `mcn build`) |
 | `mcn.json` | Project settings |
 
 ## Commands

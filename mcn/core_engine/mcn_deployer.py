@@ -6,7 +6,6 @@ Output structure inside the zip:
     backend/main.mcn          (all *.mcn files from workspace)
     ui/app.mcn                (if present)
     Dockerfile
-    requirements.txt
     start.sh
     docker-compose.yml
     .env.example
@@ -29,40 +28,21 @@ from typing import Any, Dict, List, Optional
 
 # ── Templates ─────────────────────────────────────────────────────────────────
 
-_DOCKERFILE = """FROM python:3.11-slim
+_DOCKERFILE = """FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MCN
+ENV MCN_HOME=/opt/mcn MCN_NO_MODIFY_PATH=1
+RUN curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh
+ENV PATH=/opt/mcn/bin:$PATH
 
 WORKDIR /app
-
-# Install system deps
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    gcc curl && rm -rf /var/lib/apt/lists/*
-
-# Install Python deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy MCN source
 COPY . .
 
 EXPOSE 8080
-
-CMD ["python", "-m", "mcn.core_engine.mcn_cli", "run", "backend/main.mcn", \\
-     "--serve", "--host", "0.0.0.0", "--port", "8080"]
-"""
-
-_REQUIREMENTS = """# MCN runtime
-requests>=2.31.0
-flask>=3.0.0
-flask-cors>=4.0.0
-
-# AI providers (install the ones you need)
-# anthropic>=0.30.0
-# openai>=1.0.0
-
-# Database (install as needed)
-# psycopg2-binary>=2.9.0
-# pymysql>=1.1.0
-# sqlalchemy>=2.0.0
+CMD ["mcn", "serve", "backend/main.mcn", "--host", "0.0.0.0", "--port", "8080"]
 """
 
 _DOCKER_COMPOSE = """\
@@ -97,10 +77,9 @@ STRIPE_SECRET_KEY=sk_live_...
 """
 
 _START_SH = """\
-#!/bin/bash
+#!/bin/sh
 set -e
-exec python -m mcn.core_engine.mcn_cli run backend/main.mcn \\
-     --serve --host 0.0.0.0 --port "${PORT:-8080}"
+exec mcn serve backend/main.mcn --host 0.0.0.0 --port "${PORT:-8080}"
 """
 
 _DEPLOY_MD = """\
@@ -125,9 +104,9 @@ docker-compose up -d
 ## Manual (without Docker)
 
 ```bash
-pip install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh
 export ANTHROPIC_API_KEY=sk-ant-...
-python -m mcn.core_engine.mcn_cli run backend/main.mcn --serve --port 8080
+mcn serve backend/main.mcn --host 0.0.0.0 --port 8080
 ```
 
 ## Cloud platforms
@@ -206,7 +185,6 @@ def deploy_workspace(
 
         # Generated artifacts
         zf.writestr(prefix + "Dockerfile",          _DOCKERFILE)
-        zf.writestr(prefix + "requirements.txt",    _REQUIREMENTS)
         zf.writestr(prefix + "docker-compose.yml",  _DOCKER_COMPOSE)
         zf.writestr(prefix + "start.sh",            _START_SH)
         zf.writestr(prefix + ".env.example",        _ENV_EXAMPLE)
@@ -214,7 +192,6 @@ def deploy_workspace(
 
         included += [
             prefix + "Dockerfile",
-            prefix + "requirements.txt",
             prefix + "docker-compose.yml",
             prefix + "DEPLOY.md",
         ]

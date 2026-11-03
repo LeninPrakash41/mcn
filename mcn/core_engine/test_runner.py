@@ -220,6 +220,9 @@ class TestRunner:
             type_map = {
                 "string": str, "number": (int, float), "bool": bool,
                 "list": list, "dict": dict, "null": type(None),
+                # the same names as type() and the type checker use
+                "str": str, "text": str, "int": int, "float": (int, float),
+                "boolean": bool, "object": dict, "array": list,
             }
             expected = type_map.get(type_name)
             if expected is None:

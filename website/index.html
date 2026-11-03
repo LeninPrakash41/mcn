@@ -1,1443 +1,495 @@
 <!DOCTYPE html>
-<html lang="en" class="dark scroll-smooth">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MCN — The Scripting Language for AI, Full-Stack & Internal Tools</title>
-  <meta name="description" content="MCN makes software development 10x simpler for businesses and engineers. A clean, expressive language that compiles backend logic, AI workflows, React UIs, and Flutter mobile apps from a single file." />
-  
-  <!-- Fonts -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCN — One language for your whole app</title>
+  <meta name="description" content="MCN is an open-source language for building full-stack apps: database, API, web UI and mobile app from one or two files, with AI as a built-in function and a browser IDE included.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              500: '#3b82f6',
-              600: '#2563eb',
-            },
-            dark: {
-              bg: '#09090b',
-              surface: '#121215',
-              surface2: '#1c1c22',
-              border: '#27272a',
-            }
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Menlo', 'monospace'],
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css">
   <style>
-    @keyframes glow-pulse {
-      0%, 100% { transform: scale(1); opacity: 0.35; }
-      50% { transform: scale(1.08); opacity: 0.6; }
+    .hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
+    .hero::before {
+      content: ""; position: absolute; inset: -40% -10% auto; height: 640px; pointer-events: none;
+      background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent);
     }
-    .glow-bg {
-      position: absolute;
-      width: 650px;
-      height: 650px;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, rgba(124, 58, 237, 0.12) 40%, transparent 70%);
-      filter: blur(80px);
-      animation: glow-pulse 10s ease-in-out infinite;
-      pointer-events: none;
-      z-index: 0;
+    .hero .container { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; }
+    .hero .container > *, .split > *, .audience > * { min-width: 0; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 6px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--text-soft);
     }
-    .glass-panel {
-      background: rgba(18, 18, 21, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .eyebrow b { background: var(--accent-soft); color: var(--accent-text); padding: 2px 8px; border-radius: 999px; font-weight: 600; font-size: 12px; }
+    .hero h1 { font-size: clamp(38px, 5.4vw, 60px); line-height: 1.04; letter-spacing: -.035em; margin: 20px 0 18px; font-weight: 800; }
+    .hero h1 em { font-style: normal; color: var(--accent-text); }
+    .lede { font-size: 18px; color: var(--text-soft); margin: 0 0 28px; max-width: 34em; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+    .install {
+      display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 8px 8px 8px 14px;
+      border-radius: 10px; border: 1px solid var(--border); background: var(--bg-soft); font: 13px/1.4 var(--mono);
     }
-    .glass-panel:hover {
-      border-color: rgba(59, 130, 246, 0.3);
+    .install span { color: var(--text-muted); user-select: none; }
+    .install-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+    .install-tabs button {
+      border: 0; background: transparent; color: var(--text-muted); font: 500 13px/1 var(--font);
+      padding: 6px 10px; border-radius: 7px; cursor: pointer;
     }
-    .code-editor {
-      background: #0d0e12;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .install-tabs button[aria-selected="true"] { background: var(--bg-sunken); color: var(--text); }
+    .install code { overflow-x: auto; white-space: nowrap; flex: 1; min-width: 0; }
+    .install code { scrollbar-width: none; }
+    .install code::-webkit-scrollbar { display: none; }
+    .install .copy-btn { color: var(--text-soft); border-color: var(--border); flex: none; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; color: var(--text-muted); font-size: 13px; }
+    .meta-row span::before { content: "✓"; color: var(--ok); margin-right: 6px; font-weight: 700; }
+
+    .window { border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; border: 1px solid var(--code-border); background: var(--code-bg); }
+    .window-bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--code-border); overflow-x: auto; }
+    .dots { display: flex; gap: 6px; margin-right: 10px; flex: none; }
+    .dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a3d4c; }
+    .tab {
+      flex: none; padding: 6px 10px; border-radius: 6px; border: 0; background: transparent; cursor: pointer;
+      color: var(--code-muted); font: 500 12.5px/1 var(--mono);
     }
-    .phone-frame {
-      border: 8px solid #27272a;
-      border-radius: 36px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    .tab[aria-selected="true"] { background: #1d2030; color: var(--code-text); }
+    .window pre { margin: 0; padding: 18px 20px; overflow: auto; height: 420px; color: var(--code-text); font-size: 13px; line-height: 1.7; }
+    .window pre[hidden] { display: none; }
+
+    section { padding: 88px 0; }
+    section.alt { background: var(--bg-soft); border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
+    .section-head { max-width: 640px; margin-bottom: 44px; }
+    .kicker, .section-head .kicker { color: var(--accent-text); font-weight: 600; font-size: 14px; margin: 0 0 8px; }
+    h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.12; letter-spacing: -.03em; margin: 0 0 14px; }
+    .section-head p { color: var(--text-soft); font-size: 17px; margin: 0; }
+
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: step; }
+    .step { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }
+    .step::before {
+      counter-increment: step; content: counter(step); display: grid; place-items: center;
+      width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); font-weight: 700; font-size: 14px; margin-bottom: 14px;
     }
-    .dropdown-menu {
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(6px);
-      transition: all 0.15s ease-out;
-      pointer-events: none;
+    .step code { display: block; font-size: 13px; background: var(--bg-sunken); padding: 8px 10px; border-radius: 8px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap; }
+    .step h3 { font-size: 16px; margin: 0 0 4px; }
+    .step p { margin: 0; color: var(--text-soft); font-size: 14.5px; }
+
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature { border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; background: var(--surface); }
+    .feature .ico { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-text); margin-bottom: 16px; }
+    .feature .ico svg { width: 18px; height: 18px; }
+    .feature h3 { font-size: 16.5px; margin: 0 0 6px; letter-spacing: -.01em; }
+    .feature p { margin: 0; color: var(--text-soft); font-size: 14.5px; }
+    .feature code { font-size: 13px; background: var(--bg-sunken); padding: 1px 5px; border-radius: 5px; }
+
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    .split .code pre { font-size: 13px; }
+    .split-copy { max-width: 520px; }
+    .split-copy ul { padding: 0; list-style: none; margin: 22px 0 0; display: grid; gap: 12px; }
+    .split-copy li { padding-left: 26px; position: relative; color: var(--text-soft); }
+    .split-copy li::before { content: ""; position: absolute; left: 0; top: 9px; width: 12px; height: 7px; border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg); }
+
+    .targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+    .target { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }
+    .target small { color: var(--text-muted); font: 500 12px/1 var(--mono); }
+    .target h3 { margin: 8px 0 6px; font-size: 16px; }
+    .target p { margin: 0; color: var(--text-soft); font-size: 14.5px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-size: 14px; color: var(--text-soft); }
+    .chip b { color: var(--text); font-weight: 600; }
+    .chip-group + .chip-group { margin-top: 22px; }
+    .chip-group h4 { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    .audience { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .aud { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; background: var(--surface); }
+    .aud h3 { font-size: 20px; margin: 0 0 8px; letter-spacing: -.02em; }
+    .aud p { color: var(--text-soft); margin: 0 0 18px; }
+    .aud ul { margin: 0 0 22px; padding-left: 18px; color: var(--text-soft); }
+    .aud li + li { margin-top: 6px; }
+
+    .cta-band { text-align: center; padding: 96px 0; }
+    .cta-band h2 { margin-bottom: 12px; }
+    .cta-band p { color: var(--text-soft); margin: 0 auto 28px; max-width: 520px; font-size: 17px; }
+    .cta-band .cta-row { justify-content: center; }
+
+    @media (max-width: 980px) {
+      .hero .container, .split, .audience { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .grid3, .targets { grid-template-columns: 1fr 1fr; }
+      .window pre { height: 360px; }
     }
-    .nav-item:hover .dropdown-menu {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-      pointer-events: auto;
+    @media (max-width: 640px) {
+      .hero { padding: 40px 0 32px; }
+      section { padding: 64px 0; }
+      .steps, .grid3, .targets { grid-template-columns: 1fr; }
+      .lede { font-size: 16.5px; }
+      .window pre { height: 320px; font-size: 12px; padding: 14px; }
     }
-    .kw { color: #f472b6; font-weight: 600; }
-    .fn { color: #60a5fa; }
-    .str { color: #a7f3d0; }
-    .com { color: #71717a; font-style: italic; }
-    .num { color: #fde047; }
-    .var { color: #e2e8f0; }
   </style>
 </head>
-<body class="bg-[#09090b] text-[#fafafa] font-sans antialiased overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-200">
+<body>
 
-  <!-- Glow Backgrounds -->
-  <div class="glow-bg top-[-80px] left-1/2 -translate-x-1/2"></div>
-  <div class="glow-bg top-[1800px] right-[-100px]"></div>
-  <div class="glow-bg top-[3400px] left-[-100px]"></div>
-
-  <!-- ── Header / Navbar with Dropdown Submenus ──────────────────────────────── -->
-  <header class="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#09090b]/90 backdrop-blur-xl">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-      
-      <!-- Brand Logo -->
-      <a href="index.html" class="flex items-center gap-2.5 flex-shrink-0 group">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:scale-105 transition-transform">
-          M
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="font-bold tracking-tight text-[15px] text-white">MCN Studio</span>
-          <span class="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 leading-none">Production Ready</span>
-        </div>
+<header class="topnav">
+  <div class="container">
+    <a class="brand" href="./" aria-label="MCN home"><span class="brand-mark">mcn</span>MCN</a>
+    <nav class="navlinks" aria-label="Main">
+      <a href="docs/#/getting-started/introduction">Docs</a>
+      <a href="docs/#/guide/language-basics">Language</a>
+      <a href="docs/#/reference/cli">CLI</a>
+      <a href="docs/#/guide/ai">AI</a>
+    </nav>
+    <div class="nav-right">
+      <a class="icon-btn" href="https://github.com/LeninPrakash41/mcn" aria-label="GitHub repository">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
       </a>
-
-      <!-- Center Navigation with Dropdown Sub-menus -->
-      <nav class="hidden lg:flex items-center gap-1 text-[13px] font-medium text-zinc-300">
-        
-        <!-- Dropdown 1: Platform & Syntax -->
-        <div class="relative nav-item group">
-          <button class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
-            <span>Platform</span>
-            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:rotate-180 transition-transform duration-200"></i>
-          </button>
-          <div class="dropdown-menu absolute left-0 top-full pt-1.5 w-64 z-50">
-            <div class="p-2 rounded-xl bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 shadow-2xl">
-              <a href="index.html#syntax" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="code-2" class="w-4 h-4 text-blue-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-blue-400">Syntax Primer</div>
-                  <div class="text-[11px] text-zinc-500">English-like declarative DSL</div>
-                </div>
-              </a>
-              <a href="index.html#code-comparison" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="git-compare" class="w-4 h-4 text-purple-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-purple-400">Code Comparison</div>
-                  <div class="text-[11px] text-zinc-500">65 lines vs 12 lines of MCN</div>
-                </div>
-              </a>
-              <a href="index.html#mcn-vs-python" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="scale" class="w-4 h-4 text-amber-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-amber-400">MCN vs. Python</div>
-                  <div class="text-[11px] text-zinc-500">Native DSL vs 6+ libraries</div>
-                </div>
-              </a>
-              <a href="index.html#demo" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="play-circle" class="w-4 h-4 text-emerald-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-emerald-400">Interactive Sandbox</div>
-                  <div class="text-[11px] text-zinc-500">Live Web & Flutter simulator</div>
-                </div>
-              </a>
-              <a href="http://localhost:5003" target="_blank" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="terminal" class="w-4 h-4 text-cyan-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-cyan-400 flex items-center gap-1.5">
-                    <span>Full Web IDE</span>
-                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono">Live</span>
-                  </div>
-                  <div class="text-[11px] text-zinc-500">Browser Monaco editor & runtime</div>
-                </div>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dropdown 2: Why MCN / Alternatives -->
-        <div class="relative nav-item group">
-          <button class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
-            <span>Why MCN</span>
-            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:rotate-180 transition-transform duration-200"></i>
-          </button>
-          <div class="dropdown-menu absolute left-0 top-full pt-1.5 w-72 z-50">
-            <div class="p-2 rounded-xl bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 shadow-2xl">
-              <a href="index.html#retool-comparison" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="layers" class="w-4 h-4 text-amber-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-amber-400">vs Retool & Zoho Creator</div>
-                  <div class="text-[11px] text-zinc-500">Code-first vs drag-and-drop</div>
-                </div>
-              </a>
-              <a href="index.html#modal-advantage" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-blue-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-blue-400">The Modal Advantage</div>
-                  <div class="text-[11px] text-zinc-500">Why click wizards beat canvases</div>
-                </div>
-              </a>
-              <a href="index.html#business-value" class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-900 transition-colors group/item">
-                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400 mt-0.5"></i>
-                <div>
-                  <div class="text-xs font-semibold text-white group-hover/item:text-emerald-400">For Businesses & Teams</div>
-                  <div class="text-[11px] text-zinc-500">10x faster MVP & zero seat taxes</div>
-                </div>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Direct Pages -->
-        <a href="learn.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
-          Learn MCN
-        </a>
-        <a href="developer-guide.html" class="px-3 py-2 rounded-lg text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all">
-          Developer Guide
-        </a>
-        <a href="train-agent.html" class="px-3 py-2 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-all flex items-center gap-1.5 font-medium">
-          <i data-lucide="bot" class="w-4 h-4"></i>
-          <span>Train Agent</span>
-        </a>
-      </nav>
-
-      <!-- Right Header Actions -->
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <a href="https://github.com/LeninPrakash41/mcn" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium text-zinc-300 hover:text-white rounded-lg border border-zinc-800 hover:bg-zinc-800/80 hover:border-zinc-700 transition-all">
-          <i data-lucide="github" class="w-3.5 h-3.5"></i>
-          <span>GitHub</span>
-        </a>
-        <a href="http://localhost:5003" target="_blank" class="inline-flex items-center gap-2 h-9 px-3.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 rounded-lg shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]">
-          <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
-          <span>Web IDE</span>
-          <span class="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        </a>
-        <a href="index.html#desktop" class="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 rounded-lg transition-all">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i>
-          <span>Desktop</span>
-        </a>
-
-        <!-- Mobile Menu Toggle Button -->
-        <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all" aria-label="Toggle navigation">
-          <i data-lucide="menu" class="w-4 h-4" id="mobile-menu-icon"></i>
-        </button>
-      </div>
-
+      <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="docs/#/getting-started/quick-start">Get started</a>
     </div>
+  </div>
+</header>
 
-    <!-- Mobile Navigation Drawer -->
-    <div id="mobile-menu" class="hidden lg:hidden border-t border-white/[0.06] bg-[#09090b]/98 backdrop-blur-2xl px-5 py-4 space-y-3">
-      <div class="space-y-1">
-        <div class="text-[10px] uppercase font-mono text-zinc-500 px-3 py-1 font-semibold">Platform & Syntax</div>
-        <a href="index.html#syntax" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="code-2" class="w-4 h-4 text-blue-400"></i> Syntax Primer
-        </a>
-        <a href="index.html#code-comparison" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="git-compare" class="w-4 h-4 text-purple-400"></i> Code Comparison
-        </a>
-        <a href="index.html#mcn-vs-python" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="scale" class="w-4 h-4 text-amber-400"></i> MCN vs. Python
-        </a>
-        <a href="index.html#demo" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="play-circle" class="w-4 h-4 text-emerald-400"></i> Interactive Sandbox
-        </a>
-      </div>
-
-      <div class="pt-2 border-t border-white/[0.06] space-y-1">
-        <div class="text-[10px] uppercase font-mono text-zinc-500 px-3 py-1 font-semibold">Documentation & Tools</div>
-        <a href="learn.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i> Learn MCN
-        </a>
-        <a href="developer-guide.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-white/[0.04]">
-          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i> Developer Guide
-        </a>
-        <a href="train-agent.html" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10">
-          <i data-lucide="bot" class="w-4 h-4"></i> Train Coding Agent
-        </a>
-      </div>
-
-      <div class="pt-3 border-t border-white/[0.06] flex flex-col gap-2">
-        <a href="http://localhost:5003" target="_blank" class="flex items-center justify-center gap-2 h-10 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 shadow-md">
-          <i data-lucide="terminal" class="w-4 h-4"></i> Launch Web IDE
-        </a>
-        <div class="grid grid-cols-2 gap-2">
-          <a href="https://github.com/LeninPrakash41/mcn" target="_blank" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
-            <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
-          </a>
-          <a href="index.html#desktop" class="flex items-center justify-center gap-2 h-9 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i> Desktop App
-          </a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- ── Hero Section ─────────────────────────────────────────────────────────── -->
-  <section class="relative pt-20 pb-16 md:pt-28 md:pb-24 px-6 max-w-7xl mx-auto z-10 text-center">
-    <!-- Announcement Badge -->
-    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-xs text-blue-400 mb-8 backdrop-blur-sm animate-fade-in">
-      <span class="flex h-2 w-2 rounded-full bg-blue-500 animate-ping"></span>
-      <span class="font-medium">Native AI Primitives, macOS Desktop App & Flutter Mobile Export</span>
-      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-    </div>
-
-    <!-- Main Headline -->
-    <h1 class="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.08]">
-      The Scripting Language Designed for the <span class="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">AI Era</span>
-    </h1>
-
-    <!-- Subtitle -->
-    <p class="mt-6 text-lg sm:text-xl text-zinc-400 max-w-3xl mx-auto leading-relaxed font-normal">
-      Write database schemas, backend services, AI workflows, and rich UIs in a single <code class="text-blue-300 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/50 font-mono text-[0.9em]">.mcn</code> script. 
-      Instantly compiles to production <strong class="text-zinc-200">React web apps</strong> and <strong class="text-zinc-200">Flutter mobile apps</strong> with zero API boilerplate.
-    </p>
-
-    <!-- CTAs -->
-    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-      <a href="http://localhost:5003" target="_blank" class="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-xl shadow-blue-500/30 transition-all hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98]">
-        <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-        <span>Launch Web IDE</span>
-        <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-white/20 text-white font-bold ml-1">Live</span>
-      </a>
-      
-      <a href="#desktop" class="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-semibold text-sm text-zinc-200 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-all">
-        <i data-lucide="apple" class="w-4 h-4"></i>
-        <span>Download Desktop</span>
-      </a>
-      
-      <div class="w-full sm:w-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
-        <div class="flex items-center gap-2">
-          <span class="text-zinc-500">$</span>
-          <span id="cli-command">pip install -e . && mcn playground</span>
-        </div>
-        <button onclick="copyCommand()" class="text-zinc-400 hover:text-white transition-colors p-1" title="Copy command">
-          <i data-lucide="copy" class="w-3.5 h-3.5" id="copy-icon"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- Quick Stats Bar -->
-    <div class="mt-14 pt-10 border-t border-white/[0.06] grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto text-left">
+<main>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="container">
       <div>
-        <div class="text-2xl font-bold text-white font-mono">1 .mcn file</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Backend + UI + AI logic</div>
-      </div>
-      <div>
-        <div class="text-2xl font-bold text-white font-mono">0 REST APIs</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Auto-wired client RPC</div>
-      </div>
-      <div>
-        <div class="text-2xl font-bold text-white font-mono">React + Flutter</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Dual-target code generation</div>
-      </div>
-      <div>
-        <div class="text-2xl font-bold text-white font-mono">100% Git</div>
-        <div class="text-xs text-zinc-500 mt-0.5">No proprietary JSON lock-in</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── 1. MCN SYNTAX PRIMER SECTION ────────────────────────────────────────── -->
-  <section id="syntax" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-3xl mx-auto mb-16">
-      <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">Language Overview</h2>
-      <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">Reads Like English. Executes Like a Program.</p>
-      <p class="text-sm text-zinc-400 mt-3">
-        MCN combines the clean, expressive syntax of Python and JavaScript with built-in language primitives for AI, databases, and UI declarations.
-      </p>
-    </div>
-
-    <!-- Syntax Feature Cards with Code Snippets -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      
-      <!-- Card 1: AI as a Language Primitive -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-purple-400 mb-3">
-            <i data-lucide="sparkles" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">AI Language Primitives</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            AI is not an external SDK or REST call. It is a first-class language expression with native prompt string interpolation.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="kw">var</span> <span class="var">patient</span> = {<span class="str">"name"</span>: <span class="str">"John"</span>, <span class="str">"bp"</span>: <span class="str">"145/95"</span>}</div>
-          <div class="mt-1.5"><span class="com">// Direct AI inference expression</span></div>
-          <div><span class="kw">var</span> <span class="var">risk</span> = <span class="fn">ai</span>(<span class="str">"Assess triage urgency for: "</span> + <span class="fn">to_json</span>(<span class="var">patient</span>))</div>
-          <div class="mt-1.5"><span class="fn">log</span>(<span class="str">"Patient assessed risk: {risk}"</span>)</div>
-        </div>
-      </div>
-
-      <!-- Card 2: Declarative UI Layouts -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-blue-400 mb-3">
-            <i data-lucide="layout-grid" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">Declarative UI DSL</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            Build production-ready interfaces using the unified <code class="text-blue-300 font-mono">ui(...)</code> directive. Automatically compiles to React or Flutter.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="fn">ui</span>(<span class="str">"card"</span>, {<span class="str">"title"</span>: <span class="str">"Live Tickets"</span>}, [</div>
-          <div class="pl-4"><span class="fn">ui</span>(<span class="str">"stat"</span>, {<span class="str">"label"</span>: <span class="str">"Open"</span>, <span class="str">"value"</span>: <span class="num">24</span>}),</div>
-          <div class="pl-4"><span class="fn">ui</span>(<span class="str">"table"</span>, {<span class="str">"data"</span>: <span class="var">tickets</span>, <span class="str">"actions"</span>: [<span class="str">"Resolve"</span>]}),</div>
-          <div class="pl-4"><span class="fn">ui</span>(<span class="str">"button"</span>, {<span class="str">"label"</span>: <span class="str">"New Ticket"</span>, <span class="str">"variant"</span>: <span class="str">"primary"</span>})</div>
-          <div>])</div>
-        </div>
-      </div>
-
-      <!-- Card 3: Embedded Database & Storage -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-emerald-400 mb-3">
-            <i data-lucide="database" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">Zero-Setup Persistence</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            Query and mutate SQLite, PostgreSQL, or vector databases with single expressions. No ORM migrations or config files.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="kw">use</span> <span class="str">"db"</span></div>
-          <div class="mt-1.5"><span class="com">// Query executes directly against embedded DB</span></div>
-          <div><span class="kw">var</span> <span class="var">users</span> = <span class="fn">db_query</span>(<span class="str">"SELECT id, name, email FROM users WHERE role = 'admin'"</span>)</div>
-          <div class="mt-1.5"><span class="fn">db_insert</span>(<span class="str">"audit_log"</span>, {<span class="str">"action"</span>: <span class="str">"admin_view"</span>, <span class="str">"count"</span>: <span class="var">users</span>.<span class="var">length</span>})</div>
-        </div>
-      </div>
-
-      <!-- Card 4: String Interpolation & Clean Variables -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-amber-400 mb-3">
-            <i data-lucide="code" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">Expressive Syntax</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            String interpolation with <code class="text-amber-300 font-mono">{expression}</code>, ternary operators, and JSON-native object/array manipulation.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="kw">var</span> <span class="var">score</span> = <span class="num">85</span></div>
-          <div><span class="kw">var</span> <span class="var">grade</span> = <span class="var">score</span> >= <span class="num">90</span> ? <span class="str">"A"</span> : <span class="var">score</span> >= <span class="num">80</span> ? <span class="str">"B"</span> : <span class="str">"C"</span></div>
-          <div class="mt-1.5"><span class="com">// Nested interpolation</span></div>
-          <div><span class="fn">log</span>(<span class="str">"Score {score} earned Grade: {grade}"</span>)</div>
-        </div>
-      </div>
-
-      <!-- Card 5: Built-in Auth & Security Directives -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-indigo-400 mb-3">
-            <i data-lucide="shield-check" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">Built-in Auth & RBAC</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            Secure your internal tools with enterprise-grade JWT generation, password hashing, and role validation in 2 lines.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="kw">use</span> <span class="str">"auth"</span></div>
-          <div class="mt-1.5"><span class="kw">var</span> <span class="var">token</span> = <span class="fn">auth_create_token</span>({<span class="str">"user"</span>: <span class="str">"nurse_01"</span>, <span class="str">"role"</span>: <span class="str">"staff"</span>})</div>
-          <div class="mt-1.5"><span class="kw">var</span> <span class="var">session</span> = <span class="fn">auth_verify_token</span>(<span class="var">token</span>)</div>
-          <div><span class="fn">log</span>(<span class="str">"Authenticated role: {session.role}"</span>)</div>
-        </div>
-      </div>
-
-      <!-- Card 6: Reusable Domain Packages -->
-      <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center gap-2.5 text-pink-400 mb-3">
-            <i data-lucide="package" class="w-5 h-5"></i>
-            <h3 class="font-bold text-base text-white">Reusable SI Packages</h3>
-          </div>
-          <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-            System integrators and teams can package domain logic once: <code class="text-pink-300 font-mono">use "accenture/healthcare"</code> or <code class="text-pink-300 font-mono">use "stripe"</code>.
-          </p>
-        </div>
-        <div class="code-editor rounded-xl p-3.5 font-mono text-xs leading-relaxed text-zinc-300">
-          <div><span class="kw">use</span> <span class="str">"fintech/payments"</span></div>
-          <div class="mt-1.5"><span class="kw">var</span> <span class="var">charge</span> = <span class="fn">process_charge</span>({<span class="str">"amount"</span>: <span class="num">5000</span>, <span class="str">"currency"</span>: <span class="str">"USD"</span>})</div>
-          <div><span class="fn">log</span>(<span class="str">"Charge status: {charge.status}"</span>)</div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ── 2. SIDE-BY-SIDE CODE COMPARISON: Traditional vs MCN ─────────────────── -->
-  <section id="code-comparison" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-3xl mx-auto mb-14">
-      <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">The Productivity Difference</h2>
-      <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">65+ Lines vs. 12 Lines of MCN</p>
-      <p class="text-sm text-zinc-400 mt-3">
-        See how building an AI-powered customer triage dashboard compares between the traditional multi-repo stack and a single <code class="text-blue-300 font-mono">.mcn</code> script.
-      </p>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-      
-      <!-- Traditional Stack (65+ lines, 3 files) -->
-      <div class="lg:col-span-6 glass-panel rounded-2xl p-6 border-red-500/20 bg-red-950/5 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-4">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-              <span class="font-bold text-sm text-white">Traditional Stack (FastAPI + React + LangChain)</span>
-            </div>
-            <span class="text-[11px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">3 files • 65 lines</span>
-          </div>
-
-          <p class="text-xs text-zinc-400 mb-3">Requires Express/FastAPI routes, Pydantic models, OpenAI SDK, CORS, React state, Axios, and Tailwind CSS.</p>
-
-          <div class="code-editor rounded-xl p-4 font-mono text-[11.5px] leading-relaxed text-zinc-400 overflow-x-auto max-h-[360px]">
-            <div class="text-zinc-600">// backend/main.py</div>
-            <div><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException</div>
-            <div><span class="kw">import</span> openai, os</div>
-            <div>app = FastAPI()</div>
-            <div class="mt-1">@app.post(<span class="str">"/api/triage"</span>)</div>
-            <div><span class="kw">async def</span> triage(ticket: dict):</div>
-            <div class="pl-4">client = openai.OpenAI(api_key=os.getenv(<span class="str">"KEY"</span>))</div>
-            <div class="pl-4">res = client.chat.completions.create(</div>
-            <div class="pl-8">model=<span class="str">"gpt-4o"</span>, messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: ticket[<span class="str">'msg'</span>]}]</div>
-            <div class="pl-4">)</div>
-            <div class="pl-4"><span class="kw">return</span> {<span class="str">"score"</span>: res.choices[0].message.content}</div>
-            
-            <div class="text-zinc-600 mt-3">// frontend/src/Dashboard.tsx (40+ lines of React)</div>
-            <div><span class="kw">export function</span> Dashboard() {</div>
-            <div class="pl-4"><span class="kw">const</span> [score, setScore] = useState(<span class="kw">null</span>);</div>
-            <div class="pl-4"><span class="kw">const</span> handleTriage = <span class="kw">async</span> () => {</div>
-            <div class="pl-8"><span class="kw">const</span> res = <span class="kw">await</span> fetch(<span class="str">'/api/triage'</span>, {method: <span class="str">'POST'</span>, ...});</div>
-            <div class="pl-8">setScore(<span class="kw">await</span> res.json());</div>
-            <div class="pl-4">}</div>
-            <div class="pl-4"><span class="kw">return</span> &lt;div className=<span class="str">"p-4 border rounded"</span>&gt;...&lt;/div&gt;</div>
-            <div>}</div>
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-xs text-red-400 flex items-center gap-1.5">
-          <i data-lucide="x" class="w-4 h-4"></i> High maintenance, fragmented repos, manual API wiring
-        </div>
-      </div>
-
-      <!-- MCN Solution (12 lines, 1 file) -->
-      <div class="lg:col-span-6 glass-panel rounded-2xl p-6 border-blue-500/40 bg-blue-950/10 flex flex-col justify-between shadow-xl shadow-blue-500/10">
-        <div>
-          <div class="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-4">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-              <span class="font-bold text-sm text-white">MCN Platform Approach</span>
-            </div>
-            <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">1 file • 12 lines</span>
-          </div>
-
-          <p class="text-xs text-zinc-300 mb-3">One self-contained script executes backend logic, invokes AI, and renders fullstack React + Flutter UIs.</p>
-
-          <div class="code-editor rounded-xl p-4 font-mono text-[12.5px] leading-relaxed text-zinc-200 overflow-x-auto max-h-[360px]">
-            <div class="text-zinc-500">// app.mcn — Fullstack Backend + AI + UI</div>
-            <div class="mt-1"><span class="kw">use</span> <span class="str">"db"</span></div>
-            <div class="mt-1.5"><span class="kw">var</span> <span class="var">ticket</span> = {<span class="str">"id"</span>: <span class="num">101</span>, <span class="str">"customer"</span>: <span class="str">"Acme"</span>, <span class="str">"issue"</span>: <span class="str">"API timeout on payment gateway"</span>}</div>
-            <div class="mt-1.5"><span class="com">// AI is a primitive expression</span></div>
-            <div><span class="kw">var</span> <span class="var">urgency</span> = <span class="fn">ai</span>(<span class="str">"Classify urgency (low/med/high): "</span> + <span class="var">ticket</span>.<span class="var">issue</span>)</div>
-            <div class="mt-1.5"><span class="com">// Declarative UI automatically wired to backend</span></div>
-            <div><span class="fn">ui</span>(<span class="str">"card"</span>, {<span class="str">"title"</span>: <span class="str">"Incident Triage"</span>, <span class="str">"description"</span>: <span class="var">ticket</span>.<span class="var">customer</span>}, [</div>
-            <div class="pl-4"><span class="fn">ui</span>(<span class="str">"stat"</span>, {<span class="str">"label"</span>: <span class="str">"Urgency Level"</span>, <span class="str">"value"</span>: <span class="var">urgency</span>}),</div>
-            <div class="pl-4"><span class="fn">ui</span>(<span class="str">"button"</span>, {<span class="str">"label"</span>: <span class="str">"Dispatch to On-Call"</span>, <span class="str">"variant"</span>: <span class="str">"primary"</span>})</div>
-            <div>])</div>
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
-          <i data-lucide="check" class="w-4 h-4"></i> 80% less code, 0 API boilerplate, instant React & Flutter output
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ── 3. MCN VS PYTHON: WHY A DEDICATED DSL BEATS PYTHON GLUE CODE ────────── -->
-  <section id="mcn-vs-python" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-3xl mx-auto mb-14">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 font-mono mb-3">
-        <i data-lucide="scale" class="w-3.5 h-3.5"></i> Language Architecture
-      </div>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">MCN vs. Python</h2>
-      <p class="text-sm text-zinc-400 mt-3 leading-relaxed">
-        Why build a dedicated domain-specific language instead of standard Python? Python is a great general-purpose language, but building internal tools requires gluing 6+ fractured libraries. MCN bakes persistence, AI inference, and reactive multi-target UI directly into the language runtime.
-      </p>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-      <!-- Feature 1 -->
-      <div class="glass-panel rounded-2xl p-6 border-white/[0.08]">
-        <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
-          <i data-lucide="package-minus" class="w-5 h-5"></i>
-        </div>
-        <h3 class="text-base font-bold text-white mb-2">Zero Dependency Hell</h3>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          <strong class="text-zinc-300">Python:</strong> Requires virtualenv, <code class="text-pink-300 font-mono">pip install fastapi sqlalchemy pydantic openai streamlit</code>, and complex requirements.txt pinning.<br><br>
-          <strong class="text-blue-300">MCN:</strong> Single binary. Native SQLite (<code class="text-blue-300 font-mono">use "db"</code>), native AI, and UI directives work out of the box with zero external pip dependencies.
-        </p>
-      </div>
-
-      <!-- Feature 2 -->
-      <div class="glass-panel rounded-2xl p-6 border-white/[0.08]">
-        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4">
-          <i data-lucide="smartphone" class="w-5 h-5"></i>
-        </div>
-        <h3 class="text-base font-bold text-white mb-2">Dual React + Flutter Target</h3>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          <strong class="text-zinc-300">Python:</strong> Streamlit or Gradio are trapped in rigid web layouts and cannot compile to native iOS/Android mobile apps.<br><br>
-          <strong class="text-purple-300">MCN:</strong> A single declarative <code class="text-purple-300 font-mono">ui(...)</code> specification compiles simultaneously into production React (<code class="text-purple-300 font-mono">@mcn/ui</code>) and native Flutter (<code class="text-purple-300 font-mono">mcn_ui</code>).
-        </p>
-      </div>
-
-      <!-- Feature 3 -->
-      <div class="glass-panel rounded-2xl p-6 border-white/[0.08]">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4">
-          <i data-lucide="bot" class="w-5 h-5"></i>
-        </div>
-        <h3 class="text-base font-bold text-white mb-2">Optimized for AI Coding Agents</h3>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          <strong class="text-zinc-300">Python:</strong> LLMs hallucinate wrong package versions, syntax quirks, and complex async event loop deadlocks.<br><br>
-          <strong class="text-emerald-300">MCN:</strong> Compact token footprint (70% fewer tokens), zero hallucinated imports, and instant self-healing via compile-time <code class="text-emerald-300 font-mono">mcn check</code>.
-        </p>
-      </div>
-    </div>
-
-    <!-- Direct Metric Comparison Grid -->
-    <div class="glass-panel rounded-2xl p-6 border-white/[0.08] overflow-x-auto">
-      <table class="w-full text-left text-xs sm:text-sm">
-        <thead>
-          <tr class="border-b border-zinc-800 text-zinc-400">
-            <th class="py-3 px-4">Metric</th>
-            <th class="py-3 px-4 font-semibold text-white bg-blue-950/40 border-x border-blue-800/40 rounded-t-lg">✨ MCN Scripting</th>
-            <th class="py-3 px-4 font-semibold text-zinc-400">Standard Python Stack</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-zinc-800/60 text-zinc-300">
-          <tr>
-            <td class="py-3.5 px-4 font-medium text-white">External Packages Required</td>
-            <td class="py-3.5 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold font-mono">0 (All native built-ins)</td>
-            <td class="py-3.5 px-4 text-zinc-400 font-mono">6+ (FastAPI, SQLAlchemy, OpenAI, etc.)</td>
-          </tr>
-          <tr>
-            <td class="py-3.5 px-4 font-medium text-white">Lines of Code for CRUD + AI + UI</td>
-            <td class="py-3.5 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold font-mono">12 – 18 lines</td>
-            <td class="py-3.5 px-4 text-zinc-400 font-mono">75 – 120 lines across 3 files</td>
-          </tr>
-          <tr>
-            <td class="py-3.5 px-4 font-medium text-white">LLM Context Window Cost</td>
-            <td class="py-3.5 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold font-mono">~350 tokens (70% savings)</td>
-            <td class="py-3.5 px-4 text-zinc-400 font-mono">~2,400 tokens</td>
-          </tr>
-          <tr>
-            <td class="py-3.5 px-4 font-medium text-white">Frontend Output</td>
-            <td class="py-3.5 px-4 text-blue-300 bg-blue-950/40 border-x border-blue-800/40 font-semibold">Web (React 18) + Mobile (Flutter)</td>
-            <td class="py-3.5 px-4 text-zinc-400">Streamlit (Web only) or Separate React repo</td>
-          </tr>
-          <tr>
-            <td class="py-3.5 px-4 font-medium text-white">Cold-Start Execution Time</td>
-            <td class="py-3.5 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold font-mono">~1.2 ms</td>
-            <td class="py-3.5 px-4 text-zinc-400 font-mono">~650 ms (package imports)</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ── 4. HEAD-TO-HEAD COMPARISON: MCN vs RETOOL vs ZOHO CREATOR ──────────── -->
-  <section id="retool-comparison" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-3xl mx-auto mb-16">
-      <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">Competitive Breakdown</h2>
-      <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">MCN vs. Retool & Zoho Creator</p>
-      <p class="text-sm text-zinc-400 mt-3">
-        Why developers and internal tooling teams are moving from restrictive visual drag-and-drop canvases to code-first MCN scripts.
-      </p>
-    </div>
-
-    <!-- Comparison Table -->
-    <div class="overflow-x-auto glass-panel rounded-2xl p-2 sm:p-6 border border-white/10">
-      <table class="w-full text-left text-xs sm:text-sm border-collapse">
-        <thead>
-          <tr class="border-b border-zinc-800 text-zinc-400">
-            <th class="py-4 px-4 font-semibold">Capability</th>
-            <th class="py-4 px-4 font-semibold text-white bg-blue-950/40 border-x border-blue-800/40 rounded-t-xl">
-              ✨ MCN Platform
-            </th>
-            <th class="py-4 px-4 font-semibold">Retool</th>
-            <th class="py-4 px-4 font-semibold">Zoho Creator</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-zinc-800/60 text-zinc-300">
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">Authoring Paradigm</td>
-            <td class="py-4 px-4 text-blue-300 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              Declarative .mcn script + Modals
-            </td>
-            <td class="py-4 px-4 text-zinc-400">Visual drag-and-drop canvas</td>
-            <td class="py-4 px-4 text-zinc-400">Form & grid builder GUI</td>
-          </tr>
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">Git & Version Control</td>
-            <td class="py-4 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              100% Git native (clean PR diffs)
-            </td>
-            <td class="py-4 px-4 text-zinc-400">Clunky JSON blobs (Enterprise tier)</td>
-            <td class="py-4 px-4 text-zinc-400">Proprietary version history</td>
-          </tr>
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">Mobile Application Support</td>
-            <td class="py-4 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              Native Flutter compilation (iOS & Android)
-            </td>
-            <td class="py-4 px-4 text-zinc-400">Separate Retool Mobile builder</td>
-            <td class="py-4 px-4 text-zinc-400">Rigid default mobile layouts</td>
-          </tr>
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">Frontend Output</td>
-            <td class="py-4 px-4 text-blue-300 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              Exports React 18 + Tailwind (@mcn/ui)
-            </td>
-            <td class="py-4 px-4 text-zinc-400">Locked in Retool proprietary runtime</td>
-            <td class="py-4 px-4 text-zinc-400">Locked in Zoho cloud runtime</td>
-          </tr>
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">AI Native Integration</td>
-            <td class="py-4 px-4 text-purple-300 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              Language primitive (<code class="text-purple-300">ai()</code>, <code class="text-purple-300">extract()</code>)
-            </td>
-            <td class="py-4 px-4 text-zinc-400">Add-on Retool AI query blocks</td>
-            <td class="py-4 px-4 text-zinc-400">Zia AI webhooks</td>
-          </tr>
-          <tr>
-            <td class="py-4 px-4 font-medium text-white">Pricing Model</td>
-            <td class="py-4 px-4 text-emerald-400 bg-blue-950/40 border-x border-blue-800/40 font-semibold">
-              Open source & self-hostable ($0 seat tax)
-            </td>
-            <td class="py-4 px-4 text-zinc-400">$10–$50 / user / month</td>
-            <td class="py-4 px-4 text-zinc-400">$25–$400+ / month / user</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Deep-dive on Why Modal Wizards Beat Drag & Drop -->
-    <div id="modal-advantage" class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      <div class="glass-panel rounded-xl p-5">
-        <div class="text-blue-400 font-bold text-sm mb-2 flex items-center gap-2">
-          <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i> No Pixel Nudging
-        </div>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          In visual canvases, developers spend 70% of their time fixing paddings, coordinates, and broken mobile flexboxes. MCN modals generate responsive layout primitives automatically.
-        </p>
-      </div>
-
-      <div class="glass-panel rounded-xl p-5">
-        <div class="text-purple-400 font-bold text-sm mb-2 flex items-center gap-2">
-          <i data-lucide="book-open" class="w-4 h-4"></i> Transparent Learning
-        </div>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          Modals act as interactive scaffolding: they generate clean, readable <code class="text-purple-300 font-mono">.mcn</code> code into your editor so learners understand exactly what was created.
-        </p>
-      </div>
-
-      <div class="glass-panel rounded-xl p-5">
-        <div class="text-emerald-400 font-bold text-sm mb-2 flex items-center gap-2">
-          <i data-lucide="git-pull-request" class="w-4 h-4"></i> Single Source of Truth
-        </div>
-        <p class="text-xs text-zinc-400 leading-relaxed">
-          No hidden metadata or proprietary database states. Your entire frontend and backend logic lives in a version-controlled text file ready for team review.
-        </p>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ── 4. BUSINESS VALUE & PROFESSIONAL IMPACT ────────────────────────────── -->
-  <section id="business-value" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-3xl mx-auto mb-16">
-      <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">Business Impact</h2>
-      <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">Why Engineering Leaders Choose MCN</p>
-      <p class="text-sm text-zinc-400 mt-3">
-        Built to eliminate engineering bottlenecks, lower infrastructure maintenance costs, and accelerate digital transformation.
-      </p>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      <!-- Benefit 1: 10x Faster Time-to-Market -->
-      <div class="glass-panel rounded-2xl p-7 flex flex-col justify-between">
-        <div>
-          <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5">
-            <i data-lucide="gauge" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white">10x Faster Time-to-Market</h3>
-          <p class="text-sm text-zinc-400 mt-2.5 leading-relaxed">
-            Internal tools, admin dashboards, and custom client portals that normally take 3 weeks of full-stack engineering can be shipped in an afternoon.
-          </p>
-        </div>
-        <div class="mt-6 pt-4 border-t border-white/[0.06] text-xs font-mono text-zinc-300">
-          <span class="text-emerald-400 font-bold">ROI:</span> Save 120+ dev hours per internal tool.
-        </div>
-      </div>
-
-      <!-- Benefit 2: Empower Backend & Python Developers -->
-      <div class="glass-panel rounded-2xl p-7 flex flex-col justify-between">
-        <div>
-          <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-5">
-            <i data-lucide="users" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white">Empowers Every Engineer</h3>
-          <p class="text-sm text-zinc-400 mt-2.5 leading-relaxed">
-            Backend engineers, data scientists, and DevOps staff can build beautiful, responsive web and mobile interfaces without having to master React, Tailwind, or Flutter state.
-          </p>
-        </div>
-        <div class="mt-6 pt-4 border-t border-white/[0.06] text-xs font-mono text-zinc-300">
-          <span class="text-purple-400 font-bold">DevEx:</span> Single syntax for data, AI, and UI.
-        </div>
-      </div>
-
-      <!-- Benefit 3: Zero Seat Taxes & Total Data Privacy -->
-      <div class="glass-panel rounded-2xl p-7 flex flex-col justify-between">
-        <div>
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5">
-            <i data-lucide="lock" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white">Zero Seat Taxes & Full Privacy</h3>
-          <p class="text-sm text-zinc-400 mt-2.5 leading-relaxed">
-            Unlike SaaS low-code builders charging $50/user/month, MCN is open source and self-hostable in your private cloud or VPC. Sensitive customer data never leaves your infrastructure.
-          </p>
-        </div>
-        <div class="mt-6 pt-4 border-t border-white/[0.06] text-xs font-mono text-zinc-300">
-          <span class="text-blue-400 font-bold">Security:</span> 100% HIPAA & SOC-2 compliance ready.
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ── 5. INTERACTIVE LIVE SIMULATOR ───────────────────────────────────────── -->
-  <section id="demo" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="text-center max-w-2xl mx-auto mb-14">
-      <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">Live Sandbox</h2>
-      <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">Interactive Platform Simulator</p>
-      <p class="text-sm text-zinc-400 mt-3">Switch between example use-cases and toggle between React Web and Flutter Mobile outputs.</p>
-    </div>
-
-    <div class="glass-panel rounded-2xl p-4 md:p-6 shadow-2xl border border-white/10">
-      
-      <!-- Window Controls & Tabs -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
-          </div>
-          <span class="text-xs font-mono text-zinc-400 pl-2">mcn-studio-playground</span>
-        </div>
-
-        <!-- Sample Switchers -->
-        <div class="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-lg border border-zinc-800 text-xs overflow-x-auto">
-          <button onclick="switchExample('sales_calendar')" id="tab-sales_calendar" class="px-3 py-1.5 rounded-md font-medium text-white bg-zinc-800 transition-colors whitespace-nowrap">
-            📅 Sales Calendar
-          </button>
-          <button onclick="switchExample('crm')" id="tab-crm" class="px-3 py-1.5 rounded-md font-medium text-zinc-400 hover:text-white transition-colors whitespace-nowrap">
-            CRM Dashboard
-          </button>
-          <button onclick="switchExample('ai_triage')" id="tab-ai_triage" class="px-3 py-1.5 rounded-md font-medium text-zinc-400 hover:text-white transition-colors whitespace-nowrap">
-            AI Triage Agent
-          </button>
-          <button onclick="switchExample('healthcare')" id="tab-healthcare" class="px-3 py-1.5 rounded-md font-medium text-zinc-400 hover:text-white transition-colors whitespace-nowrap">
-            Healthcare Portal
-          </button>
-        </div>
-
-        <!-- Target Switcher & Full IDE Launch -->
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-zinc-500 font-medium hidden sm:inline">Output Target:</span>
-            <div class="flex items-center bg-blue-950/40 border border-blue-800/40 rounded-lg p-0.5 text-xs">
-              <button onclick="setTarget('react')" id="btn-target-react" class="px-2.5 py-1 rounded font-medium text-white bg-blue-600 transition-all flex items-center gap-1.5">
-                <i data-lucide="globe" class="w-3 h-3"></i> React Web
-              </button>
-              <button onclick="setTarget('flutter')" id="btn-target-flutter" class="px-2.5 py-1 rounded font-medium text-zinc-400 hover:text-white transition-all flex items-center gap-1.5">
-                <i data-lucide="smartphone" class="w-3 h-3"></i> Flutter Mobile
-              </button>
-            </div>
-          </div>
-          <a href="http://localhost:5003" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all">
-            <i data-lucide="external-link" class="w-3 h-3"></i>
-            <span>Open in Full Web IDE</span>
+        <span class="eyebrow"><b>v2.4</b> Open source · MIT licensed</span>
+        <h1>One language for your <em>whole app</em>.</h1>
+        <p class="lede">Write the database, API and web UI in MCN, with AI as a built-in function. Errors explain how to fix themselves, and a browser IDE comes included.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="docs/#/getting-started/quick-start">
+            Build your first app
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
+          <a class="btn btn-secondary" href="docs/#/getting-started/introduction">Read the docs</a>
         </div>
+        <div class="install-tabs" role="tablist" aria-label="Your operating system">
+          <button type="button" role="tab" aria-selected="true" data-os="unix">macOS &amp; Linux</button>
+          <button type="button" role="tab" aria-selected="false" data-os="windows">Windows</button>
+        </div>
+        <div class="install">
+          <span>$</span>
+          <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh</code>
+          <button class="copy-btn" type="button" id="install-copy" data-copy="curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh" aria-label="Copy install command">Copy</button>
+        </div>
+        <div class="meta-row"><span>One command, no setup</span><span>Works offline</span><span>Compiles to React</span></div>
       </div>
 
-      <!-- Main Editor + Output Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
-        
-        <!-- Left: MCN Script Code Editor -->
-        <div class="lg:col-span-6 flex flex-col">
-          <div class="flex items-center justify-between text-xs text-zinc-400 pb-2 px-1">
-            <span class="font-mono flex items-center gap-1.5 text-blue-400">
-              <i data-lucide="file-code" class="w-3.5 h-3.5"></i> <span id="file-label">app.mcn</span>
-            </span>
-            <span class="text-[11px] text-zinc-500">Pure MCN Script</span>
-          </div>
-          <div class="code-editor rounded-xl p-4 flex-1 font-mono text-xs leading-relaxed overflow-x-auto text-zinc-300 min-h-[360px]">
-            <pre id="mcn-code-display"><code>// Single-file Fullstack CRM in MCN
-use "db"
-
-// 1. Data Schema
-var clients = db_query("SELECT id, name, company, status, deal_size FROM clients")
-
-// 2. AI Primitive
-function triage_lead(notes)
-    return ai("Extract budget, intent and sentiment from: " + notes)
-
-// 3. Declarative UI Layout
-ui("card", {title: "Client Pipeline", description: "Live Revenue Tracker"}, [
-    ui("stat", {label: "Active Deals", value: "$184,000", change: 14.2}),
-    ui("table", {
-        data: clients,
-        columns: ["name", "company", "deal_size", "status"],
-        actions: ["Contact", "Triage with AI"]
-    }),
-    ui("button", {label: "+ Add Client", variant: "primary", action: "new_client"})
-])</code></pre>
-          </div>
+      <div class="window" role="region" aria-label="Example MCN project">
+        <div class="window-bar" role="tablist">
+          <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <button class="tab" role="tab" aria-selected="true" aria-controls="ex-backend" id="t-backend">backend/main.mcn</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="ex-ui" id="t-ui">ui/app.mcn</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="ex-term" id="t-term">terminal</button>
         </div>
+<pre id="ex-backend" role="tabpanel" aria-labelledby="t-backend" data-lang="mcn">// The project `mcn init my-app` creates
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, done INTEGER DEFAULT 0)")
 
-        <!-- Right: Live Interactive Output Preview -->
-        <div class="lg:col-span-6 flex flex-col">
-          <div class="flex items-center justify-between text-xs text-zinc-400 pb-2 px-1">
-            <span class="font-mono flex items-center gap-1.5 text-emerald-400">
-              <i data-lucide="play" class="w-3.5 h-3.5"></i> <span id="preview-label">Live React Web Output (@mcn/ui)</span>
-            </span>
-            <span class="text-[11px] text-zinc-500">Auto-generated & live</span>
-          </div>
+service tasks_api
+    port 8080
 
-          <!-- Web Preview Container -->
-          <div id="preview-react-container" class="rounded-xl border border-zinc-800 bg-zinc-950 p-5 flex-1 flex flex-col justify-between min-h-[360px]">
-            <div class="space-y-4">
-              <!-- Card Header -->
-              <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
-                <div>
-                  <h3 id="preview-title" class="text-sm font-semibold text-white">Client Pipeline</h3>
-                  <p id="preview-desc" class="text-xs text-zinc-400">Live Revenue Tracker</p>
-                </div>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Live API Connected
-                </span>
-              </div>
+    endpoint add_task(title)
+        if not title
+            return {success: false, error: "Title is required"}
+        query("INSERT INTO tasks (title) VALUES (?)", (title,))
+        return {success: true}
 
-              <!-- Stat Component -->
-              <div class="p-3.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between">
-                <div>
-                  <div class="text-xs text-zinc-400">Active Deals</div>
-                  <div id="preview-stat-val" class="text-xl font-bold text-white font-mono mt-0.5">$184,000</div>
-                </div>
-                <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-                  <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> +14.2%
-                </div>
-              </div>
+    endpoint list_tasks()
+        return {success: true, data: query("SELECT * FROM tasks ORDER BY id DESC")}
 
-              <!-- Table Component -->
-              <div class="rounded-lg border border-zinc-800 overflow-hidden text-xs">
-                <table class="w-full text-left">
-                  <thead class="bg-zinc-900 text-zinc-400 border-b border-zinc-800">
-                    <tr>
-                      <th class="p-2">Name</th>
-                      <th class="p-2">Company</th>
-                      <th class="p-2">Deal</th>
-                      <th class="p-2">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-zinc-800/60 text-zinc-300" id="preview-table-body">
-                    <tr>
-                      <td class="p-2 font-medium text-white">Sarah Jenkins</td>
-                      <td class="p-2">Acme Corp</td>
-                      <td class="p-2 font-mono">$54,000</td>
-                      <td class="p-2"><button class="px-2 py-0.5 rounded bg-blue-600/20 text-blue-400">Triage</button></td>
-                    </tr>
-                    <tr>
-                      <td class="p-2 font-medium text-white">David Lin</td>
-                      <td class="p-2">Vertex AI</td>
-                      <td class="p-2 font-mono">$130,000</td>
-                      <td class="p-2"><button class="px-2 py-0.5 rounded bg-blue-600/20 text-blue-400">Triage</button></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+test "adding a task without a title is rejected"
+    assert add_task("").success == false
 
-            <!-- Footer Action -->
-            <div class="pt-4 border-t border-zinc-800 flex justify-end">
-              <button class="px-3.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow transition-all">
-                + Add Client
-              </button>
-            </div>
-          </div>
+test "added tasks are listed"
+    add_task("Write the README")
+    assert list_tasks().data[0].title == "Write the README"</pre>
+<pre id="ex-ui" role="tabpanel" aria-labelledby="t-ui" data-lang="mcn" hidden>component AddTask
+    state title   = ""
+    state message = ""
 
-          <!-- Mobile (Flutter) Mockup Container (Hidden by default) -->
-          <div id="preview-flutter-container" class="hidden flex-1 items-center justify-center py-2">
-            <div class="phone-frame w-[260px] h-[370px] bg-zinc-950 p-3 overflow-y-auto flex flex-col justify-between text-xs">
-              <div>
-                <!-- Mobile Status Bar -->
-                <div class="flex justify-between items-center text-[10px] text-zinc-500 pb-2">
-                  <span>9:41</span>
-                  <div class="flex items-center gap-1">
-                    <i data-lucide="wifi" class="w-3 h-3"></i>
-                    <i data-lucide="battery" class="w-3 h-3"></i>
-                  </div>
-                </div>
+    on submit
+        var result = add_task(title)
+        message = "Added!" if result.success else result.error
 
-                <!-- Flutter App Bar -->
-                <div class="font-bold text-sm text-white pb-2 flex items-center gap-1.5 border-b border-zinc-800">
-                  <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span id="flutter-title">MCN Mobile App</span>
-                </div>
+    render
+        card
+            card_header "New task"
+            form on_submit=submit
+                input bind=title label="What needs doing?"
+                button "Add" variant="default"
+                div
+                    text message
 
-                <!-- Flutter Card -->
-                <div class="mt-3 p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <div class="text-[11px] text-zinc-400">Total Deals</div>
-                  <div class="text-base font-bold text-white font-mono mt-0.5">$184,000</div>
-                  <div class="text-[10px] text-emerald-400 mt-1">▲ 14.2% this week</div>
-                </div>
+component TaskList
+    state items = []
 
-                <!-- Flutter List Items -->
-                <div class="mt-2 space-y-1.5">
-                  <div class="p-2 rounded bg-zinc-900/60 border border-zinc-800 flex justify-between items-center text-[11px]">
-                    <div>
-                      <div class="font-medium text-white">Sarah Jenkins</div>
-                      <div class="text-[10px] text-zinc-500">Acme Corp</div>
-                    </div>
-                    <span class="text-blue-400 font-mono">$54k</span>
-                  </div>
-                  <div class="p-2 rounded bg-zinc-900/60 border border-zinc-800 flex justify-between items-center text-[11px]">
-                    <div>
-                      <div class="font-medium text-white">David Lin</div>
-                      <div class="text-[10px] text-zinc-500">Vertex AI</div>
-                    </div>
-                    <span class="text-blue-400 font-mono">$130k</span>
-                  </div>
-                </div>
-              </div>
+    on load
+        items = list_tasks().data
 
-              <!-- Flutter Floating Action -->
-              <button class="w-full py-2 rounded-lg bg-blue-600 text-white font-semibold text-center text-xs shadow mt-3">
-                + Action
-              </button>
-            </div>
-          </div>
+    render
+        card
+            card_header "Tasks"
+            table
+                table_header
+                    table_row
+                        table_head "title"
+                        table_head "done"
+                table_body
 
+app MyApp
+    title "My App"
+    layout
+        tabs
+            tab "Add"   AddTask
+            tab "Tasks" TaskList</pre>
+<pre id="ex-term" role="tabpanel" aria-labelledby="t-term" data-lang="bash" hidden>$ mcn init my-app &amp;&amp; cd my-app
+Created my-app/
+
+$ mcn test backend/main.mcn
+  ✓ adding a task without a title is rejected
+  ✓ added tasks are listed
+  All 2 test(s) passed.
+
+$ mcn serve backend/main.mcn
+MCN API running on http://localhost:8080
+  GET/POST /add_task  (title)
+  GET/POST /list_tasks  (no parameters)
+Interactive docs: http://localhost:8080/docs
+
+$ mcn build ui/app.mcn --out frontend
+# React + Tailwind + shadcn/ui app, wired to the API
+
+$ mcn studio .
+MCN Studio — http://localhost:5003</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <section class="alt" id="how">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">From idea to running app</p>
+        <h2>Four commands. No boilerplate.</h2>
+        <p>Every new project starts as a working app with tests, so you change something that runs instead of wiring up frameworks.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><code>mcn init my-app</code><h3>Create</h3><p>A backend with endpoints and tests, a UI, and a README listing the commands.</p></div>
+        <div class="step"><code>mcn test backend/main.mcn</code><h3>Test</h3><p><code style="display:inline;padding:0 4px;margin:0">test</code> blocks live next to the code they check.</p></div>
+        <div class="step"><code>mcn studio .</code><h3>Build visually</h3><p>Edit, run, preview the web app and the mobile app, and inspect the database in your browser.</p></div>
+        <div class="step"><code>mcn build ui/app.mcn</code><h3>Ship</h3><p>Generate a React project, download a Flutter app, or serve the API with Docker files included.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Why MCN</p>
+        <h2>Everything an app needs, in a language that reads like the spec.</h2>
+      </div>
+      <div class="grid3">
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10.7l-5 3.6 1.9 5.7L12 16.5 7.1 20l1.9-5.7-5-3.6 6.1-1.9Z"/></svg></div>
+          <h3>AI is a function call</h3>
+          <p><code>ai()</code>, <code>classify()</code>, <code>extract()</code> and <code>rag()</code> are built in. Without an API key they return mock answers, so code still runs in class.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg></div>
+          <h3>Backend and UI together</h3>
+          <p>A <code>service</code> becomes an HTTP API; <code>component</code>s become React screens that call it. No API client to write.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+          <h3>Errors that teach</h3>
+          <p>Every error shows the line, points at the problem and suggests a fix. <code>mcn check</code> finds them before you run.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div>
+          <h3>A database included</h3>
+          <p>SQLite works with zero setup through <code>query()</code>, with <code>?</code> parameters. PostgreSQL and MongoDB connect when you need them.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+          <h3>Studio and VS Code</h3>
+          <p>A browser IDE with preview, DB explorer, IoT and AI inspectors — and a VS Code extension that underlines errors as you type.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.5-2 8-6 8-11V5l-8-3-8 3v6c0 5 2.5 9 8 11Z"/></svg></div>
+          <h3>Tested, top to bottom</h3>
+          <p>All 18 templates, every example and the generated React and Flutter apps are compiled and checked on every change.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ── 6. COMPONENT GALLERY (21st.dev Style) ───────────────────────────────── -->
-  <section id="components" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
-      <div>
-        <h2 class="text-xs uppercase font-mono text-blue-400 tracking-wider font-semibold">Design System</h2>
-        <p class="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">25+ Production Components</p>
-        <p class="text-sm text-zinc-400 mt-2">Available out of the box in <code class="text-blue-300">@mcn/ui</code> (React) & <code class="text-blue-300">mcn_ui</code> (Flutter).</p>
+  <!-- Errors -->
+  <section class="alt" id="errors">
+    <div class="container split">
+      <div class="split-copy">
+        <p class="kicker">Errors that teach</p>
+        <h2>The message tells you what to change.</h2>
+        <p style="color:var(--text-soft);font-size:17px;margin:0">MCN's errors are written for people who are still learning, and they save everyone else time too.</p>
+        <ul>
+          <li>The exact line and column, with a caret under the problem</li>
+          <li>“Did you mean” suggestions for typos in names and methods</li>
+          <li>The same checks in <code>mcn run</code>, <code>mcn check</code>, Studio and VS Code</li>
+        </ul>
       </div>
-
-      <div class="flex flex-wrap gap-2 text-xs font-medium">
-        <span class="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">All Components</span>
-        <span class="px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 border border-zinc-800">Primitives</span>
-        <span class="px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 border border-zinc-800">AI Agents</span>
-        <span class="px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 border border-zinc-800">Data Tables</span>
+      <div style="display:grid;gap:12px;min-width:0">
+        <pre><code class="language-mcn">var total = 0
+for price in [12, 30, 8]
+    total += price
+log("Total: " + str(totl))</code></pre>
+        <pre><code class="language-output">Name error on line 4, column 21: Undefined variable 'totl'
+   4 | log("Total: " + str(totl))
+     |                     ^^^^
+Hint: Did you mean 'total'?</code></pre>
       </div>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      
-      <!-- Card: Button -->
-      <div class="glass-panel rounded-xl p-5 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between text-xs text-zinc-400 mb-4">
-            <span class="font-mono text-white font-semibold">Button</span>
-            <span class="text-[10px] text-zinc-500">7 Variants</span>
-          </div>
-          <div class="h-24 flex items-center justify-center bg-zinc-950/60 rounded-lg border border-zinc-800/80 gap-2">
-            <button class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md shadow">Primary</button>
-            <button class="px-3 py-1.5 text-xs font-medium bg-zinc-800 text-zinc-300 rounded-md">Default</button>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-[11px] font-mono text-zinc-400 truncate">
-          ui("button", {variant: "primary"})
-        </div>
-      </div>
-
-      <!-- Card: AIPrompt -->
-      <div class="glass-panel rounded-xl p-5 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between text-xs text-zinc-400 mb-4">
-            <span class="font-mono text-white font-semibold">AIPrompt</span>
-            <span class="text-[10px] text-purple-400">Streaming</span>
-          </div>
-          <div class="h-24 flex flex-col justify-between p-2.5 bg-zinc-950/60 rounded-lg border border-zinc-800/80 text-[11px]">
-            <span class="text-zinc-500">Ask AI to summarize...</span>
-            <div class="flex justify-between items-center text-[10px] text-zinc-400">
-              <span>claude-3-5-sonnet</span>
-              <button class="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px]">Send</button>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-[11px] font-mono text-zinc-400 truncate">
-          ui("ai_prompt", {placeholder: "..."})
-        </div>
-      </div>
-
-      <!-- Card: Stat Metric -->
-      <div class="glass-panel rounded-xl p-5 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between text-xs text-zinc-400 mb-4">
-            <span class="font-mono text-white font-semibold">Stat Block</span>
-            <span class="text-[10px] text-emerald-400">+12.4%</span>
-          </div>
-          <div class="h-24 flex flex-col justify-center p-3 bg-zinc-950/60 rounded-lg border border-zinc-800/80">
-            <span class="text-[11px] text-zinc-400">Active API Keys</span>
-            <span class="text-xl font-bold font-mono text-white">4,892</span>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-[11px] font-mono text-zinc-400 truncate">
-          ui("stat", {label: "Keys", value: 4892})
-        </div>
-      </div>
-
-      <!-- Card: OutputLog -->
-      <div class="glass-panel rounded-xl p-5 flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between text-xs text-zinc-400 mb-4">
-            <span class="font-mono text-white font-semibold">OutputLog</span>
-            <span class="text-[10px] text-blue-400">Mocha Theme</span>
-          </div>
-          <div class="h-24 p-2 bg-[#1e1e2e] rounded-lg border border-zinc-800 text-[10px] font-mono text-[#cdd6f4] overflow-hidden flex flex-col justify-center">
-            <div class="text-[#7dcfff]">→ Starting MCN Server...</div>
-            <div class="text-[#9ece6a]">✓ Build complete in 0.8s</div>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-white/[0.06] text-[11px] font-mono text-zinc-400 truncate">
-          ui("output_log", {lines: logs})
-        </div>
-      </div>
-
     </div>
   </section>
 
-  <!-- ── 7. DESKTOP APP CALLOUT & DOWNLOAD ───────────────────────────────────── -->
-  <section id="desktop" class="max-w-7xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-    <div class="relative rounded-3xl p-8 md:p-14 overflow-hidden border border-blue-500/20 bg-gradient-to-b from-blue-950/30 to-zinc-950 shadow-2xl">
-      <div class="glow-bg -top-20 -right-20"></div>
+  <!-- Targets -->
+  <section id="targets">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Three ways to ship</p>
+        <h2>Serve it as an API, ship it on the web, take it to phones.</h2>
+      </div>
+      <div class="targets">
+        <div class="target"><small>mcn serve</small><h3>HTTP API</h3><p>Each endpoint answers GET and POST, with interactive docs at <code>/docs</code>.</p></div>
+        <div class="target"><small>mcn build</small><h3>React web app</h3><p>Vite, Tailwind and shadcn/ui components, already calling your endpoints.</p></div>
+        <div class="target"><small>Studio → App</small><h3>Flutter mobile app</h3><p>Generated from a screen manifest, with a live client for your API and demo data offline.</p></div>
+      </div>
+    </div>
+  </section>
 
-      <div class="relative z-10 max-w-2xl">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 font-mono mb-6">
-          <i data-lucide="apple" class="w-3.5 h-3.5"></i> Native macOS Application
+  <!-- Templates -->
+  <section class="alt" id="templates">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">18 starter templates</p>
+        <h2>Start from something real.</h2>
+        <p>Open the <b>Templates</b> menu in Studio. Each one runs, builds and is covered by tests.</p>
+      </div>
+      <div class="chip-group"><h4>Business apps</h4><div class="chips">
+        <span class="chip"><b>CRM</b> · deals, contacts, activities</span>
+        <span class="chip"><b>Sales hub</b> · pipeline dashboard</span>
+        <span class="chip"><b>Analytics &amp; BI</b> · KPIs and trends</span>
+        <span class="chip"><b>Inventory</b> · CRUD manager</span>
+        <span class="chip"><b>Construction</b> · jobs and milestones</span>
+        <span class="chip"><b>Prompt marketplace</b> · AI workflows</span>
+      </div></div>
+      <div class="chip-group"><h4>Mobile &amp; IoT</h4><div class="chips">
+        <span class="chip"><b>Smart home</b> · sensors and climate</span>
+        <span class="chip"><b>Expense tracker</b> · budgets</span>
+        <span class="chip"><b>Field inspection</b> · audits</span>
+        <span class="chip"><b>Telemetry hub</b> · alerts</span>
+      </div></div>
+      <div class="chip-group"><h4>Backends &amp; learning</h4><div class="chips">
+        <span class="chip"><b>REST service</b></span>
+        <span class="chip"><b>AI prompt router</b></span>
+        <span class="chip"><b>Data pipeline</b></span>
+        <span class="chip"><b>DB reports</b></span>
+        <span class="chip"><b>Hello world</b></span>
+        <span class="chip"><b>Functions</b></span>
+        <span class="chip"><b>Algorithms</b></span>
+        <span class="chip"><b>Testing</b></span>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- Audience -->
+  <section id="who">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Who it's for</p>
+        <h2>Built for learning. Ready for internal tools.</h2>
+      </div>
+      <div class="audience">
+        <div class="aud">
+          <h3>Students &amp; educators</h3>
+          <p>Go from first program to a full-stack app with AI in two sessions.</p>
+          <ul>
+            <li>Starter guide, 8 exercises and reference solutions</li>
+            <li>Facilitator guide with metrics and a feedback form</li>
+            <li>Mock AI mode, so no API keys are needed in class</li>
+          </ul>
+          <a class="btn btn-secondary btn-sm" href="docs/#/getting-started/student-pilot">Student pilot kit</a>
         </div>
-
-        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-          Build & Run 100% Offline with MCN Desktop
-        </h2>
-
-        <p class="text-zinc-400 text-base sm:text-lg mt-4 leading-relaxed">
-          The desktop edition embeds the entire Python runtime directly into an Electron shell. Enjoy native macOS menus, local file management, dock badges, and instant dev server launches.
-        </p>
-
-        <div class="mt-8 flex flex-wrap gap-4 items-center">
-          <a href="#" class="flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Download MCN Studio for Mac (.dmg)</span>
-          </a>
-          <a href="http://localhost:5003" target="_blank" class="flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/50 shadow transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <i data-lucide="terminal" class="w-4 h-4"></i>
-            <span>Launch Web IDE in Browser</span>
-          </a>
-          <span class="text-xs text-zinc-500 font-mono">Universal Build • macOS 12+ or Any Modern Browser</span>
+        <div class="aud">
+          <h3>Teams building internal apps</h3>
+          <p>Admin panels, CRMs, approval flows and dashboards without a separate frontend and backend codebase.</p>
+          <ul>
+            <li>Domain packages: payments, auth, healthcare, finance, Slack</li>
+            <li>Downloads include Dockerfile, docker-compose and CI</li>
+            <li><code>mcn generate</code> drafts an app from a description</li>
+          </ul>
+          <a class="btn btn-secondary btn-sm" href="docs/#/guide/services">Build an API</a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
-  <footer class="border-t border-white/[0.06] py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col md:flex-row items-center justify-between gap-6">
-    <div class="flex items-center gap-2">
-      <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-[10px]">M</div>
-      <span class="text-zinc-300 font-medium">MCN (Macincode Scripting Language)</span>
-      <span>— Open Source under MIT License</span>
+  <section class="alt cta-band">
+    <div class="container">
+      <h2>Your first app is two minutes away.</h2>
+      <p>Install MCN, create a project and open it in Studio.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="docs/#/getting-started/quick-start">Start the quick start</a>
+        <a class="btn btn-secondary" href="https://github.com/LeninPrakash41/mcn">View on GitHub</a>
+      </div>
     </div>
+  </section>
+</main>
 
-    <div class="flex items-center gap-6">
-      <a href="index.html" class="hover:text-zinc-300 transition-colors text-white font-medium">Home</a>
-      <a href="learn.html" class="hover:text-zinc-300 transition-colors">Learn MCN</a>
-      <a href="developer-guide.html" class="hover:text-zinc-300 transition-colors">Developer Guide</a>
-      <a href="train-agent.html" class="hover:text-zinc-300 transition-colors">Train Coding Agent</a>
-      <a href="https://github.com/LeninPrakash41/mcn" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
-    </div>
-  </footer>
+<footer class="footer">
+  <div class="container">
+    <span>MCN · MIT licensed</span>
+    <nav aria-label="Footer">
+      <a href="docs/#/getting-started/introduction">Documentation</a>
+      <a href="docs/#/reference/cli">CLI reference</a>
+      <a href="https://github.com/LeninPrakash41/mcn/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/LeninPrakash41/mcn">GitHub</a>
+    </nav>
+  </div>
+</footer>
 
-  <!-- ── Interactive JavaScript Controller ───────────────────────────────────── -->
-  <script>
-    // Initialize Lucide icons
-    lucide.createIcons();
-    
-    // Code examples repository
-    const examples = {
-      sales_calendar: {
-        title: "Sales Intelligence & Calendar Hub",
-        file: "sales_calendar.mcn",
-        desc: "Live Schedule Queue with AI Pre-Call Strategy",
-        statVal: "$491,000",
-        mcnCode: `// Sales Intelligence & Calendar Hub — MCN Internal Tool
-use "db"
-use "ui"
-
-// 1. Database & Schedule Queries
-var meetings = db_query("SELECT id, time, company, prospect, deal_value, stage, rep FROM sales_calls")
-
-// 2. AI Pre-Meeting Briefing & Strategy Copilot
-function ai_prepare_meeting(call_id) {
-    var call = db_query("SELECT * FROM sales_calls WHERE id = ?", (call_id,))[0]
-    return ai("Generate enterprise discovery questions & pain points for " + call.company + " ($" + call.deal_value + ")")
-}
-
-// 3. Declarative Multi-Target UI Layout
-ui("card", {title: "Today's Sales Agenda", description: "4 Calls Scheduled"}, [
-    ui("stat", {label: "Active Pipeline", value: "$491,000", change: 18.4}),
-    ui("table", {
-        data: meetings,
-        columns: ["time", "company", "prospect", "deal_value", "stage", "rep"],
-        actions: ["AI Briefing", "Draft Recap Email"]
-    }),
-    ui("button", {label: "+ Book Prospect Call", variant: "primary", action: "new_call"})
-])`,
-        tableRows: `
-          <tr>
-            <td class="p-2 font-mono text-white">10:30 AM</td>
-            <td class="p-2 font-medium text-white">Acme Health</td>
-            <td class="p-2">Sarah Jenkins</td>
-            <td class="p-2 font-mono text-emerald-400">$75,000</td>
-            <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px]">Discovery</span></td>
-            <td class="p-2 text-zinc-400">Alex Rivera</td>
-            <td class="p-2"><button class="px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 text-[10px]">AI Briefing</button></td>
-          </tr>
-          <tr>
-            <td class="p-2 font-mono text-white">02:00 PM</td>
-            <td class="p-2 font-medium text-white">Vertex AI</td>
-            <td class="p-2">David Lin</td>
-            <td class="p-2 font-mono text-emerald-400">$140,000</td>
-            <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px]">Proposal</span></td>
-            <td class="p-2 text-zinc-400">Elena Rostova</td>
-            <td class="p-2"><button class="px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 text-[10px]">AI Briefing</button></td>
-          </tr>
-          <tr>
-            <td class="p-2 font-mono text-white">03:30 PM</td>
-            <td class="p-2 font-medium text-white">FinTech Cloud</td>
-            <td class="p-2">Chloe Zhang</td>
-            <td class="p-2 font-mono text-emerald-400">$185,000</td>
-            <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px]">Closing</span></td>
-            <td class="p-2 text-zinc-400">Elena Rostova</td>
-            <td class="p-2"><button class="px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 text-[10px]">AI Briefing</button></td>
-          </tr>`
-      },
-      crm: {
-        title: "CRM Dashboard",
-        file: "app.mcn",
-        desc: "Live Revenue Tracker",
-        statVal: "$184,000",
-        mcnCode: `// Single-file Fullstack CRM in MCN
-use "db"
-
-// 1. Data Schema
-var clients = db_query("SELECT id, name, company, status, deal_size FROM clients")
-
-// 2. AI Primitive
-function triage_lead(notes)
-    return ai("Extract budget, intent and sentiment from: " + notes)
-
-// 3. Declarative UI Layout
-ui("card", {title: "Client Pipeline", description: "Live Revenue Tracker"}, [
-    ui("stat", {label: "Active Deals", value: "$184,000", change: 14.2}),
-    ui("table", {
-        data: clients,
-        columns: ["name", "company", "deal_size", "status"],
-        actions: ["Contact", "Triage with AI"]
-    }),
-    ui("button", {label: "+ Add Client", variant: "primary", action: "new_client"})
-])`,
-        tableRows: `
-          <tr>
-            <td class="p-2 font-medium text-white">Sarah Jenkins</td>
-            <td class="p-2">Acme Corp</td>
-            <td class="p-2 font-mono">$54,000</td>
-            <td class="p-2"><button class="px-2 py-0.5 rounded bg-blue-600/20 text-blue-400">Triage</button></td>
-          </tr>
-          <tr>
-            <td class="p-2 font-medium text-white">David Lin</td>
-            <td class="p-2">Vertex AI</td>
-            <td class="p-2 font-mono">$130,000</td>
-            <td class="p-2"><button class="px-2 py-0.5 rounded bg-blue-600/20 text-blue-400">Triage</button></td>
-          </tr>`
-      },
-      ai_triage: {
-        title: "AI Support Triage Agent",
-        file: "agent.mcn",
-        desc: "Automated Sentiment & Urgency Dispatch",
-        statVal: "98.4%",
-        mcnCode: `// AI Support Dispatch Agent
-use "auth"
-
-function on_ticket_created(ticket)
-    var analysis = ai("Classify urgency (low/high/critical) for: " + ticket.body)
-    
-    if analysis == "critical"
-        notify_slack("#urgent-incidents", ticket.title)
-    
-    return {id: ticket.id, urgency: analysis}
-
-ui("card", {title: "AI Triage Console"}, [
-    ui("stat", {label: "Auto-Resolution Rate", value: "98.4%", change: 5.1}),
-    ui("ai_prompt", {placeholder: "Test triage with sample email..."})
-])`,
-        tableRows: `
-          <tr>
-            <td class="p-2 font-medium text-white">#1042 Database Timeout</td>
-            <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px]">Critical</span></td>
-            <td class="p-2 font-mono">0.4s</td>
-            <td class="p-2"><span class="text-emerald-400">Dispatched</span></td>
-          </tr>
-          <tr>
-            <td class="p-2 font-medium text-white">#1043 Invoice PDF request</td>
-            <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px]">Low</span></td>
-            <td class="p-2 font-mono">0.2s</td>
-            <td class="p-2"><span class="text-emerald-400">Auto-replied</span></td>
-          </tr>`
-      },
-      healthcare: {
-        title: "Patient Admission Portal",
-        file: "portal.mcn",
-        desc: "HIPAA Compliant Record System",
-        statVal: "142 Beds",
-        mcnCode: `// Healthcare Admission System
-use "healthcare"
-
-var patient = {id: "P001", name: "John Doe", department: "Cardiology"}
-var admission = admit_patient(patient)
-var risk = ai("Assess triage risk: " + to_json(patient))
-
-ui("card", {title: "Hospital Floor 3"}, [
-    ui("stat", {label: "Occupancy", value: "142 Beds", change: -2.3}),
-    ui("table", {data: [patient], columns: ["id", "name", "department"]})
-])`,
-        tableRows: `
-          <tr>
-            <td class="p-2 font-medium text-white">John Doe (P001)</td>
-            <td class="p-2">Cardiology</td>
-            <td class="p-2 font-mono">Room 304</td>
-            <td class="p-2"><span class="text-blue-400">Admitted</span></td>
-          </tr>`
-      }
-    };
-
-    function switchExample(key) {
-      const data = examples[key];
-      if (!data) return;
-
-      // Update Tabs active style
-      ['sales_calendar', 'crm', 'ai_triage', 'healthcare'].forEach(k => {
-        const tab = document.getElementById('tab-' + k);
-        if (tab) {
-          if (k === key) {
-            tab.className = "px-3 py-1.5 rounded-md font-medium text-white bg-zinc-800 transition-colors whitespace-nowrap";
-          } else {
-            tab.className = "px-3 py-1.5 rounded-md font-medium text-zinc-400 hover:text-white transition-colors whitespace-nowrap";
-          }
-        }
+<script src="assets/site.js"></script>
+<script>
+  // Highlight the example window and wire its tabs
+  document.querySelectorAll(".window pre").forEach(function (pre) {
+    var lang = pre.getAttribute("data-lang");
+    if (lang === "mcn") pre.innerHTML = MCNSite.highlight(pre.textContent, "mcn");
+    else pre.innerHTML = MCNSite.highlight(pre.textContent, "bash").replace(/^(\$ )/gm, '<span class="tok-dim">$1</span>');
+  });
+  var tabs = document.querySelectorAll(".window .tab");
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute("aria-selected", on);
+        document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
       });
+    });
+  });
+  MCNSite.enhanceCode(document.getElementById("errors"));
 
-      // Update Code & Preview Content
-      document.getElementById('mcn-code-display').innerHTML = `<code>${escapeHtml(data.mcnCode)}</code>`;
-      document.getElementById('file-label').textContent = data.file;
-      document.getElementById('preview-title').textContent = data.title;
-      document.getElementById('flutter-title').textContent = data.title;
-      document.getElementById('preview-desc').textContent = data.desc;
-      document.getElementById('preview-stat-val').textContent = data.statVal;
-      document.getElementById('preview-table-body').innerHTML = data.tableRows;
-    }
-
-    function setTarget(target) {
-      const reactBtn = document.getElementById('btn-target-react');
-      const flutterBtn = document.getElementById('btn-target-flutter');
-      const reactCont = document.getElementById('preview-react-container');
-      const flutterCont = document.getElementById('preview-flutter-container');
-      const label = document.getElementById('preview-label');
-
-      if (target === 'react') {
-        reactBtn.className = "px-2.5 py-1 rounded font-medium text-white bg-blue-600 transition-all flex items-center gap-1.5";
-        flutterBtn.className = "px-2.5 py-1 rounded font-medium text-zinc-400 hover:text-white transition-all flex items-center gap-1.5";
-        reactCont.classList.remove('hidden');
-        flutterCont.classList.add('hidden');
-        label.textContent = "Live React Web Output (@mcn/ui)";
-      } else {
-        flutterBtn.className = "px-2.5 py-1 rounded font-medium text-white bg-blue-600 transition-all flex items-center gap-1.5";
-        reactBtn.className = "px-2.5 py-1 rounded font-medium text-zinc-400 hover:text-white transition-all flex items-center gap-1.5";
-        reactCont.classList.add('hidden');
-        flutterCont.classList.remove('hidden');
-        flutterCont.classList.add('flex');
-        label.textContent = "Live Flutter Mobile App Mockup (mcn_ui)";
-      }
-    }
-
-    function copyCommand() {
-      const text = document.getElementById('cli-command').textContent;
-      navigator.clipboard.writeText(text);
-      const icon = document.getElementById('copy-icon');
-      icon.setAttribute('data-lucide', 'check');
-      lucide.createIcons();
-      setTimeout(() => {
-        icon.setAttribute('data-lucide', 'copy');
-        lucide.createIcons();
-      }, 2000);
-    }
-
-    function toggleMobileMenu() {
-      const menu = document.getElementById('mobile-menu');
-      const icon = document.getElementById('mobile-menu-icon');
-      if (menu.classList.contains('hidden')) {
-        menu.classList.remove('hidden');
-        icon.setAttribute('data-lucide', 'x');
-      } else {
-        menu.classList.add('hidden');
-        icon.setAttribute('data-lucide', 'menu');
-      }
-      lucide.createIcons();
-    }
-
-    // Set default demo to Sales Calendar
-    switchExample('sales_calendar');
-  </script>
+  // Install command for the visitor's OS (Windows gets the PowerShell one-liner)
+  var INSTALL = { unix: 'curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh', windows: 'powershell -c "irm https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.ps1 | iex"' };
+  var osTabs = document.querySelectorAll(".install-tabs button");
+  function showOS(os) {
+    osTabs.forEach(function (b) { b.setAttribute("aria-selected", b.dataset.os === os); });
+    document.getElementById("install-cmd").textContent = INSTALL[os];
+    document.getElementById("install-copy").setAttribute("data-copy", INSTALL[os]);
+    document.querySelector(".install span").textContent = os === "windows" ? ">" : "$";
+  }
+  osTabs.forEach(function (b) { b.addEventListener("click", function () { showOS(b.dataset.os); }); });
+  if (/Win/.test(navigator.platform)) showOS("windows");
+</script>
 </body>
 </html>

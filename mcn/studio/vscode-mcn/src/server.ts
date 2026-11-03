@@ -566,7 +566,7 @@ async function validateWithCLI(doc: TextDocument): Promise<any[]> {
       if (err && err.code === 'ENOENT') {
         cliMissing = true;
         connection.window.showWarningMessage(
-          `MCN: '${mcnCli}' was not found, so only basic checks run. Install MCN (pip install mcn-lang) or set "mcn.cliPath".`);
+          `MCN: '${mcnCli}' was not found, so only basic checks run. Install it from https://github.com/LeninPrakash41/mcn#install or set "mcn.cliPath".`);
         resolve(validateDocument(doc));
         return;
       }

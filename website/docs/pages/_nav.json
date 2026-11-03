@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Getting started",
+    "pages": [
+      "getting-started/introduction",
+      "getting-started/installation",
+      "getting-started/quick-start",
+      "getting-started/studio",
+      "getting-started/vscode",
+      "getting-started/student-pilot"
+    ]
+  },
+  {
+    "title": "Language guide",
+    "pages": [
+      "guide/language-basics",
+      "guide/functions-and-errors",
+      "guide/lists-and-objects",
+      "guide/database",
+      "guide/services",
+      "guide/ui",
+      "guide/ai",
+      "guide/tasks-events-iot",
+      "guide/testing",
+      "guide/packages"
+    ]
+  },
+  {
+    "title": "Reference",
+    "pages": [
+      "reference/cli",
+      "reference/builtins",
+      "reference/ui-elements",
+      "reference/errors",
+      "reference/configuration"
+    ]
+  }
+]

@@ -6,23 +6,32 @@ running app in about 30 minutes.
 
 ## 1. Install (10 minutes)
 
-You need **Python 3.10 or newer**. Check with `python3 --version`.
+Run one command. On macOS or Linux, in a terminal:
 
 ```bash
-git clone https://github.com/LeninPrakash41/mcn
-cd mcn
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e .
-mcn run examples/hello.mcn
+curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh
 ```
 
-You should see two lines: `Output Hello World!` and `Adult`.
+On Windows, in PowerShell:
+
+```bash
+powershell -c "irm https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.ps1 | iex"
+```
+
+Open a **new** terminal, then create your first project and run its tests:
+
+```bash
+mcn init hello-app
+cd hello-app
+mcn test backend/main.mcn
+```
+
+You should see `All 2 test(s) passed.`
 
 ## 2. Open MCN Studio
 
 ```bash
-python mcn/web-playground/server.py
+mcn studio .
 ```
 
 Open **http://localhost:5003** in your browser. Studio only accepts connections

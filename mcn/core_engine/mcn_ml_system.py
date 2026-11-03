@@ -5,8 +5,11 @@ MCN ML System - Fine-Tuning and Advanced ML Operations
 import os
 import json
 import time
-import pandas as pd
-import numpy as np
+try:
+    import pandas as pd
+    import numpy as np
+except ImportError:            # an optional feature, not part of the base install
+    raise ImportError("Machine learning isn't installed. Run: mcn add ml") from None
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import threading
@@ -490,7 +493,7 @@ class MCNMLSystem:
                         }
                 
                 except ImportError:
-                    return {"error": "XGBoost not installed. Run: pip install xgboost"}
+                    return {"error": "XGBoost models aren't available. Use \"random_forest\" instead."}
             
             else:
                 return {"error": f"Unsupported model type: {model_type}"}
@@ -522,7 +525,7 @@ class MCNMLSystem:
             }
             
         except ImportError as e:
-            return {"error": f"Required ML library not installed: {str(e)}"}
+            return {"error": "Machine learning isn't installed. Run: mcn add ml"}
         except Exception as e:
             return {"error": f"Model training failed: {str(e)}"}
     

@@ -168,7 +168,8 @@ def download_project():
                     zf.write(sc, arcname)
         else:
             # Fallback inline scaffolds
-            zf.writestr("Dockerfile", "FROM python:3.12-slim\nWORKDIR /app\nCOPY . .\nEXPOSE 8080\nCMD [\"python\", \"backend/main.mcn\"]\n")
+            from mcn.core_engine.mcn_deployer import _DOCKERFILE
+            zf.writestr("Dockerfile", _DOCKERFILE)
             zf.writestr("docker-compose.yml", "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n")
             zf.writestr(".env.example", "PORT=8080\nJWT_SECRET=mcn-secret\n")
 

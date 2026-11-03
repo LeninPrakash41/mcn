@@ -1,6 +1,6 @@
 """IDE page, marketing website and health check."""
 import os
-from flask import Blueprint
+from flask import Blueprint, redirect
 from .core import (
     _AUTH_AVAILABLE,
     _ROOT_DIR,
@@ -31,6 +31,11 @@ def index():
 
 
 @bp.route("/website")
+def website_redirect():
+    # The site uses relative links, which only resolve under the trailing slash
+    return redirect("/website/")
+
+
 @bp.route("/website/")
 def website_index():
     return send_from_directory(_WEBSITE_DIR, "index.html")
@@ -38,6 +43,10 @@ def website_index():
 
 @bp.route("/website/<path:filename>")
 def website_static(filename):
+    if filename.endswith("/") or os.path.isdir(os.path.join(_WEBSITE_DIR, filename)):
+        if not filename.endswith("/"):
+            return redirect(f"/website/{filename}/")
+        filename += "index.html"
     return send_from_directory(_WEBSITE_DIR, filename)
 
 

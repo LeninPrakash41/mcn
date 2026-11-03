@@ -4,8 +4,23 @@
     {
       "name": "web-playground",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd mcn/web-playground && python3 server.py --port 5003"],
+      "runtimeArgs": [
+        "-c",
+        "cd mcn/web-playground && python3 server.py --port 5003"
+      ],
       "port": 5003
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "-d",
+        "website"
+      ],
+      "port": 8765
     }
   ]
 }

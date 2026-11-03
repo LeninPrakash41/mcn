@@ -1,58 +1,55 @@
 # Contributing to MCN
 
-## 🚀 Quick Start
+Thanks for helping build MCN. How the language, Studio and tools are put together is in [`docs/contributing/`](docs/contributing/README.md).
 
-1. Fork the repository
-2. Clone: `git clone https://github.com/LeninPrakash41/mcn.git`
-3. Create branch: `git checkout -b feature/your-feature`
-4. Test: `python run_mcn.py run examples/hello.mcn`
-5. Submit pull request
+## Set up a development copy
 
-## 📋 Guidelines
-
-### Code Contributions
-- Core language changes require discussion in issues first
-- Add tests for new functionality
-- Follow existing code patterns
-- Update documentation
-
-### Testing
 ```bash
-python run_mcn.py run examples/hello.mcn
-python -m pytest test/
+git clone https://github.com/LeninPrakash41/mcn
+cd mcn
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+python -m pytest
 ```
 
-### Security
-- Never commit API keys or secrets
-- Report vulnerabilities to security@mslang.org
-- Use environment variables for configuration
+`pip install -e .` makes the `mcn` command run your working tree, so changes take effect immediately. To try the one-line installer against your changes, see [Installer and runtime](docs/contributing/installer.md#testing-the-installer).
 
-## 🛡️ Core Protection
+## Making a change
 
-MCN core interpreter and language specification are protected:
-- Breaking changes require RFC process
-- Core changes need maintainer approval
-- MCN trademark cannot be used in derivatives
+1. Open an issue first for changes to the core language.
+2. Write the test first; [the suite](docs/contributing/contributing.md#the-test-suite) has a file for each area.
+3. Keep errors friendly: plain words, a hint when the fix isn't obvious.
+4. If users will see the change, update the docs in `website/docs/pages/` and run `python website/build_docs.py`.
+5. Run `python -m pytest` and open a pull request describing the change.
 
-## 📝 Pull Request Process
+User-facing text (the website, `mcn` output, Studio, the VS Code extension, generated project files) presents MCN as its own language: give `mcn` commands, never `pip` or interpreter details. See [developer-facing wording](docs/contributing/installer.md#developer-facing-wording).
 
-1. Describe changes clearly
-2. Link related issues
-3. Add tests if needed
-4. Ensure CI passes
+## Embedding MCN in Python
 
-## 🐛 Bug Reports
+The interpreter can also be used as a library:
 
-Include:
-- MCN version
-- Operating system
-- Minimal reproduction example
-- Expected vs actual behavior
+```python
+from mcn.plugin.mcn_embedded import MCNEmbedded
 
-## 💡 Feature Requests
+mcn = MCNEmbedded()
+result = mcn.execute("""
+    var total = price * qty
+    return {total: total, tax: total * 0.1}
+""", context={"price": 9.99, "qty": 3})
+```
 
-- Check existing issues first
-- Describe use case clearly
-- Consider plugin vs core feature
+## Building packages
 
-Thank you for contributing! 🚀
+```bash
+pip install build && python3 -m build        # wheel and sdist in dist/
+```
+
+## Security
+
+- Never commit API keys or secrets; use environment variables.
+- Report vulnerabilities privately through GitHub's security advisories for this repository.
+
+## License
+
+By contributing you agree that your contributions are licensed under the MIT License.

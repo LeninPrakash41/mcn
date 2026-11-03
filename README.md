@@ -41,7 +41,7 @@ Unlike other app builders that generate separate frontend and backend codebases,
 3. **Run the backend:** `mcn serve backend/main.mcn` starts an HTTP API (GET and POST for every endpoint, interactive docs at `/docs`).
 
 ### Why this works:
-- **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to execute the Python-based MCN functions via HTTP/WebSockets.
+- **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to call your MCN endpoints over HTTP.
 - **Generate from a description:** `mcn generate "A leave tracker with manager approval"` writes the backend and UI with Claude, then validates them.
 - **Secure Integration:** Database credentials and API keys stay firmly on the MCN backend server, never touching the React View layer.
 
@@ -49,25 +49,26 @@ Unlike other app builders that generate separate frontend and backend codebases,
 
 ## Quick Start
 
-Requires **Python 3.10+**. Node.js is only needed to run the generated React app.
+Install MCN with one command:
 
 ```bash
-pip install mcn-lang              # from a clone: pip install -e .
+# macOS and Linux
+curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh
+
+# Windows (PowerShell)
+powershell -c "irm https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.ps1 | iex"
+```
+
+Then create and open your first app:
+
+```bash
 mcn init my-app                   # a working full-stack app: backend, tests, UI
 cd my-app
 mcn test backend/main.mcn         # run its tests
 mcn studio .                      # open it in MCN Studio → http://localhost:5003
 ```
 
-From a clone of this repository, use `pip install -e .` instead (inside a virtual environment):
-
-```bash
-git clone https://github.com/LeninPrakash41/mcn
-cd mcn
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e .
-```
+`mcn upgrade` updates MCN, `mcn add ml` (or `postgres`, `mongodb`, `scheduler`) adds optional features, and `mcn uninstall` removes it. Node.js is only needed to run the generated React app.
 
 **MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, and inspect the database, IoT devices and AI calls. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** menu has 18 starter apps. Studio only accepts connections from your own machine.
 
@@ -100,6 +101,12 @@ The Web Playground includes built-in **Interactive Simulators** in the preview p
 * **DB Explorer**: Inspect database tables, explore generated schemas, and write SQL queries against the live SQLite instance.
 * **IoT Simulator**: Slide sensor values (temperature, humidity) or toggle motion triggers to override inputs and test automation handlers.
 * **AI & RAG Inspector**: Trace prompt execution pipelines, vector databases search operations, and retrieval matches in real time.
+
+---
+
+## Documentation
+
+The full guide — install, quick start, language guide, and CLI and built-in reference — is in [`website/docs`](website/docs/pages). Read it in Studio at http://localhost:5003/website/docs/ (run `mcn studio`), or as Markdown in this repository.
 
 ---
 
@@ -376,24 +383,14 @@ log("Credit: {credit.score} (grade {credit.grade})")
 # Scaffold a new package
 mcn new-package accenture/crm --path . --description "CRM workflows"
 
-# Edit index.py with your domain logic, then install
+# Edit index.mcn with your domain logic, then install
 mcn install --path ./accenture_crm --name accenture/crm
 
 # Use it
 # use "accenture/crm"
 ```
 
-**Package authoring** — `index.py`:
-
-```python
-def onboard_customer(data: dict) -> dict:
-    """Validate, enrich, and register a new customer."""
-    return {"customer_id": "c_" + data["email"][:6], "status": "active"}
-
-MCN_EXPORTS = [onboard_customer]
-```
-
-Or write pure MCN in `index.mcn`:
+**Package authoring** — `index.mcn`:
 
 ```mcn
 function onboard_customer(data)
@@ -754,99 +751,6 @@ mcn config show
 
 ---
 
-## Embedding MCN in Python
-
-```python
-from mcn.plugin.mcn_embedded import MCNEmbedded
-
-mcn = MCNEmbedded()
-result = mcn.execute("""
-    var total = price * qty
-    var tax   = total * 0.1
-    return {total: total, tax: tax, grand: total + tax}
-""", context={"price": 9.99, "qty": 3})
-
-print(result)   # {"total": 29.97, "tax": 2.997, "grand": 32.967}
-```
-
-```python
-from mcn.ai.mcn_agent import MCNAgent
-
-agent = MCNAgent(api_key="sk-ant-...")
-result = agent.generate(
-    "A leave request tracker with approval workflow",
-    output_dir="./leave_app",
-    port=8080,
-)
-print(result["backend_path"])   # ./leave_app/backend/main.mcn
-print(result["ui_path"])        # ./leave_app/ui/app.mcn
-```
-
----
-
-## Project Structure
-
-```
-mcn/
-├── mcn/
-│   ├── core_engine/
-│   │   ├── lexer.py            # Tokeniser
-│   │   ├── parser.py           # Recursive-descent parser
-│   │   ├── evaluator.py        # Tree-walking evaluator
-│   │   ├── ast_nodes.py        # AST node dataclasses
-│   │   ├── stdlib_builtins.py  # 100+ built-in functions
-│   │   ├── ai_builtins.py      # AI primitives (ai, llm, embed, extract, classify)
-│   │   ├── mcn_packages.py     # Package registry (stripe, healthcare, finance, ...)
-│   │   ├── ui_compiler.py      # MCN → React + shadcn/ui
-│   │   ├── type_checker.py     # Static type checker
-│   │   ├── diagnostics.py      # Error reports (line, caret, hint) and `mcn check`
-│   │   ├── name_check.py       # Undefined-name detection
-│   │   ├── project_init.py     # `mcn init` / `mcn validate`
-│   │   ├── formatter.py        # Code formatter
-│   │   ├── test_runner.py      # Test framework + 15 assertion helpers
-│   │   ├── mcn_server.py       # HTTP server (GET/POST, path params, query strings)
-│   │   └── mcn_cli.py          # CLI entry point
-│   ├── ai/
-│   │   ├── mcn_agent.py        # AI-powered app generator
-│   │   └── mcn_spec.py         # Language spec (system prompt)
-│   ├── providers/
-│   │   ├── anthropic_provider.py
-│   │   └── openai_provider.py
-│   ├── web-playground/         # MCN Studio: server.py, playground_server/ blueprints, static/, templates
-│   ├── studio/vscode-mcn/      # VS Code extension + language server (TypeScript)
-│   ├── fullstack/              # Flutter project generator
-│   └── plugin/                 # Embed MCN in Python apps
-├── examples/                   # Ready-to-run .mcn scripts (each one is run in CI)
-├── use-cases/                  # Real-world scenario scripts
-├── docs/                       # Guides, language spec, student pilot kit
-└── tests/                      # pytest suite
-```
-
----
-
-## Packaging & Distribution
-
-To package and deploy MCN across enterprise clusters and edge environments:
-
-### 1. Python Wheel & Source Build
-Compile MCN into a universal wheel distribution:
-```bash
-pip install build && python3 -m build
-```
-This produces a wheel and source archive in `dist/` that can be pushed to a private PyPI registry (e.g., AWS CodeArtifact, JFrog Artifactory) and installed via:
-```bash
-pip install mcn-lang --extra-index-url https://registry.company.com/simple
-```
-
-### 2. Docker Container Deployment
-Run MCN as a containerized microservice:
-```bash
-docker-compose up -d --build
-```
-This spins up the production API execution server and playground in an isolated, lightweight container.
-
----
-
 ## Roadmap
 
 | Version | Status | Focus |
@@ -860,20 +764,13 @@ This spins up the production API execution server and playground in an isolated,
 
 ## Contributing
 
-1. Fork the repository
-2. Write your feature — cover it with `test` blocks in the `.mcn` file itself
-3. Run `mcn test`, `mcn check --strict` and `python -m pytest` before submitting
-4. Open a pull request
-
-To work on the VS Code extension: `cd mcn/studio/vscode-mcn && npm install && npm run compile`, then `npx vsce package` to rebuild the `.vsix` that `mcn vscode` installs.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setting up a development copy and running the tests, and [`docs/contributing/`](docs/contributing/README.md) for how MCN is built.
 
 **Areas actively needed:**
 - Cloud runtime / deploy button
 - Rewriting the scripts in `examples/legacy/` for current MCN
 - Public package registry (npm-style, for SI packages)
 - More domain packages (`payments`, `logistics`, `hr`, `legal`)
-
-
 
 ---
 

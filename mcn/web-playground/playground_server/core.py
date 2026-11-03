@@ -50,15 +50,9 @@ for _p in (_PACKAGE_DIR, _ROOT_DIR):
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 
-try:
-    from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
-    from flask import current_app, has_app_context, has_request_context
-    from flask_cors import CORS
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "flask", "flask-cors", "-q"])
-    from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
-    from flask import current_app, has_app_context, has_request_context
-    from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
+from flask import current_app, has_app_context, has_request_context
+from flask_cors import CORS
 
 # ── MCN imports ───────────────────────────────────────────────────────────────
 
