@@ -76,7 +76,7 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"id": intent.id, "status": intent.status, "amount": amount}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "pi_mock_" + str(int(amount)), "status": "mock", "amount": amount}
+        return {"id": "pi_mock_" + str(int(amount)), "status": "mock", "amount": amount, "mock": True}
 
     def create_customer(email: str, name: str = "") -> Dict:
         key = _os.getenv("STRIPE_SECRET_KEY")
@@ -88,7 +88,7 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"id": c.id, "email": c.email}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "cus_mock_" + email.split("@")[0], "email": email}
+        return {"id": "cus_mock_" + email.split("@")[0], "email": email, "mock": True}
 
     def create_subscription(customer_id: str, price_id: str) -> Dict:
         key = _os.getenv("STRIPE_SECRET_KEY")
@@ -102,7 +102,7 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"id": sub.id, "status": sub.status}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "sub_mock", "status": "active", "customer": customer_id}
+        return {"id": "sub_mock", "status": "active", "customer": customer_id, "mock": True}
 
     def create_payment_intent(amount: float, currency: str = "usd") -> Dict:
         key = _os.getenv("STRIPE_SECRET_KEY")
@@ -116,7 +116,7 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"id": intent.id, "client_secret": intent.client_secret, "status": intent.status}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "pi_mock_" + str(int(amount)), "client_secret": "pi_mock_secret_" + str(int(amount)), "status": "requires_payment_method"}
+        return {"id": "pi_mock_" + str(int(amount)), "client_secret": "pi_mock_secret_" + str(int(amount)), "status": "requires_payment_method", "mock": True}
 
     def create_checkout_session(success_url: str, cancel_url: str, line_items: List[Dict]) -> Dict:
         key = _os.getenv("STRIPE_SECRET_KEY")
@@ -133,7 +133,7 @@ def _bundled_stripe() -> Dict[str, Callable]:
                 return {"id": session.id, "url": session.url}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "cs_mock_" + str(len(line_items)), "url": "https://checkout.stripe.com/c/pay/cs_mock"}
+        return {"id": "cs_mock_" + str(len(line_items)), "url": "https://checkout.stripe.com/c/pay/cs_mock", "mock": True}
 
     return {
         "charge": charge,
@@ -159,7 +159,7 @@ def _bundled_twilio() -> Dict[str, Callable]:
                 return {"sid": msg.sid, "status": msg.status}
             except Exception as e:
                 return {"error": str(e)}
-        return {"sid": "SM_mock", "status": "mock_sent", "to": to, "body": body}
+        return {"sid": "SM_mock", "status": "mock_sent", "to": to, "body": body, "mock": True}
 
     def send_whatsapp(to: str, body: str) -> Dict:
         return send_sms(f"whatsapp:{to}", body, from_=f"whatsapp:{_os.getenv('TWILIO_FROM_NUMBER','')}")
@@ -184,7 +184,7 @@ def _bundled_resend() -> Dict[str, Callable]:
                 return {"id": r["id"], "status": "sent"}
             except Exception as e:
                 return {"error": str(e)}
-        return {"id": "email_mock", "status": "mock_sent", "to": to, "subject": subject}
+        return {"id": "email_mock", "status": "mock_sent", "to": to, "subject": subject, "mock": True}
 
     return {"send_email": send_email}
 
@@ -334,26 +334,34 @@ def _bundled_healthcare() -> Dict[str, Callable]:
         }
 
     def check_drug_interactions(drugs: List[str]) -> Dict:
-        """Mock drug interaction checker."""
+        """Demo checker that knows two example pairs. Not a medical reference."""
         flagged = []
         risky   = {frozenset(["warfarin", "aspirin"]), frozenset(["ssri", "maoi"])}
         ds      = [d.lower() for d in drugs]
         for pair in risky:
             if pair.issubset(set(ds)):
                 flagged.append(list(pair))
-        return {"interactions": flagged, "safe": len(flagged) == 0, "checked": drugs}
+        return {"interactions": flagged, "safe": len(flagged) == 0, "checked": drugs, "demo": True,
+                "warning": "Demo data only (2 example pairs). Do not use for clinical decisions."}
 
     def hipaa_audit_log(action: str, user_id: str, patient_id: str,
                         data_accessed: str = "") -> Dict:
+        """Append an access record to the audit trail (MCN_AUDIT_LOG, default ~/.mcn/audit/hipaa_audit.jsonl)."""
+        import json as _json, os as _os
+        from pathlib import Path as _Path
         entry = {
             "audit_id":     str(_uuid.uuid4())[:8],
             "action":       action,
             "user_id":      user_id,
             "patient_id":   patient_id,
             "data_accessed": data_accessed,
-            "timestamp":    _time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "compliant":    True,
+            "timestamp":    _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
         }
+        path = _Path(_os.getenv("MCN_AUDIT_LOG", _Path.home() / ".mcn" / "audit" / "hipaa_audit.jsonl"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(_json.dumps(entry) + "\n")
+        entry["logged_to"] = str(path)
         return entry
 
     return {
@@ -372,7 +380,7 @@ def _bundled_finance() -> Dict[str, Callable]:
     import uuid as _uuid, time as _time
 
     def kyc_check(customer_data: Dict) -> Dict:
-        """Mock KYC verification."""
+        """Demo KYC check: deterministic result for teaching; no identity provider is called."""
         name  = customer_data.get("name", "")
         score = 85 + (len(name) % 15)   # deterministic mock
         return {
@@ -381,10 +389,11 @@ def _bundled_finance() -> Dict[str, Callable]:
             "score":      score,
             "status":     "approved" if score >= 70 else "review",
             "verified_at": _time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "demo":       True,
         }
 
     def aml_screen(transaction: Dict) -> Dict:
-        """Mock AML screening."""
+        """Demo AML screening: amount thresholds only; no sanctions list is checked."""
         amount = float(transaction.get("amount", 0))
         return {
             "screening_id": str(_uuid.uuid4())[:8],
@@ -392,6 +401,7 @@ def _bundled_finance() -> Dict[str, Callable]:
             "risk_level":   "high" if amount > 10000 else "low",
             "flagged":      amount > 50000,
             "screened_at":  _time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "demo":         True,
         }
 
     def calculate_credit_score(data: Dict) -> Dict:
@@ -407,8 +417,9 @@ def _bundled_finance() -> Dict[str, Callable]:
             "report_id":   str(_uuid.uuid4())[:8],
             "type":        report_type,
             "generated_at": _time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "status":      "submitted",
+            "status":      "generated",   # demo: nothing is filed with a regulator
             "records":     len(data) if isinstance(data, list) else 1,
+            "demo":        True,
         }
 
     return {

@@ -1,0 +1,13 @@
+// Exercise 3 — Validation and fixing errors
+function to_fahrenheit(celsius)
+    if celsius < -273.15
+        throw "Below absolute zero"
+    return celsius * 9 / 5 + 32
+
+var readings = [0, 21.5, 100]
+for c in readings
+    log(str(c) + "°C = " + str(to_fahrenheit(c)) + "°F")
+
+test "freezing and boiling"
+    assert to_fahrenheit(0) == 32
+    assert to_fahrenheit(100) == 212

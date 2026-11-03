@@ -40,8 +40,8 @@ with patch("pathlib.Path.home", return_value=_TMP_WORKSPACE):
     pg = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(pg)
 
-# Override WORKSPACE to point exactly at our temp dir and seed files
-pg.WORKSPACE = _TMP_WORKSPACE
+# Point the app's workspace exactly at our temp dir and seed files
+pg.app.config["WORKSPACE"] = _TMP_WORKSPACE
 (_TMP_WORKSPACE / "backend").mkdir(exist_ok=True)
 (_TMP_WORKSPACE / "ui").mkdir(exist_ok=True)
 (_TMP_WORKSPACE / "backend" / "main.mcn").write_text("// backend\n")
@@ -49,6 +49,7 @@ pg.WORKSPACE = _TMP_WORKSPACE
 
 app = pg.app
 app.config["TESTING"] = True
+import playground_server.examples as _examples  # noqa: E402
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 GREEN  = "\033[92m"
@@ -497,8 +498,7 @@ def test_crm_build_and_preview(r):
         reset_res = c.post("/api/workspace/reset",
                            data=json.dumps({
                                "files": [
-                                   {"path": "backend/main.mcn", "content": pg._CRM_BACKEND},
-                                   {"path": "ui/app.mcn",       "content": pg._CRM_UI}
+                                   *_examples.load_template("crm")["files"]
                                ]
                            }),
                            content_type="application/json")
@@ -536,7 +536,7 @@ def test_generate_missing_api_key(r):
     """Without any API key source, should return 400."""
     with patch.dict(os.environ, {}, clear=True):
         # Also clear config
-        with patch.object(pg, "_load_config", return_value={}):
+        with patch("playground_server.agent._load_config", return_value={}):
             with app.test_client() as c:
                 res  = c.post("/api/generate",
                               data=json.dumps({"description": "a todo app", "api_key": ""}),
@@ -582,7 +582,7 @@ def test_generate_streams_sse(r):
 
         with patch("threading.Thread", side_effect=_fake_thread):
             with patch("queue.Queue", return_value=q):
-                with patch.object(pg, "WORKSPACE", _TMP_WORKSPACE):
+                with patch.dict(pg.app.config, {"WORKSPACE": _TMP_WORKSPACE}):
                     # We test the endpoint shape by directly calling the route function
                     # and checking it doesn't raise
                     try:

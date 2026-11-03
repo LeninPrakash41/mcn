@@ -1,0 +1,11 @@
+// Field Inspection Backend
+service audit_api
+    port 8080
+    endpoint list_checkpoints()
+        return [
+            {id: "CP1", item: "Fire Extinguisher Pressure", status: "Pass"},
+            {id: "CP2", item: "Emergency Exit Lighting", status: "Pass"},
+            {id: "CP3", item: "Hard Hat Zone Compliance", status: "Action Required"}
+        ]
+
+log("⚡ Field Inspector Backend Online")

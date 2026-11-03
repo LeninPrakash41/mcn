@@ -13,21 +13,21 @@ var server_config = {
 }
 
 // Initialize MCP server database
-query("CREATE TABLE IF NOT EXISTS mcp_tools (
+query("""CREATE TABLE IF NOT EXISTS mcp_tools (
     id INTEGER PRIMARY KEY,
     name TEXT UNIQUE,
     description TEXT,
     schema TEXT,
     handler TEXT
-)")
+)""")
 
-query("CREATE TABLE IF NOT EXISTS mcp_resources (
+query("""CREATE TABLE IF NOT EXISTS mcp_resources (
     id INTEGER PRIMARY KEY,
     uri TEXT UNIQUE,
     name TEXT,
     description TEXT,
     mime_type TEXT
-)")
+)""")
 
 // Register MCN tools for MCP
 var mcn_tools = [

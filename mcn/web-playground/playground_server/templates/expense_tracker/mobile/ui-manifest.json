@@ -1,0 +1,50 @@
+{
+  "name": "ExpenseTrackerApp",
+  "components": {
+    "ExpenseSummary": {
+      "type": "container",
+      "props": {
+        "className": "column"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "tag": "h1",
+            "content": "Monthly Budget: $4,500"
+          }
+        },
+        {
+          "type": "chart",
+          "props": {
+            "chartType": "Spending by Category"
+          }
+        },
+        {
+          "type": "table",
+          "props": {
+            "columns": [
+              "Date",
+              "Merchant",
+              "Category",
+              "Amount"
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "props": {
+            "text": "+ Add New Transaction"
+          }
+        }
+      ]
+    }
+  },
+  "pages": {
+    "Budget": {
+      "components": [
+        "ExpenseSummary"
+      ]
+    }
+  }
+}

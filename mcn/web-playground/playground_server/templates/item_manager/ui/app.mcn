@@ -1,0 +1,44 @@
+component ItemForm
+    state name    = ""
+    state price   = 0
+    state message = ""
+
+    on submit
+        var result = create_item(name, price)
+        if result.success
+            message = "Created item!"
+
+    render
+        card
+            card_header "Add Item"
+            form on_submit=submit
+                input bind=name label="Name"
+                input bind=price label="Price" type="number"
+                button "Add Item" variant="default"
+                div
+                    text message
+
+component ItemTable
+    state items = []
+
+    on load
+        var resp = list_items()
+        items = resp.data
+
+    render
+        card
+            card_header "All Items"
+            table
+                table_header
+                    table_row
+                        table_head "name"
+                        table_head "price"
+                        table_head "created_at"
+                table_body
+
+app ItemManager
+    title  "Item Manager"
+    layout
+        tabs
+            tab "Add Item"  ItemForm
+            tab "All Items" ItemTable

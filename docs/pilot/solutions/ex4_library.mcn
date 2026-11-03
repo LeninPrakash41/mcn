@@ -1,0 +1,19 @@
+// Exercise 4 — Storing data with SQLite
+query("DROP TABLE IF EXISTS books")
+query("CREATE TABLE books (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, author TEXT, year INTEGER)")
+
+function add_book(title, author, year)
+    query("INSERT INTO books (title, author, year) VALUES (?, ?, ?)", (title, author, year))
+
+add_book("Clean Code", "Robert Martin", 2008)
+add_book("The Pragmatic Programmer", "Hunt and Thomas", 1999)
+add_book("Refactoring", "Martin Fowler", 1999)
+
+var nineties = query("SELECT title FROM books WHERE year < 2000 ORDER BY title")
+for b in nineties
+    log(b.title)
+
+test "books are stored and queried"
+    var rows = query("SELECT COUNT(*) as n FROM books")
+    assert rows[0].n == 3
+    assert len(query("SELECT * FROM books WHERE year < 2000")) == 2

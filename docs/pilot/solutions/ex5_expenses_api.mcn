@@ -1,0 +1,31 @@
+// Exercise 5 — A backend service
+query("DROP TABLE IF EXISTS expenses")
+query("CREATE TABLE expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, amount REAL, category TEXT)")
+
+service expenses_api
+    port 8080
+
+    endpoint add_expense(title, amount, category)
+        if amount <= 0
+            return {success: false, error: "Amount must be positive"}
+        query("INSERT INTO expenses (title, amount, category) VALUES (?, ?, ?)", (title, amount, category))
+        return {success: true}
+
+    endpoint list_expenses()
+        return {success: true, data: query("SELECT * FROM expenses ORDER BY id DESC")}
+
+    endpoint total_by_category()
+        return {success: true, data: query("SELECT category, SUM(amount) as total FROM expenses GROUP BY category ORDER BY category")}
+
+add_expense("Lunch", 12.5, "food")
+add_expense("Bus pass", 30, "travel")
+add_expense("Coffee", 3.5, "food")
+log(str(total_by_category().data))
+
+test "rejects non-positive amounts"
+    assert add_expense("Refund", -5, "food").success == false
+
+test "totals per category"
+    var totals = total_by_category().data
+    assert totals[0].category == "food"
+    assert totals[0].total == 16

@@ -1,0 +1,14 @@
+// Exercise 6 — Expense tracker backend (same API as exercise 5)
+query("CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, amount REAL, category TEXT)")
+
+service expenses_api
+    port 8080
+
+    endpoint add_expense(title, amount, category)
+        if amount <= 0
+            return {success: false, error: "Amount must be positive"}
+        query("INSERT INTO expenses (title, amount, category) VALUES (?, ?, ?)", (title, amount, category))
+        return {success: true}
+
+    endpoint list_expenses()
+        return {success: true, data: query("SELECT * FROM expenses ORDER BY id DESC")}

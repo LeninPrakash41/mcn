@@ -83,3 +83,70 @@ def test_cli_hello_output_is_clean():
     assert proc.returncode == 0, proc.stderr
     lines = [l for l in (proc.stdout + proc.stderr).splitlines() if l.strip()]
     assert lines == ["Output Hello World!", "Adult"]
+
+
+# ── Parser: JSX-style attribute expressions ──────────────────────────────────
+
+def _parse(src):
+    from mcn.core_engine.lexer import Lexer
+    from mcn.core_engine.parser import Parser
+    parser = Parser(Lexer(src).tokenize())
+    program = parser.parse()
+    return parser, program
+
+
+def test_jsx_style_attr_with_sibling_parses():
+    # style={{...}} followed by a sibling used to swallow the sibling element
+    parser, program = _parse(
+        "component A\n"
+        "    render\n"
+        "        div\n"
+        '            div style={{"width": "10%"}} className="bar"\n'
+        '            div className="next"\n'
+    )
+    assert parser.errors == []
+    outer = program.body[0].render.elements[0]
+    assert [c.tag for c in outer.children] == ["div", "div"]
+
+
+def test_object_literal_attr_still_parses():
+    parser, _ = _parse('component A\n    render\n        div data={"k": 1}\n')
+    assert parser.errors == []
+
+
+# ── React compiler: handler statements and expressions ───────────────────────
+
+def _ts(expr_src):
+    from mcn.core_engine.ui_compiler import _expr_to_ts
+    _, program = _parse(f"var x = {expr_src}\n")
+    return _expr_to_ts(program.body[0].value)
+
+
+@pytest.mark.parametrize("mcn, ts", [
+    ("a + 1", "(a + 1)"),                        # numeric addition, not string concat
+    ("items + [x]", "[...(items), ...([x])]"),   # list concatenation
+    ("a == b and c != d", "((a === b) && (c !== d))"),
+    ("len(items)", "(items).length"),            # builtin, not an API call
+    ("str(n)", "String(n)"),
+    ("not done", "!(done)"),
+])
+def test_expr_to_ts(mcn, ts):
+    assert _ts(mcn) == ts
+
+
+def test_handler_for_loop_and_local_reassignment():
+    from mcn.core_engine.ui_compiler import UICompiler
+    _, program = _parse(
+        "var names = []\n"
+        "for c in contacts\n"
+        "    names = names + [c.name]\n"
+        "if ok\n"
+        "    total = 1\n"
+        "else\n"
+        "    total = 2\n"
+    )
+    ts = UICompiler(output_dir=Path("."))._stmts_to_ts(program.body)
+    assert "let names: any[] = []" in ts
+    assert "for (const c of (contacts ?? []))" in ts
+    assert "names = [...(names), ...([c.name])]" in ts   # local var: no setter
+    assert "} else {" in ts and "setTotal(2)" in ts

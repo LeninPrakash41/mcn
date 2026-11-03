@@ -156,6 +156,23 @@ def _camel(name: str) -> str:
     return parts[0] + "".join(w.capitalize() for w in parts[1:])
 
 
+# MCN built-ins that run in the browser instead of becoming backend API calls
+_TS_BUILTINS = {
+    "str":   lambda a: f"String({a[0] if a else ''})",
+    "len":   lambda a: f"({a[0]}).length",
+    "int":   lambda a: f"Math.trunc(Number({a[0]}))",
+    "float": lambda a: f"Number({a[0]})",
+    "round": lambda a: (f"Number(Number({a[0]}).toFixed({a[1]}))" if len(a) > 1
+                        else f"Math.round({a[0]})"),
+    "abs":   lambda a: f"Math.abs({a[0]})",
+    "min":   lambda a: f"Math.min({', '.join(a)})",
+    "max":   lambda a: f"Math.max({', '.join(a)})",
+    "upper": lambda a: f"String({a[0]}).toUpperCase()",
+    "lower": lambda a: f"String({a[0]}).toLowerCase()",
+    "join":  lambda a: f"({a[0]}).join({a[1] if len(a) > 1 else repr(',')})",
+}
+
+
 def _expr_to_ts(expr: Optional[ast.Expr],
                 local_vars: Optional[Dict[str, str]] = None) -> str:
     """Convert a simple MCN expression to a TypeScript expression string.
@@ -167,6 +184,8 @@ def _expr_to_ts(expr: Optional[ast.Expr],
     if expr is None:
         return '""'
     if isinstance(expr, ast.Literal):
+        if expr.value is None:
+            return "null"
         if isinstance(expr.value, str):
             return json.dumps(expr.value)
         if isinstance(expr.value, bool):
@@ -176,11 +195,26 @@ def _expr_to_ts(expr: Optional[ast.Expr],
         return lv.get(expr.name, expr.name)
     if isinstance(expr, ast.Property):
         obj = _expr_to_ts(expr.object, lv)
-        return f"{obj}.{expr.name}"
+        return f"{obj}{'?.' if getattr(expr, 'safe', False) else '.'}{expr.name}"
+    if isinstance(expr, ast.Index):
+        return f"{_expr_to_ts(expr.object, lv)}[{_expr_to_ts(expr.index, lv)}]"
+    if isinstance(expr, ast.Unary):
+        operand = _expr_to_ts(expr.operand, lv)
+        return f"!({operand})" if expr.operator in ("not", "!") else f"{expr.operator}{operand}"
+    if isinstance(expr, ast.TernaryExpr):
+        return (f"({_expr_to_ts(expr.condition, lv)} ? {_expr_to_ts(expr.then_expr, lv)}"
+                f" : {_expr_to_ts(expr.else_expr, lv)})")
     if isinstance(expr, ast.Binary):
         left  = _expr_to_ts(expr.left, lv)
         right = _expr_to_ts(expr.right, lv)
         op    = expr.operator
+        if op == "+" and (isinstance(expr.left, ast.Array) or isinstance(expr.right, ast.Array)):
+            # list + [x]  →  array concatenation, not string concatenation
+            return f"[...({left}), ...({right})]"
+        if op == "+" and not any(isinstance(e, ast.Literal) and isinstance(e.value, str)
+                                 for e in (expr.left, expr.right)):
+            # Numbers add, strings concatenate: same as MCN
+            return f"({left} + {right})"
         if op == "+":
             # Produce a template literal: `${left}${right}`
             # Strip surrounding quotes from string literals so they merge cleanly
@@ -189,8 +223,15 @@ def _expr_to_ts(expr: Optional[ast.Expr],
                     return ts[1:-1]
                 return f"${{{ts}}}"
             return f"`{_unwrap(left)}{_unwrap(right)}`"
-        return f"{left} {op} {right}"
+        op = {"and": "&&", "or": "||", "==": "===", "!=": "!=="}.get(op, op)
+        return f"({left} {op} {right})"
     if isinstance(expr, ast.Call):
+        args_ts = [_expr_to_ts(a, lv) for a in expr.arguments]
+        if isinstance(expr.callee, ast.Property):
+            # obj.method(args) → same call in TypeScript
+            return f"{_expr_to_ts(expr.callee, lv)}({', '.join(args_ts)})"
+        if isinstance(expr.callee, ast.Variable) and expr.callee.name in _TS_BUILTINS:
+            return _TS_BUILTINS[expr.callee.name](args_ts)
         if isinstance(expr.callee, ast.Variable):
             fn = expr.callee.name
             if fn in ("toast", "log", "confirm", "alert"):
@@ -445,7 +486,7 @@ class UICompiler:
             return cols
 
         # Detect CRUD mode
-        table_columns = _extract_table_columns(comp.render.elements) if comp.render else []
+        table_columns = list(dict.fromkeys(_extract_table_columns(comp.render.elements))) if comp.render else []
         has_crud_from_table = bool(table_columns)
         has_crud_from_states = any(s.name == "edit_item" for s in comp.states)
         has_crud = has_crud_from_table or has_crud_from_states
@@ -474,7 +515,11 @@ class UICompiler:
             defined_states.add(var_name)
             setter     = "set" + _pascal(var_name)
             default_ts = _expr_to_ts(s.value)
-            hooks.append(f"  const [{var_name}, {setter}] = useState({default_ts})")
+            # [] and null need explicit types under strict mode (never[] / null otherwise)
+            generic = "<any[]>" if isinstance(s.value, ast.Array) else (
+                      "<any>" if isinstance(s.value, ast.MCNObject) or
+                      (isinstance(s.value, ast.Literal) and s.value.value is None) else "")
+            hooks.append(f"  const [{var_name}, {setter}] = useState{generic}({default_ts})")
 
         # Automatically inject CRUD states if they aren't explicitly defined
         synthetic_edit_fields = []
@@ -513,6 +558,7 @@ class UICompiler:
             )
             save_payload_fields = ", ".join(
                 f"{name[5:]}: {name}" for name in edit_fields_names
+                if name[5:] != "id"   # id is already sent as _mcnEditItemId
             )
             hooks.append(f"  const [_mcnEditItemId, set_mcnEditItemId] = useState<number | null>(null)")
             hooks.append(f"  const [_mcnShowEditModal, set_mcnShowEditModal] = useState(false)")
@@ -609,13 +655,23 @@ class UICompiler:
         if has_crud:
             entity_singular, _ = _get_entity_names(comp.name)
             # Collect edit_ fields for the modal form inputs
+            # States the user declared as numbers must be set with numbers
+            numeric_states = {
+                st.name for st in comp.states
+                if isinstance(st.value, ast.Literal) and isinstance(st.value.value, (int, float))
+                and not isinstance(st.value.value, bool)
+            }
+
+            def _input_value(name: str) -> str:
+                return "Number(e.target.value)" if name in numeric_states else "e.target.value"
+
             edit_field_inputs: List[str] = []
             for name in edit_fields_names:
                 field_name = name[5:]
                 edit_field_inputs.extend([
                     f'          <div className="space-y-1">',
                     f'            <label className="text-sm font-medium capitalize">{field_name}</label>',
-                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}(e.target.value)}} />',
+                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}({_input_value(name)})}} />',
                     f'          </div>',
                 ])
             
@@ -625,7 +681,7 @@ class UICompiler:
                 create_field_inputs.extend([
                     f'          <div className="space-y-1">',
                     f'            <label className="text-sm font-medium capitalize">{field_name}</label>',
-                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}(e.target.value)}} />',
+                    f'            <input className="w-full border rounded px-3 py-2 text-sm" value={{{name}}} onChange={{(e) => set{_pascal(name)}({_input_value(name)})}} />',
                     f'          </div>',
                 ])
 
@@ -1527,12 +1583,17 @@ class UICompiler:
             if key == "bind":
                 var_name = _expr_to_ts(val)
                 setter   = "set" + _pascal(var_name)
+                numeric  = self._current_comp is not None and any(
+                    st.name == var_name and isinstance(st.value, ast.Literal)
+                    and isinstance(st.value.value, (int, float)) and not isinstance(st.value.value, bool)
+                    for st in self._current_comp.states)
+                value_ts = "Number(e.target.value)" if numeric else "e.target.value"
                 if tag == "textarea":
                     props.append(f'value={{{var_name}}} '
-                                 f'onChange={{(e) => {setter}(e.target.value)}}')
+                                 f'onChange={{(e: any) => {setter}(e.target.value)}}')
                 elif tag == "input":
                     props.append(f'value={{{var_name}}} '
-                                 f'onChange={{(e) => {setter}(e.target.value)}}')
+                                 f'onChange={{(e: any) => {setter}({value_ts})}}')
                 else:
                     props.append(f'value={{{var_name}}} '
                                  f'onChange={{(v) => {setter}(v)}}')
@@ -1556,24 +1617,77 @@ class UICompiler:
         return " ".join(props)
 
     def _stmts_to_ts(self, stmts: List[ast.Stmt], indent: int = 4,
-                     _lv: Optional[Dict[str, str]] = None) -> str:
+                     _lv: Optional[Dict[str, str]] = None,
+                     _locals: Optional[set] = None) -> str:
         """Convert simple MCN statements to TypeScript (for event handlers).
 
         _lv: internal local-var substitution dict; don't pass externally.
+        _locals: names declared with `var` (assigned directly, not via setters).
         """
-        pad   = " " * indent
-        lv    = dict(_lv or {})   # copy so sibling branches don't share mutations
+        pad    = " " * indent
+        lv     = dict(_lv or {})   # copy so sibling branches don't share mutations
+        locals_ = set(_locals or ())
         lines: List[str] = []
+
+        def block(body, extra_locals=()):
+            return self._stmts_to_ts(body, indent + 2, lv, locals_ | set(extra_locals)).rstrip("\n")
 
         for stmt in stmts:
             if isinstance(stmt, ast.VarDecl):
                 val = _expr_to_ts(stmt.value, lv)
+                # Explicit types keep strict TypeScript from inferring never[] / null
+                ann = ": any[]" if isinstance(stmt.value, ast.Array) else (
+                      ": any" if isinstance(stmt.value, ast.MCNObject) or
+                      (isinstance(stmt.value, ast.Literal) and stmt.value.value is None) else "")
                 if isinstance(stmt.value, ast.Call):
-                    lines.append(f"{pad}const {stmt.name} = await {val}")
+                    lines.append(f"{pad}let {stmt.name}{ann} = await {val}")
                 else:
-                    lines.append(f"{pad}const {stmt.name} = {val}")
+                    lines.append(f"{pad}let {stmt.name}{ann} = {val}")
                 # Named vars are usable directly, no setter needed
                 lv[stmt.name] = stmt.name
+                locals_.add(stmt.name)
+
+            elif isinstance(stmt, ast.AssignStmt) and stmt.name in locals_:
+                val = _expr_to_ts(stmt.value, lv)
+                await_ = "await " if isinstance(stmt.value, ast.Call) else ""
+                lines.append(f"{pad}{stmt.name} = {await_}{val}")
+
+            elif isinstance(stmt, ast.ForStmt):
+                iterable = _expr_to_ts(stmt.iterable, lv)
+                loop_vars = [stmt.variable] + ([stmt.index_var] if stmt.index_var else [])
+                for v in loop_vars:
+                    lv[v] = v
+                if stmt.index_var:
+                    lines.append(f"{pad}for (const [{stmt.index_var}, {stmt.variable}] of ({iterable} ?? []).entries()) {{")
+                else:
+                    lines.append(f"{pad}for (const {stmt.variable} of ({iterable} ?? [])) {{")
+                body = block(stmt.body, loop_vars)
+                if body.strip():
+                    lines.append(body)
+                lines.append(f"{pad}}}")
+
+            elif isinstance(stmt, ast.WhileStmt):
+                lines.append(f"{pad}while ({_expr_to_ts(stmt.condition, lv)}) {{")
+                body = block(stmt.body)
+                if body.strip():
+                    lines.append(body)
+                lines.append(f"{pad}}}")
+
+            elif isinstance(stmt, ast.ReturnStmt):
+                lines.append(f"{pad}return" + (f" {_expr_to_ts(stmt.value, lv)}" if stmt.value else ""))
+
+            elif isinstance(stmt, ast.BreakStmt):
+                lines.append(f"{pad}break")
+
+            elif isinstance(stmt, ast.ContinueStmt):
+                lines.append(f"{pad}continue")
+
+            elif isinstance(stmt, ast.PropertyAssignStmt):
+                lines.append(f"{pad}{_expr_to_ts(stmt.object, lv)}.{stmt.prop} = {_expr_to_ts(stmt.value, lv)}")
+
+            elif isinstance(stmt, ast.IndexAssignStmt):
+                lines.append(f"{pad}{_expr_to_ts(stmt.object, lv)}[{_expr_to_ts(stmt.index, lv)}] = "
+                             f"{_expr_to_ts(stmt.value, lv)}")
 
             elif isinstance(stmt, ast.AssignStmt):
                 setter = "set" + _pascal(stmt.name)
@@ -1598,10 +1712,15 @@ class UICompiler:
 
             elif isinstance(stmt, ast.IfStmt):
                 cond      = _expr_to_ts(stmt.condition, lv)
-                then_body = self._stmts_to_ts(stmt.then_body, indent + 2, lv)
+                then_body = block(stmt.then_body)
                 lines.append(f"{pad}if ({cond}) {{")
                 if then_body.strip():
-                    lines.append(then_body.rstrip("\n"))
+                    lines.append(then_body)
+                if stmt.else_body:
+                    lines.append(f"{pad}}} else {{")
+                    else_body = block(stmt.else_body)
+                    if else_body.strip():
+                        lines.append(else_body)
                 lines.append(f"{pad}}}")
 
             else:
@@ -2071,6 +2190,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             "dependencies": {
                 "react":           "^18.3.1",
                 "react-dom":       "^18.3.1",
+                "sonner":          "^1.5.0",   # toast() notifications
                 "class-variance-authority": "^0.7.1",
                 "clsx":            "^2.1.1",
                 "lucide-react":    "^0.446.0",
@@ -2226,8 +2346,8 @@ export default {
                 "noEmit":            True,
                 "jsx":               "react-jsx",
                 "strict":            True,
-                "noUnusedLocals":    True,
-                "noUnusedParameters": True,
+                "noUnusedLocals":    False,
+                "noUnusedParameters": False,
                 "noFallthroughCasesInSwitch": True,
                 "baseUrl":           ".",
                 "paths": {
@@ -2596,6 +2716,115 @@ export const Stat: React.FC<StatProps> = ({ label = "Overview", value = "$0", ch
   )
 }
 export default Stat
+''',
+            # Lightweight, dependency-free versions of the remaining shadcn
+            # components the compiler can emit (same export names and props).
+            "textarea.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  ({ className, ...props }, ref) => (
+    <textarea ref={ref} className={cn("flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)} {...props} />
+  )
+)
+Textarea.displayName = "Textarea"
+''',
+            "select.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+// Native <select> behind the shadcn Select API: Select > SelectTrigger > SelectValue, SelectContent > SelectItem
+type Ctx = { value?: string; onValueChange?: (v: string) => void; placeholder?: string; setPlaceholder: (p?: string) => void }
+const SelectCtx = React.createContext<Ctx>({ setPlaceholder: () => {} })
+
+export function Select({ value, defaultValue, onValueChange, children }: {
+  value?: any; defaultValue?: any; onValueChange?: (v: string) => void; children?: React.ReactNode
+}) {
+  const [placeholder, setPlaceholder] = React.useState<string | undefined>()
+  const [inner, setInner] = React.useState<string>(defaultValue != null ? String(defaultValue) : "")
+  const current = value != null ? String(value) : inner
+  const change = (v: string) => { setInner(v); onValueChange?.(v) }
+  return <SelectCtx.Provider value={{ value: current, onValueChange: change, placeholder, setPlaceholder }}>{children}</SelectCtx.Provider>
+}
+
+export function SelectTrigger({ children }: { children?: React.ReactNode; className?: string }) {
+  return <>{children}</>
+}
+
+export function SelectValue({ placeholder }: { placeholder?: string }) {
+  const { setPlaceholder } = React.useContext(SelectCtx)
+  React.useEffect(() => { setPlaceholder(placeholder) }, [placeholder])
+  return null
+}
+
+export function SelectContent({ children, className }: { children?: React.ReactNode; className?: string }) {
+  const { value, onValueChange, placeholder } = React.useContext(SelectCtx)
+  return (
+    <select
+      className={cn("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring", className)}
+      value={value ?? ""}
+      onChange={(e) => onValueChange?.(e.target.value)}
+    >
+      {placeholder !== undefined && <option value="" disabled>{placeholder}</option>}
+      {children}
+    </select>
+  )
+}
+
+export function SelectItem({ value, children }: { value: any; children?: React.ReactNode }) {
+  return <option value={String(value)}>{children}</option>
+}
+''',
+            "alert.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export function Alert({ className, variant, ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "destructive" }) {
+  return <div role="alert" className={cn("relative w-full rounded-lg border p-4", variant === "destructive" && "border-red-500/50 text-red-600", className)} {...props} />
+}
+
+export function AlertDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <div className={cn("text-sm", className)} {...props} />
+}
+''',
+            "scroll-area.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export function ScrollArea({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("relative overflow-auto", className)} {...props} />
+}
+''',
+            "avatar.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export function Avatar({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
+  return <span className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted", className)} {...props} />
+}
+
+export function AvatarImage({ className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+  return <img className={cn("aspect-square h-full w-full", className)} {...props} />
+}
+
+export function AvatarFallback({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
+  return <span className={cn("flex h-full w-full items-center justify-center text-sm", className)} {...props} />
+}
+''',
+            "progress.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export function Progress({ value = 0, className }: { value?: number; className?: string }) {
+  const pct = Math.max(0, Math.min(100, Number(value) || 0))
+  return (
+    <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
+      <div className="h-full bg-primary transition-all" style={{ width: pct + "%" }} />
+    </div>
+  )
+}
+''',
+            "skeleton.tsx": '''import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />
+}
 '''
         }
 

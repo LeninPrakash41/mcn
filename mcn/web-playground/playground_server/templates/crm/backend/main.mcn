@@ -1,0 +1,109 @@
+contract Deal
+    title: str
+    value: float
+    stage: str
+    contact: str
+
+contract Contact
+    name: str
+    email: str
+    company: str
+    phone: str
+
+contract Company
+    name: str
+    industry: str
+    size: str
+
+contract Activity
+    title: str
+    type: str
+    contact: str
+    due_date: str
+
+query("CREATE TABLE IF NOT EXISTS deals (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, value REAL, stage TEXT, contact TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, company TEXT, phone TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS companies (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, industry TEXT, size TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, contact TEXT, due_date TEXT, created_at TEXT DEFAULT (datetime('now')))")
+
+var count_deals = query("SELECT COUNT(*) as cnt FROM deals")[0].cnt
+if count_deals == 0
+    query("INSERT INTO companies (name, industry, size) VALUES ('Acme Corp', 'Tech', '11-50')")
+    query("INSERT INTO companies (name, industry, size) VALUES ('Initech', 'Software', '51-200')")
+    query("INSERT INTO contacts (name, email, company, phone) VALUES ('Alice Smith', 'alice@acme.com', 'Acme Corp', '555-0199')")
+    query("INSERT INTO contacts (name, email, company, phone) VALUES ('Bob Gibbons', 'bob@initech.com', 'Initech', '555-0288')")
+    query("INSERT INTO deals (title, value, stage, contact) VALUES ('Acme Software Suite', 25000, 'Proposal', 'Alice Smith')")
+    query("INSERT INTO deals (title, value, stage, contact) VALUES ('Initech Support Deal', 8500, 'Negotiation', 'Bob Gibbons')")
+    query("INSERT INTO activities (title, type, contact, due_date) VALUES ('Follow up call', 'Call', 'Alice Smith', '2026-07-01')")
+    query("INSERT INTO activities (title, type, contact, due_date) VALUES ('Send proposal', 'Email', 'Bob Gibbons', '2026-06-30')")
+
+service crm_api
+    port 8080
+
+    endpoint list_deals(limit = 50)
+        var items = query("SELECT * FROM deals ORDER BY created_at DESC LIMIT ?", (limit,))
+        return {success: true, data: items}
+
+    endpoint create_deal(title, value, stage, contact)
+        query("INSERT INTO deals (title, value, stage, contact) VALUES (?, ?, ?, ?)", (title, value, stage, contact))
+        var id = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: id}
+
+    endpoint update_deal(id, title, value, stage, contact)
+        query("UPDATE deals SET title=?, value=?, stage=?, contact=? WHERE id=?", (title, value, stage, contact, id))
+        return {success: true}
+
+    endpoint delete_deal(id)
+        query("DELETE FROM deals WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_contacts(limit = 50)
+        var items = query("SELECT * FROM contacts ORDER BY created_at DESC LIMIT ?", (limit,))
+        return {success: true, data: items}
+
+    endpoint create_contact(name, email, company, phone)
+        query("INSERT INTO contacts (name, email, company, phone) VALUES (?, ?, ?, ?)", (name, email, company, phone))
+        var id = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: id}
+
+    endpoint update_contact(id, name, email, company, phone)
+        query("UPDATE contacts SET name=?, email=?, company=?, phone=? WHERE id=?", (name, email, company, phone, id))
+        return {success: true}
+
+    endpoint delete_contact(id)
+        query("DELETE FROM contacts WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_companies(limit = 50)
+        var items = query("SELECT * FROM companies ORDER BY created_at DESC LIMIT ?", (limit,))
+        return {success: true, data: items}
+
+    endpoint create_company(name, industry, size)
+        query("INSERT INTO companies (name, industry, size) VALUES (?, ?, ?)", (name, industry, size))
+        var id = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: id}
+
+    endpoint update_company(id, name, industry, size)
+        query("UPDATE companies SET name=?, industry=?, size=? WHERE id=?", (name, industry, size, id))
+        return {success: true}
+
+    endpoint delete_company(id)
+        query("DELETE FROM companies WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_activities(limit = 50)
+        var items = query("SELECT * FROM activities ORDER BY created_at DESC LIMIT ?", (limit,))
+        return {success: true, data: items}
+
+    endpoint create_activity(title, type, contact, due_date)
+        query("INSERT INTO activities (title, type, contact, due_date) VALUES (?, ?, ?, ?)", (title, type, contact, due_date))
+        var id = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: id}
+
+    endpoint update_activity(id, title, type, contact, due_date)
+        query("UPDATE activities SET title=?, type=?, contact=?, due_date=? WHERE id=?", (title, type, contact, due_date, id))
+        return {success: true}
+
+    endpoint delete_activity(id)
+        query("DELETE FROM activities WHERE id=?", (id,))
+        return {success: true}

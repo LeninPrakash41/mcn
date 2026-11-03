@@ -1,0 +1,43 @@
+use analytics
+
+contract Transaction
+    customer: str
+    region: str
+    category: str
+    amount: float
+    status: str
+
+query("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, customer TEXT, region TEXT, category TEXT, amount REAL, status TEXT, created_at TEXT DEFAULT (datetime('now')))")
+
+var count_tx = query("SELECT COUNT(*) as cnt FROM transactions")[0].cnt
+if count_tx == 0
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Acme Corp', 'North America', 'Enterprise Software', 48000, 'closed', '2026-01-15')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Globex Inc', 'Europe', 'Cloud Infrastructure', 72000, 'closed', '2026-02-10')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Soylent Corp', 'Asia Pacific', 'Enterprise Software', 31500, 'closed', '2026-02-28')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Initech', 'North America', 'Security & Compliance', 19000, 'pending', '2026-03-05')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Umbrella Corp', 'Europe', 'Cloud Infrastructure', 64000, 'closed', '2026-03-12')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Hooli', 'North America', 'AI Analytics', 89000, 'closed', '2026-04-02')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Massive Dynamic', 'Asia Pacific', 'AI Analytics', 55000, 'pending', '2026-04-18')")
+    query("INSERT INTO transactions (customer, region, category, amount, status, created_at) VALUES ('Stark Industries', 'North America', 'Cloud Infrastructure', 98000, 'closed', '2026-05-01')")
+
+service analytics_api
+    port 8080
+
+    endpoint get_dashboard()
+        var kpis = kpi_summary("transactions", metrics=["sum:amount", "avg:amount", "count:*"])
+        var trends = trend("transactions", date_field="created_at", value_field="amount", interval="monthly", agg="sum")
+        var categories = distribution("transactions", category_field="category", value_field="amount")
+        var regions = distribution("transactions", category_field="region", value_field="amount")
+        var matrix = pivot("transactions", row_field="region", col_field="category", value_field="amount")
+        var recent = query("SELECT * FROM transactions ORDER BY created_at DESC LIMIT 10")
+        return {success: true, kpis: kpis, trends: trends, categories: categories, regions: regions, pivot: matrix, data: recent}
+
+    endpoint export_executive_report(format = "markdown")
+        var rep = report("transactions", metrics=["sum:amount", "avg:amount", "count:*"], group_by=["category"])
+        var output = export_report(rep, format=format)
+        return {success: true, report: output, format: format}
+
+    endpoint add_transaction(customer, region, category, amount, status)
+        query("INSERT INTO transactions (customer, region, category, amount, status) VALUES (?, ?, ?, ?, ?)", (customer, region, category, amount, status))
+        var id = query("SELECT last_insert_rowid() as id")[0].id
+        return {success: true, id: id}

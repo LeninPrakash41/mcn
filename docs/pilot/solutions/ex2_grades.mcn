@@ -1,0 +1,30 @@
+// Exercise 2 — Lists, loops and functions
+var scores = [72, 88, 95, 64, 81]
+
+function letter(score)
+    if score >= 90
+        return "A"
+    if score >= 80
+        return "B"
+    if score >= 70
+        return "C"
+    return "F"
+
+function highest(values)
+    var best = values[0]
+    for v in values
+        if v > best
+            best = v
+    return best
+
+log("Average: " + str(avg(scores)))
+log("Highest: " + str(highest(scores)) + " (" + letter(highest(scores)) + ")")
+
+test "letter grades"
+    assert letter(95) == "A"
+    assert letter(81) == "B"
+    assert letter(70) == "C"
+    assert letter(10) == "F"
+
+test "highest score"
+    assert highest(scores) == 95

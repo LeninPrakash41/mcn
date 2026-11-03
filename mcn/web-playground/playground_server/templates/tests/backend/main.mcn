@@ -1,0 +1,19 @@
+// REPL Quick Script: Unit Testing & Assertions
+function calc_discount(price, tier)
+    if tier == "enterprise"
+        return price * 0.8
+    if tier == "pro"
+        return price * 0.9
+    return price
+
+test "enterprise discount gives 20% off"
+    var p = calc_discount(100, "enterprise")
+    assert p == 80
+
+test "pro discount gives 10% off"
+    var p = calc_discount(100, "pro")
+    assert p == 90
+
+test "standard tier has no discount"
+    var p = calc_discount(100, "standard")
+    assert p == 100

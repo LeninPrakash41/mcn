@@ -1,0 +1,12 @@
+// Field Inspector UI
+component InspectionView
+    render
+        card
+            card_header "Site Safety Audit"
+            button "Submit Checklist"
+
+app InspectorApp
+    title "Field Inspector"
+    layout
+        main
+            InspectionView

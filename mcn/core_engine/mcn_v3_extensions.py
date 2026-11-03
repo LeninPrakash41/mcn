@@ -162,12 +162,41 @@ class MCNEventSystem:
 
 
 class MCNIoTConnector:
-    """IoT and Edge device integration"""
-    
+    """IoT and Edge device integration (simulated devices; values can be overridden)"""
+
+    UNITS = {"temperature_sensor": "°C", "humidity_sensor": "%", "motion_sensor": "active"}
+    DEFAULTS = {"temperature_sensor": 22.5, "humidity_sensor": 45.0, "motion_sensor": 0}
+
     def __init__(self):
+        from collections import deque
         self.devices = {}
         self.mqtt_client = None
         self.websocket_connections = {}
+        self.command_log = deque(maxlen=200)   # most recent commands, oldest first
+
+    def set_override(self, device_id: str, value):
+        """Pin a device's reading (used by the playground's IoT simulator)."""
+        if device_id not in self.devices:
+            raise Exception(f"Device '{device_id}' not found")
+        dtype = self.devices[device_id]["type"]
+        if dtype in ("temperature_sensor", "humidity_sensor"):
+            value = float(value)
+        elif dtype == "motion_sensor":
+            value = int(bool(int(value))) if str(value).lstrip("-").isdigit() else int(bool(value))
+        self.devices[device_id]["override_value"] = value
+        return value
+
+    def snapshot(self) -> Dict:
+        """{device_id: {type, value, unit}} for every registered device."""
+        out = {}
+        for device_id, device in self.devices.items():
+            dtype = device["type"]
+            value = device.get("override_value")
+            if value is None:
+                reading = device.get("last_reading") or {}
+                value = reading.get("value", self.DEFAULTS.get(dtype, device.get("state", "idle")))
+            out[device_id] = {"type": dtype, "value": value, "unit": self.UNITS.get(dtype, "status")}
+        return out
     
     def register_device(self, device_id: str, device_type: str, connection_info: Dict):
         """Register an IoT device"""
@@ -234,8 +263,26 @@ class MCNIoTConnector:
         if device_id not in self.devices:
             raise Exception(f"Device '{device_id}' not found")
         
-        # Simulate command execution
+        import time
+        params = params or {}
+        self.command_log.append({"timestamp": time.time(), "device_id": device_id,
+                                 "command": command, "params": params})
+        # Actuators report their last command as their state (e.g. hvac "cool")
+        if self.devices[device_id]["type"] not in self.UNITS:
+            self.devices[device_id]["state"] = params.get("value", params.get("mode", command))
         return f"Command '{command}' sent to device '{device_id}'"
+
+
+_SHARED_IOT = None
+
+
+def get_shared_iot_connector() -> "MCNIoTConnector":
+    """One device registry per process, so every script run and the playground's
+    IoT simulator see the same devices, readings and command history."""
+    global _SHARED_IOT
+    if _SHARED_IOT is None:
+        _SHARED_IOT = MCNIoTConnector()
+    return _SHARED_IOT
 
 
 class MCNAgentSystem:

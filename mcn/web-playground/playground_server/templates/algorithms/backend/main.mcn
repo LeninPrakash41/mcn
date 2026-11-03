@@ -1,0 +1,8 @@
+// REPL Quick Script: Sorting & Analytics
+var scores = [45, 12, 89, 34, 99, 23, 76, 55]
+log("Original scores: " + str(scores))
+var sorted_scores = sort(scores)
+log("Sorted scores: " + str(sorted_scores))
+log("Min score: " + str(min(scores)))
+log("Max score: " + str(max(scores)))
+log("Average score: " + str(avg(scores)))

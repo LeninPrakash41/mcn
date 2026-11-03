@@ -175,7 +175,11 @@ class MCNInterpreter:
                     log_step("Tokenisation complete", token_count=len(tokens))
 
                 # ── Parsing ───────────────────────────────────────────────────────
-                program = Parser(tokens).parse()
+                parser  = Parser(tokens)
+                program = parser.parse()
+                if parser.errors:
+                    # Never run a half-parsed program: report the first syntax error
+                    raise Exception(parser.errors[0])
                 if not quiet:
                     log_step("Parsing complete", statements=len(program.body))
 
@@ -213,7 +217,8 @@ class MCNInterpreter:
                     },
                     file_path=file_path,
                 )
-                raise Exception(f"MCN {error_type}: {msg}") from exc
+                from .diagnostics import MCNDiagnosticError, diagnose
+                raise MCNDiagnosticError(diagnose(msg), code, error_type) from exc
         finally:
             self._evaluator.max_steps = original_max_steps
             self.runtime.db_connection = original_db_connection
@@ -407,12 +412,12 @@ class MCNInterpreter:
         if not hasattr(self, 'module_system'):
             from .mcn_module_system import MCNModuleSystem
             from .mcn_v3_extensions import (
-                MCNModelRegistry, MCNEventSystem, MCNIoTConnector,
+                MCNModelRegistry, MCNEventSystem, MCNIoTConnector, get_shared_iot_connector,
                 MCNAgentSystem, MCNDataPipeline, MCNNaturalLanguage, MCNDataSourceSystem
             )
             self.model_registry = MCNModelRegistry()
             self.event_system = MCNEventSystem()
-            self.iot_connector = MCNIoTConnector()
+            self.iot_connector = get_shared_iot_connector()
             self.agent_system = MCNAgentSystem(self.model_registry)
             self.pipeline_system = MCNDataPipeline(self.model_registry)
             self.nl_system = MCNNaturalLanguage(self.model_registry)
@@ -482,9 +487,10 @@ class MCNInterpreter:
         except Exception:
             pass
 
+        from .mcn_packages import _BUNDLED
         raise Exception(
             f"Package '{package_name}' not found.\n"
-            f"Built-in packages: stripe, twilio, resend, slack, openai, healthcare, finance\n"
+            f"Built-in packages: {', '.join(sorted(_BUNDLED))}\n"
             f"Install custom: mcn install --path ./my_package"
         )
 
@@ -653,14 +659,17 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": str(e)}
 
-    def _rag_operation(self, operation: str, query: str, name: str):
-        try:
-            self._ensure_v3_systems()
-            if operation == "query_datasource":
-                return self.datasource_system.query_rag(name, query)
-            return f"RAG {operation} simulated"
-        except Exception as e:
-            return {"error": str(e)}
+    def _rag_operation(self, query_or_op: Any, docs: Any = None, template: Any = ""):
+        """rag(question [, docs [, template]])  — retrieval-augmented answer (documented form)
+        rag("query_datasource", question, datasource_name)  — query a registered datasource"""
+        if query_or_op == "query_datasource" and isinstance(template, str) and template:
+            try:
+                self._ensure_v3_systems()
+                return self.datasource_system.query_rag(template, docs)
+            except Exception as e:
+                return {"error": str(e)}
+        from .stdlib_builtins import mcn_rag
+        return mcn_rag(str(query_or_op), docs, template or "")
 
     def _pipeline_operation(self, operation: str, name: str = None, steps_or_data=None):
         try:

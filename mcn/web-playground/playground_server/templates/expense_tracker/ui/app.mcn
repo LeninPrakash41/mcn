@@ -1,0 +1,14 @@
+// Expense Tracker Flutter UI
+component BudgetOverview
+    state remaining = "$2,370"
+    render
+        card
+            card_header "Monthly Budget"
+            stat label="Remaining Balance" value=remaining change=12.0
+            button "+ Add Expense"
+
+app ExpenseApp
+    title "Expense Tracker"
+    layout
+        main
+            BudgetOverview

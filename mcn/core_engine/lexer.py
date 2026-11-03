@@ -292,8 +292,8 @@ class Lexer:
                 self._push(TT.DEDENT, "")
             if self._indent_stack[-1] != indent:
                 raise LexError(
-                    f"Inconsistent dedent "
-                    f"(expected level {self._indent_stack[-1]}, got {indent})",
+                    f"This line is indented {indent} spaces, which doesn't match any enclosing block "
+                    f"(expected {self._indent_stack[-1]})",
                     self._line, 1,
                 )
 
@@ -313,6 +313,23 @@ class Lexer:
                 indent += 1
             self._pos += 1
         return indent, 0  # second value reserved for future use
+
+    def _ends_with_ternary_colon(self) -> bool:
+        """True when the line ends with the ':' of an unfinished `cond ? a : b`
+        (a plain trailing ':' is not a continuation, so `if x:` keeps its body)."""
+        if not self._tokens or self._tokens[-1].type != TT.COLON:
+            return False
+        inner_colons = 0          # ':' of nested ternaries already closed on this line
+        for tok in reversed(self._tokens[:-1]):
+            if tok.type in (TT.NEWLINE, TT.INDENT, TT.DEDENT):
+                return False
+            if tok.type == TT.COLON:
+                inner_colons += 1
+            elif tok.type == TT.QUESTION:
+                if inner_colons == 0:
+                    return True    # this ':' closes an open '?'
+                inner_colons -= 1
+        return False
 
     # ── Token scanning ─────────────────────────────────────────────────────────
 
@@ -336,7 +353,8 @@ class Lexer:
 
         # Newline — end of logical line (or continuation inside ()/[] or after operators)
         if ch == "\n":
-            if self._nesting_level > 0 or (self._tokens and self._tokens[-1].type in _CONTINUATION_OPS):
+            if self._nesting_level > 0 or (self._tokens and self._tokens[-1].type in _CONTINUATION_OPS) \
+                    or self._ends_with_ternary_colon():
                 self._pos += 1
                 self._line += 1
                 self._col = 1

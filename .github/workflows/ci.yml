@@ -42,6 +42,49 @@ jobs:
         for i in $(seq 1 20); do curl -sf http://127.0.0.1:5003/api/health && break; sleep 1; done
         curl -sf http://127.0.0.1:5003/api/health
 
+  e2e-react:
+    # Compile the React app generated from every template
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: pip
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Install MCN
+      run: |
+        pip install -e .
+        pip install -r mcn/web-playground/requirements.txt pytest
+    - name: Type-check generated React apps
+      env:
+        MCN_E2E_REACT: '1'
+      run: python -m pytest tests/test_templates_e2e.py -k typechecks
+
+  e2e-flutter:
+    # Analyze the Flutter app generated from every template
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: pip
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+    - name: Install MCN
+      run: |
+        pip install -e .
+        pip install -r mcn/web-playground/requirements.txt pytest
+    - name: Analyze generated Flutter apps
+      env:
+        MCN_E2E_FLUTTER: '1'
+      run: python -m pytest tests/test_templates_e2e.py -k analyzes
+
   security:
     runs-on: ubuntu-latest
     steps:

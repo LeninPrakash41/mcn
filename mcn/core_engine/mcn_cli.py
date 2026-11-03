@@ -160,7 +160,8 @@ def run_file(filepath: str):
 
         return 0
     except Exception as e:
-        print(f"Error executing script: {e}")
+        # The interpreter's message already shows the line, a caret and a hint
+        print(str(e), file=sys.stderr)
         return 1
 
 

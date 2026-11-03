@@ -1,0 +1,15 @@
+// Exercise 1 — Variables, strings and decisions
+var names = ["Ada", "Linus", "Grace"]
+
+function greeting(name, hour)
+    var part = "morning" if hour < 12 else "afternoon"
+    return "Good " + part + ", " + name + "!"
+
+for name in names
+    log(greeting(name, 9))
+
+test "morning greeting"
+    assert greeting("Ada", 9) == "Good morning, Ada!"
+
+test "afternoon greeting"
+    assert greeting("Grace", 15) == "Good afternoon, Grace!"

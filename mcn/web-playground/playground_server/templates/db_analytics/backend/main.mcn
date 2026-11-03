@@ -1,0 +1,31 @@
+// REPL Quick Script: Native Database Reports & Analytics
+use analytics
+
+query("CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, rep TEXT, region TEXT, amount REAL, created_at TEXT)")
+query("INSERT INTO sales (rep, region, amount, created_at) VALUES ('Alice', 'North', 15000, '2026-01-10')")
+query("INSERT INTO sales (rep, region, amount, created_at) VALUES ('Bob', 'West', 22000, '2026-02-14')")
+query("INSERT INTO sales (rep, region, amount, created_at) VALUES ('Charlie', 'North', 35000, '2026-02-20')")
+query("INSERT INTO sales (rep, region, amount, created_at) VALUES ('Alice', 'West', 41000, '2026-03-05')")
+query("INSERT INTO sales (rep, region, amount, created_at) VALUES ('Diana', 'East', 18500, '2026-03-15')")
+
+// 1. KPI Summary Aggregations
+var kpi = kpi_summary("sales", metrics=["sum:amount", "avg:amount", "count:*"])
+log("KPI Summary: " + str(kpi))
+
+// 2. Time-series Monthly Trend
+var trends = trend("sales", date_field="created_at", value_field="amount", interval="monthly", agg="sum")
+log("Monthly Trend: " + str(trends))
+
+// 3. Category & Regional Distribution
+var regional = distribution("sales", category_field="region", value_field="amount")
+log("Regional Share: " + str(regional))
+
+// 4. Pivot Matrix Table
+var p = pivot("sales", row_field="rep", col_field="region", value_field="amount")
+log("Pivot Matrix: " + str(p))
+
+// 5. Formatted Markdown Report Export
+var rep_data = report("sales", metrics=["sum:amount", "count:*"], group_by=["region"])
+var report_md = export_report(rep_data, format="markdown")
+log("--- EXECUTIVE EXPORT ---")
+log(str(report_md))

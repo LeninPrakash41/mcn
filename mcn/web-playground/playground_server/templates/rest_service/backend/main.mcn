@@ -1,0 +1,20 @@
+// Backend Microservice: Multi-endpoint REST Service
+service cloud_api
+    port 8080
+
+    endpoint get_health()
+        return {status: "healthy", uptime_seconds: 3600, nodes: 4}
+
+    endpoint list_metrics()
+        return [
+            {metric: "cpu_usage_pct", value: 14.2},
+            {metric: "memory_used_mb", value: 512},
+            {metric: "requests_per_sec", value: 1420}
+        ]
+
+    endpoint get_config()
+        return {env: "production", rate_limit: 5000, region: "us-east-1"}
+
+log("⚡ Microservice cloud_api initialized on port 8080")
+var health = get_health()
+log("Health Status: " + health.status + " (Nodes: " + str(health.nodes) + ")")

@@ -1,0 +1,14 @@
+// Smart Home Flutter UI
+component HomeOverview
+    state temp = 22.5
+    render
+        card
+            card_header "Living Room Climate"
+            stat label="Current Temp" value="22.5°C" change=0.8
+            button "Toggle HVAC"
+
+app SmartHome
+    title "Smart Home Controller"
+    layout
+        main
+            HomeOverview

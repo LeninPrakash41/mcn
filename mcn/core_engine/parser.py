@@ -23,11 +23,9 @@ _KEYWORD_TYPES = frozenset(KEYWORDS.values())
 # ── Errors ─────────────────────────────────────────────────────────────────────
 
 class ParseError(Exception):
-    def __init__(self, message: str, token: Token):
-        super().__init__(
-            f"[{token.line}:{token.col}] ParseError: {message} "
-            f"(got {token.type.name} {token.value!r})"
-        )
+    def __init__(self, message: str, token: Token, show_got: bool = True):
+        got = f" (got {token.type.name} {token.value!r})" if show_got else ""
+        super().__init__(f"[{token.line}:{token.col}] ParseError: {message}{got}")
         self.token = token
 
 
@@ -39,6 +37,17 @@ _STATEMENT_STYLE_BUILTINS = {
     "log", "echo", "trigger", "query", "workflow", "ai",
     "await", "env", "read_file", "write_file", "append_file", "fetch",
     "device", "agent", "pipeline", "natural", "train", "predict", "preprocess", "translate"
+}
+
+
+# Keywords that start declarations (`agent Name`, `test "..."`) but are also
+# valid names: runtime functions like agent("create", ...), loop variables
+# like `for task in tasks`, or function names like `function test()`.
+_SOFT_KEYWORDS = {
+    TT.AGENT, TT.PIPELINE, TT.WORKFLOW, TT.SERVICE, TT.CONTRACT,
+    TT.PROMPT, TT.MCP, TT.COMPONENT, TT.APP, TT.TASK, TT.USE,
+    TT.STAGE, TT.ENDPOINT, TT.STEP, TT.PORT, TT.ON, TT.INCLUDE,
+    TT.ROUTE, TT.TEST, TT.ASSERT, TT.TOOL, TT.SCHEDULE, TT.STATE, TT.LAYOUT, TT.RENDER,
 }
 
 
@@ -113,6 +122,13 @@ class Parser:
 
     def _statement(self) -> Optional[ast.Stmt]:
         tok = self._current()
+        # Soft keyword used as a name: agent("create", ...), task = 1, pipeline.run()
+        if tok.type in _SOFT_KEYWORDS and self._pos + 1 < len(self._tokens):
+            nxt = self._tokens[self._pos + 1].type
+            # ...or a statement-style call: pipeline "create" "etl" (declarations take a bare name)
+            if nxt in (TT.LPAREN, TT.DOT, TT.LBRACKET, TT.ASSIGN) or \
+                    (nxt == TT.STRING and tok.value in _STATEMENT_STYLE_BUILTINS):
+                self._tokens[self._pos] = tok = Token(TT.IDENTIFIER, tok.value, tok.line, tok.col)
         if tok.type == TT.VAR:      return self._var_decl()
         if tok.type == TT.IF:       return self._if_stmt()
         if tok.type == TT.FOR:      return self._for_stmt()
@@ -165,7 +181,7 @@ class Parser:
     def _var_decl(self) -> ast.VarDecl:
         tok   = self._advance()            # consume VAR
         tok_n = self._current()
-        if tok_n.type in (TT.IDENTIFIER, TT.APP, TT.TASK, TT.PROMPT):
+        if tok_n.type == TT.IDENTIFIER or tok_n.type in _SOFT_KEYWORDS:
             name_tok = self._advance()
         else:
             raise ParseError(f"Expected variable name after 'var' (got {tok_n.type.name} '{tok_n.value}')", tok_n)
@@ -444,7 +460,11 @@ class Parser:
             return stmts
 
         if not self._check(TT.INDENT):
-            return []                         # empty block — tolerated
+            header = self._line_start_token()
+            raise ParseError(
+                f"Expected an indented block after '{header.value}' on line {header.line}",
+                self._current(), show_got=False,
+            )
 
         self._advance()                       # consume INDENT
         stmts: List[ast.Stmt] = []
@@ -477,6 +497,15 @@ class Parser:
             else_ex = self._or()
             return ast.TernaryExpr(condition=expr, then_expr=then_ex, else_expr=else_ex,
                                    line=q.line, col=q.col)
+        if self._check(TT.IF) and self._current().line == self._tokens[self._pos - 1].line:
+            # Python-style inline conditional: value if condition else other
+            # (same line only: inside { } blocks an `if` on the next line is a new statement)
+            kw = self._advance()       # consume 'if'
+            cond = self._or()
+            self._consume(TT.ELSE, "Expected 'else' in inline conditional (value if condition else other)")
+            else_ex = self._expression()
+            return ast.TernaryExpr(condition=cond, then_expr=expr, else_expr=else_ex,
+                                   line=kw.line, col=kw.col)
         return expr
 
     def _or(self) -> ast.Expr:
@@ -553,10 +582,19 @@ class Parser:
             return ast.NamedArg(name=name_tok.value, value=val_expr, line=name_tok.line, col=name_tok.col)
         return self._expression()
 
+    def _close_paren(self, open_tok: Token, message: str) -> Token:
+        """Consume ')' or report the '(' that was never closed."""
+        if self._check(TT.RPAREN):
+            return self._advance()
+        if self._current().type == TT.EOF or self._current().line > open_tok.line:
+            raise ParseError(f"This '(' is never closed. Add a ')' to match it", open_tok, show_got=False)
+        raise ParseError(message, self._current())
+
     def _call(self) -> ast.Expr:
         expr = self._primary()
         while True:
             if self._match(TT.LPAREN):
+                open_tok = self._tokens[self._pos - 1]
                 args: List[ast.Expr] = []
                 self._skip_whitespace()
                 if not self._check(TT.RPAREN):
@@ -568,9 +606,10 @@ class Parser:
                             break
                         args.append(self._parse_arg())
                         self._skip_whitespace()
-                close = self._consume(TT.RPAREN, "Expected ')' after arguments")
+                self._close_paren(open_tok, "Expected ')' after arguments")
+                # Locate the call at its callee so errors point at the function name
                 expr  = ast.Call(callee=expr, arguments=args,
-                                 line=close.line, col=close.col)
+                                 line=expr.line, col=expr.col)
             elif self._match(TT.LBRACKET):
                 index = self._expression()
                 close = self._consume(TT.RBRACKET, "Expected ']' after index")
@@ -612,13 +651,7 @@ class Parser:
         if self._match(TT.STRING):
             return ast.Literal(value=tok.value, line=tok.line, col=tok.col)
 
-        _IDENTIFIER_LIKE_KEYWORDS = {
-            TT.AGENT, TT.PIPELINE, TT.WORKFLOW, TT.SERVICE, TT.CONTRACT,
-            TT.PROMPT, TT.MCP, TT.COMPONENT, TT.APP, TT.TASK, TT.USE,
-            TT.STAGE, TT.ENDPOINT, TT.STEP, TT.PORT, TT.ON, TT.INCLUDE,
-            TT.ROUTE, TT.TEST, TT.ASSERT,
-        }
-        if self._check(TT.IDENTIFIER) or self._current().type in _IDENTIFIER_LIKE_KEYWORDS:
+        if self._check(TT.IDENTIFIER) or self._current().type in _SOFT_KEYWORDS:
             tok = self._advance()
             # Arrow function: single param shorthand   x => expr
             if self._check(TT.ARROW):
@@ -764,6 +797,8 @@ class Parser:
     def _consume(self, tt: TT, message: str) -> Token:
         if self._check(tt):
             return self._advance()
+        if tt == TT.IDENTIFIER and self._current().type in _SOFT_KEYWORDS:
+            return self._advance()          # e.g. `function test()`, `for task in ...`
         raise ParseError(message, self._current())
 
     def _consume_end(self):
@@ -785,6 +820,26 @@ class Parser:
     def _at_eol(self) -> bool:
         """True when we are at a logical end-of-line (can't parse more on this line)."""
         return self._current().type in (TT.NEWLINE, TT.EOF, TT.DEDENT)
+
+    def _line_start_token(self) -> Token:
+        """First token of the logical line before the current position (the block header)."""
+        i = self._pos - 1
+        while i > 0 and self._tokens[i].type == TT.NEWLINE:
+            i -= 1
+        while i > 0 and self._tokens[i - 1].type not in (TT.NEWLINE, TT.INDENT, TT.DEDENT):
+            i -= 1
+        return self._tokens[max(i, 0)]
+
+    def _is_jsx_expr_attr(self) -> bool:
+        """At '{' after `attr=`: True for a JSX-style {expr} wrapper, False for an
+        object literal ({} or {key: ...})."""
+        nxt = self._tokens[self._pos + 1] if self._pos + 1 < len(self._tokens) else None
+        after = self._tokens[self._pos + 2] if self._pos + 2 < len(self._tokens) else None
+        if nxt is None or nxt.type == TT.RBRACE:
+            return False
+        if nxt.type in (TT.IDENTIFIER, TT.STRING) and after is not None and after.type == TT.COLON:
+            return False
+        return True
 
 
     # ── 2030 Language Primitive Parsers ────────────────────────────────────────
@@ -1409,7 +1464,13 @@ class Parser:
                     self._tokens[self._pos + 1].type == TT.ASSIGN):
                 key_tok = self._advance()        # consume key
                 self._advance()                  # consume =
-                val = self._expression()
+                if self._check(TT.LBRACE) and self._is_jsx_expr_attr():
+                    # JSX-style attr={expr}, e.g. style={{"width": "50%"}}
+                    self._advance()              # consume outer {
+                    val = self._expression()
+                    self._consume(TT.RBRACE, "Expected '}' to close attribute expression")
+                else:
+                    val = self._expression()
                 attrs.append(ast.UIAttr(key=key_tok.value, value=val,
                                         line=key_tok.line, col=key_tok.col))
 

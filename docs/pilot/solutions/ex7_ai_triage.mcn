@@ -1,0 +1,19 @@
+// Exercise 7 — AI in one line (works without an API key in mock mode)
+var tickets = [
+    "My card was charged twice this month",
+    "The app crashes when I open settings",
+    "How do I change my email address?"
+]
+
+function triage(text)
+    var team = classify(text, ["billing", "bug", "account"])
+    return {text: text, team: team}
+
+for t in tickets
+    var r = triage(t)
+    log(r.team + "  <-  " + r.text)
+
+test "every ticket gets one of the allowed teams"
+    for t in tickets
+        var team = triage(t).team
+        assert team == "billing" or team == "bug" or team == "account"

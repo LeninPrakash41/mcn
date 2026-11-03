@@ -1,0 +1,233 @@
+// Construction Management Backend Script
+contract Property
+    name: str
+    location: str
+    units: int
+    status: str
+
+contract Project
+    name: str
+    prop_id: int
+    budget: float
+    status: str
+    start_date: str
+    end_date: str
+
+contract Job
+    project_id: int
+    title: str
+    assigned_to: str
+    status: str
+    progress: int
+    start_day: int
+    duration: int
+
+contract Resource
+    name: str
+    role: str
+    rate: float
+    availability: str
+
+contract Material
+    name: str
+    unit: str
+    stock: int
+    reorder_level: int
+
+contract Asset
+    name: str
+    type: str
+    status: str
+    location: str
+
+contract Incident
+    project_id: int
+    title: str
+    severity: str
+    status: str
+    reported_by: str
+
+contract Document
+    name: str
+    type: str
+    uploaded_at: str
+
+contract Procurement
+    material_id: int
+    qty: int
+    cost: float
+    status: str
+    requested_by: str
+
+contract Approval
+    type: str
+    item_id: int
+    status: str
+    requested_by: str
+
+// Tables initialization
+query("CREATE TABLE IF NOT EXISTS properties (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, location TEXT, units INTEGER, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, prop_id INTEGER, budget REAL, status TEXT, start_date TEXT, end_date TEXT)")
+query("CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, title TEXT, assigned_to TEXT, status TEXT, progress INTEGER, start_day INTEGER, duration INTEGER)")
+query("CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, role TEXT, rate REAL, availability TEXT)")
+query("CREATE TABLE IF NOT EXISTS materials (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, unit TEXT, stock INTEGER, reorder_level INTEGER)")
+query("CREATE TABLE IF NOT EXISTS assets (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, status TEXT, location TEXT)")
+query("CREATE TABLE IF NOT EXISTS incidents (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, title TEXT, severity TEXT, status TEXT, reported_by TEXT, reported_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, uploaded_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS procurements (id INTEGER PRIMARY KEY AUTOINCREMENT, material_id INTEGER, qty INTEGER, cost REAL, status TEXT, requested_by TEXT)")
+query("CREATE TABLE IF NOT EXISTS approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, item_id INTEGER, status TEXT, requested_by TEXT)")
+
+// Populate initial data if empty
+var count_projects = query("SELECT COUNT(*) as cnt FROM projects")[0].cnt
+if count_projects == 0
+    query("INSERT INTO properties (name, location, units, status) VALUES ('Skyline Residency', 'Downtown Hub', 120, 'Under Construction')")
+    query("INSERT INTO properties (name, location, units, status) VALUES ('Oakwood Villas', 'West Suburbs', 15, 'Planning')")
+    query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES ('Foundation & Structural Build', 1, 450000.0, 'Active', '2026-01-10', '2026-06-30')")
+    query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES ('Interior Fitouts & Finishing', 1, 150000.0, 'Planning', '2026-07-01', '2026-12-15')")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Excavation & Earthwork', 'Concrete Co', 'Completed', 100, 1, 5)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Steel Reinforcement', 'Apex Builders', 'Active', 60, 6, 8)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Concrete Pouring', 'Apex Builders', 'Active', 40, 10, 12)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Masonry & Walling', 'Civic Contractors', 'Pending', 0, 20, 10)")
+    query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (1, 'Roof Framing', 'Civic Contractors', 'Pending', 0, 28, 7)")
+    query("INSERT INTO resources (name, role, rate, availability) VALUES ('John Mason', 'Site Supervisor', 65.0, 'Available')")
+    query("INSERT INTO resources (name, role, rate, availability) VALUES ('Sarah Steel', 'Structural Engineer', 95.0, 'Available')")
+    query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES ('Cement', 'bags', 350, 100)")
+    query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES ('Steel Rebar', 'tons', 12, 5)")
+    query("INSERT INTO assets (name, type, status, location) VALUES ('Caterpillar Excavator', 'Heavy Equipment', 'In Use', 'Skyline Site')")
+    query("INSERT INTO assets (name, type, status, location) VALUES ('Tower Crane A', 'Crane', 'Maintenance', 'Skyline Site')")
+    query("INSERT INTO incidents (project_id, title, severity, status, reported_by) VALUES (1, 'Minor concrete spill at Sector B', 'Low', 'Resolved', 'John Mason')")
+    query("INSERT INTO documents (name, type) VALUES ('skyline_blueprint_v2.pdf', 'Blueprint')")
+    query("INSERT INTO documents (name, type) VALUES ('permit_approval_final.pdf', 'Permit')")
+    query("INSERT INTO procurements (material_id, qty, cost, status, requested_by) VALUES (1, 150, 1500.0, 'Approved', 'John Mason')")
+    query("INSERT INTO approvals (type, item_id, status, requested_by) VALUES ('Procurement Request #1', 1, 'Approved', 'John Mason')")
+
+service construction_api
+    port 8080
+
+    endpoint list_properties()
+        var items = query("SELECT * FROM properties")
+        return {success: true, data: items}
+
+    endpoint create_property(name, location, units, status)
+        query("INSERT INTO properties (name, location, units, status) VALUES (?, ?, ?, ?)", (name, location, units, status))
+        return {success: true}
+
+    endpoint delete_property(id)
+        query("DELETE FROM properties WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_projects()
+        var items = query("SELECT * FROM projects")
+        return {success: true, data: items}
+
+    endpoint create_project(name, prop_id, budget, status, start_date, end_date)
+        query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)", (name, prop_id, budget, status, start_date, end_date))
+        return {success: true}
+
+    endpoint delete_project(id)
+        query("DELETE FROM projects WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_jobs()
+        var items = query("SELECT * FROM jobs")
+        return {success: true, data: items}
+
+    endpoint create_job(project_id, title, assigned_to, status, progress, start_day, duration)
+        query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (?, ?, ?, ?, ?, ?, ?)", (project_id, title, assigned_to, status, progress, start_day, duration))
+        return {success: true}
+
+    endpoint delete_job(id)
+        query("DELETE FROM jobs WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint update_job_progress(id, progress, status)
+        query("UPDATE jobs SET progress=?, status=? WHERE id=?", (progress, status, id))
+        return {success: true}
+
+    endpoint list_resources()
+        var items = query("SELECT * FROM resources")
+        return {success: true, data: items}
+
+    endpoint create_resource(name, role, rate, availability)
+        query("INSERT INTO resources (name, role, rate, availability) VALUES (?, ?, ?, ?)", (name, role, rate, availability))
+        return {success: true}
+
+    endpoint delete_resource(id)
+        query("DELETE FROM resources WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_materials()
+        var items = query("SELECT * FROM materials")
+        return {success: true, data: items}
+
+    endpoint create_material(name, unit, stock, reorder_level)
+        query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES (?, ?, ?, ?)", (name, unit, stock, reorder_level))
+        return {success: true}
+
+    endpoint delete_material(id)
+        query("DELETE FROM materials WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_assets()
+        var items = query("SELECT * FROM assets")
+        return {success: true, data: items}
+
+    endpoint create_asset(name, type, status, location)
+        query("INSERT INTO assets (name, type, status, location) VALUES (?, ?, ?, ?)", (name, type, status, location))
+        return {success: true}
+
+    endpoint delete_asset(id)
+        query("DELETE FROM assets WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_incidents()
+        var items = query("SELECT * FROM incidents")
+        return {success: true, data: items}
+
+    endpoint create_incident(project_id, title, severity, status, reported_by)
+        query("INSERT INTO incidents (project_id, title, severity, status, reported_by) VALUES (?, ?, ?, ?, ?)", (project_id, title, severity, status, reported_by))
+        return {success: true}
+
+    endpoint delete_incident(id)
+        query("DELETE FROM incidents WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_documents()
+        var items = query("SELECT * FROM documents")
+        return {success: true, data: items}
+
+    endpoint create_document(name, type)
+        query("INSERT INTO documents (name, type) VALUES (?, ?)", (name, type))
+        return {success: true}
+
+    endpoint delete_document(id)
+        query("DELETE FROM documents WHERE id=?", (id,))
+        return {success: true}
+
+    endpoint list_procurements()
+        var items = query("SELECT p.*, m.name as material_name FROM procurements p JOIN materials m ON p.material_id = m.id")
+        return {success: true, data: items}
+
+    endpoint create_procurement(material_name, qty, cost, requested_by)
+        var mat = query("SELECT id FROM materials WHERE name=?", (material_name,))[0]
+        query("INSERT INTO procurements (material_id, qty, cost, status, requested_by) VALUES (?, ?, ?, 'Pending', ?)", (mat.id, qty, cost, requested_by))
+        var pid = query("SELECT last_insert_rowid() as id")[0].id
+        query("INSERT INTO approvals (type, item_id, status, requested_by) VALUES (?, ?, 'Pending', ?)", ("Procurement Request #" + pid, pid, requested_by))
+        return {success: true}
+
+    endpoint list_approvals()
+        var items = query("SELECT * FROM approvals")
+        return {success: true, data: items}
+
+    endpoint handle_approval(id, status, approved_by)
+        query("UPDATE approvals SET status=? WHERE id=?", (status, id))
+        var app = query("SELECT * FROM approvals WHERE id=?", (id,))[0]
+        if status == "Approved"
+            if app.type == "Procurement Request #" + app.item_id
+                query("UPDATE procurements SET status='Approved' WHERE id=?", (app.item_id,))
+                var req = query("SELECT * FROM procurements WHERE id=?", (app.item_id,))[0]
+                query("UPDATE materials SET stock = stock + ? WHERE id=?", (req.qty, req.material_id))
+        else
+            if app.type == "Procurement Request #" + app.item_id
+                query("UPDATE procurements SET status='Rejected' WHERE id=?", (app.item_id,))
+        return {success: true}

@@ -1,0 +1,14 @@
+// Backend Microservice: IoT Telemetry Processor
+service telemetry_service
+    port 9090
+
+    endpoint ingest_reading(sensor_id, reading_val)
+        var is_alert = reading_val > 30.0
+        if is_alert
+            log("⚠️ HIGH TEMPERATURE ALERT on sensor " + sensor_id + ": " + str(reading_val) + "°C")
+        return {sensor_id: sensor_id, alert: is_alert, logged: true}
+
+log("⚡ IoT Telemetry Ingestion Hub Online")
+var r1 = ingest_reading("sensor_office", 23.4)
+var r2 = ingest_reading("sensor_server_room", 34.8)
+log("Ingestion results: Office alert=" + str(r1.alert) + ", Server Room alert=" + str(r2.alert))

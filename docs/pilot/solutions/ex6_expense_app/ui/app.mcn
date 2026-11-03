@@ -1,0 +1,49 @@
+// Exercise 6 — Expense tracker UI
+component AddExpense
+    state title    = ""
+    state amount   = 0
+    state category = "food"
+    state message  = ""
+
+    on submit
+        var result = add_expense(title, amount, category)
+        if result.success
+            message = "Saved!"
+        else
+            message = result.error
+
+    render
+        card
+            card_header "Add an expense"
+            form on_submit=submit
+                input bind=title label="What was it?"
+                input bind=amount label="Amount" type="number"
+                input bind=category label="Category"
+                button "Save" variant="default"
+                div
+                    text message
+
+component ExpenseList
+    state items = []
+
+    on load
+        var resp = list_expenses()
+        items = resp.data
+
+    render
+        card
+            card_header "Expenses"
+            table
+                table_header
+                    table_row
+                        table_head "title"
+                        table_head "amount"
+                        table_head "category"
+                table_body
+
+app ExpenseTracker
+    title "Expense Tracker"
+    layout
+        tabs
+            tab "Add"     AddExpense
+            tab "History" ExpenseList

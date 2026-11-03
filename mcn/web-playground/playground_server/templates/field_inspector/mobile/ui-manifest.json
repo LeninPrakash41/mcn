@@ -1,0 +1,44 @@
+{
+  "name": "FieldInspectorApp",
+  "components": {
+    "SiteInspection": {
+      "type": "container",
+      "props": {
+        "className": "column"
+      },
+      "children": [
+        {
+          "type": "text",
+          "props": {
+            "tag": "h1",
+            "content": "Site Safety & Audit"
+          }
+        },
+        {
+          "type": "table",
+          "props": {
+            "columns": [
+              "Checkpoint",
+              "Zone",
+              "Status",
+              "Inspector"
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "props": {
+            "text": "\u2713 Sign-off & Submit Report"
+          }
+        }
+      ]
+    }
+  },
+  "pages": {
+    "Inspection": {
+      "components": [
+        "SiteInspection"
+      ]
+    }
+  }
+}

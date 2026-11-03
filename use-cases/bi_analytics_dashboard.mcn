@@ -78,7 +78,7 @@ query("INSERT OR REPLACE INTO dashboard_snapshots (name, data, created_at) VALUE
       (dashboard_config.name, executive_summary))
 
 // Customer Segmentation Analysis
-var customer_segments = query("SELECT
+var customer_segments = query("""SELECT
     CASE
         WHEN total_spent > 1000 THEN 'High Value'
         WHEN total_spent > 500 THEN 'Medium Value'
@@ -87,12 +87,12 @@ var customer_segments = query("SELECT
     COUNT(*) as count,
     AVG(total_spent) as avg_spent
     FROM customers
-    GROUP BY segment")
+    GROUP BY segment""")
 
 var segment_insights = ai("Analyze these customer segments and recommend marketing strategies: " + customer_segments)
 
 // Product Performance Analysis
-var product_performance = query("SELECT
+var product_performance = query("""SELECT
     product_name,
     SUM(quantity) as units_sold,
     SUM(revenue) as total_revenue,
@@ -101,7 +101,7 @@ var product_performance = query("SELECT
     WHERE date >= date('now', '-30 days')
     GROUP BY product_name
     ORDER BY total_revenue DESC
-    LIMIT 10")
+    LIMIT 10""")
 
 // Competitive Analysis (External Data)
 var market_data = trigger("https://market-api.com/industry-benchmarks", {

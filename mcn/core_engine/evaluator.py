@@ -44,8 +44,42 @@ class MCNError(Exception):
     def __init__(self, message: str, line: int = 0, col: int = 0):
         loc = f"[{line}:{col}] " if line else ""
         super().__init__(f"{loc}RuntimeError: {message}")
+        self.message = message
         self.line = line
         self.col  = col
+
+
+class ArgumentCountError(MCNError):
+    """Wrong number of arguments to a user function; re-raised at the call site."""
+
+
+def _did_you_mean(name: str, candidates) -> str:
+    """' Did you mean 'x'?' for the closest known names, or ''."""
+    import difflib
+    names = sorted({c for c in candidates if isinstance(c, str) and not c.startswith("_")})
+    close = difflib.get_close_matches(name, names, n=2, cutoff=0.75)
+    if not close:
+        return ""
+    return " Did you mean " + " or ".join(f"'{c}'" for c in close) + "?"
+
+
+def _friendly_call_error(name: str, exc: Exception) -> str:
+    """Rewrite Python's argument errors in terms of the MCN call."""
+    import re
+    msg = str(exc)
+    m = re.search(r"missing (\d+) required positional arguments?: (.+)$", msg)
+    if m:
+        missing = m.group(2).replace("'", "").replace(" and ", ", ")
+        return f"{name}() is missing {'an argument' if m.group(1) == '1' else 'arguments'}: {missing}"
+    m = re.search(r"takes (?:from )?(\d+)(?: to (\d+))? positional arguments? but (\d+) (?:was|were) given", msg)
+    if m:
+        lo, hi, got = m.group(1), m.group(2), m.group(3)
+        takes = f"{lo} to {hi}" if hi else lo
+        return f"{name}() takes {takes} argument{'s' if (hi or lo) != '1' else ''} but {got} {'was' if got == '1' else 'were'} given"
+    m = re.search(r"got an unexpected keyword argument '(\w+)'", msg)
+    if m:
+        return f"{name}() has no parameter named '{m.group(1)}'"
+    return f"Function '{name}' failed: {msg}"
 
 
 # ── Lexical environment ────────────────────────────────────────────────────────
@@ -437,6 +471,14 @@ class Evaluator:
 
         def user_func(*args: Any, **kwargs: Any) -> Any:
             call_env = Environment(captured_env)
+            if len(args) > len(params):
+                raise ArgumentCountError(f"{name}() takes {len(params)} argument{'s' if len(params) != 1 else ''} "
+                                         f"({', '.join(params) or 'none'}) but {len(args)} were given")
+            missing = [p for i, p in enumerate(params)
+                       if i >= len(args) and p not in kwargs and p not in defaults]
+            if missing:
+                raise ArgumentCountError(f"{name}() is missing {'an argument' if len(missing) == 1 else 'arguments'}: "
+                                         f"{', '.join(missing)} (it takes {', '.join(params)})")
             for i, param in enumerate(params):
                 if i < len(args):
                     call_env.define(param, args[i])
@@ -474,12 +516,7 @@ class Evaluator:
                 return val
             if expr.name in self.functions:
                 return self.functions[expr.name]
-            # Helpful "did you mean?" hint
-            similar = [
-                k for k in env.all_names()
-                if k.lower().startswith(expr.name[:2].lower())
-            ]
-            hint = f" Did you mean: {', '.join(similar[:3])}?" if similar else ""
+            hint = _did_you_mean(expr.name, list(env.all_names()) + list(self.functions))
             raise MCNError(
                 f"Undefined variable: '{expr.name}'.{hint}",
                 expr.line, expr.col,
@@ -573,6 +610,13 @@ class Evaluator:
         raise MCNError(f"Unknown expression type: {type(expr).__name__}")
 
     def _eval_call(self, expr: ast.Call, env: Environment) -> Any:
+        if isinstance(expr.callee, ast.Variable) and env.get(expr.callee.name) is _UNDEFINED \
+                and expr.callee.name not in self.functions:
+            name = expr.callee.name
+            raise MCNError(
+                f"Undefined function: '{name}'.{_did_you_mean(name, list(self.functions) + list(env.all_names()))}",
+                expr.line, expr.col,
+            )
         callee = self._eval(expr.callee, env)
         pos_args = []
         kw_args = {}
@@ -587,14 +631,15 @@ class Evaluator:
                 if kw_args:
                     return callee(*pos_args, **kw_args)
                 return callee(*pos_args)
+            except ArgumentCountError as exc:
+                if not exc.line:
+                    raise MCNError(exc.message, expr.line, expr.col) from exc
+                raise
             except (ReturnSignal, MCNError):
                 raise
             except Exception as exc:
                 name = getattr(expr.callee, "name", "?")
-                raise MCNError(
-                    f"Function '{name}' failed: {exc}",
-                    expr.line, expr.col,
-                ) from exc
+                raise MCNError(_friendly_call_error(name, exc), expr.line, expr.col) from exc
 
         # Callee resolved to a string (legacy edge-case)
         if isinstance(callee, str) and callee in self.functions:

@@ -171,7 +171,12 @@ def mcn_vector_search(query: str, top_k: int = 5) -> List[Dict]:
         scored.append((score, doc))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [{**doc, "score": round(s, 4)} for s, doc in scored[:k]]
+    hits = [{**doc, "score": round(s, 4)} for s, doc in scored[:k]]
+    from . import ai_trace
+    ai_trace.record("vector_search", query,
+                    "; ".join(f'{h.get("id", "?")} ({h["score"]})' for h in hits) or "(no matches)",
+                    hits=len(hits), store_size=len(_VECTOR_STORE))
+    return hits
 
 def mcn_vector_delete(doc_id: str) -> None:
     _VECTOR_STORE.pop(str(doc_id), None)
@@ -225,9 +230,10 @@ def mcn_rag(query: str, docs: Any = None, prompt_template: str = "") -> str:
         )
 
     # 3. Call AI
-    if _ai_fn:
-        return _ai_fn(prompt)
-    return f"[RAG] Query: {query} | Context chunks: {len(context_parts)}"
+    answer = _ai_fn(prompt) if _ai_fn else f"[RAG] Query: {query} | Context chunks: {len(context_parts)}"
+    from . import ai_trace
+    ai_trace.record("rag", query, answer, context_chunks=len(context_parts))
+    return answer
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,27 @@
+// MCN UI — click ⚡ Build & Preview to compile to React & Flutter
+component Dashboard
+    state leads = []
+    state total = "$420,000"
+
+    on load
+        leads = list_leads()
+
+    render
+        card
+            card_header "Sales Intelligence & Pipeline"
+            stat label="Active Pipeline" value=total change=14.2
+            table data=leads
+                table_header
+                    table_row
+                        table_head "id"
+                        table_head "name"
+                        table_head "company"
+                        table_head "value"
+                        table_head "status"
+                table_body
+
+app MainApp
+    title "Sales Intelligence Hub"
+    layout
+        main
+            Dashboard

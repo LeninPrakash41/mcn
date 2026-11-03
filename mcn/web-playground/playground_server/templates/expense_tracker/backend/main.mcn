@@ -1,0 +1,11 @@
+// Expense Tracker Backend
+service expense_api
+    port 8080
+    endpoint get_budget_summary()
+        return {
+            total_budget: 4500,
+            spent: 2130,
+            remaining: 2370
+        }
+
+log("⚡ Mobile Expense Tracker Backend Online")

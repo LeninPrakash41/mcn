@@ -1,0 +1,302 @@
+component Dashboard
+    state deals       = []
+    state contacts    = []
+    state companies   = []
+    state activities  = []
+
+    on load
+        var d = list_deals()
+        deals = d.data
+        var c = list_contacts()
+        contacts = c.data
+        var co = list_companies()
+        companies = co.data
+        var a = list_activities()
+        activities = a.data
+
+    render
+        div
+            h2 "Overview"
+            div grid_cols=4
+                stat_card label="Total Deals"     value=deals.length     icon="TrendingUp"   color="blue"
+                stat_card label="Contacts"        value=contacts.length  icon="Users"        color="green"
+                stat_card label="Companies"       value=companies.length icon="Building2"    color="purple"
+                stat_card label="Activities"      value=activities.length icon="Calendar"    color="amber"
+            div grid_cols=2
+                card
+                    card_header "Deals Value Distribution"
+                    bar_chart data=deals x_key="title" y_key="value" height=300
+                card
+                    card_header "Recent Deals"
+                    table data=deals
+                        table_header
+                            table_row
+                                table_head "title"
+                                table_head "value"
+                                table_head "stage"
+                                table_head "contact"
+                        table_body
+            card
+                card_header "Recent Activities"
+                table data=activities
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "type"
+                            table_head "contact"
+                            table_head "due_date"
+                    table_body
+
+component DealsTable
+    state items           = []
+    state edit_item       = null
+    state edit_title      = ""
+    state edit_value      = 0
+    state edit_stage      = ""
+    state edit_contact    = ""
+    state show_edit_modal = false
+    state title           = ""
+    state value           = 0
+    state stage           = "Prospecting"
+    state contact         = ""
+    state contact_names   = []
+
+    on load
+        var resp = list_deals()
+        items = resp.data
+        var c_resp = list_contacts()
+        var list = []
+        for c in c_resp.data
+            list = list + [c.name]
+        contact_names = list
+
+    on submit
+        var result = create_deal(title, value, stage, contact)
+        if result.success
+            var resp = list_deals()
+            items = resp.data
+            title = ""
+            value = 0
+            stage = "Prospecting"
+            contact = ""
+
+    render
+        div
+            card
+                card_header "Add Deal"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Deal Title"
+                        input bind=value label="Value ($)" type="number"
+                    div grid_cols=2
+                        select bind=stage options=["Prospecting","Qualification","Proposal","Negotiation","Won","Lost"] label="Stage"
+                        select bind=contact options=contact_names label="Contact Name"
+                    button "Add Deal" variant="default"
+            card
+                card_header "All Deals"
+                table
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "value"
+                            table_head "stage"
+                            table_head "contact"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Edit Deal"
+            form on_submit=handleSave
+                input bind=edit_title label="Title"
+                input bind=edit_value label="Value" type="number"
+                select bind=edit_stage options=["Prospecting","Qualification","Proposal","Negotiation","Won","Lost"] label="Stage"
+                select bind=edit_contact options=contact_names label="Contact"
+                button "Save Changes" variant="default"
+
+component ContactsTable
+    state items           = []
+    state edit_item       = null
+    state edit_name       = ""
+    state edit_email      = ""
+    state edit_company    = ""
+    state edit_phone      = ""
+    state show_edit_modal = false
+    state name            = ""
+    state email           = ""
+    state company         = ""
+    state phone           = ""
+    state company_names   = []
+
+    on load
+        var resp = list_contacts()
+        items = resp.data
+        var co_resp = list_companies()
+        var list = []
+        for co in co_resp.data
+            list = list + [co.name]
+        company_names = list
+
+    on submit
+        var result = create_contact(name, email, company, phone)
+        if result.success
+            var resp = list_contacts()
+            items = resp.data
+            name = ""
+            email = ""
+            company = ""
+            phone = ""
+
+    render
+        div
+            card
+                card_header "Add Contact"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Full Name"
+                        input bind=email label="Email" type="email"
+                    div grid_cols=2
+                        select bind=company options=company_names label="Company"
+                        input bind=phone label="Phone"
+                    button "Add Contact" variant="default"
+            card
+                card_header "All Contacts"
+                table
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "email"
+                            table_head "company"
+                            table_head "phone"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Edit Contact"
+            form on_submit=handleSave
+                input bind=edit_name label="Name"
+                input bind=edit_email label="Email"
+                select bind=edit_company options=company_names label="Company"
+                input bind=edit_phone label="Phone"
+                button "Save Changes" variant="default"
+
+component CompaniesTable
+    state items           = []
+    state edit_item       = null
+    state edit_name       = ""
+    state edit_industry   = ""
+    state edit_size       = ""
+    state show_edit_modal = false
+    state name            = ""
+    state industry        = ""
+    state size            = "11-50"
+
+    on load
+        var resp = list_companies()
+        items = resp.data
+
+    on submit
+        var result = create_company(name, industry, size)
+        if result.success
+            var resp = list_companies()
+            items = resp.data
+            name = ""
+            industry = ""
+            size = "11-50"
+
+    render
+        div
+            card
+                card_header "Add Company"
+                form on_submit=submit
+                    div grid_cols=3
+                        input bind=name label="Company Name"
+                        input bind=industry label="Industry"
+                        select bind=size options=["1-10","11-50","51-200","201-500","500+"] label="Size"
+                    button "Add Company" variant="default"
+            card
+                card_header "All Companies"
+                table
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "industry"
+                            table_head "size"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Edit Company"
+            form on_submit=handleSave
+                input bind=edit_name label="Name"
+                input bind=edit_industry label="Industry"
+                select bind=edit_size options=["1-10","11-50","51-200","201-500","500+"] label="Size"
+                button "Save Changes" variant="default"
+
+component ActivitiesTable
+    state items           = []
+    state edit_item       = null
+    state edit_title      = ""
+    state edit_type       = ""
+    state edit_contact    = ""
+    state edit_due_date   = ""
+    state show_edit_modal = false
+    state title           = ""
+    state type            = "Call"
+    state contact         = ""
+    state due_date        = ""
+    state contact_names   = []
+
+    on load
+        var resp = list_activities()
+        items = resp.data
+        var c_resp = list_contacts()
+        var list = []
+        for c in c_resp.data
+            list = list + [c.name]
+        contact_names = list
+
+    on submit
+        var result = create_activity(title, type, contact, due_date)
+        if result.success
+            var resp = list_activities()
+            items = resp.data
+            title = ""
+            type = "Call"
+            contact = ""
+            due_date = ""
+
+    render
+        div
+            card
+                card_header "Log Activity"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Activity Title"
+                        select bind=type options=["Call","Email","Meeting","Task","Note"] label="Type"
+                    div grid_cols=2
+                        select bind=contact options=contact_names label="Contact Name"
+                        input bind=due_date label="Due Date" type="date"
+                    button "Log Activity" variant="default"
+            card
+                card_header "All Activities"
+                table
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "type"
+                            table_head "contact"
+                            table_head "due_date"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Edit Activity"
+            form on_submit=handleSave
+                input bind=edit_title label="Title"
+                select bind=edit_type options=["Call","Email","Meeting","Task","Note"] label="Type"
+                select bind=edit_contact options=contact_names label="Contact"
+                input bind=edit_due_date label="Due Date"
+                button "Save Changes" variant="default"
+
+app CRM
+    title  "CRM"
+    theme  "professional"
+    layout
+        sidebar
+            nav "Dashboard"  Dashboard
+            nav "Deals"      DealsTable
+            nav "Contacts"   ContactsTable
+            nav "Companies"  CompaniesTable
+            nav "Activities" ActivitiesTable

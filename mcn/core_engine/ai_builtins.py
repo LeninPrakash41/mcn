@@ -53,7 +53,18 @@ def _get_provider(opts: dict) -> str:
 
 
 def _provider_complete(prompt: str, opts: dict) -> str:
-    """Dispatch a completion call to the right provider."""
+    """Dispatch a completion call to the right provider, recording it in the AI trace."""
+    import time
+    from . import ai_trace
+    started = time.time()
+    kind = opts.pop("_trace_kind", "ai")
+    result = _dispatch_complete(prompt, opts)
+    ai_trace.record(kind, prompt, result, model=opts.get("model") or "",
+                    provider=_get_provider(opts), started=started)
+    return result
+
+
+def _dispatch_complete(prompt: str, opts: dict) -> str:
     from ..providers.anthropic_provider import anthropic_complete
     from ..providers.ollama_provider    import ollama_complete
     from ..providers.openai_provider    import openai_complete
@@ -103,6 +114,7 @@ def mcn_llm(model: str, prompt: str, options: Any = None) -> str:
     """
     opts = dict(options) if isinstance(options, dict) else {}
     opts["model"] = str(model)
+    opts["_trace_kind"] = "llm"
     # Route by model prefix
     if model.startswith("claude"):
         opts.setdefault("provider", "anthropic")
@@ -128,15 +140,23 @@ def mcn_embed(text: str, model: str = "") -> List[float]:
     var vec = embed(user_query)
     var results = query("SELECT * FROM docs ORDER BY dist(embedding, ?) LIMIT 5", vec)
     """
+    import time
+    from . import ai_trace
+    started = time.time()
     if os.getenv("OPENAI_API_KEY"):
         from ..providers.openai_provider import openai_embed
-        return openai_embed(str(text), model=model or "text-embedding-3-small")
-    if os.getenv("OLLAMA_URL") or _get_provider({}) == "ollama":
+        model = model or "text-embedding-3-small"
+        vec = openai_embed(str(text), model=model)
+    elif os.getenv("OLLAMA_URL") or _get_provider({}) == "ollama":
         from ..providers.ollama_provider import ollama_embed
-        return ollama_embed(str(text), model=model or "nomic-embed-text")
-    # fallback: deterministic mock
-    from ..providers.openai_provider import openai_embed
-    return openai_embed(str(text))
+        model = model or "nomic-embed-text"
+        vec = ollama_embed(str(text), model=model)
+    else:
+        # fallback: deterministic mock
+        from ..providers.openai_provider import openai_embed
+        model, vec = "mock", openai_embed(str(text))
+    ai_trace.record("embed", text, f"{len(vec)}-dimension vector", model=model, started=started)
+    return vec
 
 
 # ── extract() ─────────────────────────────────────────────────────────────────
@@ -179,7 +199,7 @@ def mcn_extract(text: str, contract: Any) -> Dict[str, Any]:
         "Return a single JSON object."
     )
 
-    raw = _provider_complete(prompt, {"system": system, "temperature": 0.0,
+    raw = _provider_complete(prompt, {"_trace_kind": "extract", "system": system, "temperature": 0.0,
                                       "max_tokens": 1024})
 
     # Strip markdown fences if the model included them
@@ -219,7 +239,7 @@ def mcn_classify(text: str, labels: Any) -> str:
     )
     prompt = f"Labels: [{labels_str}]\n\nText: {text}\n\nBest label:"
 
-    result = _provider_complete(prompt, {"system": system, "temperature": 0.0,
+    result = _provider_complete(prompt, {"_trace_kind": "classify", "system": system, "temperature": 0.0,
                                          "max_tokens": 32})
     result = result.strip().strip('"').strip("'").strip()
 

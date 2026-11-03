@@ -1,0 +1,487 @@
+component Dashboard
+    state properties = []
+    state projects = []
+    state incidents = []
+    state approvals = []
+
+    on load
+        var pr = list_properties()
+        properties = pr.data
+        var p = list_projects()
+        projects = p.data
+        var i = list_incidents()
+        incidents = i.data
+        var a = list_approvals()
+        approvals = a.data
+
+    render
+        div
+            h2 "Construction Management Dashboard"
+            p className="text-muted mb-6" "Configure property sites, track jobs, monitor Gantt scheduling timelines, manage material stock, file safety logs, and grant workflows approvals."
+            div grid_cols=4
+                stat_card label="Total Properties" value=properties.length icon="Building" color="blue"
+                stat_card label="Active Projects" value=projects.length icon="Wrench" color="green"
+                stat_card label="Safety Incidents" value=incidents.length icon="ShieldAlert" color="red"
+                stat_card label="Pending Approvals" value=approvals.length icon="CheckCircle" color="amber"
+            div grid_cols=2
+                card
+                    card_header "Project Budget Overview ($)"
+                    bar_chart data=projects x_key="name" y_key="budget" height=300
+                card
+                    card_header "Safety Log Details"
+                    table data=incidents
+                        table_header
+                            table_row
+                                table_head "title"
+                                table_head "severity"
+                                table_head "status"
+                                table_head "reported_by"
+                        table_body
+
+component PropertiesTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state location = ""
+    state units = 0
+    state status = "Under Construction"
+
+    on load
+        var resp = list_properties()
+        items = resp.data
+
+    on submit
+        var r = create_property(name, location, units, status)
+        if r.success
+            var resp = list_properties()
+            items = resp.data
+            name = ""
+            location = ""
+            units = 0
+
+    render
+        div
+            card
+                card_header "Register Construction Site"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Property Name"
+                        input bind=location label="Site Location"
+                    div grid_cols=2
+                        input bind=units label="Units Planned" type="number"
+                        select bind=status options=["Planning", "Under Construction", "Completed"] label="Status"
+                    button "Add Property Site" variant="default"
+            card
+                card_header "Active Properties"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "location"
+                            table_head "units"
+                            table_head "status"
+                    table_body
+
+component ProjectsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state budget = 0.0
+    state status = "Active"
+    state start_date = ""
+    state end_date = ""
+    state prop_id = 1
+
+    on load
+        var pr = list_projects()
+        items = pr.data
+
+    on submit
+        var r = create_project(name, prop_id, budget, status, start_date, end_date)
+        if r.success
+            var pr = list_projects()
+            items = pr.data
+            name = ""
+            budget = 0.0
+            start_date = ""
+            end_date = ""
+
+    render
+        div
+            card
+                card_header "Track Project Budget & Goals"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Project Phase Name"
+                        input bind=budget label="Financial Budget ($)" type="number"
+                    div grid_cols=3
+                        select bind=status options=["Planning", "Active", "Completed", "Suspended"] label="Status"
+                        input bind=start_date label="Start Date (YYYY-MM-DD)"
+                        input bind=end_date label="End Date (YYYY-MM-DD)"
+                    button "Register Project" variant="default"
+            card
+                card_header "Active Construction Projects"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "budget"
+                            table_head "status"
+                            table_head "start_date"
+                            table_head "end_date"
+                    table_body
+
+component GanttChart
+    state jobs = []
+
+    on load
+        var resp = list_jobs()
+        jobs = resp.data
+
+    render
+        div
+            card
+                card_header "Visual Project Schedule (Timeline Day 1 to 30)"
+                div className="space-y-6 mt-4"
+                    for j in jobs
+                        div className="border-b pb-4 last:border-b-0"
+                            div className="flex justify-between items-center mb-2"
+                                span className="font-semibold text-sm" {j.title}
+                                span className="text-xs text-muted" {"Contractor: " + j.assigned_to + " | Progress: " + j.progress + "%"}
+                            div className="w-full bg-slate-100 rounded-full h-8 relative overflow-hidden flex"
+                                div style={{"width": (j.start_day * 3.3) + "%"}} className="h-full bg-transparent flex-shrink-0"
+                                div style={{"width": (j.duration * 3.3) + "%"}} className="h-full bg-indigo-600 rounded-md text-white flex items-center justify-between px-3 text-xs font-semibold shadow-sm"
+                                    span {j.progress + "%"}
+                                    span {j.duration + " d"}
+
+component JobsTable
+    state items = []
+    state edit_item = null
+    state title = ""
+    state assigned_to = ""
+    state status = "Pending"
+    state progress = 0
+    state start_day = 1
+    state duration = 5
+    state project_id = 1
+
+    on load
+        var resp = list_jobs()
+        items = resp.data
+
+    on submit
+        var r = create_job(project_id, title, assigned_to, status, progress, start_day, duration)
+        if r.success
+            var resp = list_jobs()
+            items = resp.data
+            title = ""
+            assigned_to = ""
+            progress = 0
+            start_day = 1
+            duration = 5
+
+    render
+        div
+            card
+                card_header "Dispatch Job Order"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Job/Task Title"
+                        input bind=assigned_to label="Assign Contractor"
+                    div grid_cols=4
+                        select bind=status options=["Pending", "Active", "Completed"] label="Status"
+                        input bind=progress label="Progress (%)" type="number"
+                        input bind=start_day label="Timeline Start Day" type="number"
+                        input bind=duration label="Duration (days)" type="number"
+                    button "Add Job Order" variant="default"
+            card
+                card_header "All Job Orders"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "assigned_to"
+                            table_head "status"
+                            table_head "progress"
+                            table_head "start_day"
+                            table_head "duration"
+                    table_body
+
+component ResourcesTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state role = ""
+    state rate = 0.0
+    state availability = "Available"
+
+    on load
+        var resp = list_resources()
+        items = resp.data
+
+    on submit
+        var r = create_resource(name, role, rate, availability)
+        if r.success
+            var resp = list_resources()
+            items = resp.data
+            name = ""
+            role = ""
+            rate = 0.0
+
+    render
+        div
+            card
+                card_header "Onboard Site Supervisor or Resource"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Supervisor Name"
+                        input bind=role label="Job Role"
+                    div grid_cols=2
+                        input bind=rate label="Hourly Rate ($)" type="number"
+                        select bind=availability options=["Available", "Busy", "Off-site"] label="Availability"
+                    button "Onboard Resource" variant="default"
+            card
+                card_header "Onboarded Site Staff"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "role"
+                            table_head "rate"
+                            table_head "availability"
+                    table_body
+
+component MaterialsTable
+    state items = []
+    state edit_item = null
+    state list_m = []
+    state material_name = "Cement"
+    state qty = 0
+    state cost = 0.0
+    state requested_by = "John Supervisor"
+
+    on load
+        var resp = list_materials()
+        items = resp.data
+        var list = []
+        for m in resp.data
+            list = list + [m.name]
+        list_m = list
+
+    on submit
+        var r = create_procurement(material_name, qty, cost, requested_by)
+        if r.success
+            toast("Procurement request dispatched for PM approvals")
+            qty = 0
+            cost = 0.0
+
+    render
+        div
+            card
+                card_header "Procure Construction Supplies"
+                form on_submit=submit
+                    div grid_cols=3
+                        select bind=material_name options=list_m label="Select Supply Item"
+                        input bind=qty label="Quantity" type="number"
+                        input bind=cost label="Estimate Cost ($)" type="number"
+                    button "Submit Purchase Request" variant="default"
+            card
+                card_header "Supply Materials Stock Inventory"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "unit"
+                            table_head "stock"
+                            table_head "reorder_level"
+                    table_body
+
+component AssetsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state type = "Heavy Equipment"
+    state status = "In Use"
+    state location = ""
+
+    on load
+        var resp = list_assets()
+        items = resp.data
+
+    on submit
+        var r = create_asset(name, type, status, location)
+        if r.success
+            var resp = list_assets()
+            items = resp.data
+            name = ""
+            location = ""
+
+    render
+        div
+            card
+                card_header "Register Heavy Equipment / Asset"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="Asset Name"
+                        input bind=location label="Location Assigned"
+                    div grid_cols=2
+                        select bind=type options=["Heavy Equipment", "Vehicles", "Tools", "Power Systems"] label="Category"
+                        select bind=status options=["In Use", "Available", "Maintenance", "Off-site"] label="Status"
+                    button "Add Asset" variant="default"
+            card
+                card_header "Tracked Equipment Assets"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "type"
+                            table_head "status"
+                            table_head "location"
+                    table_body
+
+component IncidentsTable
+    state items = []
+    state edit_item = null
+    state title = ""
+    state severity = "Low"
+    state status = "Open"
+    state reported_by = ""
+    state project_id = 1
+
+    on load
+        var resp = list_incidents()
+        items = resp.data
+
+    on submit
+        var r = create_incident(project_id, title, severity, status, reported_by)
+        if r.success
+            var resp = list_incidents()
+            items = resp.data
+            title = ""
+            reported_by = ""
+
+    render
+        div
+            card
+                card_header "Log Safety Site Incident"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=title label="Incident Description"
+                        input bind=reported_by label="Reporter Name"
+                    div grid_cols=2
+                        select bind=severity options=["Low", "Medium", "High", "Critical"] label="Severity"
+                        select bind=status options=["Open", "Investigation", "Resolved"] label="Status"
+                    button "Log Incident" variant="default"
+            card
+                card_header "Safety Log"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "title"
+                            table_head "severity"
+                            table_head "status"
+                            table_head "reported_by"
+                    table_body
+
+component ProcurementTable
+    state items = []
+
+    on load
+        var resp = list_procurements()
+        items = resp.data
+
+    render
+        div
+            card
+                card_header "Procurement Purchases Log"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "material_name"
+                            table_head "qty"
+                            table_head "cost"
+                            table_head "status"
+                            table_head "requested_by"
+                    table_body
+
+component ApprovalsTable
+    state items = []
+    state edit_item = null
+    state edit_status = "Pending"
+    state show_edit_modal = false
+
+    on load
+        var resp = list_approvals()
+        items = resp.data
+
+    render
+        div
+            card
+                card_header "Project Approvals Required"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "type"
+                            table_head "status"
+                            table_head "requested_by"
+                    table_body
+        modal show=show_edit_modal
+            card_header "Grant Approval"
+            form on_submit=handleSave
+                select bind=edit_status options=["Pending", "Approved", "Rejected"] label="Status Decision"
+                button "Save Decision" variant="default"
+
+
+component DocumentsTable
+    state items = []
+    state edit_item = null
+    state name = ""
+    state type = "Blueprint"
+
+    on load
+        var resp = list_documents()
+        items = resp.data
+
+    on submit
+        var r = create_document(name, type)
+        if r.success
+            var resp = list_documents()
+            items = resp.data
+            name = ""
+
+    render
+        div
+            card
+                card_header "Compliance & Blueprint Repository"
+                form on_submit=submit
+                    div grid_cols=2
+                        input bind=name label="File/Document Name"
+                        select bind=type options=["Blueprint", "Permit", "Contract", "Invoice", "Report"] label="Document Type"
+                    button "Upload Document Metadata" variant="default"
+            card
+                card_header "Stored Project Documents"
+                table data=items
+                    table_header
+                        table_row
+                            table_head "name"
+                            table_head "type"
+                            table_head "uploaded_at"
+                    table_body
+
+app Construction
+    title "Construction Manager"
+    theme "professional"
+    layout
+        sidebar
+            nav "Overview" Dashboard
+            nav "Properties" PropertiesTable
+            nav "Projects" ProjectsTable
+            nav "Gantt Chart" GanttChart
+            nav "Job Orders" JobsTable
+            nav "Resources" ResourcesTable
+            nav "Materials" MaterialsTable
+            nav "Assets Log" AssetsTable
+            nav "Incidents" IncidentsTable
+            nav "Procurement" ProcurementTable
+            nav "Approvals" ApprovalsTable
+            nav "Documents" DocumentsTable

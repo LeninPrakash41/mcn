@@ -1,0 +1,26 @@
+// MCN Backend Service — click ▶ Run Backend [Ctrl+Enter] to test
+service api
+    port 8080
+
+    endpoint get_dashboard()
+        return {
+            title: "Sales Intelligence Hub",
+            active_deals: 14,
+            pipeline_value: "$420,000",
+            status: "online"
+        }
+
+    endpoint list_leads()
+        return [
+            {id: "L1", name: "Sarah Jenkins", company: "Acme Health", value: 75000, status: "Qualified"},
+            {id: "L2", name: "David Lin", company: "Vertex AI", value: 140000, status: "Proposal"},
+            {id: "L3", name: "Elena Rostova", company: "FinTech Cloud", value: 185000, status: "Closing"}
+        ]
+
+// Live startup script
+var welcome = "MCN Studio Ready"
+log("⚡ " + welcome)
+var leads = list_leads()
+log("✓ Loaded " + str(len(leads)) + " active sales pipeline leads")
+for lead in leads
+    log("  • " + lead.name + " (" + lead.company + ") - $" + str(lead.value))

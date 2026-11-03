@@ -1,0 +1,194 @@
+[
+  {
+    "badge": "Analytics",
+    "category": "repl",
+    "description": "Native SQLite report generation, KPIs, time-series trends, distribution, and markdown export.",
+    "file": "backend/main.mcn",
+    "id": "db_analytics",
+    "name": "Database Reports & Analytics Engine"
+  },
+  {
+    "badge": "Basics",
+    "category": "repl",
+    "description": "Variables, strings, array operations, and condition branches.",
+    "file": "backend/main.mcn",
+    "id": "hello",
+    "name": "Hello World & Variables"
+  },
+  {
+    "badge": "Logic",
+    "category": "repl",
+    "description": "Recursion, default arguments, and pure functions.",
+    "file": "backend/main.mcn",
+    "id": "functions",
+    "name": "Functions & Logic"
+  },
+  {
+    "badge": "ETL",
+    "category": "repl",
+    "description": "Multi-stage data extraction, transform, and load pipeline.",
+    "file": "backend/main.mcn",
+    "id": "pipeline",
+    "name": "Data Pipeline & ETL"
+  },
+  {
+    "badge": "Test",
+    "category": "repl",
+    "description": "Declarative test suites and assertion blocks.",
+    "file": "backend/main.mcn",
+    "id": "tests",
+    "name": "Unit Testing & Assertions"
+  },
+  {
+    "badge": "Math",
+    "category": "repl",
+    "description": "In-memory sorting, aggregations, and statistics.",
+    "file": "backend/main.mcn",
+    "id": "algorithms",
+    "name": "Algorithms & Analytics"
+  },
+  {
+    "badge": "Full-Stack",
+    "category": "internal_app",
+    "description": "Executive dashboard, pipeline table, deals breakdown, and lead stats.",
+    "id": "sales_hub",
+    "name": "Sales Intelligence Hub",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "use analytics",
+    "category": "internal_app",
+    "description": "Multi-dimensional SQLite analytics engine, KPIs, trend analysis, Pareto distribution, and executive reports.",
+    "id": "analytics_hub",
+    "name": "Executive Analytics & BI Hub",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "SQLite CRUD",
+    "category": "internal_app",
+    "description": "SQLite relational item storage, CRUD endpoints, and inventory UI.",
+    "id": "item_manager",
+    "name": "Inventory & Item Manager",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Enterprise",
+    "category": "internal_app",
+    "description": "Multi-stage customer relationship manager, deal velocity, and contacts.",
+    "id": "crm",
+    "name": "Customer CRM & Lead Engine",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Heavy Duty",
+    "category": "internal_app",
+    "description": "Job orders, site milestone tracking, compliance, and material inventory.",
+    "id": "construction",
+    "name": "Construction Project Manager",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Marketplace",
+    "category": "internal_app",
+    "description": "Creator marketplace to publish, test, fork, rate, and orchestrate AI prompts and multi-stage workflows.",
+    "id": "prompt_marketplace",
+    "name": "Prompt & Workflow Marketplace",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Flutter UI",
+    "category": "flutter_app",
+    "description": "Cross-platform mobile control for climate, sensors, and lighting.",
+    "id": "iot_smart_home",
+    "name": "Smart Home IoT Controller",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn",
+      "mobile/ui-manifest.json"
+    ]
+  },
+  {
+    "badge": "Flutter UI",
+    "category": "flutter_app",
+    "description": "Mobile financial ledger, expense categorization, and charts.",
+    "id": "expense_tracker",
+    "name": "Mobile Expense & Budget Tracker",
+    "open": "mobile/lib/main.dart",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn",
+      "mobile/ui-manifest.json"
+    ]
+  },
+  {
+    "badge": "Flutter UI",
+    "category": "flutter_app",
+    "description": "On-site quality checklist, safety audit forms, and sign-offs.",
+    "id": "field_inspector",
+    "name": "Field Inspection & Site Audit",
+    "open": "mobile/lib/main.dart",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn",
+      "mobile/ui-manifest.json"
+    ]
+  },
+  {
+    "badge": "Microservice",
+    "category": "backend",
+    "description": "Multi-endpoint JSON microservice with port binding and health check.",
+    "file": "backend/main.mcn",
+    "id": "rest_service",
+    "name": "High-Throughput REST Service"
+  },
+  {
+    "badge": "IoT Stream",
+    "category": "backend",
+    "description": "Live sensor stream processing, threshold alerts, and device control.",
+    "file": "backend/main.mcn",
+    "id": "iot_processor",
+    "name": "IoT Telemetry Ingestion Hub"
+  },
+  {
+    "badge": "AI & RAG",
+    "category": "backend",
+    "description": "Multi-agent prompt routing, template interpolation, and structured output.",
+    "file": "backend/main.mcn",
+    "id": "ai_prompt_router",
+    "name": "Enterprise AI Prompt Router"
+  }
+]

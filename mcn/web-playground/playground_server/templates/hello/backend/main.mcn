@@ -1,0 +1,14 @@
+// REPL Quick Script: Hello World & Variables
+var title = "MCN Studio"
+log("⚡ Hello from " + title + "!")
+
+var nums = [10, 25, 42, 88, 105]
+var total = sum(nums)
+var average = avg(nums)
+log("Numbers: " + str(nums))
+log("Total: " + str(total) + " | Average: " + str(average))
+
+if total > 100
+    log("Status: High-volume pipeline active")
+else
+    log("Status: Standard volume")

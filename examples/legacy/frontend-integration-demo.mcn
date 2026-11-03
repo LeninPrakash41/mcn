@@ -6,30 +6,30 @@ use "db"
 use "http"
 
 // Initialize demo database
-query("CREATE TABLE IF NOT EXISTS products (
+query("""CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
     price DECIMAL(10,2),
     category TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)")
+)""")
 
-query("CREATE TABLE IF NOT EXISTS reviews (
+query("""CREATE TABLE IF NOT EXISTS reviews (
     id SERIAL PRIMARY KEY,
     product_id INTEGER REFERENCES products(id),
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
     sentiment TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)")
+)""")
 
 // Seed some demo data
-query("INSERT INTO products (name, description, price, category) VALUES
+query("""INSERT INTO products (name, description, price, category) VALUES
     ('Smart Watch', 'Advanced fitness tracking smartwatch', 299.99, 'Electronics'),
     ('Wireless Headphones', 'Noise-cancelling wireless headphones', 199.99, 'Electronics'),
     ('Coffee Maker', 'Programmable coffee maker with timer', 89.99, 'Appliances')
-ON CONFLICT DO NOTHING")
+ON CONFLICT DO NOTHING""")
 
 // API Endpoint: Get all products
 function get_products() {

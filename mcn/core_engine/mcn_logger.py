@@ -33,6 +33,7 @@ class MCNLogger:
         # Error logger for critical issues
         self.error_logger = logging.getLogger("mcn.errors")
         self.error_logger.setLevel(logging.ERROR)
+        self.error_logger.propagate = False   # full details go to the error log file only
 
         # Developer logger for debugging
         self.dev_logger = logging.getLogger("mcn.dev")
@@ -97,8 +98,10 @@ class MCNLogger:
         # Log to error file
         self.error_logger.error(json.dumps(error_data, indent=2))
 
-        # Developer-friendly console output
-        self._print_developer_error(error_data)
+        # Detailed console dump only when debugging MCN itself; users see the
+        # friendly report raised by the interpreter (see diagnostics.py)
+        if os.environ.get("MCN_VERBOSE"):
+            self._print_developer_error(error_data)
 
     def _print_developer_error(self, error_data: Dict[str, Any]):
         """Print developer-friendly error messages"""

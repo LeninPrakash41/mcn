@@ -1,0 +1,26 @@
+// REPL Quick Script: Data Pipeline & ETL
+pipeline data_processor
+    stage extract
+        var raw_records = [
+            {id: 101, customer: "Acme Corp", amount: 4500, region: "North"},
+            {id: 102, customer: "Globex", amount: 12000, region: "West"},
+            {id: 103, customer: "Soylent", amount: 8400, region: "East"}
+        ]
+        log("1. Extracted " + str(len(raw_records)) + " records")
+        return raw_records
+
+    stage transform(records)
+        var enriched = []
+        var total_revenue = 0
+        for r in records
+            var fee = r.amount * 0.05
+            var net = r.amount - fee
+            total_revenue = total_revenue + net
+            enriched = enriched + [{id: r.id, customer: r.customer, net_amount: net}]
+        log("2. Transformed records — Net Revenue: $" + str(total_revenue))
+        return {items: enriched, revenue: total_revenue}
+
+    stage load(result)
+        log("3. Pipeline complete: " + str(len(result.items)) + " records ready for export")
+
+data_processor.run()
