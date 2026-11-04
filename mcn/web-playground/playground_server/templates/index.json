@@ -165,6 +165,32 @@
   ]
  },
  {
+  "badge": "Data labeling",
+  "category": "data",
+  "description": "A labeling queue with AI or rule-based suggestions, a review board, an audit log and CSV import and export.",
+  "id": "data_labeling",
+  "name": "Data Labeling Studio",
+  "open": "backend/main.mcn",
+  "project": true,
+  "files": [
+   "backend/main.mcn",
+   "ui/app.mcn"
+  ]
+ },
+ {
+  "badge": "Machine learning",
+  "category": "data",
+  "description": "Train logistic regression and k-nearest neighbours on churn data, compare runs, and predict. Every step is readable MCN.",
+  "id": "ml_training_lab",
+  "name": "ML Training Lab",
+  "open": "backend/main.mcn",
+  "project": true,
+  "files": [
+   "backend/main.mcn",
+   "ui/app.mcn"
+  ]
+ },
+ {
   "badge": "IoT · Raspberry Pi",
   "category": "flutter_app",
   "description": "Sensors, lights, a fan and blinds with automations. Simulated in Studio, real pins on a Raspberry Pi; web and mobile UI.",

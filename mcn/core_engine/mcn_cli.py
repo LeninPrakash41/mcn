@@ -80,8 +80,9 @@ MCN Syntax:
     def _show_variables(self):
         if self.interpreter.variables:
             print("Variables:")
+            from .display import literal
             for name, value in self.interpreter.variables.items():
-                print(f"  {name} = {repr(value)}")
+                print(f"  {name} = {literal(value)}")
         else:
             print("No variables defined")
 

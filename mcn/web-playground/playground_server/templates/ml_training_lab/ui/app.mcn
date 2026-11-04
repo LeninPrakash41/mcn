@@ -1,0 +1,115 @@
+// ML Training Lab — user interface
+
+component Overview
+    state summary = {rows: 0, churn_rate: 0, experiments: 0, best_accuracy: 0}
+    state runs = []
+
+    on load
+        summary = dataset_summary().data
+        runs = list_experiments().data
+
+    render
+        div grid_cols=4
+            stat_card label="Rows" value=summary.rows icon="Database" color="blue"
+            stat_card label="Churn rate (%)" value=summary.churn_rate icon="TrendingDown" color="orange"
+            stat_card label="Training runs" value=summary.experiments icon="FlaskConical" color="purple"
+            stat_card label="Best accuracy (%)" value=summary.best_accuracy icon="Target" color="green"
+        card
+            card_header "Training runs compared"
+            card_content
+                bar_chart data=runs x_key="name" y_key=["accuracy", "precision", "recall"] height=300
+
+component Train
+    state model = "logistic_regression"
+    state epochs = 200
+    state learning_rate = 0.5
+    state k = 7
+    state runs = []
+
+    on load
+        runs = list_experiments().data
+
+    on submit
+        var result = train_model(model, epochs, learning_rate, k).data
+        notify("Accuracy " + str(result.accuracy) + ", precision " + str(result.precision) + ", recall " + str(result.recall), "success")
+        runs = list_experiments().data
+
+    render
+        card
+            card_header "Train a model"
+            card_content
+                form on_submit=submit
+                    div grid_cols=4
+                        select bind=model options=["logistic_regression", "knn"] label="Model"
+                        input bind=epochs label="Epochs (logistic regression)" type="number"
+                        input bind=learning_rate label="Learning rate (logistic regression)" type="number"
+                        input bind=k label="Neighbours k (knn)" type="number"
+                    button "Train"
+        data_table title="Training runs" description="Scores on the held-out test set" columns=["id", "model", "params", "accuracy", "precision", "recall", "ms", "created_at"] filters=["model"]
+
+component Data
+    state rows = []
+    state csv_text = ""
+
+    on load
+        rows = list_rows(500).data
+
+    on regenerate_data
+        regenerate(160, 7)
+        rows = list_rows(500).data
+        notify("Generated 160 rows", "success")
+
+    on import_csv
+        var result = import_rows(csv_text).data
+        notify("Imported " + str(result.added) + " rows", "success")
+        rows = list_rows(500).data
+        csv_text = ""
+
+    render
+        div grid_cols=2
+            card
+                card_header "Import a CSV"
+                card_content
+                    textarea bind=csv_text label="Columns: tenure_months, monthly_spend, support_calls, churned"
+                    button "Import" on_click=import_csv
+            card
+                card_header "Sample data"
+                card_content
+                    p {"Start again with 160 generated customers, three quarters for training and a quarter held out for testing."}
+                    button "Regenerate data" on_click=regenerate_data variant="outline"
+        data_table title="Dataset" columns=["id", "tenure_months", "monthly_spend", "support_calls", "churned", "split"] filters=["split", "churned"] page_size=10
+
+component Predict
+    state tenure_months = 3
+    state monthly_spend = 110
+    state support_calls = 6
+    state result = {text: "Enter a customer and press Predict. The best model so far is used."}
+
+    on submit
+        var answer = predict(tenure_months, monthly_spend, support_calls)
+        if answer.success
+            result = answer.data
+        else
+            notify(answer.error, "warning")
+
+    render
+        card
+            card_header "Will this customer churn?"
+            card_content
+                form on_submit=submit
+                    div grid_cols=3
+                        input bind=tenure_months label="Months as a customer" type="number"
+                        input bind=monthly_spend label="Monthly spend ($)" type="number"
+                        input bind=support_calls label="Support calls" type="number"
+                    button "Predict"
+                p {result.text}
+
+app MLTrainingLab
+    title "ML Training Lab"
+    logo "Brain"
+    layout
+        sidebar
+            nav "Overview" Overview icon="LayoutDashboard"
+            nav "Train" Train icon="FlaskConical" group="Model"
+            nav "Predict" Predict icon="Sparkles" group="Model"
+            nav "Data" Data icon="Database" group="Data"

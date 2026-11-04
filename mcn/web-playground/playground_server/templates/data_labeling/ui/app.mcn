@@ -1,0 +1,95 @@
+// Data Labeling Studio — user interface
+
+component Overview
+    state stats = {total: 0, to_label: 0, labeled: 0, approved: 0, agreement: 0, by_label: [], by_annotator: []}
+
+    on load
+        stats = labeling_stats().data
+
+    render
+        div grid_cols=4
+            stat_card label="Items" value=stats.total icon="Database" color="blue"
+            stat_card label="To label" value=stats.to_label icon="ListTodo" color="orange"
+            stat_card label="Approved" value=stats.approved icon="CheckCircle" color="green"
+            stat_card label="Agreed with suggestion (%)" value=stats.agreement icon="Sparkles" color="purple"
+        div grid_cols=2
+            card
+                card_header "Labels so far"
+                card_content
+                    donut_chart data=stats.by_label name_key="label" value_key="items" height=240
+            card
+                card_header "Items per annotator"
+                card_content
+                    bar_chart data=stats.by_annotator x_key="annotator" y_key="items" height=240
+
+component Label
+    state item = {id: 0, text: "", source: "", hint: ""}
+    state labels = []
+    state label = ""
+    state annotator = "Ana"
+
+    on load
+        labels = list_labels().data
+        item = next_item().data
+        label = item.suggestion
+
+    on submit
+        if item.id == 0
+            notify("The queue is empty", "info")
+        else
+            label_item(item.id, label, annotator)
+            notify("Saved: " + label, "success")
+            item = next_item().data
+            label = item.suggestion
+
+    render
+        card
+            card_header "Label this item"
+            card_content
+                p {item.text}
+                p {item.hint}
+                form on_submit=submit
+                    div grid_cols=2
+                        select bind=label options=labels label="Label"
+                        input bind=annotator label="Your name"
+                    button "Save and next"
+
+component Review
+    state items = []
+
+    on load
+        items = list_items().data
+
+    render
+        kanban group_by="status" columns=["To label", "Labeled", "Approved"] title_key="text" fields=["label", "annotator"] on_move=move_item
+
+component Dataset
+    state items = []
+    state csv_text = ""
+
+    on load
+        items = list_items().data
+
+    on import_csv
+        var result = import_items(csv_text).data
+        notify("Imported " + str(result.added) + " items", "success")
+        items = list_items().data
+        csv_text = ""
+
+    render
+        card
+            card_header "Import items"
+            card_content
+                textarea bind=csv_text label="CSV with a text column (and an optional source column)"
+                button "Import" on_click=import_csv
+        data_table title="Dataset" description="Export the labeled data as CSV with the download button" columns=["id", "text", "label", "suggestion", "status", "annotator", "source", "labeled_at"] filters=["status", "label", "source"] page_size=10
+
+app DataLabeling
+    title "Data Labeling Studio"
+    logo "Tags"
+    layout
+        sidebar
+            nav "Overview" Overview icon="LayoutDashboard"
+            nav "Label" Label icon="Tag" group="Work"
+            nav "Review" Review icon="ClipboardCheck" group="Work"
+            nav "Dataset" Dataset icon="Database" group="Data"

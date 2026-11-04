@@ -25,6 +25,13 @@ bp = Blueprint("devserver", __name__)
 _DEV_TOKEN = os.getenv("MCN_API_TOKEN") or secrets.token_urlsafe(24)
 
 
+def _mcn_path() -> str:
+    """PYTHONPATH that lets the backend process import MCN from wherever this Studio runs it."""
+    import mcn
+    root = str(Path(mcn.__file__).resolve().parent.parent)
+    return os.pathsep.join(filter(None, [root, os.environ.get("PYTHONPATH")]))
+
+
 def _env(**extra) -> dict:
     # MCN_DEV_TOOLS lets Studio's IoT panel see and drive the backend's devices
     return {**os.environ, "MCN_API_TOKEN": _DEV_TOKEN, "MCN_DEV_TOOLS": "1",
@@ -114,8 +121,9 @@ def devserver_start():
                     [sys.executable, "-m", "mcn.core_engine.mcn_cli", "serve",
                      "--file", str(backend_file), "--host", "0.0.0.0",
                      "--port", str(_BACKEND_PORT)],
-                    cwd=str(_ROOT_DIR),
-                    env=_env(),
+                    # Run in the workspace so the app's database is the one DB Explorer shows
+                    cwd=str(ws),
+                    env=_env(PYTHONPATH=_mcn_path()),
                     stdout=b_out,
                     stderr=b_err,
                 )

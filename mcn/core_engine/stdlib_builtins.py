@@ -23,6 +23,7 @@ Registers all missing language primitives so MCN scripts can do:
 from __future__ import annotations
 
 import csv
+from .display import to_text as _to_text
 import hashlib
 import hmac
 import io
@@ -764,7 +765,7 @@ def register_stdlib_builtins(functions: dict) -> None:
         "vector_add":        mcn_vector_upsert,
         # Memory aliases
         "memory_add":        mcn_memory_store,
-        "str":               lambda v: str(v) if v is not None else "",
+        "str":               lambda v: _to_text(v) if v is not None else "",
         "int":               lambda v: int(v) if v is not None else 0,
         "float":             lambda v: float(v) if v is not None else 0.0,
         "bool":              lambda v: bool(v),

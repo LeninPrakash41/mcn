@@ -111,6 +111,9 @@ const Map<String, IconData> _icons = {
   'bluetooth': Icons.bluetooth, 'cloudrain': Icons.water, 'wind': Icons.air, 'flame': Icons.local_fire_department_outlined,
   'leaf': Icons.eco_outlined, 'sprout': Icons.grass, 'waves': Icons.waves, 'lamp': Icons.light_outlined, 'blinds': Icons.blinds,
   'cctv': Icons.videocam_outlined, 'router': Icons.router_outlined, 'siren': Icons.campaign_outlined, 'vibrate': Icons.vibration,
+  'flaskconical': Icons.science_outlined, 'brain': Icons.psychology_outlined, 'tags': Icons.sell_outlined, 'tag': Icons.label_outline,
+  'clipboardcheck': Icons.assignment_turned_in_outlined, 'highlighter': Icons.highlight, 'scantext': Icons.document_scanner_outlined,
+  'sigma': Icons.functions, 'dices': Icons.casino_outlined, 'trendingdown': Icons.trending_down,
 };
 
 IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? Icons.circle_outlined;

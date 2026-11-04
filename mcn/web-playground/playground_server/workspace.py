@@ -1,5 +1,6 @@
 """Workspace file listing, reading, saving and reset."""
 import os
+from pathlib import Path
 from . import core
 from flask import Blueprint
 from .core import (
@@ -16,6 +17,16 @@ from .workspace_seed import (
 )
 
 bp = Blueprint("workspace", __name__)
+
+@bp.route("/api/workspace/info")
+def workspace_info():
+    """Which folder Studio is editing, and whether it's the user's own project (templates can't replace it)."""
+    ws = _request_workspace()
+    own = bool(os.environ.get("MCN_WORKSPACE")) and ws == core.WORKSPACE
+    home = str(Path.home())
+    path = str(ws)
+    return jsonify({"own_project": own, "path": "~" + path[len(home):] if path.startswith(home) else path})
+
 
 @bp.route("/api/workspace/reset", methods=["POST"])
 def workspace_reset():

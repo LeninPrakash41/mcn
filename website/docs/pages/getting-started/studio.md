@@ -37,7 +37,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 ## Templates
 
-The **Templates** menu has 21 starter apps: AI and automation (AI agent builder, workflow automation, operations dashboard), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
+The **Templates** gallery (the **Templates** button in the left bar, or **Templates → Browse all templates**) has 23 starter apps you can search and filter: AI and automation (AI agent builder, workflow automation, operations dashboard), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), data and ML (data labeling studio, ML training lab), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
 
 ## Copilot
 

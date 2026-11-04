@@ -283,6 +283,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2"></rect><path d="M7 9.5l3 2.5-3 2.5"></path><path d="M12.5 15h4.5"></path></svg>
         <span class="switcher-text">REPL</span>
       </button>
+      <button class="switcher-item" id="ws-templates" onclick="openTemplateGallery()" title="Browse templates">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+        <span class="switcher-text">Templates</span>
+      </button>
     </div>
   </div>
 
@@ -333,45 +337,16 @@
     <div class="no-file-open" id="no-file-msg">
       <div class="starter-hero">
         <h2>Build Full-Stack Apps in Seconds</h2>
-        <p>Select a verified template below, or write single-file MCN code with native persistence, AI primitives, and reactive multi-target UI.</p>
+        <p>Open a template to see a working app, then change it. Every template runs, has tests, and builds to web and mobile.</p>
       </div>
 
-      <div class="starter-grid">
-        <div class="starter-card" onclick="loadStarterScaffold('sales_calendar')">
-          <div class="starter-card-hdr">
-            <span class="starter-card-tag">Enterprise CRM</span>
-          </div>
-          <div class="starter-card-title">Sales Intelligence Hub</div>
-          <div class="starter-card-desc">SQLite persistence, automated metrics, AI call briefing generator, and full dashboard.</div>
-        </div>
-
-        <div class="starter-card" onclick="loadStarterScaffold('crm')">
-          <div class="starter-card-hdr">
-            <span class="starter-card-tag">Lead Engine</span>
-          </div>
-          <div class="starter-card-title">Lead Management CRM</div>
-          <div class="starter-card-desc">Instant lead triage with AI scoring, database persistence, and interactive table.</div>
-        </div>
-
-        <div class="starter-card" onclick="loadStarterScaffold('ai_triage')">
-          <div class="starter-card-hdr">
-            <span class="starter-card-tag">AI Primitive</span>
-          </div>
-          <div class="starter-card-title">Support Ticket Classifier</div>
-          <div class="starter-card-desc">Native multi-class AI classifier with PagerDuty urgency dispatch and copilot prompt UI.</div>
-        </div>
-
-        <div class="starter-card" onclick="loadStarterScaffold('rest_service')">
-          <div class="starter-card-hdr">
-            <span class="starter-card-tag">Microservice</span>
-          </div>
-          <div class="starter-card-title">High-Speed REST API</div>
-          <div class="starter-card-desc">Auto-routing REST service declaration with HTTP endpoints and JSON responses.</div>
-        </div>
+      <div class="starter-grid" id="starter-grid">
+        <!-- Featured templates, filled in by renderStarterHub() -->
       </div>
 
       <div style="display:flex; gap: 12px; margin-top: 10px;">
-        <button class="btn btn-hero-run" onclick="openGenerateModal()">Prompt AI to Generate App</button>
+        <button class="btn btn-hero-run" onclick="openTemplateGallery()">Browse all templates</button>
+        <button class="btn btn-sm" onclick="openGenerateModal()">Generate an app with AI</button>
         <button class="btn btn-sm" onclick="promptCreateFile()">+ Create Blank File</button>
       </div>
     </div>
@@ -1283,6 +1258,24 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Template Gallery ──────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="template-gallery" role="dialog" aria-modal="true" aria-labelledby="tg-title">
+  <div class="modal-card tg-card">
+    <div class="modal-hdr tg-hdr">
+      <div>
+        <div class="modal-title" id="tg-title">Start from a template</div>
+        <div class="modal-sub" id="tg-sub">Each one runs, has tests, and builds to a web and mobile app. Opening one replaces the files in Studio's workspace.</div>
+      </div>
+      <button class="tg-close" onclick="closeTemplateGallery()" aria-label="Close">✕</button>
+    </div>
+    <div class="tg-toolbar">
+      <input class="form-input tg-search" id="tg-search" type="search" placeholder="Search templates…" oninput="renderTemplateGallery()" aria-label="Search templates" />
+      <div class="tg-chips" id="tg-chips" role="tablist" aria-label="Categories"></div>
+    </div>
+    <div class="tg-grid" id="tg-grid"></div>
   </div>
 </div>
 

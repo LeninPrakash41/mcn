@@ -147,6 +147,8 @@ class MCNInterpreter:
         if max_steps is not None:
             self._evaluator.max_steps = max_steps
         self._evaluator.step_count = 0
+        outer_depth = self._evaluator.run_depth
+        self._evaluator.run_depth = outer_depth + 1     # calls made by this run share its step budget
 
         # Dynamically swap database connection
         original_db_connection = self.runtime.db_connection
@@ -220,6 +222,7 @@ class MCNInterpreter:
                 from .diagnostics import MCNDiagnosticError, diagnose
                 raise MCNDiagnosticError(diagnose(msg), code, error_type) from exc
         finally:
+            self._evaluator.run_depth = outer_depth
             self._evaluator.max_steps = original_max_steps
             self.runtime.db_connection = original_db_connection
             self.runtime.db_type = original_db_type
@@ -319,7 +322,8 @@ class MCNInterpreter:
     # ── Built-in implementations ───────────────────────────────────────────────
 
     def _echo(self, message: Any) -> None:
-        print(message)
+        from .display import to_text
+        print(to_text(message))
 
     def _trigger_event_or_http(self, target: str, payload: Any = None, *args, **kwargs):
         if isinstance(target, str) and (target.startswith("http://") or target.startswith("https://")):

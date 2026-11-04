@@ -1,0 +1,139 @@
+// Data Labeling Studio — backend
+//
+// Annotators label items one at a time. Each item arrives with a suggested
+// label (from Claude when ANTHROPIC_API_KEY is set, otherwise from keyword
+// rules), a reviewer approves it on a board, and every label is recorded in a
+// tamper-evident audit log. The finished dataset exports as CSV.
+
+query("CREATE TABLE IF NOT EXISTS label_items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, source TEXT, suggestion TEXT, label TEXT, status TEXT, annotator TEXT, labeled_at TEXT)")
+
+var LABELS = ["Billing", "Bug", "Feature request", "Praise"]
+
+var KEYWORDS = {
+    "Billing": ["invoice", "charged", "refund", "price", "billing", "payment"],
+    "Bug": ["crash", "error", "broken", "fails", "bug", "freezes"],
+    "Feature request": ["would love", "please add", "wish", "could you add", "dark mode", "export"],
+    "Praise": ["thank", "great", "awesome", "amazing", "brilliant", "love it"]
+}
+
+function suggest(text)
+    if env("ANTHROPIC_API_KEY")
+        return classify(text, LABELS)
+    var best = ""
+    var best_hits = 0
+    for label in LABELS
+        var hits = 0
+        for word in KEYWORDS[label]
+            if contains(lower(text), word)
+                hits = hits + 1
+        if hits > best_hits
+            best = label
+            best_hits = hits
+    return best
+
+function add_item(text, source)
+    query("INSERT INTO label_items (text, source, suggestion, status) VALUES (?, ?, ?, 'To label')", (text, source, suggest(text)))
+
+if query("SELECT COUNT(*) AS n FROM label_items")[0].n == 0
+    add_item("I was charged twice for the March invoice. Can I get a refund?", "email")
+    add_item("The app crashes every time I open the reports page.", "chat")
+    add_item("Would love a dark mode for working late.", "survey")
+    add_item("Thank you, the new dashboard is brilliant!", "survey")
+    add_item("Export to Excel fails with an error after the update.", "email")
+    add_item("Please add an export button to the invoices list.", "chat")
+    add_item("Why did the price go up this month?", "email")
+    add_item("Search freezes when I type more than ten letters.", "chat")
+    add_item("Great support today, Maria solved it in minutes.", "survey")
+    add_item("Could you add two-factor login?", "survey")
+    add_item("My payment card was declined but the money left my account.", "email")
+    add_item("Uploading a photo shows a blank error box.", "chat")
+
+function counts()
+    var stats = {total: 0, to_label: 0, labeled: 0, approved: 0}
+    for row in query("SELECT status, COUNT(*) AS n FROM label_items GROUP BY status")
+        stats.total = stats.total + row.n
+        if row.status == "To label"
+            stats.to_label = row.n
+        if row.status == "Labeled"
+            stats.labeled = row.n
+        if row.status == "Approved"
+            stats.approved = row.n
+    return stats
+
+service labeling_api
+    port 8080
+
+    endpoint list_labels()
+        return {success: true, data: LABELS}
+
+    endpoint next_item()
+        var rows = query("SELECT id, text, source, suggestion FROM label_items WHERE status = 'To label' ORDER BY id LIMIT 1")
+        if len(rows) == 0
+            return {success: true, data: {id: 0, text: "The queue is empty. Import more items on the Dataset page.", source: "", suggestion: "", hint: ""}}
+        var item = rows[0]
+        item.hint = "Suggested: " + item.suggestion if item.suggestion else "No suggestion: pick a label"
+        return {success: true, data: item}
+
+    endpoint label_item(id, label, annotator = "annotator")
+        require(id > 0, "There's no item to label")
+        require(array_contains(LABELS, label), "Pick one of: " + join(LABELS, ", "))
+        query("UPDATE label_items SET label = ?, status = 'Labeled', annotator = ?, labeled_at = ? WHERE id = ?", (label, annotator, now(), id))
+        audit_log("label_item", {id: id, label: label}, annotator)
+        return {success: true}
+
+    endpoint list_items()
+        return {success: true, data: query("SELECT id, text, source, suggestion, label, status, annotator, labeled_at FROM label_items ORDER BY id")}
+
+    endpoint move_item(id, status, item = null)
+        require(array_contains(["To label", "Labeled", "Approved"], status), "Unknown status")
+        if status == "To label"
+            query("UPDATE label_items SET status = ?, label = NULL WHERE id = ?", (status, id))
+        else
+            query("UPDATE label_items SET status = ? WHERE id = ?", (status, id))
+        audit_log("move_item", {id: id, status: status}, "reviewer")
+        return {success: true}
+
+    endpoint import_items(csv_text)
+        // CSV with a "text" column and an optional "source" column
+        var added = 0
+        for row in parse_csv(csv_text)
+            if row.text
+                add_item(row.text, row.source or "import")
+                added = added + 1
+        return {success: true, data: {added: added}}
+
+    endpoint labeling_stats()
+        var stats = counts()
+        var done = query("SELECT COUNT(*) AS n, SUM(CASE WHEN label = suggestion THEN 1 ELSE 0 END) AS agreed FROM label_items WHERE label IS NOT NULL")[0]
+        stats.agreement = round(done.agreed / done.n * 100, 1) if done.n > 0 else 0
+        stats.by_label = query("SELECT label, COUNT(*) AS items FROM label_items WHERE label IS NOT NULL GROUP BY label ORDER BY items DESC")
+        stats.by_annotator = query("SELECT annotator, COUNT(*) AS items FROM label_items WHERE annotator IS NOT NULL GROUP BY annotator ORDER BY items DESC")
+        return {success: true, data: stats}
+
+    endpoint audit_check()
+        return {success: true, data: verify_audit_log()}
+
+test "keyword rules suggest a label"
+    assert suggest("The app crashes on start") == "Bug"
+    assert suggest("Please add dark mode") == "Feature request"
+    assert suggest("Refund my invoice") == "Billing"
+
+test "labeling moves an item out of the queue"
+    var item = next_item().data
+    label_item(item.id, "Bug", "tester")
+    assert next_item().data.id != item.id
+    var row = query("SELECT status, label FROM label_items WHERE id = ?", (item.id,))[0]
+    assert row.status == "Labeled" and row.label == "Bug"
+
+test "labels must come from the label set"
+    var failed = false
+    try
+        label_item(next_item().data.id, "Nonsense", "tester")
+    catch e
+        failed = true
+    assert failed
+
+test "importing a CSV adds items with suggestions"
+    var before = counts().total
+    import_items("text,source\nThe invoice total is wrong,email\nLove it, thanks!,chat")
+    assert counts().total == before + 2

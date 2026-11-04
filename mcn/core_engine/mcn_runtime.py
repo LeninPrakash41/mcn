@@ -76,8 +76,9 @@ class MCNRuntime:
 
     def log(self, message: Any) -> None:
         """Print message to console with timestamp"""
+        from .display import to_text
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] {message}")
+        print(f"[{timestamp}] {to_text(message)}")
 
     def trigger(
         self, endpoint: str, payload: Dict = None, method: str = "POST"

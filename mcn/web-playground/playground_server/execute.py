@@ -2,6 +2,7 @@
 import queue
 import threading
 from flask import Blueprint
+from mcn.core_engine.display import to_text
 from .core import (
     MCNInterpreter,
     Response,
@@ -47,7 +48,7 @@ def execute_mcn():
             interp = MCNInterpreter()
 
         def _capture_log(*args):
-            output_lines.append(" ".join(str(a) for a in args))
+            output_lines.append(" ".join(to_text(a) for a in args))
         interp._functions["log"]  = _capture_log
         interp._functions["echo"] = _capture_log
 
@@ -65,7 +66,7 @@ def execute_mcn():
     try:
         result = _run_with_timeout(run, _EXEC_TIMEOUT_S)
         return jsonify({"success": True, "output": output_lines,
-                        "result": str(result) if result is not None else None})
+                        "result": to_text(result) if result is not None else None})
     except TimeoutError as e:
         return jsonify({"success": False, "error": str(e), "output": output_lines}), 408
     except Exception as e:

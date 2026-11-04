@@ -155,3 +155,15 @@ def test_live_preview_reports_ui_errors():
     quiet(client.post, "/api/workspace/reset", json={"files": [{"path": "ui/app.mcn", "content": "component X\n    render\n        card\n      text \"misaligned\"\n"}]})
     src = quiet(client.get, "/api/preview/source").get_json()
     assert src["success"] is False and "line 4" in src["error"]
+
+
+def test_component_named_like_a_kit_component(tmp_path):
+    """`component Label` used to clash with the kit's Label import."""
+    src = ('component Label\n    state name = ""\n    render\n        form\n            input bind=name label="Name"\n\n'
+           'app A\n    nav "Label" Label\n')
+    interp = MCNInterpreter()
+    with contextlib.redirect_stdout(io.StringIO()):
+        interp.execute(src, quiet=True)
+        UICompiler(output_dir=tmp_path, endpoints={}).compile(interp._evaluator)
+    code = (tmp_path / "src" / "components" / "Label.tsx").read_text()
+    assert "function LabelScreen()" in code and "export { LabelScreen as Label }" in code

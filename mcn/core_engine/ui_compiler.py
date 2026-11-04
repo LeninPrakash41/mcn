@@ -827,12 +827,21 @@ class UICompiler:
             if extra not in imports:
                 imports.append(extra)
 
+        # A component named like something it imports (`component Label` vs the kit's
+        # Label) gets a local name and is exported under its own name
+        imported = set(icon_names)
+        for line in imports:
+            m = re.match(r'import \{\s*([^}]+)\s*\}', line)
+            if m:
+                imported.update(n.split(" as ")[-1].strip() for n in m.group(1).split(","))
+        local = f"{comp.name}Screen" if comp.name in imported else comp.name
+
         # Assemble
         lines = [
             *imports,
             "",
             *icon_binding,
-            f"export function {comp.name}() {{",
+            f"export function {local}() {{" if local == comp.name else f"function {local}() {{",
             *hooks,
             *([""] if hooks else []),
             *handlers,
@@ -842,7 +851,8 @@ class UICompiler:
             "  )",
             "}",
             "",
-            f"export default {comp.name}",
+            *([] if local == comp.name else [f"export {{ {local} as {comp.name} }}"]),
+            f"export default {local}",
             "",
         ]
         return "\n".join(lines)

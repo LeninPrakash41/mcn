@@ -76,7 +76,7 @@ mcn studio .                      # open it in MCN Studio → http://localhost:5
 
 `mcn upgrade` updates MCN, `mcn add ml` (or `postgres`, `mongodb`, `scheduler`) adds optional features, and `mcn uninstall` removes it. Node.js is only needed to run the generated React app.
 
-**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** menu has 21 starter apps. Studio only accepts connections from your own machine.
+**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** gallery (the button in the left bar) has 23 starter apps, searchable by category. Studio only accepts connections from your own machine.
 
 **Editor support.** `mcn vscode` installs the bundled VS Code extension: highlighting, completions, hover docs, errors underlined as you type, and commands to run, test, serve and open Studio.
 

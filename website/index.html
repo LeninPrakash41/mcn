@@ -88,6 +88,14 @@
     .split-copy li { padding-left: 26px; position: relative; color: var(--text-soft); }
     .split-copy li::before { content: ""; position: absolute; left: 0; top: 9px; width: 12px; height: 7px; border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg); }
 
+    .faq { max-width: 820px; margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
+    .faq-item { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .faq-item summary { cursor: pointer; list-style: none; padding: 16px 48px 16px 20px; font-weight: 600; font-size: 16px; position: relative; }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: "+"; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; font-weight: 400; }
+    .faq-item[open] summary::after { content: "–"; }
+    .faq-item summary:focus-visible { outline: 2px solid var(--accent, #7c6cf0); outline-offset: 2px; border-radius: var(--radius); }
+    .faq-item p { margin: 0; padding: 0 20px 18px; color: var(--text-soft); font-size: 15px; line-height: 1.6; }
     .targets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 28px; }
     .target { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }
     .target small { color: var(--text-muted); font: 500 12px/1 var(--mono); }
@@ -126,6 +134,7 @@
       .window pre { height: 320px; font-size: 12px; padding: 14px; }
     }
   </style>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What kind of language is MCN?", "acceptedAnswer": {"@type": "Answer", "text": "A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain .mcn files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first."}}, {"@type": "Question", "name": "Is MCN a good fit for forward deployed engineers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with fetch(), query() and domain packages, and put it online with mcn deploy --target vercel or a Docker zip. agent_run() turns the customer's own functions into tools for an AI agent, and mcn audit plus service auth cover the security review. Everything stays as readable code the customer's team can keep."}}, {"@type": "Question", "name": "Can data annotation teams use MCN?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a data_table or kanban, forms for labels, classify() and extract() to pre-label items with AI, and people confirming or correcting each one. audit_log() records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code."}}, {"@type": "Question", "name": "Do I need to know another programming language first?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away."}}, {"@type": "Question", "name": "Is MCN ready for production?", "acceptedAnswer": {"@type": "Answer", "text": "It's designed for internal tools, client pilots and coursework, and has what those need: token and JWT auth, rate limits, security headers, tests next to the code, a security scanner, and Docker and Vercel deploys. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last."}}, {"@type": "Question", "name": "Which AI models does it use, and where does my data go?", "acceptedAnswer": {"@type": "Answer", "text": "ai() uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI."}}, {"@type": "Question", "name": "Am I locked in?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi."}}, {"@type": "Question", "name": "Can it run on a Raspberry Pi or with an Arduino?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The same device() code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. mcn iot firmware writes the board sketch."}}, {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan."}}]}</script>
 </head>
 <body>
 
@@ -137,6 +146,7 @@
       <a href="docs/#/guide/language-basics">Language</a>
       <a href="docs/#/reference/cli">CLI</a>
       <a href="docs/#/guide/ai">AI</a>
+      <a href="#faq">FAQ</a>
     </nav>
     <div class="nav-right">
       <a class="icon-btn" href="https://github.com/LeninPrakash41/mcn" aria-label="GitHub repository">
@@ -399,9 +409,9 @@ Hint: Did you mean 'total'?</code></pre>
   <section class="alt" id="templates">
     <div class="container">
       <div class="section-head">
-        <p class="kicker">21 starter templates</p>
+        <p class="kicker">23 starter templates</p>
         <h2>Start from something real.</h2>
-        <p>Open the <b>Templates</b> menu in Studio. Each one runs, builds and is covered by tests.</p>
+        <p>Pick one from the <b>Templates</b> gallery in Studio. Each one runs, builds and is covered by tests.</p>
       </div>
       <div class="chip-group"><h4>AI &amp; automation</h4><div class="chips">
         <span class="chip"><b>AI agent builder</b> · agents with real tools</span>
@@ -415,6 +425,10 @@ Hint: Did you mean 'total'?</code></pre>
         <span class="chip"><b>Inventory</b> · CRUD manager</span>
         <span class="chip"><b>Construction</b> · jobs and milestones</span>
         <span class="chip"><b>Prompt marketplace</b> · AI workflows</span>
+      </div></div>
+      <div class="chip-group"><h4>Data &amp; ML</h4><div class="chips">
+        <span class="chip"><b>Data labeling studio</b> · AI suggestions, review, audit log</span>
+        <span class="chip"><b>ML training lab</b> · train, compare, predict</span>
       </div></div>
       <div class="chip-group"><h4>Mobile &amp; IoT</h4><div class="chips">
         <span class="chip"><b>Smart home</b> · Raspberry Pi sensors, automations</span>
@@ -469,7 +483,55 @@ Hint: Did you mean 'total'?</code></pre>
     </div>
   </section>
 
-  <section class="alt cta-band">
+  <!-- FAQ -->
+  <section class="alt" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Questions</p>
+        <h2>Frequently asked questions.</h2>
+      </div>
+      <div class="faq">
+        <details class="faq-item">
+          <summary>What kind of language is MCN?</summary>
+          <p>A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain <code>.mcn</code> files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is MCN a good fit for forward deployed engineers?</summary>
+          <p>Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with <code>fetch()</code>, <code>query()</code> and domain packages, and put it online with <code>mcn deploy --target vercel</code> or a Docker zip. <code>agent_run()</code> turns the customer's own functions into tools for an AI agent, and <code>mcn audit</code> plus service auth cover the security review. Everything stays as readable code the customer's team can keep.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can data annotation teams use MCN?</summary>
+          <p>Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a <code>data_table</code> or <code>kanban</code>, forms for labels, <code>classify()</code> and <code>extract()</code> to pre-label items with AI, and people confirming or correcting each one. <code>audit_log()</code> records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Do I need to know another programming language first?</summary>
+          <p>No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is MCN ready for production?</summary>
+          <p>It's designed for internal tools, client pilots and coursework, and has what those need: token and JWT auth, rate limits, security headers, tests next to the code, a security scanner, and Docker and Vercel deploys. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Which AI models does it use, and where does my data go?</summary>
+          <p><code>ai()</code> uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Am I locked in?</summary>
+          <p>No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can it run on a Raspberry Pi or with an Arduino?</summary>
+          <p>Yes. The same <code>device()</code> code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. <code>mcn iot firmware</code> writes the board sketch.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How much does it cost?</summary>
+          <p>Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
     <div class="container">
       <h2>Your first app is two minutes away.</h2>
       <p>Install MCN, create a project and open it in Studio.</p>

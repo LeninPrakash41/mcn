@@ -185,7 +185,10 @@ class Evaluator:
     so they are also available for recursion and cross-function calls.
     """
 
-    def __init__(self, functions: Dict[str, Callable], max_steps: int = 100_000):
+    def __init__(self, functions: Dict[str, Callable], max_steps: Optional[int] = None):
+        # Step counting is per thread and per run: each script run, request,
+        # watch handler or test gets its own budget (see user_func below)
+        self._tl = _threading.local()
         self.functions       = functions         # shared with MCNInterpreter
         self.function_params: Dict[str, List[str]] = {}
         self.endpoint_auth: Dict[str, str] = {}      # endpoint → "" | "token" | "jwt"   # param names per endpoint
@@ -193,7 +196,7 @@ class Evaluator:
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
         self.app_decl:   Optional[ast.AppDecl]        = None  # app declaration
         self.step_count = 0
-        self.max_steps = max_steps
+        self.max_steps = max_steps or int(__import__("os").environ.get("MCN_MAX_STEPS") or 5_000_000)
 
         # Boolean and null literals (JavaScript / JSON style)
         self.globals.define("true",  True)
@@ -226,6 +229,36 @@ class Evaluator:
             return ret.value
 
     # ── Statement execution ────────────────────────────────────────────────────
+
+    @property
+    def step_count(self) -> int:
+        return getattr(self._tl, "steps", 0)
+
+    @step_count.setter
+    def step_count(self, value: int) -> None:
+        self._tl.steps = value
+
+    @property
+    def run_depth(self) -> int:
+        """How many runs or MCN calls are active on this thread (0 = called from outside MCN)."""
+        return getattr(self._tl, "depth", 0)
+
+    @run_depth.setter
+    def run_depth(self, value: int) -> None:
+        self._tl.depth = value
+
+    def _call_body(self, body: List[ast.Stmt], env: Environment) -> Any:
+        """Run a function, endpoint, stage or step body. A call from outside MCN
+        (a request, a watch handler, a schedule) starts with a fresh step budget;
+        calls made while a script runs share that run's budget."""
+        depth = self.run_depth
+        if depth == 0:
+            self.step_count = 0
+        self.run_depth = depth + 1
+        try:
+            return self._exec_block(body, env)
+        finally:
+            self.run_depth = depth
 
     def _exec_block(self, stmts: List[ast.Stmt], env: Environment) -> Any:
         result = None
@@ -524,7 +557,7 @@ class Evaluator:
                 else:
                     call_env.define(param, None)
             try:
-                return self._exec_block(body, call_env)
+                return self._call_body(body, call_env)
             except ReturnSignal as ret:
                 return ret.value
 
@@ -756,7 +789,7 @@ class Evaluator:
                     for i, param in enumerate(p):
                         call_env.define(param, args[i] if i < len(args) else d.get(param))
                     try:
-                        return self._exec_block(b, call_env)
+                        return self._call_body(b, call_env)
                     except ReturnSignal as ret:
                         return ret.value
                 return stage_fn
@@ -789,7 +822,7 @@ class Evaluator:
                     for i, param in enumerate(p):
                         call_env.define(param, args[i] if i < len(args) else d.get(param))
                     try:
-                        return self._exec_block(b, call_env)
+                        return self._call_body(b, call_env)
                     except ReturnSignal as ret:
                         return ret.value
                 return endpoint_fn
@@ -820,7 +853,7 @@ class Evaluator:
         def schedule_fn() -> Any:
             call_env = Environment(captured_env)
             try:
-                return self._exec_block(body, call_env)
+                return self._call_body(body, call_env)
             except ReturnSignal as ret:
                 return ret.value
 
@@ -850,7 +883,7 @@ class Evaluator:
                     for i, param in enumerate(p):
                         call_env.define(param, args[i] if i < len(args) else d.get(param))
                     try:
-                        return self._exec_block(b, call_env)
+                        return self._call_body(b, call_env)
                     except ReturnSignal as ret:
                         return ret.value
                 return step_fn
@@ -960,7 +993,10 @@ class Evaluator:
             val = _resolve(m.group(1))
             if val is _UNDEFINED:
                 return m.group(0)   # leave {expr} untouched
-            return "" if val is None else str(val)
+            if val is None:
+                return ""
+            from .display import to_text
+            return to_text(val)
 
         return self._INTERP_RE.sub(_replace, s)
 
@@ -1016,7 +1052,7 @@ class Evaluator:
                     for i, param in enumerate(p):
                         call_env.define(param, args[i] if i < len(args) else d.get(param))
                     try:
-                        return self._exec_block(b, call_env)
+                        return self._call_body(b, call_env)
                     except ReturnSignal as ret:
                         return ret.value
                 return task_fn
@@ -1072,7 +1108,8 @@ class Evaluator:
         if op == "+":
             # Automatic string coercion when either side is a string
             if isinstance(left, str) or isinstance(right, str):
-                return str(left) + str(right)
+                from .display import to_text
+                return to_text(left) + to_text(right)
             return left + right
         if op == "-":  return left - right
         if op == "*":  return left * right

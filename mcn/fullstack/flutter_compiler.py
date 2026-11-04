@@ -197,7 +197,8 @@ class _{_cls(comp.name)}State extends State<{_cls(comp.name)}> {{
             self._find_bindings(el.children)
 
     def _handler(self, name: str, body: List[ast.Stmt]) -> str:
-        implicit = [n for n in ("row", "item", "agent", "workflow", "message") if any(
+        # The value a handler is about (row, item…), unless the component has state of that name
+        implicit = [n for n in ("row", "item", "agent", "workflow", "message") if n not in self.states and any(
             isinstance(x, ast.Variable) and x.name == n for x in _walk(body))]
         binds = "".join(f"    final dynamic {n} = e;\n" for n in implicit)
         stmts = self._stmts(body, 4, set(implicit))

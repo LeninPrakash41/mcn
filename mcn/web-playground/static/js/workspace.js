@@ -135,61 +135,56 @@ function renderFileTree(files) {
     return true;
   });
 
-  const folders = {}
+  // Build a nested tree: frontend/src/components/ui/button.tsx becomes four folders and a file
+  const root = { folders: {}, files: [] }
   for (const f of filteredFiles) {
     const parts = f.path.split('/')
-    const folder = parts.length > 1 ? parts[0] : '__root__'
-    if (!folders[folder]) folders[folder] = []
-    folders[folder].push(f)
+    let node = root
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts.slice(0, i + 1).join('/')
+      node = node.folders[parts[i]] || (node.folders[parts[i]] = { key, folders: {}, files: [] })
+    }
+    node.files.push(f.path)
   }
-  const folderOrder = ['backend', 'ui', 'frontend', 'mobile', 'scripts', '__root__']
-  const allFolders = [...new Set([...folderOrder, ...Object.keys(folders)])]
-  for (const folder of allFolders) {
-    if (!folders[folder] || folders[folder].length === 0) continue
-    if (folder !== '__root__') {
-      const isExpanded = _expandedFolders.has(folder)
+  const topOrder = ['backend', 'ui', 'frontend', 'mobile', 'scripts']
+  const sortFolders = (names, depth) => depth === 0
+    ? [...topOrder.filter(n => names.includes(n)), ...names.filter(n => !topOrder.includes(n)).sort()]
+    : names.sort()
 
-      
-      const folderHeader = document.createElement('div')
-      folderHeader.className = 'tree-folder' + (isExpanded ? ' expanded' : '')
-      folderHeader.innerHTML = `
+  const renderNode = (node, parent, depth) => {
+    for (const name of sortFolders(Object.keys(node.folders), depth)) {
+      const sub = node.folders[name]
+      const isExpanded = _expandedFolders.has(sub.key)
+      const header = document.createElement('div')
+      header.className = 'tree-folder' + (isExpanded ? ' expanded' : '')
+      header.style.paddingLeft = (12 + depth * 14) + 'px'
+      header.title = sub.key
+      header.innerHTML = `
         <span class="folder-caret">${isExpanded ? '▼' : '▶'}</span>
         <span class="tree-folder-icon">${isExpanded ? '▾' : '▸'}</span>
-        <span>${folder}</span>
-      `
-      
-      const folderContents = document.createElement('div')
-      folderContents.className = 'tree-folder-contents'
-      folderContents.style.display = isExpanded ? 'block' : 'none'
-      
-      for (const f of folders[folder]) {
-        folderContents.appendChild(makeFileItem(f.path))
+        <span>${escapeHtml(name)}</span>`
+      const contents = document.createElement('div')
+      contents.className = 'tree-folder-contents'
+      contents.style.display = isExpanded ? 'block' : 'none'
+      renderNode(sub, contents, depth + 1)
+      header.onclick = () => {
+        const open = !_expandedFolders.has(sub.key)
+        open ? _expandedFolders.add(sub.key) : _expandedFolders.delete(sub.key)
+        header.classList.toggle('expanded', open)
+        header.querySelector('.folder-caret').textContent = open ? '▼' : '▶'
+        header.querySelector('.tree-folder-icon').textContent = open ? '▾' : '▸'
+        contents.style.display = open ? 'block' : 'none'
       }
-      
-      folderHeader.onclick = () => {
-        if (_expandedFolders.has(folder)) {
-          _expandedFolders.delete(folder)
-          folderHeader.classList.remove('expanded')
-          folderHeader.querySelector('.folder-caret').textContent = '▶'
-          folderHeader.querySelector('.tree-folder-icon').textContent = '▸'
-          folderContents.style.display = 'none'
-        } else {
-          _expandedFolders.add(folder)
-          folderHeader.classList.add('expanded')
-          folderHeader.querySelector('.folder-caret').textContent = '▼'
-          folderHeader.querySelector('.tree-folder-icon').textContent = '▾'
-          folderContents.style.display = 'block'
-        }
-      }
-      
-      ct.appendChild(folderHeader)
-      ct.appendChild(folderContents)
-    } else {
-      for (const f of folders[folder]) {
-        ct.appendChild(makeFileItem(f.path))
-      }
+      parent.appendChild(header)
+      parent.appendChild(contents)
+    }
+    for (const path of node.files.sort()) {
+      const item = makeFileItem(path)
+      item.style.paddingLeft = (depth === 0 ? 12 : 14 + depth * 14) + 'px'
+      parent.appendChild(item)
     }
   }
+  renderNode(root, ct, 0)
   syncTreeActive()
 }
 
@@ -197,9 +192,9 @@ function makeFileItem(path) {
   const el = document.createElement('div')
   el.className = 'tree-item' + (_active === path ? ' active' : '')
   el.dataset.path = path
-  const parts = path.split('/')
-  const name = parts.length > 1 ? parts.slice(1).join('/') : path
-  el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${name}</span>`
+  const name = path.split('/').pop()
+  el.title = path
+  el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${escapeHtml(name)}</span>`
   el.onclick = () => openFile(path)
   return el
 }
@@ -399,6 +394,105 @@ async function resetWorkspace() {
 // ── Categorized Templates & Examples ──────────────────────────────────────────
 let _allExamples = [];
 
+const TEMPLATE_CATEGORIES = {
+  internal_app: { title: "Web apps & AI" },
+  data:         { title: "Data & ML" },
+  flutter_app:  { title: "Mobile & IoT" },
+  backend:      { title: "Backends & APIs" },
+  repl:         { title: "Learn the language" },
+};
+const NEW_TEMPLATES = new Set(['data_labeling', 'ml_training_lab']);
+let _galleryCategory = 'all';
+
+function openTemplateGallery() {
+  document.getElementById('template-gallery').classList.remove('hidden');
+  try { localStorage.setItem('mcn_gallery_seen', '1') } catch (e) {}
+  renderTemplateGallery();
+  setTimeout(() => document.getElementById('tg-search').focus(), 50);
+}
+
+function closeTemplateGallery() {
+  document.getElementById('template-gallery').classList.add('hidden');
+}
+
+async function maybeShowGalleryOnFirstVisit() {
+  // Newcomers see the gallery once, in Studio's own workspace (not when editing their project)
+  try {
+    const info = await (await apiFetch('/api/workspace/info')).json()
+    const ws = document.getElementById('status-ws')
+    if (ws && info.path) ws.textContent = info.path
+    let seen = false
+    try { seen = !!localStorage.getItem('mcn_gallery_seen') } catch (e) {}
+    if (!seen && !info.own_project) openTemplateGallery()
+  } catch (e) {}
+}
+
+function renderTemplateGallery() {
+  const chips = document.getElementById('tg-chips')
+  const grid = document.getElementById('tg-grid')
+  const q = (document.getElementById('tg-search').value || '').trim().toLowerCase()
+  const cats = Object.keys(TEMPLATE_CATEGORIES).filter(c => _allExamples.some(e => (e.category || 'repl') === c))
+  chips.innerHTML = ['all', ...cats].map(c => {
+    const label = c === 'all' ? `All (${_allExamples.length})` : TEMPLATE_CATEGORIES[c].title
+    return `<button class="tg-chip" role="tab" aria-selected="${c === _galleryCategory}" onclick="_galleryCategory='${c}';renderTemplateGallery()">${escapeHtml(label)}</button>`
+  }).join('')
+  const matches = _allExamples.filter(e =>
+    (_galleryCategory === 'all' || (e.category || 'repl') === _galleryCategory) &&
+    (!q || `${e.name} ${e.description} ${e.badge}`.toLowerCase().includes(q)))
+  if (!matches.length) {
+    grid.innerHTML = `<div class="tg-empty">No templates match “${escapeHtml(q)}”.</div>`
+    return
+  }
+  let html = ''
+  for (const c of cats) {
+    const items = matches.filter(e => (e.category || 'repl') === c)
+    if (!items.length) continue
+    html += `<div class="tg-group">${escapeHtml(TEMPLATE_CATEGORIES[c].title)}</div>`
+    for (const e of items) {
+      const paths = (e.files || []).map(f => f.path || f)
+      const tags = []
+      if (paths.some(p => p.startsWith('backend/')) || e.file) tags.push('Backend')
+      if (paths.some(p => p.startsWith('ui/'))) tags.push('Web + mobile UI')
+      if (!e.project) tags.push('Single file')
+      html += `<button class="tg-item" onclick="openTemplateFromGallery('${escapeHtml(e.id)}')">
+        <div class="tg-item-top"><span class="tg-item-name">${escapeHtml(e.name)}</span>${NEW_TEMPLATES.has(e.id) ? '<span class="tg-new">NEW</span>' : ''}</div>
+        <div class="tg-item-desc">${escapeHtml(e.description || '')}</div>
+        <div class="tg-item-meta"><span class="template-badge ${escapeHtml(e.category || 'repl')}">${escapeHtml(e.badge || '')}</span>${tags.map(t => `<span class="tg-tag">${t}</span>`).join('')}</div>
+      </button>`
+    }
+  }
+  grid.innerHTML = html
+}
+
+const FEATURED_TEMPLATES = ['ai_agent_builder', 'ops_dashboard', 'data_labeling', 'ml_training_lab', 'iot_smart_home', 'hello']
+
+function renderStarterHub() {
+  const grid = document.getElementById('starter-grid')
+  if (!grid) return
+  const items = FEATURED_TEMPLATES.map(id => _allExamples.find(e => e.id === id)).filter(Boolean)
+  grid.innerHTML = items.map(e => `
+    <div class="starter-card" role="button" tabindex="0" onclick="openTemplateFromGallery('${escapeHtml(e.id)}')"
+         onkeydown="if(event.key==='Enter')openTemplateFromGallery('${escapeHtml(e.id)}')">
+      <div class="starter-card-hdr"><span class="starter-card-tag">${escapeHtml(e.badge || '')}</span></div>
+      <div class="starter-card-title">${escapeHtml(e.name)}</div>
+      <div class="starter-card-desc">${escapeHtml(e.description || '')}</div>
+    </div>`).join('')
+}
+
+function openTemplateFromGallery(id) {
+  const ex = _allExamples.find(e => e.id === id)
+  if (!ex) return
+  closeTemplateGallery()
+  loadExample(ex)
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('template-gallery').classList.contains('hidden')) closeTemplateGallery()
+})
+document.getElementById('template-gallery').addEventListener('click', function (e) {
+  if (e.target === this) closeTemplateGallery()
+})
+
 async function loadExamples() {
   try {
     const r = await apiFetch('/api/examples')
@@ -406,6 +500,8 @@ async function loadExamples() {
     const examples = await r.json()
     _allExamples = examples;
     renderTemplatesDropdown(examples);
+    renderStarterHub();
+    maybeShowGalleryOnFirstVisit();
   } catch (err) {
     console.warn('loadExamples error:', err)
   }
@@ -415,15 +511,20 @@ function renderTemplatesDropdown(examples) {
   const popover = document.getElementById('templates-menu-popover');
   if (!popover) return;
   popover.innerHTML = '';
-  
-  const categoryMeta = {
-    repl:         { title: "REPL & Quick Scripts" },
-    internal_app: { title: "Internal Tools & Web Apps" },
-    flutter_app:  { title: "Mobile Apps (Flutter)" },
-    backend:      { title: "Backend & Microservices" }
+
+  const browse = document.createElement('div');
+  browse.className = 'templates-menu-item';
+  browse.innerHTML = `<div class="templates-menu-item-left"><span class="templates-menu-item-name">Browse all ${examples.length} templates…</span>
+    <span class="templates-menu-item-desc">Search and filter by category</span></div>`;
+  browse.onclick = () => {
+    popover.classList.add('hidden');
+    document.querySelectorAll('.menu-item').forEach(t => t.classList.remove('open'));
+    openTemplateGallery();
   };
-  
-  const categories = ['repl', 'internal_app', 'flutter_app', 'backend'];
+  popover.appendChild(browse);
+
+  const categoryMeta = TEMPLATE_CATEGORIES;
+  const categories = Object.keys(TEMPLATE_CATEGORIES);
   for (const cat of categories) {
     const items = examples.filter(e => (e.category || 'repl') === cat);
     if (items.length === 0) continue;
@@ -464,7 +565,7 @@ async function loadExample(ex) {
     switchWorkspace('flutter');
   } else if (ex.category === 'repl') {
     switchWorkspace('repl');
-  } else if (ex.category === 'internal_app') {
+  } else if (ex.category === 'internal_app' || ex.category === 'data') {
     switchWorkspace('react');
   }
   
@@ -515,17 +616,14 @@ async function loadExample(ex) {
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 async function openFile(path) {
-  // Auto-expand folder
+  // Expand every folder above the file
   const parts = path.split('/')
-  if (parts.length > 1) {
-    const folder = parts[0]
-    if (!_expandedFolders.has(folder)) {
-      _expandedFolders.add(folder)
-      if (window._workspaceFiles) {
-        renderFileTree(window._workspaceFiles)
-      }
-    }
+  let expanded = false
+  for (let i = 1; i < parts.length; i++) {
+    const folder = parts.slice(0, i).join('/')
+    if (!_expandedFolders.has(folder)) { _expandedFolders.add(folder); expanded = true }
   }
+  if (expanded && window._workspaceFiles) renderFileTree(window._workspaceFiles)
 
   if (!_models.has(path)) {
     try {
@@ -538,10 +636,15 @@ async function openFile(path) {
                 : path.endsWith('.css') ? 'css'
                 : 'plaintext'
       const uri   = monaco.Uri.parse('file:///' + path)
-      const model = monaco.editor.createModel(d.content, ext, uri)
+      // Two quick opens of the same file (e.g. at startup) share one model
+      const model = monaco.editor.getModel(uri) || monaco.editor.createModel(d.content, ext, uri)
       _models.set(path, model)
       _tabState.set(path, { dirty: false })
-    } catch (e) { appendLog('error', 'Cannot open ' + path); return }
+    } catch (e) {
+      if (typeof appendLog === 'function') appendLog('error', 'Cannot open ' + path + ': ' + e.message)
+      else console.warn('Cannot open ' + path, e)
+      return
+    }
   }
   if (!_openTabs.find(t => t.path === path)) _openTabs.push({ path })
   _active = path

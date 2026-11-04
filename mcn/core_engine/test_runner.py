@@ -30,6 +30,7 @@ import traceback
 from pathlib import Path
 from typing import Any, List, Tuple
 
+from .display import literal as _lit
 from .lexer     import Lexer
 from .parser    import Parser
 from .evaluator import Evaluator, MCNError
@@ -103,6 +104,7 @@ class TestRunner:
         self._register_builtins(functions)
         evaluator = Evaluator(functions)
         try:
+            evaluator.run_depth = 1          # setup is one run with one step budget
             evaluator._exec_block(setup_stmts, evaluator.globals)
         except Exception as exc:
             return [TestResult("<setup>", False,
@@ -133,6 +135,8 @@ class TestRunner:
             # Each test gets its own scope so side-effects don't leak
             from .evaluator import Environment
             test_env = Environment(evaluator.globals)
+            evaluator.step_count = 0         # each test gets its own step budget
+            evaluator.run_depth = 1
             evaluator._exec_block(decl.body, test_env)
             elapsed = time.perf_counter() - start
             return TestResult(decl.description, True, elapsed=elapsed)
@@ -157,17 +161,17 @@ class TestRunner:
         def assert_equal(a, b, msg=""):
             if a != b:
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {b!r} but got {a!r}{label}")
+                raise AssertionError(f"Expected {_lit(b)} but got {_lit(a)}{label}")
 
         def assert_not_equal(a, b, msg=""):
             if a == b:
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected values to differ, both are {a!r}{label}")
+                raise AssertionError(f"Expected values to differ, both are {_lit(a)}{label}")
 
         def assert_null(v, msg=""):
             if v is not None:
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected null but got {v!r}{label}")
+                raise AssertionError(f"Expected null but got {_lit(v)}{label}")
 
         def assert_not_null(v, msg=""):
             if v is None:
@@ -178,43 +182,43 @@ class TestRunner:
             from .evaluator import Evaluator
             if not Evaluator({})._truthy(v):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected truthy value but got {v!r}{label}")
+                raise AssertionError(f"Expected truthy value but got {_lit(v)}{label}")
 
         def assert_falsy(v, msg=""):
             from .evaluator import Evaluator
             if Evaluator({})._truthy(v):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected falsy value but got {v!r}{label}")
+                raise AssertionError(f"Expected falsy value but got {_lit(v)}{label}")
 
         def assert_contains(collection, item, msg=""):
             if item not in collection:
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {item!r} in {collection!r}{label}")
+                raise AssertionError(f"Expected {_lit(item)} in {_lit(collection)}{label}")
 
         def assert_not_contains(collection, item, msg=""):
             if item in collection:
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {item!r} not in {collection!r}{label}")
+                raise AssertionError(f"Expected {_lit(item)} not in {_lit(collection)}{label}")
 
         def assert_gt(a, b, msg=""):
             if not (a > b):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {a!r} > {b!r}{label}")
+                raise AssertionError(f"Expected {_lit(a)} > {_lit(b)}{label}")
 
         def assert_gte(a, b, msg=""):
             if not (a >= b):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {a!r} >= {b!r}{label}")
+                raise AssertionError(f"Expected {_lit(a)} >= {_lit(b)}{label}")
 
         def assert_lt(a, b, msg=""):
             if not (a < b):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {a!r} < {b!r}{label}")
+                raise AssertionError(f"Expected {_lit(a)} < {_lit(b)}{label}")
 
         def assert_lte(a, b, msg=""):
             if not (a <= b):
                 label = f" — {msg}" if msg else ""
-                raise AssertionError(f"Expected {a!r} <= {b!r}{label}")
+                raise AssertionError(f"Expected {_lit(a)} <= {_lit(b)}{label}")
 
         def assert_type(v, type_name: str, msg=""):
             type_map = {
@@ -226,7 +230,7 @@ class TestRunner:
             }
             expected = type_map.get(type_name)
             if expected is None:
-                raise AssertionError(f"Unknown type name: {type_name!r}")
+                raise AssertionError(f"Unknown type name: {_lit(type_name)}")
             if not isinstance(v, expected):
                 label = f" — {msg}" if msg else ""
                 raise AssertionError(

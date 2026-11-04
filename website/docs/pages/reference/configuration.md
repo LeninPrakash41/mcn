@@ -19,6 +19,7 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_HOME` | `~/.mcn` | Where MCN keeps its logs, package metadata, settings and Studio's workspace |
 | `MCN_HTTP_TIMEOUT` | 5s connect, 30s read | Seconds before `trigger()` gives up on a request |
 | `MCN_VERBOSE` | off | Print the engine's debug log |
+| `MCN_MAX_STEPS` | `5000000` | Statements one run, request, `watch` handler or test may execute before it's stopped (catches runaway loops) |
 | `MCN_AUDIT_LOG` | `~/.mcn/audit/hipaa_audit.jsonl` | File used by `healthcare`'s `hipaa_audit_log()` |
 
 ## Security

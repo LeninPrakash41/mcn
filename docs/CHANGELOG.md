@@ -12,10 +12,12 @@ All notable changes to MCN will be documented in this file.
   - `chat` / `chat_widget`, `agent_builder`, `workflow_builder`, `breadcrumb`, `empty_state`, `notify()`
   - `app` blocks take `footer` and `logo`; `nav` items take `group`
 - **Live preview**: Studio runs the actual compiled app in the browser with the kit, against the running backend (it used to show an approximation with sample data)
-- Templates: Operations Dashboard, AI Agent Builder, Workflow Automation (21 in total)
+- Templates: Operations Dashboard, AI Agent Builder, Workflow Automation, Data Labeling Studio, ML Training Lab (23 in total)
 - **`agent_run(prompt, options)`**: Claude calls MCN functions as tools. Parameters become the tool schema; MCN runs the loop and returns `{reply, tool_calls, steps}`. The AI Agent Builder template's tools (search docs, look up customers, create tasks, draft emails, notify the team) now really run, and `chat` shows the tools used under each reply
 - **Mobile apps compiled from MCN components**: `ui/app.mcn` compiles to Flutter screens with state, handlers, endpoint calls and navigation, instead of a separate screen manifest
 - `kanban` cards move by touch (drag the grip) and keyboard (← →), with screen-reader announcements
+- **Template gallery** in Studio: a searchable, categorized gallery from the left bar, the Templates menu and the welcome screen, shown once to newcomers
+- Studio's file explorer shows nested folders (`frontend/src/components/ui`) instead of a flat list
 - **Deploy to Vercel**: `mcn deploy --target vercel [--prod]` and Studio's **Build → Deploy** put the React app and its backend (at `/api`) online at one URL; settings come from `.env`, with a stable `MCN_AUTH_SECRET`
 - **IoT hardware**: the same `device()` code is simulated in Studio and drives real hardware
   - Drivers: `gpio` (Raspberry Pi pins, DHT sensors, MCP3008), `serial` (Arduino, ESP32, Pico over USB), `mqtt` (ESP32, Tasmota, Zigbee2MQTT, Home Assistant) and `http`
@@ -43,6 +45,9 @@ All notable changes to MCN will be documented in this file.
 - The IoT Simulator didn't show the devices of a running backend, and the IoT templates didn't use `device()`
 - Pressing Run reset the IoT Simulator's demo devices, and running a script again doubled its `watch` handlers
 - Studio's deploy dialog couldn't be opened from any menu
+- **Servers stopped answering after about 100 requests**: the statement limit was shared by every request for the life of the process. Each run, request, `watch` handler and test now gets its own budget (default 5 million statements, `MCN_MAX_STEPS`)
+- Studio's backend wrote its database outside the workspace, so DB Explorer showed different data
+- `log`, `str`, `+` and `{interpolation}` printed `True`, `None` and `{'a': None}`; they now print `true`, `null` and `{a: null}`, as MCN writes them
 - The Flutter runtime and board firmware were missing from installed packages
 - Docs pages could show a stale copy after an update (the build now versions its files)
 - **Security:** serving a file without a `service` ran the whole script per request and returned its variables; it now serves nothing

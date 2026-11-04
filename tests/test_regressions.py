@@ -150,3 +150,42 @@ def test_handler_for_loop_and_local_reassignment():
     assert "for (const c of (contacts ?? []))" in ts
     assert "names = [...(names), ...([c.name])]" in ts   # local var: no setter
     assert "} else {" in ts and "setTotal(2)" in ts
+
+
+def test_values_print_as_mcn_writes_them(capsys):
+    """true/false/null and lists/objects look like MCN, not like the host language."""
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    interp = MCNInterpreter()
+    interp.execute('var f = true\n'
+                   'echo(f)\n'
+                   'echo("flag: " + false)\n'
+                   'echo("{f}")\n'
+                   'echo([1, true, null, "a"])\n'
+                   'echo({name: "Ana", "full name": null})\n'
+                   'echo(str(true))', quiet=True)
+    assert capsys.readouterr().out.splitlines() == [
+        "true", "flag: false", "true", '[1, true, null, "a"]', '{name: "Ana", "full name": null}', "true"]
+
+
+def test_each_request_gets_its_own_step_budget(monkeypatch):
+    """A server used to stop answering once all requests together passed the statement limit."""
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    monkeypatch.setenv("MCN_MAX_STEPS", "5000")
+    interp = MCNInterpreter()
+    interp.execute('service s\n    endpoint work()\n        var t = 0\n        for n in range(1000)\n            t = t + n\n        return t\n', quiet=True)
+    work = interp._evaluator.functions["work"]
+    for _ in range(50):                      # 50 × ~2000 statements, far past 5000 in total
+        assert work() == 499500
+    with pytest.raises(Exception, match="statement execution limit"):
+        interp.execute('function f()\n    return 1\nvar t = 0\nwhile true\n    t = t + f()\n', quiet=True)
+
+
+def test_flutter_state_named_like_a_handler_value(tmp_path):
+    """State called `item` used to be shadowed by the handler's implicit `item`."""
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    from mcn.fullstack.flutter_compiler import FlutterCompiler
+    interp = MCNInterpreter()
+    interp.execute('component Queue\n    state item = {id: 0}\n    on next\n        item = {id: item.id + 1}\n'
+                   '    render\n        button "Next" on_click=next\n\napp A\n    nav "Queue" Queue\n', quiet=True)
+    FlutterCompiler({}).compile(interp._evaluator, tmp_path, "a")
+    assert "final dynamic item = e" not in (tmp_path / "lib" / "screens" / "queue.dart").read_text()
