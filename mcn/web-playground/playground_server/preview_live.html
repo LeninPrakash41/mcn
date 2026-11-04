@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview</title>
+  <!-- The live preview: the app's compiled source, transformed in the browser and
+       rendered with the same MCN UI kit an exported app ships with. -->
+  <link rel="stylesheet" href="/static/preview/mcn-ui.css">
+  <style id="mcn-theme"></style>
+  <style>
+    #mcn-status { position: fixed; inset: 0; display: grid; place-items: center; font: 14px/1.5 Inter, system-ui, sans-serif; color: #64748b; }
+    #mcn-offline { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 200; display: none; align-items: center; gap: 10px;
+      padding: 8px 10px 8px 14px; border-radius: 10px; background: #1e1b4b; color: #fff; font: 13px Inter, system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 24px); }
+    #mcn-offline button { border: 0; border-radius: 7px; padding: 5px 10px; background: #fff; color: #1e1b4b; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; }
+    .mcn-error { max-width: 720px; margin: 48px auto; padding: 0 20px; font: 14px/1.6 Inter, system-ui, sans-serif; color: #0f172a; }
+    .mcn-error h1 { font-size: 18px; margin: 0 0 6px; }
+    .mcn-error p { color: #475569; margin: 0 0 16px; }
+    .mcn-error pre { white-space: pre-wrap; background: #0f172a; color: #fecaca; padding: 16px; border-radius: 10px; font: 13px/1.6 "JetBrains Mono", ui-monospace, monospace; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="mcn-status">Starting preview…</div>
+  <div id="mcn-offline" role="status">
+    <span id="mcn-offline-text">The backend isn't running, so data can't load.</span>
+    <button type="button" onclick="location.reload()">Retry</button>
+  </div>
+
+  <script src="/static/preview/react.js"></script>
+  <script src="/static/preview/react-dom.js"></script>
+  <script src="/static/preview/mcn-ui.js"></script>
+  <script src="/static/preview/mcn-transform.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var status = document.getElementById("mcn-status");
+
+    function showError(title, detail, hint) {
+      status.remove();
+      var box = document.createElement("div");
+      box.className = "mcn-error";
+      box.innerHTML = "<h1></h1><p></p><pre></pre>";
+      box.querySelector("h1").textContent = title;
+      box.querySelector("p").textContent = hint || "";
+      box.querySelector("pre").textContent = detail;
+      document.getElementById("root").replaceWith(box);
+    }
+
+    window.addEventListener("mcn:backend-offline", function (e) {
+      var bar = document.getElementById("mcn-offline");
+      document.getElementById("mcn-offline-text").textContent =
+        "The backend isn't running at " + e.detail + ". Press ▶ Run on backend/main.mcn, then retry.";
+      bar.style.display = "flex";
+    });
+
+    // Theme: the app's :root / .dark variables from its globals.css
+    function applyTheme(css) {
+      var blocks = (css || "").match(/(:root|\.dark)\s*\{[^}]*\}/g) || [];
+      document.getElementById("mcn-theme").textContent = blocks.join("\n");
+      try { if (localStorage.getItem("mcn-theme") === "dark") document.documentElement.classList.add("dark"); } catch (e) {}
+    }
+
+    // A tiny CommonJS loader over the compiled files
+    function makeLoader(files) {
+      var cache = {};
+      var builtins = {
+        "react": window.React,
+        "react-dom": window.ReactDOM,
+        "react-dom/client": window.ReactDOM,
+      };
+      function normalize(path) {
+        var out = [];
+        path.split("/").forEach(function (seg) {
+          if (seg === "..") out.pop(); else if (seg && seg !== ".") out.push(seg);
+        });
+        return out.join("/");
+      }
+      function resolve(spec, from) {
+        if (builtins[spec]) return { builtin: spec };
+        if (window.MCNUI.modules[spec]) return { kit: spec };
+        var base;
+        if (spec.indexOf("@/") === 0) base = spec.slice(2);
+        else if (spec.charAt(0) === ".") base = normalize(from.replace(/[^/]*$/, "") + spec);
+        else throw new Error("Can't load '" + spec + "' in the preview");
+        var kit = "@/" + base;
+        if (window.MCNUI.modules[kit]) return { kit: kit };
+        if (/\.css$/.test(base)) return { css: base };      // styles are applied separately
+        var exts = ["", ".tsx", ".ts", "/index.tsx", "/index.ts"];
+        for (var i = 0; i < exts.length; i++) if (files[base + exts[i]] !== undefined) return { file: base + exts[i] };
+        if (/\.css$/.test(base)) return { css: base };
+        throw new Error("Can't find '" + spec + "' (imported by " + from + ")");
+      }
+      function load(file) {
+        if (cache[file]) return cache[file].exports;
+        var module = { exports: {} };
+        cache[file] = module;
+        var source = files[file].replace(/import\.meta/g, "__importMeta");
+        var code;
+        try { code = window.MCNTransform(source, file); }
+        catch (err) { throw new Error(file + ": " + err.message); }
+        var fn = new Function("require", "module", "exports", "React", "__importMeta", code + "\n//# sourceURL=mcn-preview/" + file);
+        fn(function (spec) {
+          var r = resolve(spec, file);
+          if (r.builtin) return builtins[r.builtin];
+          if (r.kit) return window.MCNUI.modules[r.kit];
+          if (r.css) return {};
+          return load(r.file);
+        }, module, module.exports, window.React, { env: {} });
+        return module.exports;
+      }
+      return load;
+    }
+
+    var Boundary = (function () {
+      function B(props) { window.React.Component.call(this, props); this.state = { error: null }; }
+      B.prototype = Object.create(window.React.Component.prototype);
+      B.getDerivedStateFromError = function (error) { return { error: error }; };
+      B.prototype.render = function () {
+        if (this.state.error) {
+          var e = window.React.createElement;
+          return e("div", { className: "mcn-error" },
+            e("h1", null, "The app hit an error while rendering"),
+            e("p", null, "Fix it in ui/app.mcn and build again."),
+            e("pre", null, String(this.state.error && (this.state.error.stack || this.state.error.message))));
+        }
+        return this.props.children;
+      };
+      return B;
+    })();
+
+    fetch("/api/preview/source", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.success) return showError("This UI has an error", d.error, "Fix it in ui/app.mcn and build again.");
+        window.MCN_API_URL = d.api_url;
+        applyTheme(d.files["globals.css"]);
+        var App;
+        try {
+          var exp = makeLoader(d.files)("App.tsx");
+          App = exp.default || exp.App;
+        } catch (err) {
+          return showError("The compiled app couldn't load", String(err && (err.stack || err.message)),
+            "This is a bug in MCN's compiler, not your code — please report it with your ui/app.mcn.");
+        }
+        status.remove();
+        window.ReactDOM.createRoot(document.getElementById("root"))
+          .render(window.React.createElement(Boundary, null, window.React.createElement(App)));
+      })
+      .catch(function (err) { showError("The preview couldn't start", String(err), "Is MCN Studio still running?"); });
+  })();
+  </script>
+</body>
+</html>

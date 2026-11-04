@@ -502,6 +502,7 @@ class NavItem(Node):
     label:     str = ""
     icon:      str = ""
     component: str = ""   # component name to show when selected
+    group:     str = ""   # sidebar section heading
 
 
 @dataclass
@@ -560,6 +561,8 @@ class AppDecl(Node):
     title:      str                  = ""
     theme:      str                  = "default"
     layout:     Optional[LayoutBlock] = None
+    footer:     str                  = ""      # footer text
+    logo:       str                  = ""      # icon name shown next to the title
 
 
 # ── Type aliases ───────────────────────────────────────────────────────────────

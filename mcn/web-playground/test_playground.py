@@ -511,17 +511,17 @@ def test_crm_build_and_preview(r):
         bdata = json.loads(build_res.data)
         r.check(bdata.get("success"), "build success")
 
-        # 3. Fetch preview HTML
+        # 3. The live preview page loads the kit and the compiled app's source
         prev_res = c.get("/preview/index.html")
         r.eq(prev_res.status_code, 200, "preview status 200")
-        html = prev_res.data.decode("utf-8")
-        r.check("CRM" in html, "contains CRM title")
-        r.check("Dashboard" in html, "contains Dashboard nav")
-        r.check("Deals" in html, "contains Deals nav")
-        r.check("Contacts" in html, "contains Contacts nav")
-        r.check("Companies" in html, "contains Companies nav")
-        r.check("Activities" in html, "contains Activities nav")
-        r.check("sidebar" in html, "contains sidebar layout")
+        r.check("/static/preview/mcn-ui.js" in prev_res.data.decode("utf-8"), "loads the UI kit bundle")
+        src = json.loads(c.get("/api/preview/source").data)
+        r.check(src.get("success"), "preview source compiles")
+        app_tsx = src["files"].get("App.tsx", "")
+        r.check('title={"CRM"}' in app_tsx, "contains CRM title")
+        for label in ("Dashboard", "Deals", "Contacts", "Companies", "Activities"):
+            r.check(f'label: "{label}"' in app_tsx, f"contains {label} nav")
+        r.check('layout="sidebar"' in app_tsx, "uses the sidebar layout")
 
 
 def test_generate_missing_description(r):

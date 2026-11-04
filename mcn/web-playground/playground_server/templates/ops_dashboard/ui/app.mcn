@@ -1,0 +1,62 @@
+// Operations Dashboard — user interface
+
+component Overview
+    state stats = {revenue: 0, open_orders: 0, overdue: 0, customers: 0}
+    state daily = []
+    state regions = []
+
+    on load
+        stats = summary().data
+        daily = revenue_by_day().data
+        regions = revenue_by_region().data
+        if stats.overdue > 0
+            notify(str(stats.overdue) + " orders are overdue", "warning")
+
+    render
+        div grid_cols=4
+            stat_card label="Revenue (paid)" value=stats.revenue icon="DollarSign" color="green"
+            stat_card label="Open orders" value=stats.open_orders icon="ShoppingCart" color="blue"
+            stat_card label="Overdue" value=stats.overdue icon="AlertTriangle" color="red"
+            stat_card label="Customers" value=stats.customers icon="Users" color="purple"
+        div grid_cols=2
+            card
+                card_header "Revenue by day"
+                card_content
+                    area_chart data=daily x_key="day" y_key=["paid", "unpaid"] height=280
+            card
+                card_header "By region"
+                card_content
+                    donut_chart data=regions name_key="region" value_key="total" height=240
+        chat_widget endpoint=ask_ops title="Ops assistant" suggestions=["How much is overdue?", "Which region leads?"]
+
+component Orders
+    state items = []
+
+    on load
+        items = list_orders().data
+
+    on remove
+        delete_order(row.id)
+        notify("Order " + str(row.id) + " deleted", "success")
+        items = list_orders().data
+
+    render
+        data_table title="Orders" description="Search, filter, sort and export" columns=["customer", "region", "status", "amount", "created_at"] filters=["status", "region"] views=["table", "grid", "list"] page_size=8 on_delete=remove
+
+component Tasks
+    state items = []
+
+    on load
+        items = list_tasks().data
+
+    render
+        kanban group_by="stage" columns=["Backlog", "In progress", "Review", "Done"] title_key="title" fields=["owner", "priority"] on_move=move_task
+
+app Operations
+    title "Operations"
+    logo "Gauge"
+    layout
+        sidebar
+            nav "Overview" Overview icon="LayoutDashboard"
+            nav "Orders" Orders icon="ShoppingCart" group="Work"
+            nav "Tasks" Tasks icon="Kanban" group="Work"

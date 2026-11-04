@@ -1,0 +1,59 @@
+// AI Agent Builder — user interface
+
+component Overview
+    state stats = {agents: 0, conversations: 0, by_agent: []}
+
+    on load
+        stats = agent_stats().data
+
+    render
+        div grid_cols=3
+            stat_card label="Agents" value=stats.agents icon="Bot" color="purple"
+            stat_card label="Test conversations" value=stats.conversations icon="MessageSquare" color="blue"
+            stat_card label="Tools available" value=6 icon="Plug" color="green"
+        card
+            card_header "Conversations by agent"
+            card_content
+                bar_chart data=stats.by_agent x_key="agent" y_key="messages" height=260 empty="Test an agent to see activity here"
+
+component Agents
+    state agents = []
+
+    on load
+        agents = list_agents().data
+
+    on save
+        var result = save_agent(agent)
+        agents = list_agents().data
+        return result
+
+    on remove
+        delete_agent(agent.id)
+        agents = list_agents().data
+
+    render
+        agent_builder agents=agents on_save=save on_test=test_agent on_delete=remove
+
+component Playground
+    render
+        chat "Support assistant" endpoint=ask_support welcome="Hi! I'm your most recently saved agent. Ask me anything." suggestions=["What can you help with?", "Summarise our refund policy"] height=600
+
+component History
+    state items = []
+
+    on load
+        items = list_messages().data
+
+    render
+        data_table title="Message history" description="Every test message and reply" columns=["agent", "role", "content", "created_at"] filters=["agent", "role"] page_size=10 views=["table", "list"]
+
+app AgentBuilder
+    title "Agent Studio"
+    logo "Bot"
+    footer "Agent Studio · built with MCN"
+    layout
+        sidebar
+            nav "Overview" Overview icon="LayoutDashboard"
+            nav "Agents" Agents icon="Bot" group="Build"
+            nav "Playground" Playground icon="MessageSquare" group="Build"
+            nav "History" History icon="History" group="Monitor"

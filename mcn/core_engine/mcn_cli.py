@@ -334,16 +334,19 @@ def _cmd_build(mcn_file: str, out_dir: str) -> int:
     print(f"Components: {', '.join(evaluator.components) or 'none'}")
     print(f"Output:    {out}/\n")
 
-    compiler = UICompiler(output_dir=out)
+    # A backend next to the UI (ui/app.mcn → backend/main.mcn) gives exact endpoint parameters
+    try:
+        from .ui_compiler import endpoints_from_backend
+    except ImportError:
+        from ui_compiler import endpoints_from_backend
+    backend = Path(mcn_file).resolve().parent.parent / "backend" / "main.mcn"
+    compiler = UICompiler(output_dir=out, endpoints=endpoints_from_backend(backend))
     compiler.compile(evaluator)
 
     print(f"\n✓ Frontend generated in {out}/")
     print(f"\nNext steps:")
     print(f"  cd {out}")
     print(f"  npm install")
-    if compiler._shadcn_needed:
-        pkgs = " ".join(sorted(compiler._shadcn_needed))
-        print(f"  npx shadcn@latest add {pkgs}")
     print(f"  npm run dev")
     return 0
 

@@ -213,6 +213,8 @@ test "added tasks are listed"
     on submit
         var result = add_task(title)
         message = "Added!" if result.success else result.error
+        if result.success
+            notify("Task added", "success")
 
     render
         card
@@ -230,14 +232,7 @@ component TaskList
         items = list_tasks().data
 
     render
-        card
-            card_header "Tasks"
-            table
-                table_header
-                    table_row
-                        table_head "title"
-                        table_head "done"
-                table_body
+        data_table title="Tasks" columns=["title", "done"] page_size=10 views=["table", "list"]
 
 app MyApp
     title "My App"
@@ -279,7 +274,7 @@ MCN Studio — http://localhost:5003</pre>
       <div class="steps">
         <div class="step"><code>mcn init my-app</code><h3>Create</h3><p>A backend with endpoints and tests, a UI, and a README listing the commands.</p></div>
         <div class="step"><code>mcn test backend/main.mcn</code><h3>Test</h3><p><code style="display:inline;padding:0 4px;margin:0">test</code> blocks live next to the code they check.</p></div>
-        <div class="step"><code>mcn studio .</code><h3>Build visually</h3><p>Edit, run, preview the web app and the mobile app, and inspect the database in your browser.</p></div>
+        <div class="step"><code>mcn studio .</code><h3>Build visually</h3><p>Edit, run and see your real app live in the browser, with the database and AI calls one click away.</p></div>
         <div class="step"><code>mcn build ui/app.mcn</code><h3>Ship</h3><p>Generate a React project, download a Flutter app, or serve the API with Docker files included.</p></div>
       </div>
     </div>
@@ -315,13 +310,13 @@ MCN Studio — http://localhost:5003</pre>
         </div>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
-          <h3>Studio and VS Code</h3>
-          <p>A browser IDE with preview, DB explorer, IoT and AI inspectors — and a VS Code extension that underlines errors as you type.</p>
+          <h3>A complete UI kit</h3>
+          <p>Data grids with search, filters and pagination, charts, kanban boards, notifications, chat, agent and workflow builders — one line each.</p>
         </div>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.5-2 8-6 8-11V5l-8-3-8 3v6c0 5 2.5 9 8 11Z"/></svg></div>
           <h3>Tested, top to bottom</h3>
-          <p>All 18 templates, every example and the generated React and Flutter apps are compiled and checked on every change.</p>
+          <p>All 21 templates, every example and the generated React and Flutter apps are compiled and checked on every change.</p>
         </div>
       </div>
     </div>
@@ -372,10 +367,15 @@ Hint: Did you mean 'total'?</code></pre>
   <section class="alt" id="templates">
     <div class="container">
       <div class="section-head">
-        <p class="kicker">18 starter templates</p>
+        <p class="kicker">21 starter templates</p>
         <h2>Start from something real.</h2>
         <p>Open the <b>Templates</b> menu in Studio. Each one runs, builds and is covered by tests.</p>
       </div>
+      <div class="chip-group"><h4>AI &amp; automation</h4><div class="chips">
+        <span class="chip"><b>AI agent builder</b> · configure, test, deploy</span>
+        <span class="chip"><b>Workflow automation</b> · visual builder, real runs</span>
+        <span class="chip"><b>Operations dashboard</b> · charts, data grid, kanban</span>
+      </div></div>
       <div class="chip-group"><h4>Business apps</h4><div class="chips">
         <span class="chip"><b>CRM</b> · deals, contacts, activities</span>
         <span class="chip"><b>Sales hub</b> · pipeline dashboard</span>

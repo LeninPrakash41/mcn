@@ -1,0 +1,64 @@
+// AI Agent Builder — backend
+// Agents are saved as JSON; test_agent runs one with ai(), using its
+// instructions as the system prompt and its knowledge as context.
+
+query("CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, config TEXT, updated_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT, role TEXT, content TEXT, created_at TEXT)")
+
+function run_agent(agent, message, history)
+    var system = agent.instructions
+    if agent.knowledge
+        system = system + "\n\nUse this knowledge when it's relevant:\n" + agent.knowledge
+    if agent.tools and len(agent.tools) > 0
+        system = system + "\n\nYou can use these tools: " + join(agent.tools, ", ")
+    var prompt = message
+    if agent.memory and history and len(history) > 0
+        prompt = "Conversation so far:\n" + to_json(history) + "\n\nUser: " + message
+    return ai(prompt, {system: system, model: agent.model, temperature: agent.temperature})
+
+service agents_api
+    port 8080
+
+    endpoint list_agents()
+        var rows = query("SELECT config FROM agents ORDER BY updated_at DESC")
+        return {success: true, data: map(rows, r => json_parse(r.config))}
+
+    endpoint save_agent(agent)
+        if not agent or not agent.name
+            return {success: false, error: "Give the agent a name"}
+        query("INSERT OR REPLACE INTO agents (id, name, config, updated_at) VALUES (?, ?, ?, ?)",
+              (agent.id, agent.name, to_json(agent), now()))
+        return {success: true, id: agent.id}
+
+    endpoint delete_agent(id)
+        query("DELETE FROM agents WHERE id = ?", id)
+        return {success: true}
+
+    endpoint test_agent(agent, message, history)
+        var reply = run_agent(agent, message, history)
+        var name = agent.name or "Draft agent"
+        query("INSERT INTO messages (agent, role, content, created_at) VALUES (?, 'user', ?, ?)", (name, message, now()))
+        query("INSERT INTO messages (agent, role, content, created_at) VALUES (?, 'assistant', ?, ?)", (name, reply, now()))
+        return {reply: reply}
+
+    endpoint ask_support(message, history)
+        var saved = query("SELECT config FROM agents ORDER BY updated_at DESC LIMIT 1")
+        if len(saved) == 0
+            return {reply: "No agent is saved yet. Build one on the **Agents** page first."}
+        return {reply: run_agent(json_parse(saved[0].config), message, history)}
+
+    endpoint list_messages()
+        return {success: true, data: query("SELECT agent, role, content, created_at FROM messages ORDER BY id DESC LIMIT 200")}
+
+    endpoint agent_stats()
+        var agents = query("SELECT COUNT(*) AS n FROM agents")[0].n
+        var total = query("SELECT COUNT(*) AS n FROM messages WHERE role = 'user'")[0].n
+        var by_agent = query("SELECT agent, COUNT(*) AS messages FROM messages WHERE role = 'user' GROUP BY agent ORDER BY messages DESC LIMIT 8")
+        return {success: true, data: {agents: agents, conversations: total, by_agent: by_agent}}
+
+test "an agent needs a name"
+    assert save_agent({id: "a1", name: ""}).success == false
+
+test "saved agents are listed"
+    save_agent({id: "t1", name: "Triage", instructions: "Classify tickets", model: "claude-opus-5-5", temperature: 0.2, tools: [], knowledge: "", memory: false})
+    assert len(filter(list_agents().data, a => a.id == "t1")) == 1

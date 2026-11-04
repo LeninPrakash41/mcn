@@ -2,6 +2,29 @@
 
 All notable changes to MCN will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **MCN UI kit** (`mcn/ui-kit/react`): one component library for exported apps and Studio's preview
+  - App frame: collapsible sidebar with groups, mobile drawer, breadcrumb, ⌘K search, notification bell, dark mode, footer
+  - `data_table` (search, column filters, sorting, pagination, table/grid/list views, CSV export, row actions), `kanban`
+  - SVG charts: `bar_chart` (multi-series, stacked), `line_chart`, `area_chart`, `pie_chart`, `donut_chart`, `sparkline`
+  - `chat` / `chat_widget`, `agent_builder`, `workflow_builder`, `breadcrumb`, `empty_state`, `notify()`
+  - `app` blocks take `footer` and `logo`; `nav` items take `group`
+- **Live preview**: Studio runs the actual compiled app in the browser with the kit, against the running backend (it used to show an approximation with sample data)
+- Templates: Operations Dashboard, AI Agent Builder, Workflow Automation (21 in total)
+
+### Fixed
+- Exported apps read `.data` from an unresolved promise (`items = list_tasks().data` left lists empty)
+- State read right after an assignment in a handler saw the old value
+- Endpoint calls with literal arguments sent `arg0` instead of the parameter name (the backend is now consulted)
+- A handler named after a JavaScript keyword (`on delete`) produced invalid code
+- `a or b` was typed as a boolean by `mcn check`
+- UI attributes can use keyword names (`chat endpoint=ask`)
+
+### Changed
+- Generated React apps depend only on React: the kit replaces recharts, sonner, lucide-react, react-router, clsx and tailwind-merge
+
 ## [2.4.0] - 2026-11-03
 
 ### Added

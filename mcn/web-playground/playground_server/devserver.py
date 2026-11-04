@@ -1,6 +1,8 @@
 """Preview serving and the Vite/MCN dev servers."""
 import subprocess
 import sys
+from pathlib import Path
+from typing import Optional
 from . import core
 from flask import Blueprint
 from .core import (
@@ -13,64 +15,58 @@ from .core import (
     jsonify,
     send_from_directory,
 )
-from .preview_html import (
-    _generate_interactive_preview_html,
-)
 
 bp = Blueprint("devserver", __name__)
 
-@bp.route("/preview/<path:filename>")
-def serve_preview_static_file(filename):
-    ws = _request_workspace()
-    frontend = ws / "frontend"
-    dist = frontend / "dist"
-    if dist.exists() and (dist / filename).exists():
-        return send_from_directory(str(dist), filename)
-    if (frontend / filename).exists():
-        return send_from_directory(str(frontend), filename)
-    return serve_preview_index()
+_PREVIEW_PAGE = Path(__file__).resolve().parent / "preview_live.html"
+
+
+def _compile_ui(ws: Path) -> Optional[str]:
+    """Compile ui/app.mcn into frontend/ when the UI is newer than the build.
+    Returns an error report, or None on success."""
+    ui = ws / "ui" / "app.mcn"
+    app_tsx = ws / "frontend" / "src" / "App.tsx"
+    if not ui.exists():
+        return "There's no ui/app.mcn to preview yet."
+    if app_tsx.exists() and app_tsx.stat().st_mtime >= ui.stat().st_mtime:
+        return None
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    from mcn.core_engine.ui_compiler import UICompiler, endpoints_from_backend
+    interp = MCNInterpreter()
+    try:
+        interp.execute(ui.read_text(encoding="utf-8"), str(ui), quiet=True)
+    except Exception as exc:           # the friendly report, with line and caret
+        return str(exc)
+    UICompiler(output_dir=ws / "frontend", endpoints=endpoints_from_backend(ws / "backend" / "main.mcn")) \
+        .compile(interp._evaluator)
+    return None
 
 
 @bp.route("/preview/")
 @bp.route("/preview")
 @bp.route("/preview/index.html")
 def serve_preview_index():
+    """The live preview: runs the compiled app with the MCN UI kit in the browser."""
+    return send_from_directory(str(_PREVIEW_PAGE.parent), _PREVIEW_PAGE.name, max_age=0)
+
+
+@bp.route("/api/preview/source")
+def preview_source():
+    """The compiled app's own files (the kit comes from the preview bundle)."""
     ws = _request_workspace()
-    frontend = ws / "frontend"
-    dist = frontend / "dist"
-    if dist.exists() and (dist / "index.html").exists():
-        return send_from_directory(str(dist), "index.html")
-    
-    app_tsx = frontend / "src" / "App.tsx"
-    comps_dir = frontend / "src" / "components"
-
-    # Auto-compile ui/app.mcn on the fly if frontend files are not compiled yet
-    if (not app_tsx.exists() or not app_tsx.read_text(encoding="utf-8").strip()) and (ws / "ui" / "app.mcn").exists():
-        try:
-            from mcn.core_engine.lexer import Lexer
-            from mcn.core_engine.parser import Parser
-            from mcn.core_engine.mcn_interpreter import MCNInterpreter
-            from mcn.core_engine.ui_compiler import UICompiler
-            
-            ui_code = (ws / "ui" / "app.mcn").read_text(encoding="utf-8")
-            tokens = Lexer(ui_code).tokenize()
-            program = Parser(tokens).parse()
-            interp = MCNInterpreter()
-            evaluator = interp._evaluator
-            evaluator.execute_program(program)
-            compiler = UICompiler(output_dir=frontend)
-            compiler.compile(evaluator)
-        except Exception:
-            pass
-    
-    app_code = app_tsx.read_text(encoding="utf-8") if app_tsx.exists() else ""
-    
-    components_code = {}
-    if comps_dir.exists():
-        for p in sorted(comps_dir.glob("*.tsx")):
-            components_code[p.stem] = p.read_text(encoding="utf-8")
-
-    return _generate_interactive_preview_html(ws, app_code, components_code)
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        error = _compile_ui(ws)
+    if error:
+        return jsonify({"success": False, "error": error})
+    src = ws / "frontend" / "src"
+    files = {}
+    for p in sorted(src.rglob("*")):
+        rel = p.relative_to(src).as_posix()
+        if p.is_file() and p.suffix in (".ts", ".tsx", ".css") and not rel.startswith(("components/ui/", "lib/")):
+            files[rel] = p.read_text(encoding="utf-8")
+    return jsonify({"success": True, "files": files, "api_url": f"http://localhost:{_BACKEND_PORT}",
+                    "backend_running": bool(core._mcn_backend and core._mcn_backend.poll() is None)})
 
 
 @bp.route("/api/devserver/start", methods=["POST"])

@@ -1461,8 +1461,10 @@ class Parser:
         while not self._at_eol():
             cur = self._current()
 
-            # key=value attribute  (IDENTIFIER ASSIGN expr)
-            if (cur.type == TT.IDENTIFIER and
+            # key=value attribute  (IDENTIFIER ASSIGN expr); keywords work as
+            # keys too, e.g. chat endpoint=ask_bot
+            if ((cur.type == TT.IDENTIFIER or (isinstance(cur.value, str) and cur.value.isidentifier()
+                                                and cur.type not in (TT.STRING, TT.NUMBER))) and
                     self._pos + 1 < len(self._tokens) and
                     self._tokens[self._pos + 1].type == TT.ASSIGN):
                 key_tok = self._advance()        # consume key
@@ -1536,6 +1538,7 @@ class Parser:
 
         title  = ""
         theme  = "default"
+        extras: dict = {}
         layout: Optional[ast.LayoutBlock] = None
 
         self._skip_newlines()
@@ -1559,6 +1562,12 @@ class Parser:
                     theme = str_tok.value
                     self._consume_end()
 
+                elif cur.type == TT.IDENTIFIER and cur.value in ("footer", "logo"):
+                    key = self._advance().value
+                    str_tok = self._consume(TT.STRING, f"Expected text after '{key}'")
+                    extras[key] = str_tok.value
+                    self._consume_end()
+
                 elif cur.type == TT.LAYOUT:
                     layout = self._layout_block()
 
@@ -1570,6 +1579,7 @@ class Parser:
 
         return ast.AppDecl(
             name=name_tok.value, title=title, theme=theme, layout=layout,
+            footer=extras.get("footer", ""), logo=extras.get("logo", ""),
             line=tok.line, col=tok.col,
         )
 
@@ -1614,6 +1624,7 @@ class Parser:
                                 label_tok = self._consume(TT.STRING, "Expected nav label")
                                 icon = ""
                                 comp = ""
+                                group = ""
                                 while not self._at_eol():
                                     k = self._current()
                                     if (k.type == TT.IDENTIFIER and
@@ -1625,6 +1636,7 @@ class Parser:
                                         val = val_tok.value.strip('"')
                                         if key == "icon":      icon = val
                                         if key == "component": comp = val
+                                        if key == "group":     group = val
                                     elif k.type == TT.IDENTIFIER:
                                         comp = self._advance().value
                                     else:
@@ -1632,7 +1644,7 @@ class Parser:
                                 self._consume_end()
                                 sidebar.append(ast.NavItem(
                                     label=label_tok.value, icon=icon,
-                                    component=comp,
+                                    component=comp, group=group,
                                     line=c.line, col=c.col,
                                 ))
                             else:

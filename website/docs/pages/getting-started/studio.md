@@ -25,7 +25,7 @@ Then open **http://localhost:5003** (or the port you chose).
 ## Run, preview, build
 
 1. **Run** (▶) executes the current file. For `backend/main.mcn` this starts the API on its `port`.
-2. **Preview** compiles `ui/app.mcn` and shows it in the preview pane.
+2. **Preview** compiles `ui/app.mcn` and runs the real app in the preview pane, using the same components as the exported React app and calling your running backend. Nothing needs installing.
 3. **Build & download** produces a zip of the React project (or the Flutter app in the App view) with a Dockerfile, `docker-compose.yml` and a CI workflow.
 
 ## Inspectors
@@ -37,7 +37,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 ## Templates
 
-The **Templates** menu has 18 starter apps: business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
+The **Templates** menu has 21 starter apps: AI and automation (AI agent builder, workflow automation, operations dashboard), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
 
 ## Copilot
 

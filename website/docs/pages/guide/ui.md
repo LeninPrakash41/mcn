@@ -1,6 +1,6 @@
 # User interfaces
 
-UI files describe screens as `component`s and arrange them with an `app` block. `mcn build` compiles them to a React project that calls your backend.
+UI files describe screens as `component`s and arrange them with an `app` block. They're built from the **MCN UI kit**: data tables, charts, chat, agent and workflow builders, and an app frame with navigation, search and notifications. Studio previews the real app as you build, and `mcn build` turns it into a React project that uses the same components.
 
 ```mcn
 component AddTask
@@ -10,6 +10,8 @@ component AddTask
     on submit
         var result = add_task(title)
         message = "Added!" if result.success else result.error
+        if result.success
+            notify("Task added", "success")
 
     render
         card
@@ -27,14 +29,7 @@ component TaskList
         items = list_tasks().data
 
     render
-        card
-            card_header "Tasks"
-            table
-                table_header
-                    table_row
-                        table_head "title"
-                        table_head "done"
-                table_body
+        data_table title="Tasks" columns=["title", "done"] page_size=10 views=["table", "list"]
 
 app Tasks
     title "Tasks"
@@ -56,58 +51,99 @@ A component has three parts:
 
 ## Calling the backend
 
-Inside a handler, calling a function that isn't defined in the UI file, like `add_task(title)`, calls the backend endpoint of that name. The compiler turns it into an HTTP request and returns the JSON response, so `result.success` and `list_tasks().data` work as you'd expect.
+Inside a handler, calling a function that isn't defined in the UI file, like `add_task(title)`, calls the backend endpoint of that name and returns its JSON response, so `result.success` and `list_tasks().data` work as you'd expect. When the backend is in `backend/main.mcn`, arguments are sent under the endpoint's own parameter names.
 
-The generated React app sends requests to `http://localhost:8080`; set `VITE_API_URL` to point it elsewhere.
-
-## Elements and attributes
-
-Elements take a text argument and `key=value` attributes:
+Elements that act on data take an endpoint or a handler name:
 
 ```mcn fragment
 render
-    card
-        card_header "Overview"
-        div grid_cols=3
-            stat_card label="Open tasks" value=items.length icon="ListTodo" color="blue"
-        input bind=title label="Title" type="text"
-        select bind=status options=["Open", "Done"] label="Status"
-        button "Save" variant="default"
-        bar_chart data=items x_key="title" y_key="hours" height=300
-        table data=items
-            table_header
-                table_row
-                    table_head "title"
-            table_body
+    chat "Support" endpoint=ask_bot              // sends {message, history} to ask_bot
+    kanban group_by="stage" on_move=move_deal    // sends {id, stage, item}
+    data_table on_delete=remove                  // runs `on remove` with the row as `row`
 ```
 
-- `bind=name` connects an input to a state variable, both ways. Number inputs (`type="number"`) give numbers.
-- `on_submit=submit` runs the `on submit` handler.
-- An empty `table_body` fills itself with one row per item in the table's `data` (or the component's list state), using the `table_head` names as keys.
+A handler wired to an element receives the value it's about: `row` or `item` for tables and boards, `agent` for the agent builder, `workflow` for the workflow builder, `message` for chat.
 
-See the [UI element reference](#/reference/ui-elements) for every element.
+```mcn fragment
+on remove
+    delete_deal(row.id)
+    notify("Deal deleted", "success")
+    items = list_deals().data
+```
+
+## Data, charts and boards
+
+```mcn fragment
+render
+    div grid_cols=4
+        stat_card label="Revenue" value=stats.revenue icon="DollarSign" color="green"
+        stat_card label="Open deals" value=stats.open icon="Target" color="blue"
+    div grid_cols=2
+        card
+            card_header "Revenue by month"
+            card_content
+                area_chart data=monthly x_key="month" y_key=["won", "lost"] height=280
+        card
+            card_header "By region"
+            card_content
+                donut_chart data=regions name_key="region" value_key="total"
+    data_table title="Deals" columns=["title", "owner", "stage", "value"] filters=["stage", "owner"] views=["table", "grid", "list"]
+    kanban group_by="stage" columns=["Lead", "Qualified", "Won"] on_move=move_deal
+```
+
+- **`data_table`** has search, a filter dropdown for each column in `filters`, sortable headers, pagination, table/grid/list views and CSV export. Status-like columns become colored badges.
+- **Charts** (`bar_chart`, `line_chart`, `area_chart`, `pie_chart`, `donut_chart`, `sparkline`) are responsive, with tooltips and legends. `y_key` can list several series; `stacked` stacks bars.
+- **`kanban`** groups records into columns you drag cards between.
+- **`grid_cols=N`** is one column on phones, two on tablets and N on wide screens.
+
+## AI components
+
+```mcn fragment
+render
+    chat "Support assistant" endpoint=ask_support suggestions=["Pricing?", "Reset password"]
+    agent_builder agents=agents on_save=save on_test=test_agent
+    workflow_builder workflows=workflows on_save=save on_run=run_workflow
+```
+
+- **`chat`** / **`chat_widget`**: a chat panel, or a floating chat button, backed by any endpoint that returns a reply.
+- **`agent_builder`**: configure an agent's instructions, model, tools and knowledge, and test it live.
+- **`workflow_builder`**: build automations from a trigger and steps (AI, condition, HTTP, database, notify, email, delay, approval) and run them step by step.
+
+The **AI Agent Builder** and **Workflow Automation** templates in Studio include complete backends for these.
+
+## Notifications
+
+`notify(text, kind)` shows a toast and adds it to the bell in the header, where users can review recent notifications. `kind` is `info`, `success`, `warning` or `error`.
 
 ## Layouts
 
-The `app` block names the app and arranges components. Three layouts are available:
+The `app` block names the app and arranges components inside the app frame: navigation, a header with breadcrumb, ⌘K search, notifications and a dark-mode toggle, and a footer.
 
 ```mcn fragment
 app CRM
     title "CRM"
-    theme "professional"
+    logo "Briefcase"
+    footer "Acme Inc"
     layout
         sidebar
-            nav "Dashboard" Dashboard
-            nav "Deals"     DealsTable
+            nav "Dashboard" Dashboard icon="LayoutDashboard"
+            nav "Deals"     Deals     icon="TrendingUp" group="Sales"
+            nav "Contacts"  Contacts  icon="Users"      group="Sales"
 ```
 
 | Layout | Use it for |
 |---|---|
+| `sidebar` with `nav "Label" Component` | Business apps with many sections. Collapses to icons, becomes a drawer on phones; `group` adds headings |
 | `tabs` with `tab "Label" Component` | A few screens of equal weight |
-| `sidebar` with `nav "Label" Component` | Business apps with many sections |
 | `main` listing components | A single page that stacks components |
 
-## Build and run
+See the [UI element reference](#/reference/ui-elements) for every element and attribute.
+
+## Preview and build
+
+In Studio, **Preview** runs your actual app — compiled from `ui/app.mcn` and talking to your running backend — with nothing to install. Errors in the UI file show in the preview with the line and a hint.
+
+To get a project you can deploy or extend:
 
 ```bash
 mcn build ui/app.mcn --out frontend
@@ -116,8 +152,8 @@ npm install
 npm run dev
 ```
 
-The project uses Vite, React, Tailwind and shadcn/ui, and type-checks cleanly with `tsc`. In Studio, **Preview** builds and shows it for you.
+The project uses Vite, React and Tailwind; the UI kit's source is in `src/components/ui`, so React is its only dependency. It calls the API at `http://localhost:8080` (set `VITE_API_URL` to change it).
 
 ## Mobile apps
 
-Studio's **App** view generates a Flutter project from `mobile/ui-manifest.json`, a JSON list of screens and widgets (containers, text, charts, tables, buttons), with a client that calls your API and falls back to demo data offline. The mobile templates (smart home, expense tracker, field inspection) include ready-made manifests. Compiling `ui/app.mcn` components to Flutter is planned.
+Studio's **App** view generates a Flutter project from `mobile/ui-manifest.json`, a JSON list of screens and widgets, with a client that calls your API and falls back to demo data offline. The mobile templates include ready-made manifests. Compiling `ui/app.mcn` components to Flutter is planned.

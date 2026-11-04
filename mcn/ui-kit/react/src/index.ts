@@ -1,46 +1,38 @@
-// MCN UI Kit — Main barrel export
-// Design tokens & utilities
-export * from './lib/utils'
-export * from './lib/theme'
-
-// Primitives & Form components
-export * from './components/Button/Button'
-export * from './components/Label/Label'
-export * from './components/Input/Input'
-export * from './components/Textarea/Textarea'
-export * from './components/Select/Select'
-export * from './components/Checkbox/Checkbox'
-export * from './components/Switch/Switch'
-export * from './components/Badge/Badge'
-export * from './components/Spinner/Spinner'
-export * from './components/Avatar/Avatar'
-
-// Feedback & Overlay components
-export * from './components/Modal/Modal'
-export * from './components/Toast/Toast'
-export * from './components/Alert/Alert'
-export * from './components/Tooltip/Tooltip'
-export * from './components/Progress/Progress'
-
-// Layout & Navigation components
-export * from './components/Card/Card'
-export * from './components/Tabs/Tabs'
-export * from './components/Accordion/Accordion'
-export * from './components/DropdownMenu/DropdownMenu'
-export * from './components/Sidebar/Sidebar'
-export * from './components/Breadcrumb/Breadcrumb'
-export * from './components/Pagination/Pagination'
-
-// Data & Display components
-export * from './components/Table/Table'
-export * from './components/Stat/Stat'
-
-// MCN & AI Specialized components
-export * from './components/FileTree/FileTree'
-export * from './components/OutputLog/OutputLog'
-export * from './components/AIPrompt/AIPrompt'
-export * from './components/StreamingText/StreamingText'
-
-// Hooks
-export * from './hooks/useMCN'
-export * from './hooks/useTheme'
+/* MCN UI kit — every component MCN apps are built from. */
+export * from "./lib/utils"
+export * from "./components/ui/accordion"
+export * from "./components/ui/agent-builder"
+export * from "./components/ui/alert"
+export * from "./components/ui/app-shell"
+export * from "./components/ui/avatar"
+export * from "./components/ui/badge"
+export * from "./components/ui/breadcrumb"
+export * from "./components/ui/button"
+export * from "./components/ui/card"
+export * from "./components/ui/chart"
+export * from "./components/ui/chat"
+export * from "./components/ui/checkbox"
+export * from "./components/ui/data-table"
+export * from "./components/ui/dialog"
+export * from "./components/ui/dropdown-menu"
+export * from "./components/ui/empty-state"
+export * from "./components/ui/icon"
+export * from "./components/ui/input"
+export * from "./components/ui/kanban"
+export * from "./components/ui/label"
+export * from "./components/ui/progress"
+export * from "./components/ui/radio-group"
+export * from "./components/ui/router"
+export * from "./components/ui/scroll-area"
+export * from "./components/ui/select"
+export * from "./components/ui/separator"
+export * from "./components/ui/sheet"
+export * from "./components/ui/skeleton"
+export * from "./components/ui/stat"
+export * from "./components/ui/switch"
+export * from "./components/ui/table"
+export * from "./components/ui/tabs"
+export * from "./components/ui/textarea"
+export * from "./components/ui/toast"
+export * from "./components/ui/tooltip"
+export * from "./components/ui/workflow-builder"

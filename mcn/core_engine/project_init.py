@@ -47,6 +47,8 @@ component AddTask
     on submit
         var result = add_task(title)
         message = "Added!" if result.success else result.error
+        if result.success
+            notify("Task added", "success")
 
     render
         card
@@ -64,14 +66,7 @@ component TaskList
         items = list_tasks().data
 
     render
-        card
-            card_header "Tasks"
-            table
-                table_header
-                    table_row
-                        table_head "title"
-                        table_head "done"
-                table_body
+        data_table title="Tasks" columns=["title", "done"] page_size=10 views=["table", "list"]
 
 app {app_name}
     title "{title}"

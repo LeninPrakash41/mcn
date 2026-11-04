@@ -22,8 +22,10 @@ _DECLARING = (
     ast.MCPServerDecl, ast.ComponentStateDecl, ast.ComponentDecl, ast.AppDecl,
 )
 
-# Handlers the UI compiler generates for CRUD tables and edit modals
-_UI_COMPILER_NAMES = {"handleSave", "handleEdit", "handleDelete"}
+# Handlers the UI compiler generates for CRUD tables and edit modals, and the
+# value a handler wired to a kit component receives (`on delete` gets `row`, …)
+_UI_COMPILER_NAMES = {"handleSave", "handleEdit", "handleDelete",
+                      "row", "item", "agent", "workflow", "message"}
 
 _runtime_names: Optional[Set[str]] = None
 
@@ -114,6 +116,10 @@ def undefined_names(program: ast.Program) -> List[Tuple[str, int, int, str]]:
     callees = {id(n.callee) for n in nodes if isinstance(n, ast.Call)}
     # {success: true} — bare object keys parse as Variables but are just labels
     keys = {id(k) for n in nodes if isinstance(n, ast.MCNObject) for k, _ in n.properties}
+    # chat endpoint=ask_bot / data_table on_delete=remove: names a backend endpoint or a handler
+    if is_ui_file:
+        keys |= {id(n.value) for n in nodes if isinstance(n, ast.UIAttr) and isinstance(n.value, ast.Variable)
+                 and (n.key == "endpoint" or n.key.startswith("on_"))}
     found = []
     for n in nodes:
         if not isinstance(n, ast.Variable) or n.name in defined or id(n) in keys:

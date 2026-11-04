@@ -1,0 +1,117 @@
+// Workflow Automation — backend
+// Workflows are saved as JSON. run_workflow executes the steps in order,
+// passing data along with {{name}} placeholders, and records every run.
+
+query("CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT, enabled INTEGER, config TEXT, updated_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, workflow TEXT, status TEXT, steps INTEGER, failed_step TEXT, duration_ms INTEGER, started_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, priority TEXT, created_at TEXT)")
+
+// "Hello {{trigger.name}}" → "Hello Ada", using the values collected so far
+function fill(text, context)
+    var out = str(text or "")
+    for key in keys(context.trigger)
+        out = replace(out, "{{trigger." + key + "}}", str(context.trigger[key]))
+    for key in keys(context)
+        out = replace(out, "{{" + key + "}}", str(context[key]))
+    return out
+
+function matches(left, operator, right)
+    if operator == "equals"
+        return str(left) == str(right)
+    if operator == "not equals"
+        return str(left) != str(right)
+    if operator == "greater than"
+        return float(left) > float(right)
+    if operator == "less than"
+        return float(left) < float(right)
+    if operator == "is empty"
+        return not left
+    return contains(lower(str(left)), lower(str(right)))
+
+function run_step(step, context)
+    var c = step.config
+    if step.type == "ai"
+        return ai(fill(c.prompt, context))
+    if step.type == "http"
+        var body = json_parse(fill(c.body, context)) if c.body else {}
+        return trigger(fill(c.url, context), body, c.method or "GET")
+    if step.type == "database"
+        return query(fill(c.sql, context))
+    if step.type == "delay"
+        sleep(min(float(c.seconds or 0), 3))
+        return "Waited " + str(c.seconds) + "s"
+    if step.type == "notify"
+        return "Sent to " + (c.channel or "In-app") + ": " + fill(c.message, context)
+    if step.type == "email"
+        return "Email to " + fill(c.to, context) + ": " + fill(c.subject, context)
+    if step.type == "transform"
+        return fill(c.expression, context)
+    if step.type == "approval"
+        return "Approval requested from " + fill(c.approver, context)
+    throw "Unknown step type: " + step.type
+
+service workflows_api
+    port 8080
+
+    endpoint list_workflows()
+        var rows = query("SELECT config FROM workflows ORDER BY updated_at DESC")
+        return {success: true, data: map(rows, r => json_parse(r.config))}
+
+    endpoint save_workflow(workflow)
+        if not workflow or not workflow.name
+            return {success: false, error: "Give the workflow a name"}
+        query("INSERT OR REPLACE INTO workflows (id, name, enabled, config, updated_at) VALUES (?, ?, ?, ?, ?)",
+              (workflow.id, workflow.name, 1 if workflow.enabled else 0, to_json(workflow), now()))
+        return {success: true, id: workflow.id}
+
+    endpoint run_workflow(workflow, input = null)
+        var started = now_ms()
+        var context = {trigger: input or {text: "Customer says the app crashes when exporting invoices", name: "Ada", priority: "high"}}
+        var results = []
+        var stopped = false
+        var failed_step = ""
+        for step in workflow.steps
+            if stopped
+                push(results, {id: step.id, status: "skipped"})
+                continue
+            try
+                if step.type == "condition"
+                    var passed = matches(fill(step.config.field, context), step.config.operator or "contains", step.config.value)
+                    push(results, {id: step.id, status: "success", output: "Condition met" if passed else "Condition not met, stopping here"})
+                    if not passed
+                        stopped = true
+                else
+                    var output = run_step(step, context)
+                    if step.config.save_as
+                        context[step.config.save_as] = output
+                    push(results, {id: step.id, status: "success", output: output})
+            catch e
+                push(results, {id: step.id, status: "failed", error: e.message})
+                failed_step = step.name or step.type
+                stopped = true
+        var status = "failed" if failed_step else "success"
+        query("INSERT INTO runs (workflow, status, steps, failed_step, duration_ms, started_at) VALUES (?, ?, ?, ?, ?, ?)",
+              (workflow.name, status, len(results), failed_step, now_ms() - started, now()))
+        return {success: true, status: status, steps: results}
+
+    endpoint list_runs()
+        return {success: true, data: query("SELECT * FROM runs ORDER BY id DESC LIMIT 200")}
+
+    endpoint run_stats()
+        var total = query("SELECT COUNT(*) AS n FROM runs")[0].n
+        var ok = query("SELECT COUNT(*) AS n FROM runs WHERE status = 'success'")[0].n
+        var by_day = query("SELECT substr(started_at, 1, 10) AS day, SUM(status = 'success') AS succeeded, SUM(status = 'failed') AS failed FROM runs GROUP BY day ORDER BY day LIMIT 14")
+        var workflows = query("SELECT COUNT(*) AS n FROM workflows")[0].n
+        return {success: true, data: {total: total, success_rate: round(ok * 100 / total, 1) if total > 0 else 0, workflows: workflows, by_day: by_day}}
+
+test "placeholders are filled from the trigger and earlier steps"
+    assert fill("Hi {{trigger.name}}, {{summary}}", {trigger: {name: "Ada"}, summary: "done"}) == "Hi Ada, done"
+
+test "a failing condition stops the run"
+    var wf = {name: "Test", steps: [
+        {id: "s1", type: "condition", config: {field: "{{trigger.priority}}", operator: "equals", value: "high"}},
+        {id: "s2", type: "notify", config: {message: "Urgent!"}}
+    ]}
+    var res = run_workflow(wf, {priority: "low"})
+    assert res.steps[0].output == "Condition not met, stopping here"
+    assert res.steps[1].status == "skipped"

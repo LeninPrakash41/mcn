@@ -667,9 +667,9 @@ class TypeChecker:
         if op in ("==", "!=", ">", "<", ">=", "<="):
             return MCNType.BOOL
 
-        # Logical operators return bool
+        # `and` / `or` return one of their operands: name or "guest" is text
         if op in ("and", "or"):
-            return MCNType.BOOL
+            return left_t if left_t == right_t else MCNType.ANY
 
         # String concatenation coercion
         if op == "+":

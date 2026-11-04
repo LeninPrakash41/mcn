@@ -62,6 +62,14 @@ jobs:
       env:
         MCN_E2E_REACT: '1'
       run: python -m pytest tests/test_templates_e2e.py -k typechecks
+    - name: Type-check the UI kit and check its preview bundle is up to date
+      working-directory: mcn/ui-kit/react
+      run: |
+        npm ci --no-audit --no-fund
+        npx tsc --noEmit
+        node build.mjs
+        git diff --exit-code -- ../../web-playground/static/preview \
+          || (echo "::error::Run 'npm run build' in mcn/ui-kit/react and commit static/preview"; exit 1)
 
   e2e-flutter:
     # Analyze the Flutter app generated from every template

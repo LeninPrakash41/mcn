@@ -11,6 +11,8 @@ include mcn/studio/vscode-mcn/*.vsix
 recursive-include mcn/studio/vscode-mcn/syntaxes *.json
 include mcn/web-playground/index.html
 recursive-include mcn/web-playground/static *.css *.js
+recursive-include mcn/ui-kit/react/src *.ts *.tsx
+prune mcn/ui-kit/react/node_modules
 recursive-include mcn/web-playground/playground_server *.py *.html *.json *.mcn
 recursive-include mcn/web-playground/scaffolds *
 include mcn/core_engine/.mcn_official

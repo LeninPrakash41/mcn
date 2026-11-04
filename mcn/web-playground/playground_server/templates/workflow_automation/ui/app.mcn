@@ -1,0 +1,49 @@
+// Workflow Automation — user interface
+
+component Dashboard
+    state stats = {total: 0, success_rate: 0, workflows: 0, by_day: []}
+
+    on load
+        stats = run_stats().data
+
+    render
+        div grid_cols=3
+            stat_card label="Workflows" value=stats.workflows icon="Workflow" color="purple"
+            stat_card label="Runs" value=stats.total icon="Play" color="blue"
+            stat_card label="Success rate" value=stats.success_rate unit="%" icon="CheckCircle" color="green"
+        card
+            card_header "Runs per day"
+            card_content
+                bar_chart data=stats.by_day x_key="day" y_key=["succeeded", "failed"] stacked height=260 empty="Run a workflow to see activity here"
+
+component Builder
+    state workflows = []
+
+    on load
+        workflows = list_workflows().data
+
+    on save
+        var result = save_workflow(workflow)
+        workflows = list_workflows().data
+        return result
+
+    render
+        workflow_builder workflows=workflows on_save=save on_run=run_workflow
+
+component Runs
+    state items = []
+
+    on load
+        items = list_runs().data
+
+    render
+        data_table title="Run history" columns=["workflow", "status", "steps", "failed_step", "duration_ms", "started_at"] filters=["workflow", "status"] page_size=10
+
+app Automations
+    title "Automations"
+    logo "Workflow"
+    layout
+        sidebar
+            nav "Dashboard" Dashboard icon="LayoutDashboard"
+            nav "Builder" Builder icon="Workflow"
+            nav "Runs" Runs icon="History"

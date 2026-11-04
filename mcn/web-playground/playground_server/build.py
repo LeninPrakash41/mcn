@@ -102,7 +102,8 @@ def build_mcn():
         evaluator.execute_program(program)
         
         out_path.mkdir(parents=True, exist_ok=True)
-        compiler = UICompiler(output_dir=out_path)
+        from mcn.core_engine.ui_compiler import endpoints_from_backend
+        compiler = UICompiler(output_dir=out_path, endpoints=endpoints_from_backend(backend_path))
         written = compiler.compile(evaluator)
         
         files = []
@@ -113,7 +114,7 @@ def build_mcn():
                     
         stdout = f"✓ Compiled {len(written)} frontend components into frontend/\n"
         if compiler._shadcn_needed:
-            stdout += f"Components included: {', '.join(sorted(compiler._shadcn_needed))}"
+            stdout += f"UI components used: {', '.join(sorted(compiler._shadcn_needed))}"
             
         return jsonify({
             "success": True,

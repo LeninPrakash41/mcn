@@ -17,11 +17,55 @@ Entry point:
 from __future__ import annotations
 
 import json
+import re
 import textwrap
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 from . import ast_nodes as ast
+
+# The MCN UI kit: components every compiled app is built from
+_KIT_DIR = Path(__file__).resolve().parent.parent / "ui-kit" / "react" / "src"
+
+# Backend endpoint name → parameter names, when the backend is known. Calls from
+# UI code then send each argument under the parameter it belongs to.
+_ENDPOINT_PARAMS: Dict[str, List[str]] = {}
+
+# Handler names that are reserved words in JavaScript get an `on` prefix
+_JS_RESERVED = {"break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete",
+                "do", "else", "enum", "export", "extends", "finally", "for", "function", "if", "import",
+                "in", "instanceof", "new", "return", "super", "switch", "this", "throw", "try", "typeof",
+                "var", "void", "while", "with", "yield", "let", "static", "await"}
+
+
+def _handler_name(event: str) -> str:
+    """`on submit` → submit, `on delete` → onDelete (delete is reserved in JavaScript)."""
+    name = _camel(event)
+    return "on" + _pascal(event) if name in _JS_RESERVED else name
+
+
+# Elements rendered by a single kit component, with their attributes passed as props
+_KIT_TAGS = {"bar_chart", "line_chart", "area_chart", "pie_chart", "donut_chart", "sparkline",
+             "data_table", "kanban", "breadcrumb", "empty_state",
+             "chat", "chat_widget", "agent_builder", "workflow_builder"}
+
+# Attributes that name an endpoint or handler: attr → (prop, TS parameters, endpoint payload)
+_KIT_ACTIONS: Dict[str, Dict[str, Tuple[str, str, str]]] = {
+    "chat":        {"endpoint": ("onSend", "message: string, history: any[]", "{ message, history }"),
+                    "on_send":  ("onSend", "message: string, history: any[]", "{ message, history }")},
+    "agent_builder": {"on_save":   ("onSave",   "agent: any", "{ agent }"),
+                      "on_test":   ("onTest",   "agent: any, message: string, history: any[]", "{ agent, message, history }"),
+                      "on_delete": ("onDelete", "agent: any", "{ id: agent.id, agent }")},
+    "workflow_builder": {"on_save": ("onSave", "workflow: any", "{ workflow }"),
+                         "on_run":  ("onRun",  "workflow: any", "{ workflow }")},
+    "data_table":  {"on_add":    ("onAdd",      "", "{}"),
+                    "on_edit":   ("onEdit",     "row: any", "{ id: row.id, row }"),
+                    "on_delete": ("onDelete",   "row: any", "{ id: row.id, row }"),
+                    "on_row":    ("onRowClick", "row: any", "{ id: row.id, row }")},
+    "kanban":      {"on_move":   ("onMove",      "item: any, to: string", "{ id: item.id, GROUP: to, item }"),
+                    "on_click":  ("onCardClick", "item: any", "{ id: item.id, item }")},
+}
+_KIT_ACTIONS["chat_widget"] = _KIT_ACTIONS["chat"]
 
 
 # ── shadcn component map ───────────────────────────────────────────────────────
@@ -63,14 +107,23 @@ _SHADCN: Dict[str, Tuple[List[str], str, str]] = {
                      "avatar",  "Avatar"),
     "progress":     (["Progress"],                     "progress", "Progress"),
     "skeleton":     (["Skeleton"],                     "skeleton", "Skeleton"),
-    "toast":        ([],                               "sonner",   "toast"),
-    # Charts — recharts (not shadcn, imported directly from "recharts")
-    "bar_chart":   (["BarChart", "Bar", "XAxis", "YAxis", "CartesianGrid", "Tooltip", "ResponsiveContainer"],
-                    "recharts", "BarChart"),
-    "line_chart":  (["LineChart", "Line", "XAxis", "YAxis", "CartesianGrid", "Tooltip", "ResponsiveContainer"],
-                    "recharts", "LineChart"),
-    "pie_chart":   (["PieChart", "Pie", "Cell", "Tooltip", "Legend"],
-                    "recharts", "PieChart"),
+    "toast":        ([],                               "toast",    "toast"),
+    # Charts — the kit's SVG charts
+    "bar_chart":    (["BarChart"],                     "chart",    "BarChart"),
+    "line_chart":   (["LineChart"],                    "chart",    "LineChart"),
+    "area_chart":   (["AreaChart"],                    "chart",    "AreaChart"),
+    "pie_chart":    (["PieChart"],                     "chart",    "PieChart"),
+    "donut_chart":  (["DonutChart"],                   "chart",    "DonutChart"),
+    "sparkline":    (["Sparkline"],                    "chart",    "Sparkline"),
+    # Rich components
+    "data_table":   (["DataTable"],                    "data-table",       "DataTable"),
+    "kanban":       (["Kanban"],                       "kanban",           "Kanban"),
+    "breadcrumb":   (["Breadcrumb"],                   "breadcrumb",       "Breadcrumb"),
+    "empty_state":  (["EmptyState"],                   "empty-state",      "EmptyState"),
+    "chat":         (["ChatBot"],                      "chat",             "ChatBot"),
+    "chat_widget":  (["ChatWidget"],                   "chat",             "ChatWidget"),
+    "agent_builder":    (["AgentBuilder"],             "agent-builder",    "AgentBuilder"),
+    "workflow_builder": (["WorkflowBuilder"],          "workflow-builder", "WorkflowBuilder"),
     # Stat card (plain div-based, no shadcn package)
     "stat_card":   (["Card", "CardContent"],           "card",     "Card"),
     # New components
@@ -145,6 +198,23 @@ _THEMES: Dict[str, Dict[str, str]] = {
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+def endpoints_from_backend(path) -> Dict[str, List[str]]:
+    """Endpoint name → parameter names, read (not run) from a backend .mcn file.
+    Returns {} when the file is missing or doesn't parse."""
+    from .lexer import Lexer
+    from .parser import Parser
+    try:
+        program = Parser(Lexer(Path(path).read_text(encoding="utf-8")).tokenize()).parse()
+    except Exception:
+        return {}
+    found: Dict[str, List[str]] = {}
+    for stmt in program.body:
+        if isinstance(stmt, ast.ServiceDecl):
+            for ep in stmt.endpoints:
+                found[ep.name] = list(ep.params)
+    return found
+
+
 def _pascal(name: str) -> str:
     """snake_case / kebab-case → PascalCase."""
     return "".join(w.capitalize() for w in name.replace("-", "_").split("_"))
@@ -192,6 +262,8 @@ def _expr_to_ts(expr: Optional[ast.Expr],
             return "true" if expr.value else "false"
         return str(expr.value)
     if isinstance(expr, ast.Variable):
+        if expr.name in _JS_RESERVED:
+            return _handler_name(expr.name)
         return lv.get(expr.name, expr.name)
     if isinstance(expr, ast.Property):
         obj = _expr_to_ts(expr.object, lv)
@@ -234,6 +306,8 @@ def _expr_to_ts(expr: Optional[ast.Expr],
             return _TS_BUILTINS[expr.callee.name](args_ts)
         if isinstance(expr.callee, ast.Variable):
             fn = expr.callee.name
+            if fn == "notify":
+                return f"notify({', '.join(_expr_to_ts(a, lv) for a in expr.arguments)})"
             if fn in ("toast", "log", "confirm", "alert"):
                 args = ", ".join(_expr_to_ts(a, lv) for a in expr.arguments)
                 if fn == "log":
@@ -244,8 +318,14 @@ def _expr_to_ts(expr: Optional[ast.Expr],
                     return f"window.alert({args})"
                 return f"toast({args})"
 
-            # Build the payload object from positional args (use var names as keys)
+            # Build the payload: the endpoint's parameter names when the backend is
+            # known, otherwise the argument variable names
             pairs = []
+            params = _ENDPOINT_PARAMS.get(fn)
+            if params is not None:
+                for name, a in zip(params, expr.arguments):
+                    pairs.append(f"{name}: {_expr_to_ts(a, lv)}")
+                return f"(await api.post('/{fn}', {{{', '.join(pairs)}}}))"
             for i, a in enumerate(expr.arguments):
                 if isinstance(a, ast.Variable):
                     key = a.name[5:] if a.name.startswith("edit_") else a.name
@@ -257,7 +337,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
                     # Fallback: if it's a literal or complex expr, use a generic key
                     pairs.append(f"arg{i}: {_expr_to_ts(a, lv)}")
             body = "{" + ", ".join(pairs) + "}"
-            return f"api.post('/{fn}', {body})"
+            return f"(await api.post('/{fn}', {body}))"
         return '""'
     if isinstance(expr, ast.Array):
         return "[" + ", ".join(_expr_to_ts(e, lv) for e in expr.elements) + "]"
@@ -320,8 +400,11 @@ class UICompiler:
         compiler.compile(evaluator)   # evaluator has .components and .app_decl
     """
 
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, endpoints: Optional[Dict[str, List[str]]] = None):
+        """endpoints: backend endpoint name → parameter names, if known."""
         self.out              = Path(output_dir)
+        _ENDPOINT_PARAMS.clear()
+        _ENDPOINT_PARAMS.update(endpoints or {})
         self._shadcn_needed: Set[str] = set()   # shadcn package slugs to install
         self._current_comp: Optional[ast.ComponentDecl] = None
         self._extra_imports: Set[str] = set()   # per-component extra import lines
@@ -342,20 +425,7 @@ class UICompiler:
         (src / "hooks").mkdir(parents=True, exist_ok=True)
         (src / "lib").mkdir(parents=True, exist_ok=True)
 
-        # Always write lib/utils.ts — required by every shadcn component
-        utils_path = src / "lib" / "utils.ts"
-        utils_path.write_text(
-            'import { type ClassValue, clsx } from "clsx"\n'
-            'import { twMerge } from "tailwind-merge"\n'
-            "\n"
-            "export function cn(...inputs: ClassValue[]) {\n"
-            "  return twMerge(clsx(inputs))\n"
-            "}\n"
-        )
-        written.append(utils_path)
-        print(f"  write  {utils_path.relative_to(self.out.parent)}")
-
-        # Write core shadcn UI components into src/components/ui/
+        # The MCN UI kit: src/components/ui/* and src/lib/utils.ts
         ui_written = self._write_ui_components(src)
         written.extend(ui_written)
 
@@ -452,11 +522,6 @@ class UICompiler:
         index_html.write_text(self._gen_index_html(title))
         written.append(index_html)
         print(f"  write  {index_html.relative_to(self.out.parent)}")
-
-        # Print shadcn install command
-        if self._shadcn_needed:
-            pkgs = " ".join(sorted(self._shadcn_needed))
-            print(f"\n  shadcn  npx shadcn@latest add {pkgs}")
 
         return written
 
@@ -568,7 +633,7 @@ class UICompiler:
         # Event handlers from on blocks
         handlers: List[str] = []
         for h in comp.handlers:
-            fn_name = _camel(h.event)
+            fn_name = _handler_name(h.event)
             body_ts = self._stmts_to_ts(h.body, indent=6 if h.event == "load" else 4)
             if h.event == "load":
                 # useEffect with async IIFE
@@ -581,9 +646,15 @@ class UICompiler:
                 )
             else:
                 dep_names = ", ".join(s.name for s in comp.states)
+                # A handler wired to a kit component receives the row, item,
+                # agent, workflow or message as its argument
+                implicit = [n for n in ("row", "item", "agent", "workflow", "message")
+                            if re.search(rf"\b{n}\b", body_ts)]
+                bind_args = "".join(f"    const {n}: any = e\n" for n in implicit)
                 handlers.append(
-                    f"  const {fn_name} = useCallback(async (e?: React.FormEvent) => {{\n"
-                    f"    if (e) e.preventDefault()\n"
+                    f"  const {fn_name} = useCallback(async (e?: any) => {{\n"
+                    f"    if (e && typeof e.preventDefault === 'function') e.preventDefault()\n"
+                    f"{bind_args}"
                     f"{body_ts}"
                     f"  }}, [{dep_names}])"
                 )
@@ -730,40 +801,28 @@ class UICompiler:
         # Wrap in Fragment when multiple root elements (e.g. main card + edit modal)
         needs_fragment = len(comp.render.elements if comp.render else []) > 1 or has_crud
         if needs_fragment:
-            jsx_lines = ["    <>", *["  " + ln for ln in jsx_lines], "    </>"]
+            jsx_lines = ['    <div className="space-y-6">', *["  " + ln for ln in jsx_lines], "    </div>"]
 
-        # If toast is called anywhere in compiled code, auto-import from sonner
+        # toast() / notify() come from the kit's notification system
         all_compiled_code = "\n".join(handlers) + "\n" + "\n".join(jsx_lines)
-        if "toast(" in all_compiled_code:
-            self._extra_imports.add('import { toast } from "sonner"')
-            self._shadcn_needed.add("sonner")
+        if "toast(" in all_compiled_code or "toast." in all_compiled_code:
+            self._extra_imports.add('import { toast } from "@/components/ui/toast"')
+        if "notify(" in all_compiled_code:
+            self._extra_imports.add('import { notify } from "@/components/ui/toast"')
 
-        # Merge lucide-react imports and append remaining extras
-        lucide_icons: list = []
+        # Icons come from the kit: `const { Users, Plus } = icons`
+        icon_names: list = []
         other_extras: list = []
         for line in self._extra_imports:
-            if '"lucide-react"' in line:
-                # Extract icon name from: import { X } from "lucide-react"
-                import importlib as _il  # local import to avoid polluting module scope
-                import re as _re
-                m = _re.search(r'\{\s*([^}]+)\s*\}', line)
-                if m:
-                    lucide_icons.extend(n.strip() for n in m.group(1).split(','))
+            m = re.match(r'import \{\s*([^}]+)\s*\} from "lucide-react"', line)
+            if m:
+                icon_names.extend(n.strip() for n in m.group(1).split(","))
             else:
                 other_extras.append(line)
-        # Merge with any existing lucide-react import in imports list
-        existing_lucide_idx = next(
-            (i for i, ln in enumerate(imports) if '"lucide-react"' in ln), None)
-        if lucide_icons:
-            if existing_lucide_idx is not None:
-                # Extract existing names and merge
-                import re as _re2
-                m2 = _re2.search(r'\{\s*([^}]+)\s*\}', imports[existing_lucide_idx])
-                existing_names = [n.strip() for n in m2.group(1).split(',')] if m2 else []
-                merged = sorted(set(existing_names + lucide_icons))
-                imports[existing_lucide_idx] = f'import {{ {", ".join(merged)} }} from "lucide-react"'
-            else:
-                imports.append(f'import {{ {", ".join(sorted(set(lucide_icons)))} }} from "lucide-react"')
+        icon_binding = []
+        if icon_names:
+            other_extras.append('import { icons } from "@/components/ui/icon"')
+            icon_binding = [f"const {{ {', '.join(sorted(set(icon_names)))} }} = icons", ""]
         for extra in sorted(other_extras):
             if extra not in imports:
                 imports.append(extra)
@@ -772,6 +831,7 @@ class UICompiler:
         lines = [
             *imports,
             "",
+            *icon_binding,
             f"export function {comp.name}() {{",
             *hooks,
             *([""] if hooks else []),
@@ -794,13 +854,7 @@ class UICompiler:
             tag = el.tag
             if tag in _SHADCN:
                 names, slug, _ = _SHADCN[tag]
-                if slug != "recharts":
-                    self._shadcn_needed.add(slug)
-                # recharts and other non-shadcn libs import directly by package name
-                if slug in ("recharts",):
-                    pkg_path = slug
-                else:
-                    pkg_path = f"@/components/ui/{slug}"
+                pkg_path = f"@/components/ui/{slug}"
                 if pkg_path not in acc:
                     acc[pkg_path] = []
                 acc[pkg_path].extend(names)
@@ -845,6 +899,9 @@ class UICompiler:
                                      text=el.text, children=el.children)
             inner = self._element_to_jsx(inner_el, indent + 2)
             return [f"{pad}{{({cond}) && ("] + inner + [f"{pad})}}"]
+
+        if tag in _KIT_TAGS:
+            return self._kit_element(el, indent)
 
         # Determine JSX tag name
         if tag in _SHADCN:
@@ -1149,76 +1206,6 @@ class UICompiler:
                 lines.append(f'{pad}</Select>')
             return lines
 
-        # bar_chart
-        if tag == "bar_chart":
-            data_attr  = next((a for a in el.attrs if a.key == "data"),   None)
-            x_attr     = next((a for a in el.attrs if a.key == "x_key"),  None)
-            y_attr     = next((a for a in el.attrs if a.key == "y_key"),  None)
-            h_attr     = next((a for a in el.attrs if a.key == "height"), None)
-            data_expr  = _expr_to_ts(data_attr.value)  if data_attr  else "[]"
-            x_key      = _expr_to_ts(x_attr.value)     if x_attr     else '"label"'
-            y_key      = _expr_to_ts(y_attr.value)      if y_attr     else '"value"'
-            height     = _expr_to_ts(h_attr.value)      if h_attr     else "300"
-            lines += [
-                f'{pad}<ResponsiveContainer width="100%" height={{{height}}}>',
-                f'{pad}  <BarChart data={{{data_expr}}}>',
-                f'{pad}    <CartesianGrid strokeDasharray="3 3" />',
-                f'{pad}    <XAxis dataKey={{{x_key}}} />',
-                f'{pad}    <YAxis />',
-                f'{pad}    <Tooltip />',
-                f'{pad}    <Bar dataKey={{{y_key}}} fill="#6366f1" />',
-                f'{pad}  </BarChart>',
-                f'{pad}</ResponsiveContainer>',
-            ]
-            return lines
-
-        # line_chart
-        if tag == "line_chart":
-            data_attr  = next((a for a in el.attrs if a.key == "data"),   None)
-            x_attr     = next((a for a in el.attrs if a.key == "x_key"),  None)
-            y_attr     = next((a for a in el.attrs if a.key == "y_key"),  None)
-            h_attr     = next((a for a in el.attrs if a.key == "height"), None)
-            data_expr  = _expr_to_ts(data_attr.value)  if data_attr  else "[]"
-            x_key      = _expr_to_ts(x_attr.value)     if x_attr     else '"label"'
-            y_key      = _expr_to_ts(y_attr.value)      if y_attr     else '"value"'
-            height     = _expr_to_ts(h_attr.value)      if h_attr     else "300"
-            lines += [
-                f'{pad}<ResponsiveContainer width="100%" height={{{height}}}>',
-                f'{pad}  <LineChart data={{{data_expr}}}>',
-                f'{pad}    <CartesianGrid strokeDasharray="3 3" />',
-                f'{pad}    <XAxis dataKey={{{x_key}}} />',
-                f'{pad}    <YAxis />',
-                f'{pad}    <Tooltip />',
-                f'{pad}    <Line type="monotone" dataKey={{{y_key}}} stroke="#6366f1" strokeWidth={{2}} />',
-                f'{pad}  </LineChart>',
-                f'{pad}</ResponsiveContainer>',
-            ]
-            return lines
-
-        # pie_chart
-        if tag == "pie_chart":
-            data_attr  = next((a for a in el.attrs if a.key == "data"),       None)
-            name_attr  = next((a for a in el.attrs if a.key == "name_key"),   None)
-            val_attr   = next((a for a in el.attrs if a.key == "value_key"),  None)
-            h_attr     = next((a for a in el.attrs if a.key == "height"),     None)
-            data_expr  = _expr_to_ts(data_attr.value) if data_attr else "[]"
-            name_key   = _expr_to_ts(name_attr.value) if name_attr else '"name"'
-            val_key    = _expr_to_ts(val_attr.value)  if val_attr  else '"value"'
-            height     = _expr_to_ts(h_attr.value)    if h_attr    else "300"
-            colors     = '["#6366f1","#8b5cf6","#a78bfa","#c4b5fd","#ddd6fe"]'
-            lines += [
-                f'{pad}<ResponsiveContainer width="100%" height={{{height}}}>',
-                f'{pad}  <PieChart>',
-                f'{pad}    <Pie data={{{data_expr}}} dataKey={{{val_key}}} nameKey={{{name_key}}} cx="50%" cy="50%" outerRadius={{80}}>',
-                f'{pad}      {{{data_expr}.map((_: any, i: number) => <Cell key={{i}} fill={{{colors}[i % {colors}.length]}} />)}}',
-                f'{pad}    </Pie>',
-                f'{pad}    <Tooltip />',
-                f'{pad}    <Legend />',
-                f'{pad}  </PieChart>',
-                f'{pad}</ResponsiveContainer>',
-            ]
-            return lines
-
         # gantt_chart
         if tag == "gantt_chart":
             data_attr  = next((a for a in el.attrs if a.key == "data"),   None)
@@ -1277,7 +1264,7 @@ class UICompiler:
                 f'{pad}    <div className="flex items-center justify-between">',
                 f'{pad}      <div>',
                 f'{pad}        <p className="text-sm font-medium text-muted-foreground">{{{lbl}}}</p>',
-                f'{pad}        <p className="text-2xl font-bold mt-1">{{{val}}}<span className="text-sm font-normal ml-1 text-muted-foreground">{{{unit}}}</span></p>',
+                f'{pad}        <p className="text-2xl font-bold mt-1 tabular-nums">{{typeof ({val}) === "number" ? Number({val}).toLocaleString() : {val}}}<span className="text-sm font-normal ml-1 text-muted-foreground">{{{unit}}}</span></p>',
                 f'{pad}        {trend_jsx}',
                 f'{pad}      </div>',
                 f'{pad}      <div className="p-2 rounded-lg {icon_cls}">',
@@ -1559,6 +1546,42 @@ class UICompiler:
             f"{pad}</TableBody>",
         ]
 
+    def _kit_element(self, el: ast.UIElement, indent: int) -> List[str]:
+        """A kit component: attributes become props, and attributes that name an
+        endpoint or an `on` handler become callbacks."""
+        pad = " " * indent
+        tag = el.tag
+        _, _, jsx_tag = _SHADCN[tag]
+        handlers = {h.event for h in self._current_comp.handlers} if self._current_comp else set()
+        actions = _KIT_ACTIONS.get(tag, {})
+        group = next((a.value.value for a in el.attrs if a.key == "group_by" and isinstance(a.value, ast.Literal)), "status")
+        props: List[str] = []
+        for attr in el.attrs:
+            key, val = attr.key, attr.value
+            if key in actions and isinstance(val, ast.Variable):
+                prop, params, payload = actions[key]
+                first = params.split(":")[0].strip() if params else ""
+                if val.name in handlers:      # a component `on` handler
+                    props.append(f"{prop}={{({params}) => {_handler_name(val.name)}({first})}}")
+                else:                         # a backend endpoint
+                    props.append(f"{prop}={{async ({params}) => api.post('/{val.name}', {payload.replace('GROUP', group)})}}")
+                continue
+            if val is None:
+                props.append(key)
+            elif isinstance(val, ast.Literal) and isinstance(val.value, str):
+                props.append(f"{key}={json.dumps(val.value)}")
+            else:
+                props.append(f"{key}={{{_expr_to_ts(val)}}}")
+        # The element's text is its title (`chat "Support bot"`, `empty_state "No deals"`)
+        if el.text is not None and not any(a.key == "title" for a in el.attrs):
+            props.insert(0, f"title={{{_expr_to_ts(el.text)}}}")
+        # A data component without data= shows the component's first list state
+        if tag in ("data_table", "kanban") and not any(a.key == "data" for a in el.attrs) and self._current_comp:
+            lists = [st.name for st in self._current_comp.states if isinstance(st.value, ast.Array)]
+            if lists:
+                props.insert(0, f"data={{{lists[0]}}}")
+        return [f"{pad}<{jsx_tag} {' '.join(props)} />".replace("  />", " />")]
+
     def _attrs_to_props(self, attrs: List[ast.UIAttr], tag: str) -> str:
         """Convert UIAttr list → JSX props string."""
         props: List[str] = []
@@ -1576,7 +1599,10 @@ class UICompiler:
                 n = _expr_to_ts(val) if val else "3"
                 # strip quotes if it's a string literal
                 n = n.strip('"\'')
-                props.append(f'className="grid grid-cols-{n} gap-4"')
+                # One column on phones, two on tablets, N on wide screens
+                cols = {"1": "grid-cols-1", "2": "grid-cols-1 sm:grid-cols-2"}.get(n, f"grid-cols-1 sm:grid-cols-2 lg:grid-cols-{n}")
+                # [&>*]:min-w-0 lets cells shrink below their content (charts, tables)
+                props.append(f'className="grid {cols} gap-4 [&>*]:min-w-0"')
                 continue
 
             # bind=name  →  value={name} onChange={e => setName(...)}
@@ -1690,23 +1716,28 @@ class UICompiler:
                              f"{_expr_to_ts(stmt.value, lv)}")
 
             elif isinstance(stmt, ast.AssignStmt):
+                # Capture the new value in a local, then call the setter: React state
+                # updates only show on the next render, so later lines read the local
                 setter = "set" + _pascal(stmt.name)
-                val_expr = stmt.value
-                if isinstance(val_expr, ast.Call):
-                    # Capture to a temp var, then call setter — avoids stale state
-                    temp = f"_{stmt.name}"
-                    call_ts = _expr_to_ts(val_expr, lv)
-                    lines.append(f"{pad}const {temp} = await {call_ts}")
-                    lines.append(f"{pad}{setter}({temp})")
-                    lv[stmt.name] = temp   # subsequent reads see the fresh value
-                else:
-                    val = _expr_to_ts(val_expr, lv)
+                if isinstance(stmt.value, ast.Literal):
+                    val = _expr_to_ts(stmt.value, lv)
                     lines.append(f"{pad}{setter}({val})")
+                    lv[stmt.name] = val
+                    continue
+                self._tmp_count = getattr(self, "_tmp_count", 0) + 1
+                temp = f"_{stmt.name}{self._tmp_count}"
+                val = _expr_to_ts(stmt.value, lv)
+                await_ = "await " if isinstance(stmt.value, ast.Call) and not val.startswith("(await ") else ""
+                lines.append(f"{pad}const {temp} = {await_}{val}")
+                lines.append(f"{pad}{setter}({temp})")
+                lv[stmt.name] = temp
 
             elif isinstance(stmt, ast.ExprStmt):
                 val = _expr_to_ts(stmt.expression, lv)
                 if isinstance(stmt.expression, ast.Call):
-                    lines.append(f"{pad}await {val}")
+                    # "(await api.post(...))" → "await api.post(...)": a statement must not
+                    # start with "(" or JavaScript joins it to the line above
+                    lines.append(f"{pad}{val[1:-1]}" if val.startswith("(await ") and val.endswith(")") else f"{pad}await {val}")
                 else:
                     lines.append(f"{pad}{val}")
 
@@ -1732,87 +1763,56 @@ class UICompiler:
 
     def _gen_app_tsx(self, app: Optional[ast.AppDecl],
                      components: Dict[str, ast.ComponentDecl]) -> str:
-        title = app.title if app else "MCN App"
+        """App.tsx: every layout renders inside the kit's AppShell (navigation,
+        header with breadcrumb/search/notifications/theme, footer, toasts)."""
+        title = app.title if app and app.title else (app.name if app else "MCN App")
+        layout = app.layout if app else None
+        nav: List[Tuple[str, str, str, str]] = []      # (label, icon, component, group)
+        shell = "top"
+        if layout and layout.sidebar:
+            shell = "sidebar"
+            nav = [(n.label, n.icon or self._nav_icon(n.label), n.component or n.label.replace(" ", ""), n.group)
+                   for n in layout.sidebar]
+        elif layout and layout.tabs:
+            shell = "tabs"
+            nav = [(t.label, self._nav_icon(t.label), t.component or t.label.replace(" ", ""), "") for t in layout.tabs]
+        elif layout and layout.routes:
+            shell = "sidebar" if len(layout.routes) > 3 else "tabs"
+            nav = [((r.path.strip("/").replace("-", " ").title() or "Home"), self._nav_icon(r.path.strip("/") or "home"), r.component, "")
+                   for r in layout.routes]
+        names = [n for n in ((layout.main if layout else None) or list(components.keys())) if n in components]
+        nav = [n for n in nav if n[2] in components]
+        used = {n[2] for n in nav}
+        imports = "\n".join(f'import {{ {name} }} from "./components/{name}"' for name in components
+                            if name in used or (not nav and name in names))
 
-        comp_imports = "\n".join(
-            f'import {{ {name} }} from "./components/{name}"'
-            for name in components
-        )
-
-        if app and app.layout:
-            layout = app.layout
-
-            # URL routing layout (react-router-dom)
-            if layout.routes:
-                return self._gen_router_layout(app, components, comp_imports)
-
-            # Sidebar layout (with or without tabs)
-            if layout.sidebar:
-                if layout.tabs:
-                    self._shadcn_needed.add("tabs")
-                return self._gen_sidebar_tabs_layout(app, components, comp_imports)
-
-            # Tabs only
-            if layout.tabs:
-                self._shadcn_needed.add("tabs")
-                tabs_list = "\n".join(
-                    f'          <TabsTrigger value="{t.label}">{t.label}</TabsTrigger>'
-                    for t in layout.tabs
-                )
-                tabs_content = "\n".join(
-                    f'        <TabsContent value="{t.label}">\n'
-                    f'          <{t.component or "div"} />\n'
-                    f'        </TabsContent>'
-                    for t in layout.tabs
-                )
-                default_tab = layout.tabs[0].label if layout.tabs else ""
-                return f'''\
-import React from "react"
-import {{ Tabs, TabsList, TabsTrigger, TabsContent }} from "@/components/ui/tabs"
-{comp_imports}
-import "./globals.css"
-
-export default function App() {{
-  return (
-    <div className="min-h-screen bg-background p-6">
-      <h1 className="text-2xl font-bold mb-6">{title}</h1>
-      <Tabs defaultValue="{default_tab}" className="w-full">
-        <TabsList>
-{tabs_list}
-        </TabsList>
-{tabs_content}
-      </Tabs>
-    </div>
-  )
-}}
-'''
-
-            # Main components stacked
-            main_jsx = "\n".join(
-                f'      <{name} />'
-                for name in (layout.main or list(components.keys()))
-            )
+        if nav:
+            items = ",\n".join(
+                f'  {{ label: {json.dumps(label)}, icon: {json.dumps(icon)}, element: <{comp} />'
+                + (f", group: {json.dumps(group)}" if group else "") + " }"
+                for label, icon, comp, group in nav)
         else:
-            main_jsx = "\n".join(f'      <{name} />' for name in components)
-
-        return f'''\
-import React from "react"
-{comp_imports}
+            stacked = "\n".join(f"        <{name} />" for name in names)
+            items = f'  {{ label: "Home", icon: "Home", element: (\n      <div className="space-y-6">\n{stacked}\n      </div>\n    ) }}'
+        extra = ""
+        if app and app.footer:
+            extra += f" footer={json.dumps(app.footer)}"
+        if app and app.logo:
+            extra += f" logo={json.dumps(app.logo)}"
+        return f'''import {{ AppShell, type NavItem }} from "@/components/ui/app-shell"
+{imports}
 import "./globals.css"
 
+const NAV: NavItem[] = [
+{items},
+]
+
 export default function App() {{
-  return (
-    <div className="min-h-screen bg-background p-6">
-      <h1 className="text-2xl font-bold mb-6">{title}</h1>
-      <div className="space-y-6">
-{main_jsx}
-      </div>
-    </div>
-  )
+  return <AppShell title={{{json.dumps(title)}}} layout="{shell}" nav={{NAV}}{extra} />
 }}
 '''
 
-    # Map common nav labels to lucide-react icon names
+    # Icons for common navigation labels (any name from the kit's icon set works)
     _ICON_MAP: Dict[str, str] = {
         "deals":       "TrendingUp",
         "contacts":    "Users",
@@ -1843,224 +1843,39 @@ export default function App() {{
     def _nav_icon(self, label: str) -> str:
         return self._ICON_MAP.get(label.lower(), "Circle")
 
-    def _gen_sidebar_tabs_layout(self, app: ast.AppDecl,
-                                  components: Dict[str, ast.ComponentDecl],
-                                  comp_imports: str) -> str:
-        layout = app.layout
-        title  = app.title
-
-        # Collect icon names used
-        icon_names = [self._nav_icon(n.label) for n in layout.sidebar]
-
-        nav_items = "\n".join(
-            f'          <button\n'
-            f'            onClick={{() => setActive("{n.label}")}}\n'
-            f'            className={{`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm '
-            f'font-medium transition-colors ${{active === "{n.label}" '
-            f'? "bg-primary text-primary-foreground" '
-            f': "text-muted-foreground hover:bg-accent hover:text-foreground"}}`}}\n'
-            f'          >\n'
-            f'            <{self._nav_icon(n.label)} className="w-4 h-4 shrink-0" />\n'
-            f'            {n.label}\n'
-            f'          </button>'
-            for n in layout.sidebar
-        )
-
-        nav_items_mobile = "\n".join(
-            f'                <button\n'
-            f'                  onClick={{() => {{ setActive("{n.label}"); setMobileOpen(false); }}}}\n'
-            f'                  className={{`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm '
-            f'font-medium transition-colors ${{active === "{n.label}" '
-            f'? "bg-primary text-primary-foreground" '
-            f': "text-muted-foreground hover:bg-accent hover:text-foreground"}}`}}\n'
-            f'                >\n'
-            f'                  <{self._nav_icon(n.label)} className="w-4 h-4 shrink-0" />\n'
-            f'                  {n.label}\n'
-            f'                </button>'
-            for n in layout.sidebar
-        )
-
-        pages = "\n".join(
-            f'      {{active === "{n.label}" && <{n.component or _pascal(n.label)} />}}'
-            for n in layout.sidebar
-        )
-
-        default_page = layout.sidebar[0].label if layout.sidebar else ""
-
-        app_icon = self._nav_icon(title.split()[0].lower()) if title else "Circle"
-        all_icons = sorted(set(icon_names) | {app_icon, "LogOut", "ChevronRight", "Menu", "X"})
-        icons_import_full = ", ".join(all_icons)
-
-        return f'''\
-import React, {{ useState }} from "react"
-import {{ {icons_import_full} }} from "lucide-react"
-{comp_imports}
-import "./globals.css"
-
-export default function App() {{
-  const [active, setActive] = useState("{default_page}")
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  return (
-    <div className="flex min-h-screen bg-background">
-      {{/* Sidebar for Desktop */}}
-      <aside className="hidden md:flex md:w-64 border-r bg-card flex flex-col shadow-sm">
-        {{/* Header */}}
-        <div className="flex items-center gap-3 px-4 py-4 border-b">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <{app_icon} className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold leading-tight">{title}</h2>
-            <p className="text-xs text-muted-foreground">Workspace</p>
-          </div>
-        </div>
-
-        {{/* Nav */}}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2 mt-1">Navigation</p>
-{nav_items}
-        </nav>
-
-        {{/* User footer */}}
-        <div className="border-t p-3">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-accent cursor-pointer group">
-            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-              U
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">User</p>
-              <p className="text-xs text-muted-foreground truncate">user@example.com</p>
-            </div>
-            <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        </div>
-      </aside>
-
-      {{/* Main Layout container (Desktop vs Mobile handling) */}}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        {{/* Mobile Top Navbar */}}
-        <header className="flex md:hidden items-center justify-between px-4 py-3 border-b bg-card shadow-sm w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <{app_icon} className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="text-sm font-bold">{title}</span>
-          </div>
-          <button 
-            onClick={{() => setMobileOpen(!mobileOpen)}}
-            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-          >
-            {{mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}}
-          </button>
-        </header>
-
-        {{/* Mobile Menu Overlay / Drawer */}}
-        {{mobileOpen && (
-          <div className="fixed inset-0 z-50 flex bg-background/80 backdrop-blur-sm md:hidden">
-            <div className="relative w-64 max-w-xs bg-card border-r flex flex-col p-4 shadow-xl">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b">
-                <span className="text-sm font-bold">{title}</span>
-                <button onClick={{() => setMobileOpen(false)}} className="p-1 text-muted-foreground hover:text-foreground">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <nav className="flex-1 space-y-1">
-{nav_items_mobile}
-              </nav>
-              <div className="border-t pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">U</div>
-                  <div>
-                    <p className="text-xs font-medium">User</p>
-                    <p className="text-xs text-muted-foreground">user@example.com</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {{/* Click outside to close */}}
-            <div className="flex-1" onClick={{() => setMobileOpen(false)}}></div>
-          </div>
-        )}}
-
-        {{/* Main Content Area */}}
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-background">
-{pages}
-        </main>
-      </div>
-    </div>
-  )
-}}
-'''
-
-    def _gen_router_layout(self, app: ast.AppDecl,
-                            components: Dict[str, ast.ComponentDecl],
-                            comp_imports: str) -> str:
-        layout = app.layout
-        title  = app.title
-        routes = layout.routes
-
-        route_elements = "\n".join(
-            f'        <Route path="{r.path}" element={{<{r.component or "div"} />}} />'
-            for r in routes
-        )
-        # Nav links for each route
-        nav_links = "\n".join(
-            f'          <NavLink to="{r.path}" '
-            f'className={{({{isActive}}) => isActive ? "font-bold text-primary" : "text-muted-foreground"}}'
-            f'>{r.component}</NavLink>'
-            for r in routes
-        )
-
-        return f'''\
-import React from "react"
-import {{ BrowserRouter, Routes, Route, NavLink }} from "react-router-dom"
-{comp_imports}
-import "./globals.css"
-
-export default function App() {{
-  return (
-    <BrowserRouter>
-      <div className="flex min-h-screen bg-background">
-        <aside className="w-56 border-r p-4 flex flex-col gap-2">
-          <h2 className="text-lg font-bold mb-4">{title}</h2>
-{nav_links}
-        </aside>
-        <main className="flex-1 p-6">
-          <Routes>
-{route_elements}
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
-  )
-}}
-'''
-
-    # ── Boilerplate file generators ────────────────────────────────────────────
-
     def _gen_api_service(self, app: Optional[ast.AppDecl]) -> str:
         return '''\
 /**
- * MCN API service - auto-generated.
- * All endpoint calls go through this module so components stay clean.
+ * Calls to the MCN backend. Every endpoint answers POST with a JSON body.
+ * The address comes from window.MCN_API_URL (set by Studio's preview), then
+ * VITE_API_URL, then http://localhost:8080.
  */
 
-const BASE = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8080"
+const BASE: string =
+  (typeof window !== "undefined" && (window as any).MCN_API_URL) ||
+  (import.meta as any).env?.VITE_API_URL ||
+  "http://localhost:8080"
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method:  body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" },
-    body:    body ? JSON.stringify(body) : undefined,
-  })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method:  body === undefined ? "GET" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    window.dispatchEvent(new CustomEvent("mcn:backend-offline", { detail: BASE }))
+    throw new Error(`Can't reach the backend at ${BASE}. Is it running?`)
+  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error((data && (data.error || data.detail)) || `${path} failed (${res.status})`)
+  return data as T
 }
 
 export const api = {
-  get:  <T = any>(path: string)              => request<T>(path),
-  post: <T = any>(path: string, body: unknown) => request<T>(path, body),
+  get:  <T = any>(path: string)                 => request<T>(path),
+  post: <T = any>(path: string, body: unknown = {}) => request<T>(path, body),
 }
 '''
 
@@ -2187,33 +2002,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 "build":   "tsc && vite build",
                 "preview": "vite preview",
             },
+            # Everything else (components, charts, icons, toasts, routing) is the
+            # MCN UI kit, copied into src/ — so React is the only dependency
             "dependencies": {
                 "react":           "^18.3.1",
                 "react-dom":       "^18.3.1",
-                "sonner":          "^1.5.0",   # toast() notifications
-                "class-variance-authority": "^0.7.1",
-                "clsx":            "^2.1.1",
-                "lucide-react":    "^0.446.0",
-                "tailwind-merge":  "^2.5.2",
-                "tailwindcss-animate": "^1.0.7",
-                "@radix-ui/react-slot":         "^1.1.0",
-                "@radix-ui/react-checkbox":     "^1.1.1",
-                "@radix-ui/react-switch":       "^1.1.0",
-                "@radix-ui/react-radio-group":  "^1.2.0",
-                "@radix-ui/react-tooltip":      "^1.1.2",
-                "@radix-ui/react-accordion":    "^1.2.0",
-                "@radix-ui/react-dropdown-menu":"^2.1.1",
-                "@radix-ui/react-dialog":       "^1.1.1",
-                "@radix-ui/react-select":       "^2.1.1",
-                "@radix-ui/react-tabs":         "^1.1.0",
-                "@radix-ui/react-popover":      "^1.1.1",
-                "@radix-ui/react-label":        "^2.1.0",
-                "@radix-ui/react-separator":    "^1.1.0",
-                "@radix-ui/react-scroll-area":  "^1.1.0",
-                "@radix-ui/react-avatar":       "^1.1.0",
-                "@radix-ui/react-progress":     "^1.1.0",
-                "recharts":        "^2.12.0",
-                "react-router-dom": "^6.26.0",
             },
             "devDependencies": {
                 "@types/react":        "^18.3.0",
@@ -2281,7 +2074,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 }
 
 export default config
@@ -2375,464 +2168,17 @@ export default {
 '''
 
     def _write_ui_components(self, src: Path) -> List[Path]:
-        ui_dir = src / "components" / "ui"
-        ui_dir.mkdir(parents=True, exist_ok=True)
+        """Copy the MCN UI kit (mcn/ui-kit/react/src) into the generated project.
+
+        The same source is bundled for Studio's live preview, so an exported app
+        and its preview render with identical components."""
         written: List[Path] = []
-
-        components = {
-            "card.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("rounded-xl border bg-card text-card-foreground shadow-sm", className)} {...props} />
-  )
-)
-Card.displayName = "Card"
-
-export const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
-  )
-)
-CardHeader.displayName = "CardHeader"
-
-export const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
-  )
-)
-CardTitle.displayName = "CardTitle"
-
-export const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
-  )
-)
-CardDescription.displayName = "CardDescription"
-
-export const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-  )
-)
-CardContent.displayName = "CardContent"
-
-export const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />
-  )
-)
-CardFooter.displayName = "CardFooter"
-''',
-            "table.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
-    </div>
-  )
-)
-Table.displayName = "Table"
-
-export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
-)
-TableHeader.displayName = "TableHeader"
-
-export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <tbody ref={ref} className={cn("[&_tr:last-child]:border-0", className)} {...props} />
-)
-TableBody.displayName = "TableBody"
-
-export const TableFooter = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <tfoot ref={ref} className={cn("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", className)} {...props} />
-)
-TableFooter.displayName = "TableFooter"
-
-export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
-  ({ className, ...props }, ref) => (
-    <tr ref={ref} className={cn("border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", className)} {...props} />
-  )
-)
-TableRow.displayName = "TableRow"
-
-export const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <th ref={ref} className={cn("h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]", className)} {...props} />
-  )
-)
-TableHead.displayName = "TableHead"
-
-export const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]", className)} {...props} />
-  )
-)
-TableCell.displayName = "TableCell"
-''',
-            "sheet.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export interface SheetProps {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  children?: React.ReactNode
-}
-
-export const Sheet: React.FC<SheetProps> = ({ open, onOpenChange, children }) => {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex justify-end" onClick={() => onOpenChange?.(false)}>
-      <div className="relative w-full max-w-md bg-background p-6 shadow-lg h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-export const SheetContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("flex flex-col h-full", className)} {...props}>{children}</div>
-)
-
-export const SheetHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("flex flex-col space-y-2 text-center sm:text-left mb-4", className)} {...props}>{children}</div>
-)
-
-export const SheetTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({ className, children, ...props }) => (
-  <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props}>{children}</h2>
-)
-
-export const SheetDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({ className, children, ...props }) => (
-  <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>
-)
-
-export const SheetFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-auto pt-4 border-t", className)} {...props}>{children}</div>
-)
-
-export const SheetTrigger: React.FC<{ children?: React.ReactNode; asChild?: boolean }> = ({ children }) => <>{children}</>
-''',
-            "button.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
-  size?: "default" | "sm" | "lg" | "icon"
-}
-
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", ...props }, ref) => {
-    return (
-      <button
-        ref={ref}
-        className={cn(
-          "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          variant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90",
-          variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-          variant === "outline" && "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-          variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-          variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
-          variant === "link" && "text-primary underline-offset-4 hover:underline",
-          size === "default" && "h-10 px-4 py-2",
-          size === "sm" && "h-9 rounded-md px-3",
-          size === "lg" && "h-11 rounded-md px-8",
-          size === "icon" && "h-10 w-10",
-          className
-        )}
-        {...props}
-      />
-    )
-  }
-)
-Button.displayName = "Button"
-''',
-            "input.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
-
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
-    return (
-      <input
-        type={type}
-        className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Input.displayName = "Input"
-''',
-            "label.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
-  ({ className, ...props }, ref) => (
-    <label ref={ref} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)} {...props} />
-  )
-)
-Label.displayName = "Label"
-''',
-            "dialog.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export interface DialogProps {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  children?: React.ReactNode
-}
-
-export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => onOpenChange?.(false)}>
-      <div className="relative w-full max-w-lg bg-background p-6 shadow-lg rounded-lg" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-export const DialogContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("space-y-4", className)} {...props}>{children}</div>
-)
-
-export const DialogHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props}>{children}</div>
-)
-
-export const DialogTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({ className, children, ...props }) => (
-  <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h2>
-)
-
-export const DialogDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({ className, children, ...props }) => (
-  <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>
-)
-
-export const DialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4", className)} {...props}>{children}</div>
-)
-
-export const DialogTrigger: React.FC<{ children?: React.ReactNode; asChild?: boolean }> = ({ children }) => <>{children}</>
-''',
-            "tabs.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-interface TabsContextValue {
-  value: string
-  setValue: (v: string) => void
-}
-const TabsContext = React.createContext<TabsContextValue>({ value: "", setValue: () => {} })
-
-export const Tabs: React.FC<{ defaultValue?: string; value?: string; onValueChange?: (v: string) => void; className?: string; children?: React.ReactNode }> = ({ defaultValue = "", value: controlledValue, onValueChange, className, children }) => {
-  const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue)
-  const isControlled = controlledValue !== undefined
-  const currentValue = isControlled ? controlledValue : uncontrolledValue
-  const handleChange = (v: string) => {
-    if (!isControlled) setUncontrolledValue(v)
-    onValueChange?.(v)
-  }
-  return (
-    <TabsContext.Provider value={{ value: currentValue, setValue: handleChange }}>
-      <div className={cn("space-y-4", className)}>{children}</div>
-    </TabsContext.Provider>
-  )
-}
-
-export const TabsList: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground", className)} {...props} />
-)
-
-export const TabsTrigger: React.FC<{ value: string; className?: string; children?: React.ReactNode }> = ({ value, className, children }) => {
-  const ctx = React.useContext(TabsContext)
-  const active = ctx.value === value
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-        active && "bg-background text-foreground shadow-sm",
-        className
-      )}
-      onClick={() => ctx.setValue(value)}
-    >{children}</button>
-  )
-}
-
-export const TabsContent: React.FC<{ value: string; className?: string; children?: React.ReactNode }> = ({ value, className, children }) => {
-  const ctx = React.useContext(TabsContext)
-  if (ctx.value !== value) return null
-  return <div className={cn("mt-2 ring-offset-background focus-visible:outline-none", className)}>{children}</div>
-}
-''',
-            "badge.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Badge: React.FC<React.HTMLAttributes<HTMLDivElement> & { variant?: string }> = ({ className, variant, ...props }) => (
-  <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80", className)} {...props} />
-)
-''',
-            "separator.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Separator: React.FC<React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }> = ({ className, orientation = "horizontal", ...props }) => (
-  <div className={cn("shrink-0 bg-border", orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]", className)} {...props} />
-)
-''',
-            "stat.tsx": '''import * as React from "react"
-import { Card, CardContent } from "./card"
-import { cn } from "@/lib/utils"
-
-export interface StatProps {
-  label?: string
-  value?: string | number
-  change?: number | string
-  trend?: number | string
-  unit?: string
-  className?: string
-}
-
-export const Stat: React.FC<StatProps> = ({ label = "Overview", value = "$0", change, trend, unit = "", className }) => {
-  const valTrend = change !== undefined ? change : trend
-  return (
-    <Card className={cn("my-2", className)}>
-      <CardContent className="p-4">
-        <div className="text-xs font-semibold text-primary uppercase tracking-wider">{label}</div>
-        <div className="text-2xl font-bold mt-1 flex items-baseline">
-          {value} {unit && <span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>}
-          {valTrend !== undefined && (
-            <span className="text-xs text-green-500 font-semibold ml-2">↑ +{valTrend}%</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-export default Stat
-''',
-            # Lightweight, dependency-free versions of the remaining shadcn
-            # components the compiler can emit (same export names and props).
-            "textarea.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => (
-    <textarea ref={ref} className={cn("flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)} {...props} />
-  )
-)
-Textarea.displayName = "Textarea"
-''',
-            "select.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-// Native <select> behind the shadcn Select API: Select > SelectTrigger > SelectValue, SelectContent > SelectItem
-type Ctx = { value?: string; onValueChange?: (v: string) => void; placeholder?: string; setPlaceholder: (p?: string) => void }
-const SelectCtx = React.createContext<Ctx>({ setPlaceholder: () => {} })
-
-export function Select({ value, defaultValue, onValueChange, children }: {
-  value?: any; defaultValue?: any; onValueChange?: (v: string) => void; children?: React.ReactNode
-}) {
-  const [placeholder, setPlaceholder] = React.useState<string | undefined>()
-  const [inner, setInner] = React.useState<string>(defaultValue != null ? String(defaultValue) : "")
-  const current = value != null ? String(value) : inner
-  const change = (v: string) => { setInner(v); onValueChange?.(v) }
-  return <SelectCtx.Provider value={{ value: current, onValueChange: change, placeholder, setPlaceholder }}>{children}</SelectCtx.Provider>
-}
-
-export function SelectTrigger({ children }: { children?: React.ReactNode; className?: string }) {
-  return <>{children}</>
-}
-
-export function SelectValue({ placeholder }: { placeholder?: string }) {
-  const { setPlaceholder } = React.useContext(SelectCtx)
-  React.useEffect(() => { setPlaceholder(placeholder) }, [placeholder])
-  return null
-}
-
-export function SelectContent({ children, className }: { children?: React.ReactNode; className?: string }) {
-  const { value, onValueChange, placeholder } = React.useContext(SelectCtx)
-  return (
-    <select
-      className={cn("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring", className)}
-      value={value ?? ""}
-      onChange={(e) => onValueChange?.(e.target.value)}
-    >
-      {placeholder !== undefined && <option value="" disabled>{placeholder}</option>}
-      {children}
-    </select>
-  )
-}
-
-export function SelectItem({ value, children }: { value: any; children?: React.ReactNode }) {
-  return <option value={String(value)}>{children}</option>
-}
-''',
-            "alert.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export function Alert({ className, variant, ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "destructive" }) {
-  return <div role="alert" className={cn("relative w-full rounded-lg border p-4", variant === "destructive" && "border-red-500/50 text-red-600", className)} {...props} />
-}
-
-export function AlertDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <div className={cn("text-sm", className)} {...props} />
-}
-''',
-            "scroll-area.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export function ScrollArea({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("relative overflow-auto", className)} {...props} />
-}
-''',
-            "avatar.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export function Avatar({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
-  return <span className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted", className)} {...props} />
-}
-
-export function AvatarImage({ className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
-  return <img className={cn("aspect-square h-full w-full", className)} {...props} />
-}
-
-export function AvatarFallback({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
-  return <span className={cn("flex h-full w-full items-center justify-center text-sm", className)} {...props} />
-}
-''',
-            "progress.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export function Progress({ value = 0, className }: { value?: number; className?: string }) {
-  const pct = Math.max(0, Math.min(100, Number(value) || 0))
-  return (
-    <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
-      <div className="h-full bg-primary transition-all" style={{ width: pct + "%" }} />
-    </div>
-  )
-}
-''',
-            "skeleton.tsx": '''import * as React from "react"
-import { cn } from "@/lib/utils"
-
-export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />
-}
-'''
-        }
-
-        for filename, content in components.items():
-            p = ui_dir / filename
-            p.write_text(content, encoding="utf-8")
-            written.append(p)
-            print(f"  write  {p.relative_to(self.out.parent)}")
-
+        for path in sorted(_KIT_DIR.rglob("*")):
+            if path.is_dir() or path.name == "index.ts":
+                continue
+            dest = src / path.relative_to(_KIT_DIR)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+            written.append(dest)
+        print(f"  write  {len(written)} MCN UI kit files → src/components/ui, src/lib")
         return written
-

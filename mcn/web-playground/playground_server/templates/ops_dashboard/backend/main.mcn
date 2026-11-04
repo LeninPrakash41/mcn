@@ -1,0 +1,61 @@
+// Operations Dashboard — backend
+// Orders and tasks in SQLite, seeded with sample data on first run.
+
+query("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer TEXT, region TEXT, status TEXT, amount REAL, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, owner TEXT, priority TEXT, stage TEXT)")
+
+if query("SELECT COUNT(*) AS n FROM orders")[0].n == 0
+    var customers = ["Acme Ltd", "Globex", "Initech", "Umbrella", "Hooli", "Stark Industries", "Wayne Corp", "Wonka", "Soylent", "Cyberdyne", "Tyrell", "Vandelay"]
+    var regions = ["North", "South", "East", "West"]
+    var statuses = ["Paid", "Paid", "Paid", "Pending", "Overdue", "Cancelled"]
+    for i in range(48)
+        var day = "2026-" + ("10" if i < 24 else "11") + "-" + pad_left(str(i % 24 + 1), 2, "0")
+        query("INSERT INTO orders (customer, region, status, amount, created_at) VALUES (?, ?, ?, ?, ?)",
+              (customers[i % 12], regions[i % 4], statuses[i % 6], 400 + (i * 137) % 2600, day))
+    var stages = ["Backlog", "In progress", "Review", "Done"]
+    var owners = ["Ada", "Grace", "Linus", "Margaret"]
+    var titles = ["Reconcile October invoices", "Chase overdue payments", "Onboard Hooli", "Refresh price list", "Audit refunds", "Ship Q4 report", "Renew Globex contract", "Clean CRM duplicates"]
+    for i, title in titles
+        query("INSERT INTO tasks (title, owner, priority, stage) VALUES (?, ?, ?, ?)", (title, owners[i % 4], ["High", "Medium", "Low"][i % 3], stages[i % 4]))
+
+service ops_api
+    port 8080
+
+    endpoint summary()
+        var paid = query("SELECT COALESCE(SUM(amount), 0) AS v FROM orders WHERE status = 'Paid'")[0].v
+        var open = query("SELECT COUNT(*) AS n FROM orders WHERE status IN ('Pending', 'Overdue')")[0].n
+        var overdue = query("SELECT COUNT(*) AS n FROM orders WHERE status = 'Overdue'")[0].n
+        var customers = query("SELECT COUNT(DISTINCT customer) AS n FROM orders")[0].n
+        return {success: true, data: {revenue: round(paid), open_orders: open, overdue: overdue, customers: customers}}
+
+    endpoint revenue_by_day()
+        return {success: true, data: query("SELECT substr(created_at, 6, 5) AS day, SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END) AS paid, SUM(CASE WHEN status != 'Paid' THEN amount ELSE 0 END) AS unpaid FROM orders GROUP BY created_at ORDER BY created_at")}
+
+    endpoint revenue_by_region()
+        return {success: true, data: query("SELECT region, SUM(amount) AS total FROM orders GROUP BY region ORDER BY total DESC")}
+
+    endpoint list_orders()
+        return {success: true, data: query("SELECT * FROM orders ORDER BY created_at DESC")}
+
+    endpoint delete_order(id)
+        query("DELETE FROM orders WHERE id = ?", id)
+        return {success: true}
+
+    endpoint list_tasks()
+        return {success: true, data: query("SELECT * FROM tasks ORDER BY id")}
+
+    endpoint move_task(id, stage)
+        query("UPDATE tasks SET stage = ? WHERE id = ?", (stage, id))
+        return {success: true}
+
+    endpoint ask_ops(message, history)
+        var facts = to_json(summary().data)
+        return {reply: ai("You are an operations assistant. Current numbers: " + facts + ". Answer briefly: " + message)}
+
+test "summary adds up paid revenue"
+    assert summary().data.revenue > 0
+
+test "moving a task changes its stage"
+    var task = list_tasks().data[0]
+    move_task(task.id, "Done")
+    assert filter(list_tasks().data, t => t.id == task.id)[0].stage == "Done"

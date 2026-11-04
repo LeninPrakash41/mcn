@@ -1,59 +1,96 @@
 # UI elements
 
-Elements available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented below their parent.
+Every element available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented under their parent. All of them come from the **MCN UI kit**: the same components render in Studio's preview and in the React app `mcn build` generates.
+
+## App frame
+
+The `app` block renders inside a shell with navigation, a header (breadcrumb, ⌘K search, notifications, dark-mode toggle) and a footer. See [layouts](#/guide/ui#layouts).
+
+| App line | Meaning |
+|---|---|
+| `title "Name"` | App name in the header and browser tab |
+| `logo "Rocket"` | Icon next to the title |
+| `footer "Acme Inc"` | Footer text |
+| `layout` → `sidebar` / `tabs` / `main` | How sections are arranged |
+| `nav "Label" Component icon="Users" group="Sales"` | A sidebar item; `group` adds a section heading |
+
+The sidebar collapses to icons (button or `Ctrl+\`), becomes a drawer on phones, and remembers its state. The active section is in the URL, so links and the back button work.
+
+## Data
+
+| Element | Attributes | What it does |
+|---|---|---|
+| `data_table` | `data`, `columns`, `title`, `description`, `filters`, `page_size`, `views`, `searchable`, `exportable`, `title_key`, `empty`, `add_label`, `on_add`, `on_row`, `on_edit`, `on_delete` | Search, a filter dropdown per column in `filters`, click-to-sort headers, pagination, `views=["table", "grid", "list"]`, CSV export, row actions. Status-like columns (`status`, `stage`, `priority`…) render as colored badges; money and dates are formatted. Without `data`, it shows the component's first list state |
+| `kanban` | `data`, `group_by`, `columns`, `title_key`, `fields`, `on_move`, `on_click` | A board with a column per value of `group_by`; drag cards between columns. `on_move` gets `{id, <group_by>: new value, item}` |
+| `table` | `data` | A plain table: `table_header` → `table_row` → `table_head "column"` and an empty `table_body` |
+| `stat_card` | `label`, `value`, `icon`, `color`, `unit`, `trend` | A KPI tile. `color`: blue, green, red, amber, purple |
+| `pagination` | `page`, `total`, `page_size` | Page controls for your own lists |
+
+## Charts
+
+All charts are responsive, show a tooltip on hover, draw a legend for several series and show an empty state when there's no data (`empty="No sales yet"`).
+
+| Element | Attributes |
+|---|---|
+| `bar_chart` | `data`, `x_key`, `y_key` (one key or a list), `stacked`, `height`, `colors` |
+| `line_chart` | `data`, `x_key`, `y_key`, `height`, `colors` |
+| `area_chart` | `data`, `x_key`, `y_key`, `height`, `colors` |
+| `pie_chart` | `data`, `name_key`, `value_key`, `height` |
+| `donut_chart` | `data`, `name_key`, `value_key`, `height` — the total shows in the middle |
+| `sparkline` | `data` (numbers, or objects with `y_key`), `height`, `width` |
+
+```mcn fragment
+render
+    bar_chart data=sales x_key="month" y_key=["won", "lost"] stacked height=280
+    donut_chart data=regions name_key="region" value_key="total"
+```
+
+## AI
+
+| Element | Attributes | What it does |
+|---|---|---|
+| `chat "Title"` | `endpoint`, `welcome`, `suggestions`, `placeholder`, `height`, `avatar` | A chat panel. Sends `{message, history}` to the endpoint and shows the reply (a string, or `reply`/`answer`/`message` from an object). Markdown, typing indicator, retry, copy |
+| `chat_widget` | same as `chat` | The chat as a floating button in the corner |
+| `agent_builder` | `agents`, `tools`, `models`, `on_save`, `on_test`, `on_delete` | Configure an agent (instructions, model, creativity, tools, knowledge, memory) and test it in a live chat. Sends `{agent}` to `on_save` and `{agent, message, history}` to `on_test` |
+| `workflow_builder` | `workflows`, `step_types`, `on_save`, `on_run` | A visual automation editor: a trigger (manual, schedule, webhook, new record) and steps (AI, condition, HTTP, database, notify, email, delay, transform, approval) with validation. Sends `{workflow}`; `on_run` returns `{steps: [{id, status, output, error}]}` |
+
+## Navigation and feedback
+
+| Element | Attributes | What it does |
+|---|---|---|
+| `breadcrumb` | `items` | `Home / Deals / Acme` — the last item is the current page |
+| `empty_state "Title"` | `description`, `icon` | A friendly placeholder for empty screens |
+| `alert "Message"` | `variant` | A highlighted message |
+| `badge "Label"` | `variant` | A small label |
+
+Notifications are a function, not an element: `notify("Saved", "success")` in any handler shows a toast and adds it to the bell in the header. Kinds: `info`, `success`, `warning`, `error`.
 
 ## Layout
 
 | Element | Attributes | Notes |
 |---|---|---|
-| `div` | `grid_cols=N`, `style` | A container; `grid_cols` lays children out in N columns |
-| `card` | | A bordered panel |
-| `card_header "Title"` | | The card's heading |
-| `card_content` | | The card's body |
+| `div` | `grid_cols=N`, `style` | `grid_cols` is responsive: one column on phones, two on tablets, N on wide screens |
+| `card`, `card_header "Title"`, `card_content` | | A bordered panel |
 | `separator` | | A horizontal rule |
 | `tabs`, `accordion`, `accordion_item` | | Grouped sections inside a component |
 | `modal`, `dialog`, `sheet` | `show=state_name` | Shown while the state is true |
-
-## Text
-
-| Element | Attributes | Notes |
-|---|---|---|
-| `text value` | | A value or state, e.g. `text message` |
-| `h1`, `h2`, `p` | | Headings and paragraphs: `h2 "Overview"` |
-| `badge "Label"` | `variant` | A small status label |
-| `alert "Message"` | `variant` | A highlighted message |
-| `tooltip` | | Hover help |
+| `h1`, `h2`, `p`, `text value` | | Headings, paragraphs and values |
 
 ## Forms
 
 | Element | Attributes | Notes |
 |---|---|---|
 | `form` | `on_submit=handler` | Runs `on handler` when submitted |
-| `input` | `bind=state`, `label`, `type` | Two-way bound; `type="number"` gives numbers |
+| `input` | `bind=state`, `label`, `type`, `placeholder` | Two-way bound; `type="number"` gives numbers |
 | `textarea` | `bind`, `label` | Multi-line input |
 | `select` | `bind`, `options=[...]`, `label` | A dropdown |
 | `checkbox`, `switch` | `bind`, `label` | True/false |
 | `radio_group` | `bind`, `options`, `label` | One of several |
-| `file_upload` | `label` | File picker |
-| `button "Label"` | `variant` (`default`, `outline`, `destructive`, ...), `disabled` | Inside a `form`, submits it |
+| `button "Label"` | `variant` (`default`, `outline`, `destructive`…), `disabled` | Inside a `form`, submits it |
 
-## Data
+## Icons
 
-| Element | Attributes | Notes |
-|---|---|---|
-| `table` | `data=list` | With `table_header` → `table_row` → `table_head "column"` and an empty `table_body`, rows are generated from the list |
-| `data_grid` | `data` | A data grid for larger lists |
-| `pagination` | | Page controls for long lists |
-| `stat_card` / `stat` | `label`, `value`, `icon`, `color`, `unit` | A KPI tile; `icon` takes a [Lucide](https://lucide.dev/icons) name |
-
-## Charts
-
-| Element | Attributes |
-|---|---|
-| `bar_chart` | `data`, `x_key`, `y_key`, `height` |
-| `line_chart` | `data`, `x_key`, `y_key`, `height` |
-| `pie_chart` | `data`, `x_key` (labels), `y_key` (values), `height` |
-| `gantt_chart` | `data` |
+Any `icon=` attribute takes a [Lucide](https://lucide.dev/icons) icon name such as `Users`, `TrendingUp`, `ShoppingCart`, `Bot` or `Workflow` (case doesn't matter). MCN includes about 170 common icons; an unknown name shows a circle.
 
 ## Repeating
 
@@ -65,7 +102,3 @@ render
 ```
 
 `for name in list` repeats its children for each item.
-
-## App layout
-
-The `app` block (outside components) takes `title`, `theme` and a `layout` with `tabs` (`tab "Label" Component`), `sidebar` (`nav "Label" Component`) or `main` (component names). See [user interfaces](#/guide/ui#layouts).
