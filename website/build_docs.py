@@ -33,12 +33,13 @@ CATEGORIES = [
     ("Time", "now now_ms format_date sleep"),
     ("Database", "query connect_postgresql connect_mongodb datasource"),
     ("HTTP, files and environment", "fetch http_get http_post trigger read_file write_file append_file env env_get send_email"),
-    ("AI", "ai llm classify extract embed rag checkpoint vector_upsert vector_search vector_add vector_delete vector_clear "
+    ("AI", "ai llm agent_run classify extract embed rag checkpoint vector_upsert vector_search vector_add vector_delete vector_clear "
            "memory_store memory_add memory_get memory_search memory_all memory_clear translate"),
     ("Tasks, events and IoT", "task await on trigger_event workflow pipeline device"),
     ("Sessions, cache and queues", "session_set session_get session_delete session_all session_clear "
                                    "cache_set cache_get cache_delete cache_clear queue_push queue_pop queue_peek queue_size queue_len queue_clear"),
-    ("Security", "auth_hash_password auth_verify_password auth_create_token auth_verify_token jwt_sign jwt_verify "
+    ("Security", "validate escape_html sanitize_html is_email is_url password_strength rate_limit require "
+                 "secure_token safe_equals mask audit_log verify_audit_log current_user auth_hash_password auth_verify_password auth_create_token auth_verify_token jwt_sign jwt_verify "
                  "sha256 md5 uuid base64_encode base64_decode hash_data"),
     ("Machine learning", "load_dataset preprocess train predict batch_predict compare_models export_model "
                          "deploy_model fine_tune get_training_status"),
@@ -73,6 +74,10 @@ DESCRIPTIONS = {
     "read_file": "Read a text file.", "write_file": "Write a text file.", "append_file": "Append to a text file.",
     "env": "Read an environment variable (null if unset).",
     "rag": "Answer a question from documents: rag(question, docs).",
+    "agent_run": "Let Claude call your functions as tools: agent_run(prompt, {tools: [\"name\"], system}). Returns {reply, tool_calls, steps}.",
+    "validate": "Check input against rules: validate(data, {email: \"required|email\"}). Returns {valid, errors}.",
+    "require": "Stop with a message unless a condition holds: require(user.admin, \"Admins only\").",
+    "current_user": "Who called this endpoint: the JWT payload, {token: true}, or null.",
     "task": "Run a function in the background: task \"name\" function args.",
     "await": "Wait for tasks; results by name (r.name) or position (r[0]).",
     "on": "Register an event handler.", "device": "IoT: register, read or send a command to a device.",

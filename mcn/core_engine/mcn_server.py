@@ -24,7 +24,7 @@ import os
 import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from .mcn_interpreter import MCNInterpreter
 from .lexer import Lexer
 from .parser import Parser
@@ -43,6 +43,28 @@ try:
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
+
+
+def _guard(evaluator: Evaluator, fn_name: str, authorization: Optional[str], client: str,
+           body_length: int = 0) -> Optional[Tuple[int, str]]:
+    """Checks before an endpoint runs. Returns (status, error) to refuse, or None to allow.
+
+    Only declared endpoints are reachable — never built-ins like query() or
+    write_file(). Endpoints of an `auth` service need a valid bearer token.
+    """
+    from . import security
+    if fn_name not in evaluator.function_params:
+        return 404, f"Unknown endpoint: '{fn_name}'"
+    limit = security.server_rate_limit()
+    if limit and not security.SERVER_LIMITER.allow(client, limit, 60):
+        return 429, "Too many requests. Try again in a minute."
+    if body_length > security.max_body_bytes():
+        return 413, "Request body is too large"
+    ok, user, error = security.check_auth(evaluator.endpoint_auth.get(fn_name, ""), authorization)
+    if not ok:
+        return 401, error
+    security.set_current_user(user)
+    return None
 
 
 def _coerce(raw):
@@ -76,15 +98,28 @@ class MCNServer:
         if HAS_FASTAPI:
             self.app = FastAPI(title="MCN API", version=__import__("mcn.version", fromlist=["x"]).__version__)
 
-            # Add CORS middleware
+            # CORS: origins from MCN_CORS_ORIGINS (default any). Auth uses bearer
+            # tokens, not cookies, so credentials stay off.
             from fastapi.middleware.cors import CORSMiddleware
+            from . import security
+            origins = [o.strip() for o in os.getenv("MCN_CORS_ORIGINS", "*").split(",") if o.strip()]
             self.app.add_middleware(
                 CORSMiddleware,
-                allow_origins=["*"],
-                allow_credentials=True,
-                allow_methods=["*"],
-                allow_headers=["*"],
+                allow_origins=origins,
+                allow_credentials=False,
+                allow_methods=["GET", "POST", "OPTIONS"],
+                allow_headers=["Content-Type", "Authorization"],
             )
+
+            @self.app.middleware("http")
+            async def security_headers(request: Request, call_next):
+                response = await call_next(request)
+                for key, value in security.SECURITY_HEADERS.items():
+                    # The interactive docs page loads its own scripts and styles
+                    if key == "Content-Security-Policy" and request.url.path in ("/docs", "/redoc", "/openapi.json"):
+                        continue
+                    response.headers.setdefault(key, value)
+                return response
 
             try:
                 from apscheduler.schedulers.background import BackgroundScheduler
@@ -130,46 +165,10 @@ class MCNServer:
             if ev.function_params:
                 return f"/{os.path.basename(script_path)}"
 
-        script_name = os.path.basename(script_path).replace(".mcn", "")
-        endpoint = endpoint or f"/{script_name}"
-
-        # Create interpreter for this script
-        interpreter = MCNInterpreter()
-
-        # Read and parse script
-        with open(script_path, "r", encoding="utf-8") as f:
-            script_content = f.read()
-
-        self.interpreters[endpoint] = {
-            "interpreter": interpreter,
-            "script": script_content,
-            "path": script_path,
-        }
-
-        # Create FastAPI route
-        @self.app.post(endpoint)
-        async def execute_script(data: Dict[str, Any] = None):
-            try:
-                # Set request data as variables
-                if data:
-                    for key, value in data.items():
-                        interpreter.variables[key] = value
-
-                # Execute script
-                result = interpreter.execute(script_content)
-
-                return JSONResponse(
-                    {
-                        "success": True,
-                        "result": result,
-                        "variables": interpreter.variables,
-                    }
-                )
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        self.routes[endpoint] = script_path
-        return endpoint
+        # A file without a service has nothing to expose. (Running a whole script
+        # per request and returning its variables would leak secrets.)
+        print(f"Warning: {os.path.basename(script_path)} declares no service endpoints; nothing to serve.")
+        return None
 
     def _register_fastapi_endpoint(self, fn_name: str, params: List[str], evaluator: Evaluator):
         def run(args):
@@ -179,7 +178,15 @@ class MCNServer:
             except Exception as e:
                 return JSONResponse({"error": str(e)}, status_code=500)
 
+        def refused(request: Request, length: int = 0):
+            client = request.client.host if request.client else "?"
+            problem = _guard(evaluator, fn_name, request.headers.get("authorization"), client, length)
+            return JSONResponse({"error": problem[1]}, status_code=problem[0]) if problem else None
+
         async def post_endpoint(request: Request):
+            blocked = refused(request, int(request.headers.get("content-length") or 0))
+            if blocked:
+                return blocked
             content_type = request.headers.get("content-type", "")
             if "multipart/form-data" in content_type:
                 body = dict(await request.form())
@@ -194,6 +201,9 @@ class MCNServer:
             return run(args)
 
         async def get_endpoint(request: Request, path_arg: str = None):
+            blocked = refused(request)
+            if blocked:
+                return blocked
             return run(_get_args(params, path_arg, dict(request.query_params)))
 
         self.app.add_api_route(f"/{fn_name}", post_endpoint, methods=["POST"])
@@ -269,23 +279,34 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
         def log_message(self, fmt, *args):  # suppress default access log
             pass
 
+        def _cors(self):
+            from . import security
+            self.send_header("Access-Control-Allow-Origin", security.cors_origin(self.headers.get("Origin")))
+            self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
         def _send_json(self, status: int, obj: Any):
+            from . import security
             body = json.dumps(obj, default=str).encode()
             self.send_response(status)
             self.send_header("Content-Type",  "application/json")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin",  cors_origin)
-            self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self._cors()
+            for key, value in security.SECURITY_HEADERS.items():
+                self.send_header(key, value)
             self.end_headers()
             self.wfile.write(body)
 
         def do_OPTIONS(self):
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin",  cors_origin)
-            self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_response(204)
+            self._cors()
             self.end_headers()
+
+        def _refused(self, fn_name: str, length: int = 0) -> bool:
+            problem = _guard(evaluator, fn_name, self.headers.get("Authorization"), self.client_address[0], length)
+            if problem:
+                self._send_json(problem[0], {"error": problem[1]})
+            return bool(problem)
 
         def _resolve_endpoint(self, raw_path: str):
             """
@@ -312,14 +333,13 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             if not fn_name:
                 # Health / route list
                 routes = [
-                    {"name": k, "params": v, "methods": ["POST"] + (["GET"] if any(k.startswith(p) for p in _GET_PREFIXES) else [])}
+                    {"name": k, "params": v, "methods": ["GET", "POST"], "auth": evaluator.endpoint_auth.get(k) or None}
                     for k, v in evaluator.function_params.items()
                 ]
                 self._send_json(200, {"status": "ok", "version": "MCN/2.0", "endpoints": routes})
                 return
 
-            if fn_name not in evaluator.functions:
-                self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
+            if self._refused(fn_name):
                 return
 
             args = _get_args(evaluator.function_params.get(fn_name, []), path_arg, query_params)
@@ -332,12 +352,11 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
 
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
-            if fn_name not in evaluator.functions:
-                self._send_json(404, {"error": f"Unknown endpoint: '{fn_name}'"})
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            if self._refused(fn_name, length):
                 return
 
             # Read JSON body (optional)
-            length = int(self.headers.get("Content-Length", 0))
             body: Dict[str, Any] = {}
             if length:
                 try:
@@ -388,7 +407,7 @@ def serve_script(script_path: str, host: str = "127.0.0.1", port: Optional[int] 
         sys.exit(1)
 
     if not ev.function_params:
-        print("Warning: no service endpoints found — serving raw functions only")
+        print("Warning: no service endpoints found; add a `service` block to expose functions.")
 
     handler = _make_handler(ev)
     server  = HTTPServer((host, port), handler)
@@ -414,6 +433,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
     # Merge all evaluators by loading each file
     all_fns:     Dict[str, Any]        = {}
     all_params:  Dict[str, List[str]]  = {}
+    all_auth:    Dict[str, str]        = {}
 
     for fname in sorted(os.listdir(directory)):
         if not fname.endswith(".mcn"):
@@ -423,6 +443,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
             ev = _load_evaluator(path)
             all_fns.update(ev.functions)
             all_params.update(ev.function_params)
+            all_auth.update(ev.endpoint_auth)
             print(f"  loaded  {fname}  ({len(ev.function_params)} endpoints)")
         except Exception as exc:
             print(f"  error   {fname}: {exc}")
@@ -431,6 +452,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
     class _Stub:
         functions      = all_fns
         function_params = all_params
+        endpoint_auth   = all_auth
 
     handler = _make_handler(_Stub())  # type: ignore[arg-type]
     server  = HTTPServer((host, port), handler)

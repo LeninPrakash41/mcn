@@ -1,4 +1,6 @@
 """Preview serving and the Vite/MCN dev servers."""
+import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +19,14 @@ from .core import (
 )
 
 bp = Blueprint("devserver", __name__)
+
+# Token for services declared with `auth "token"` while previewing. The backend
+# gets it as MCN_API_TOKEN and the preview sends it as a bearer token.
+_DEV_TOKEN = os.getenv("MCN_API_TOKEN") or secrets.token_urlsafe(24)
+
+
+def _env(**extra) -> dict:
+    return {**os.environ, "MCN_API_TOKEN": _DEV_TOKEN, **extra}
 
 _PREVIEW_PAGE = Path(__file__).resolve().parent / "preview_live.html"
 
@@ -66,6 +76,7 @@ def preview_source():
         if p.is_file() and p.suffix in (".ts", ".tsx", ".css") and not rel.startswith(("components/ui/", "lib/")):
             files[rel] = p.read_text(encoding="utf-8")
     return jsonify({"success": True, "files": files, "api_url": f"http://localhost:{_BACKEND_PORT}",
+                    "api_token": _DEV_TOKEN,
                     "backend_running": bool(core._mcn_backend and core._mcn_backend.poll() is None)})
 
 
@@ -102,6 +113,7 @@ def devserver_start():
                      "--file", str(backend_file), "--host", "0.0.0.0",
                      "--port", str(_BACKEND_PORT)],
                     cwd=str(_ROOT_DIR),
+                    env=_env(),
                     stdout=b_out,
                     stderr=b_err,
                 )
@@ -121,6 +133,7 @@ def devserver_start():
             core._dev_server = subprocess.Popen(
                 ["npm", "run", "dev", "--", "--port", str(_DEV_PORT), "--host", "--strictPort"],
                 cwd=str(frontend),
+                env=_env(VITE_API_TOKEN=_DEV_TOKEN),
                 stdout=f_out,
                 stderr=f_err,
             )

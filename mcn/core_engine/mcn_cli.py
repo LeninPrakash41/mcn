@@ -762,6 +762,15 @@ def main():
         help="Print diagnostics as JSON (for editors and CI)"
     )
 
+    # Audit command
+    audit_parser = subparsers.add_parser(
+        "audit", help="Scan MCN code for security problems (SQL injection, secrets, open services)"
+    )
+    audit_parser.add_argument("path", nargs="?", default=".", help="MCN file or folder (default: this folder)")
+    audit_parser.add_argument("--json", action="store_true", help="Print findings as JSON (for CI)")
+    audit_parser.add_argument("--fail-on", choices=["high", "medium", "low"], default="medium",
+                              help="Lowest severity that makes the command fail (default: medium)")
+
     # Test command
     test_parser = subparsers.add_parser(
         "test", help="Run test blocks in MCN scripts"
@@ -969,6 +978,10 @@ def main():
 
     elif args.command == "agent":
         return _cmd_agent(args)
+
+    elif args.command == "audit":
+        from .security_audit import audit_path
+        return audit_path(args.path, as_json=args.json, fail_on=args.fail_on)
 
     elif args.command == "check":
         return check_file(args.file, strict=getattr(args, "strict", False),

@@ -271,9 +271,17 @@ def mcn_auth_create_token(payload: Any, secret: str = "", expires_in: int = 3600
     header  = base64.urlsafe_b64encode(b'{"alg":"HS256"}').decode().rstrip("=")
     body    = base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip("=")
     msg     = f"{header}.{body}"
-    key     = str(secret).encode() if secret else b"mcn-default-secret"
+    key     = str(secret).encode() if secret else _install_secret().encode()
     sig     = hmac.new(key, msg.encode(), hashlib.sha256).hexdigest()
     return f"{msg}.{sig}"
+
+def _install_secret() -> str:
+    """The per-install signing secret (MCN_AUTH_SECRET or ~/.mcn/auth_secret) — never a shared default."""
+    try:
+        from .auth_primitives import _SECRET
+    except ImportError:
+        from auth_primitives import _SECRET  # type: ignore
+    return _SECRET
 
 def mcn_auth_verify_token(token: str, secret: str = "") -> Optional[Dict]:
     """
@@ -286,7 +294,7 @@ def mcn_auth_verify_token(token: str, secret: str = "") -> Optional[Dict]:
             return None
         header, body, sig = parts
         msg     = f"{header}.{body}"
-        key     = str(secret).encode() if secret else b"mcn-default-secret"
+        key     = str(secret).encode() if secret else _install_secret().encode()
         expected = hmac.new(key, msg.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
             return None
@@ -764,3 +772,9 @@ def register_stdlib_builtins(functions: dict) -> None:
         "queue_peek":        lambda name: _QUEUES.get(str(name), [None])[0] if _QUEUES.get(str(name)) else None,
         "queue_len":         lambda name: len(_QUEUES.get(str(name), [])),
     })
+    # Security: validation, escaping, rate limits, audit log (security.py)
+    try:
+        from .security import BUILTINS as _SECURITY
+    except ImportError:
+        from security import BUILTINS as _SECURITY  # type: ignore
+    functions.update(_SECURITY)

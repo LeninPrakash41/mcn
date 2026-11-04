@@ -134,6 +134,7 @@
       .then(function (d) {
         if (!d.success) return showError("This UI has an error", d.error, "Fix it in ui/app.mcn and build again.");
         window.MCN_API_URL = d.api_url;
+        window.MCN_API_TOKEN = d.api_token;
         applyTheme(d.files["globals.css"]);
         var App;
         try {

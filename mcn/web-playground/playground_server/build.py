@@ -53,15 +53,24 @@ def build_mcn():
             shutil.rmtree(legacy_flutter, ignore_errors=True)
 
         try:
-            try:
+            source = "manifest"
+            evaluator = None
+            if ui_path.exists():
+                # Compile the app's own MCN components when ui/app.mcn defines them
+                from mcn.core_engine.mcn_interpreter import MCNInterpreter
+                interp = MCNInterpreter()
+                interp.execute(ui_path.read_text(encoding="utf-8"), str(ui_path), quiet=True)
+                if interp._evaluator.components:
+                    evaluator = interp._evaluator
+            if evaluator is not None:
+                from mcn.fullstack.flutter_compiler import FlutterCompiler
+                from mcn.core_engine.ui_compiler import endpoints_from_backend
+                FlutterCompiler(endpoints=endpoints_from_backend(backend_path)).compile(evaluator, out_path, "mcn_mobile_app")
+                source = "ui/app.mcn"
+            else:
                 from mcn.fullstack.flutter_generator import FlutterProjectGenerator
-            except ImportError:
-                from fullstack.flutter_generator import FlutterProjectGenerator  # type: ignore
-                
-            gen = FlutterProjectGenerator()
-            gen.generate_project(str(manifest_path), str(out_path), "mcn_mobile_app")
+                FlutterProjectGenerator().generate_project(str(manifest_path), str(out_path), "mcn_mobile_app")
 
-            
             files = []
             for p in sorted(out_path.rglob("*")):
                 if p.is_file():
@@ -71,7 +80,8 @@ def build_mcn():
                 "success": True,
                 "platform": "flutter",
                 "files": files,
-                "stdout": f"✓ Generated Flutter mobile package with {len(files)} files in mobile/\n"
+                "source": source,
+                "stdout": f"✓ Generated the Flutter app from {source}: {len(files)} files in mobile/\n"
             })
         except Exception as e:
             return jsonify({"success": False, "error": str(e), "trace": traceback.format_exc()})
@@ -172,7 +182,7 @@ def download_project():
             from mcn.core_engine.mcn_deployer import _DOCKERFILE
             zf.writestr("Dockerfile", _DOCKERFILE)
             zf.writestr("docker-compose.yml", "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n")
-            zf.writestr(".env.example", "PORT=8080\nJWT_SECRET=mcn-secret\n")
+            zf.writestr(".env.example", "PORT=8080\n# A long random string, e.g. the output of: openssl rand -hex 32\nMCN_AUTH_SECRET=\nMCN_API_TOKEN=\n")
 
     buf.seek(0)
     filename = "mcn-flutter-app.zip" if platform == "flutter" else "mcn-fullstack-app.zip"

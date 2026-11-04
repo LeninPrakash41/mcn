@@ -1,6 +1,6 @@
 # UI elements
 
-Every element available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented under their parent. All of them come from the **MCN UI kit**: the same components render in Studio's preview and in the React app `mcn build` generates.
+Every element available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented under their parent. All of them come from the **MCN UI kit**: the same components render in Studio's preview and in the React app `mcn build` generates. Studio's **App** view compiles the same file to Flutter; the [web and mobile](#/reference/ui-elements) section at the end lists how each element appears there.
 
 ## App frame
 
@@ -21,7 +21,7 @@ The sidebar collapses to icons (button or `Ctrl+\`), becomes a drawer on phones,
 | Element | Attributes | What it does |
 |---|---|---|
 | `data_table` | `data`, `columns`, `title`, `description`, `filters`, `page_size`, `views`, `searchable`, `exportable`, `title_key`, `empty`, `add_label`, `on_add`, `on_row`, `on_edit`, `on_delete` | Search, a filter dropdown per column in `filters`, click-to-sort headers, pagination, `views=["table", "grid", "list"]`, CSV export, row actions. Status-like columns (`status`, `stage`, `priority`…) render as colored badges; money and dates are formatted. Without `data`, it shows the component's first list state |
-| `kanban` | `data`, `group_by`, `columns`, `title_key`, `fields`, `on_move`, `on_click` | A board with a column per value of `group_by`; drag cards between columns. `on_move` gets `{id, <group_by>: new value, item}` |
+| `kanban` | `data`, `group_by`, `columns`, `title_key`, `fields`, `on_move`, `on_click` | A board with a column per value of `group_by`. Move cards by dragging with a mouse, dragging the grip with a finger, or with ← → when a card has focus. `on_move` gets `{id, <group_by>: new value, item}` |
 | `table` | `data` | A plain table: `table_header` → `table_row` → `table_head "column"` and an empty `table_body` |
 | `stat_card` | `label`, `value`, `icon`, `color`, `unit`, `trend` | A KPI tile. `color`: blue, green, red, amber, purple |
 | `pagination` | `page`, `total`, `page_size` | Page controls for your own lists |
@@ -49,7 +49,7 @@ render
 
 | Element | Attributes | What it does |
 |---|---|---|
-| `chat "Title"` | `endpoint`, `welcome`, `suggestions`, `placeholder`, `height`, `avatar` | A chat panel. Sends `{message, history}` to the endpoint and shows the reply (a string, or `reply`/`answer`/`message` from an object). Markdown, typing indicator, retry, copy |
+| `chat "Title"` | `endpoint`, `welcome`, `suggestions`, `placeholder`, `height`, `avatar` | A chat panel. Sends `{message, history}` to the endpoint and shows the reply (a string, or `reply`/`answer`/`message` from an object). Markdown, typing indicator, retry, copy. If the reply has `tool_calls` (from `agent_run`), shows each tool used with its input and output |
 | `chat_widget` | same as `chat` | The chat as a floating button in the corner |
 | `agent_builder` | `agents`, `tools`, `models`, `on_save`, `on_test`, `on_delete` | Configure an agent (instructions, model, creativity, tools, knowledge, memory) and test it in a live chat. Sends `{agent}` to `on_save` and `{agent, message, history}` to `on_test` |
 | `workflow_builder` | `workflows`, `step_types`, `on_save`, `on_run` | A visual automation editor: a trigger (manual, schedule, webhook, new record) and steps (AI, condition, HTTP, database, notify, email, delay, transform, approval) with validation. Sends `{workflow}`; `on_run` returns `{steps: [{id, status, output, error}]}` |
@@ -91,6 +91,19 @@ Notifications are a function, not an element: `notify("Saved", "success")` in an
 ## Icons
 
 Any `icon=` attribute takes a [Lucide](https://lucide.dev/icons) icon name such as `Users`, `TrendingUp`, `ShoppingCart`, `Bot` or `Workflow` (case doesn't matter). MCN includes about 170 common icons; an unknown name shows a circle.
+
+## Web and mobile
+
+The React app supports every element on this page. The Flutter app maps them to native widgets:
+
+| On mobile | Elements |
+|---|---|
+| Native equivalent | `app` and `nav` (bottom navigation bar, or a drawer beyond five items), `card`, `stat_card`, `data_table` / `table` (a list of rows), `kanban` (long-press a card and drag it to a column), all five charts, `chat` / `chat_widget` (with tool calls), `form`, `input`, `textarea`, `select`, `checkbox`, `switch`, `button`, `badge`, `alert`, `empty_state`, `progress`, `img`, headings and text, `div` with `grid_cols` (columns on wide screens, one on phones) |
+| Shown one after another | `tabs`, `accordion` and their sections |
+| A note pointing to the web app | `agent_builder`, `workflow_builder` |
+| Left out | `sparkline`, `pagination`, `radio_group`, `breadcrumb`, `tooltip`, and `modal` / `dialog` / `sheet` with their contents |
+
+State, `on_load`, handlers, `if`/`for`, `notify()` and endpoint calls behave the same on both. Keep anything a phone user needs out of modals, or show it with `show=` on a normal element.
 
 ## Repeating
 

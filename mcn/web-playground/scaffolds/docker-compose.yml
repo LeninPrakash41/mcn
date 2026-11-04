@@ -12,7 +12,8 @@ services:
     environment:
       - PORT=8080
       - ENVIRONMENT=production
-      - JWT_SECRET=${JWT_SECRET:-mcn-super-secret-key-change-in-prod}
+      - MCN_AUTH_SECRET=${MCN_AUTH_SECRET:?Set MCN_AUTH_SECRET in .env (a long random string)}
+      - MCN_API_TOKEN=${MCN_API_TOKEN:-}
       - DATABASE_URL=${DATABASE_URL:-sqlite:///data/app.db}
     volumes:
       - mcn_data:/app/data

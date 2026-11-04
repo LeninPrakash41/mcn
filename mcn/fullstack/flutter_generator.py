@@ -101,12 +101,19 @@ class MCNClient {
   // Set with --dart-define=MCN_API_URL=... (Android emulator: http://10.0.2.2:8080)
   String baseUrl = const String.fromEnvironment('MCN_API_URL', defaultValue: 'http://localhost:8080');
 
+  // Bearer token for services declared with `auth`: --dart-define=MCN_API_TOKEN=...
+  // or set it after login.
+  String token = const String.fromEnvironment('MCN_API_TOKEN');
+
   // MCN services expose each endpoint as POST /<endpoint_name> with a JSON body
   Future<Map<String, dynamic>> call(String action, Map<String, dynamic> payload) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/$action'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
         body: json.encode(payload),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {

@@ -1569,7 +1569,7 @@ class UICompiler:
             if val is None:
                 props.append(key)
             elif isinstance(val, ast.Literal) and isinstance(val.value, str):
-                props.append(f"{key}={json.dumps(val.value)}")
+                props.append(f"{key}={{{json.dumps(val.value)}}}")
             else:
                 props.append(f"{key}={{{_expr_to_ts(val)}}}")
         # The element's text is its title (`chat "Support bot"`, `empty_state "No deals"`)
@@ -1636,7 +1636,7 @@ class UICompiler:
             if val is None:
                 props.append(key)  # boolean flag
             elif isinstance(val, ast.Literal) and isinstance(val.value, str):
-                props.append(f'{_camel(key)}={json.dumps(val.value)}')
+                props.append(f'{_camel(key)}={{{json.dumps(val.value)}}}')
             else:
                 props.append(f'{_camel(key)}={{{_expr_to_ts(val)}}}')
 
@@ -1796,9 +1796,9 @@ class UICompiler:
             items = f'  {{ label: "Home", icon: "Home", element: (\n      <div className="space-y-6">\n{stacked}\n      </div>\n    ) }}'
         extra = ""
         if app and app.footer:
-            extra += f" footer={json.dumps(app.footer)}"
+            extra += f" footer={{{json.dumps(app.footer)}}}"
         if app and app.logo:
-            extra += f" logo={json.dumps(app.logo)}"
+            extra += f" logo={{{json.dumps(app.logo)}}}"
         return f'''import {{ AppShell, type NavItem }} from "@/components/ui/app-shell"
 {imports}
 import "./globals.css"
@@ -1849,6 +1849,10 @@ export default function App() {{
  * Calls to the MCN backend. Every endpoint answers POST with a JSON body.
  * The address comes from window.MCN_API_URL (set by Studio's preview), then
  * VITE_API_URL, then http://localhost:8080.
+ *
+ * Services declared with `auth "token"` or `auth "jwt"` need a bearer token.
+ * It comes from window.MCN_API_TOKEN, then localStorage "mcn_token" (set it
+ * after login), then VITE_API_TOKEN.
  */
 
 const BASE: string =
@@ -1856,12 +1860,24 @@ const BASE: string =
   (import.meta as any).env?.VITE_API_URL ||
   "http://localhost:8080"
 
+function token(): string {
+  try {
+    return (window as any).MCN_API_TOKEN || localStorage.getItem("mcn_token") || (import.meta as any).env?.VITE_API_TOKEN || ""
+  } catch {
+    return (import.meta as any).env?.VITE_API_TOKEN || ""
+  }
+}
+
+export function setToken(value: string | null) {
+  try { value ? localStorage.setItem("mcn_token", value) : localStorage.removeItem("mcn_token") } catch {}
+}
+
 async function request<T>(path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${BASE}${path}`, {
       method:  body === undefined ? "GET" : "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(token() ? { Authorization: `Bearer ${token()}` } : {}) },
       body:    body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {

@@ -27,6 +27,8 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn check <file>` | Syntax errors, never-defined names and type problems, without running |
 | `mcn check --json <file>` | The same as JSON: `{"file", "diagnostics": [{kind, message, line, col, length, hint, severity}]}` |
 | `mcn check --strict <file>` | Treat warnings as errors |
+| `mcn audit [file or folder]` | Find security problems: SQL injection, hard-coded secrets, open services and more. See [security](#/guide/security) |
+| `mcn audit --json` / `--fail-on high\|medium\|low` | JSON output for CI / the lowest severity that fails (default `medium`) |
 | `mcn fmt <file or folder>` | Print formatted code |
 | `mcn fmt --write <path>` | Format in place |
 | `mcn fmt --check <path>` | Exit 1 if anything needs formatting (for CI) |

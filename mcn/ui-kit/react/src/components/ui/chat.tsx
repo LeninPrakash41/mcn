@@ -6,7 +6,8 @@ import { Icon } from "./icon"
    reply — a string, or an object with a `reply`, `answer`, `message` or `data`
    field (the shapes MCN endpoints usually return). */
 
-export interface ChatMessage { role: "user" | "assistant"; content: string; time: number; error?: boolean }
+export interface ToolCall { name: string; input?: any; output?: any; error?: string; ms?: number }
+export interface ChatMessage { role: "user" | "assistant"; content: string; time: number; error?: boolean; tools?: ToolCall[] }
 
 export interface ChatProps {
   onSend?: (message: string, history: { role: string; content: string }[]) => Promise<any> | any
@@ -31,6 +32,36 @@ function replyText(r: any): string {
   }
   if (r.success === false && r.error) throw new Error(String(r.error))
   return JSON.stringify(r)
+}
+
+/** The tools an agent called for this reply (agent_run's tool_calls). */
+function ToolCalls({ calls }: { calls: ToolCall[] }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <div className="mt-2 rounded-lg border bg-background/60 text-xs">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground hover:text-foreground">
+        <Icon name="Wrench" size={12} />
+        Used {calls.length} tool{calls.length === 1 ? "" : "s"}: {calls.map((c) => c.name).join(", ")}
+        <Icon name="ChevronDown" size={12} className={cn("ml-auto transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul className="space-y-2 border-t px-2.5 py-2">
+          {calls.map((c, i) => (
+            <li key={i}>
+              <p className="flex items-center gap-1.5 font-medium">
+                <Icon name={c.error ? "XCircle" : "CheckCircle"} size={12} className={c.error ? "text-red-500" : "text-emerald-500"} />
+                {c.name}{c.ms !== undefined && <span className="font-normal text-muted-foreground">· {c.ms} ms</span>}
+              </p>
+              <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 font-mono text-[11px]">
+                {"input: " + JSON.stringify(c.input ?? {}) + "\n" + (c.error ? "error: " + c.error : "output: " + JSON.stringify(c.output))}
+              </pre>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 /** Light markdown: **bold**, `code`, ``` blocks, bullet and numbered lists, links. */
@@ -80,8 +111,10 @@ export function ChatBot({ onSend, title = "Assistant", subtitle, placeholder = "
     const next: ChatMessage[] = [...base, { role: "user", content: message, time: Date.now() }]
     setMessages(next); setInput(""); setBusy(true)
     try {
-      const reply = onSend ? replyText(await onSend(message, history)) : "Connect this chat to an endpoint to get answers."
-      setMessages([...next, { role: "assistant", content: reply || "…", time: Date.now() }])
+      const raw = onSend ? await onSend(message, history) : "Connect this chat to an endpoint to get answers."
+      const reply = replyText(raw)
+      const tools = raw && Array.isArray(raw.tool_calls) && raw.tool_calls.length ? raw.tool_calls as ToolCall[] : undefined
+      setMessages([...next, { role: "assistant", content: reply || "…", time: Date.now(), tools }])
     } catch (e: any) {
       setMessages([...next, { role: "assistant", content: e?.message || "Something went wrong.", time: Date.now(), error: true }])
     } finally {
@@ -127,6 +160,7 @@ export function ChatBot({ onSend, title = "Assistant", subtitle, placeholder = "
               m.role === "user" ? "rounded-tr-sm bg-primary text-primary-foreground"
                 : m.error ? "rounded-tl-sm border border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-400" : "rounded-tl-sm bg-muted")}>
               {m.role === "assistant" ? <Markdown text={m.content} /> : <p className="whitespace-pre-wrap">{m.content}</p>}
+              {m.tools && <ToolCalls calls={m.tools} />}
               {m.error && <button type="button" onClick={retry} className="mt-2 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"><Icon name="RefreshCw" size={12} />Retry</button>}
             </div>
             {m.role === "assistant" && !m.error && (

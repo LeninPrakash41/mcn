@@ -316,6 +316,8 @@ class ServiceDecl(Node):
     name:      str                = ""
     port:      Optional[int]      = None
     endpoints: List[EndpointDecl] = field(default_factory=list)
+    auth:      str                = ""      # "" (open) | "token" | "jwt"
+    public:    List[str]          = field(default_factory=list)   # endpoints that skip auth
 
 
 @dataclass

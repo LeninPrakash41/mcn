@@ -1,23 +1,73 @@
 // AI Agent Builder — backend
-// Agents are saved as JSON; test_agent runs one with ai(), using its
-// instructions as the system prompt and its knowledge as context.
+// Agents are saved as JSON. test_agent runs one with agent_run(): Claude reads
+// the instructions, decides which of the enabled tools to call, and MCN runs
+// those functions below and hands back the results.
 
 query("CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, config TEXT, updated_at TEXT)")
-query("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT, role TEXT, content TEXT, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT, role TEXT, content TEXT, tools TEXT, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS support_docs (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, body TEXT)")
+query("CREATE TABLE IF NOT EXISTS support_customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, plan TEXT, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS support_tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, owner TEXT, created_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS support_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient TEXT, subject TEXT, body TEXT, created_at TEXT)")
+
+if query("SELECT COUNT(*) AS n FROM support_docs")[0].n == 0
+    query("INSERT INTO support_docs (title, body) VALUES (?, ?)", ("Refunds", "Refunds are issued to the original payment method within 5 working days."))
+    query("INSERT INTO support_docs (title, body) VALUES (?, ?)", ("Password reset", "Use Settings → Security → Reset password. Links expire after 30 minutes."))
+    query("INSERT INTO support_docs (title, body) VALUES (?, ?)", ("Plans", "Starter is $19/month, Pro is $49/month, Enterprise is priced per seat."))
+    query("INSERT INTO support_customers (name, email, plan, status) VALUES (?, ?, ?, ?)", ("Acme Ltd", "ops@acme.example", "Pro", "active"))
+    query("INSERT INTO support_customers (name, email, plan, status) VALUES (?, ?, ?, ?)", ("Globex", "it@globex.example", "Starter", "past_due"))
+
+// ── Tools the agent can call ──────────────────────────────────────────────
+// Each is a normal MCN function; agent_run describes it to the model and runs it.
+
+function search_docs(question)
+    var words = split(lower(question), " ")
+    var hits = []
+    for doc in query("SELECT title, body FROM support_docs")
+        var text = lower(doc.title + " " + doc.body)
+        for w in words
+            if len(w) > 3 and contains(text, w)
+                push(hits, doc)
+                break
+    return hits
+
+function lookup_customer(name)
+    return query("SELECT name, email, plan, status FROM support_customers WHERE name LIKE ?", "%" + name + "%")
+
+function create_task(title, owner = "support")
+    query("INSERT INTO support_tasks (title, owner, created_at) VALUES (?, ?, ?)", (title, owner, now()))
+    return {created: true, title: title, owner: owner}
+
+function draft_email(recipient, subject, body)
+    // Drafts go to an outbox for a person to review; nothing is sent automatically
+    query("INSERT INTO support_outbox (recipient, subject, body, created_at) VALUES (?, ?, ?, ?)", (recipient, subject, body, now()))
+    return {queued: true, recipient: recipient}
+
+function notify_team(message)
+    log("Team notification: " + message)
+    return {notified: true}
+
+var TOOLS = [
+    {name: "search_docs", label: "Search documents", icon: "BookOpen", description: "Search the help-center articles. Pass the customer's question."},
+    {name: "lookup_customer", label: "Look up customers", icon: "Users", description: "Find a customer's plan and account status by company name."},
+    {name: "create_task", label: "Create tasks", icon: "ListTodo", description: "Add a follow-up task for the team, with an optional owner."},
+    {name: "draft_email", label: "Draft emails", icon: "Mail", description: "Put an email in the outbox for a person to review and send."},
+    {name: "notify_team", label: "Notify team", icon: "Bell", description: "Post a short message to the team channel."}
+]
 
 function run_agent(agent, message, history)
     var system = agent.instructions
     if agent.knowledge
         system = system + "\n\nUse this knowledge when it's relevant:\n" + agent.knowledge
-    if agent.tools and len(agent.tools) > 0
-        system = system + "\n\nYou can use these tools: " + join(agent.tools, ", ")
-    var prompt = message
-    if agent.memory and history and len(history) > 0
-        prompt = "Conversation so far:\n" + to_json(history) + "\n\nUser: " + message
-    return ai(prompt, {system: system, model: agent.model, temperature: agent.temperature})
+    var enabled = filter(TOOLS, t => array_contains(agent.tools or [], t.name))
+    var past = history if agent.memory else []
+    return agent_run(message, {system: system, model: agent.model, tools: enabled, history: past})
 
 service agents_api
     port 8080
+
+    endpoint list_tools()
+        return {success: true, data: map(TOOLS, t => {key: t.name, label: t.label, icon: t.icon, description: t.description})}
 
     endpoint list_agents()
         var rows = query("SELECT config FROM agents ORDER BY updated_at DESC")
@@ -35,30 +85,38 @@ service agents_api
         return {success: true}
 
     endpoint test_agent(agent, message, history)
-        var reply = run_agent(agent, message, history)
+        var result = run_agent(agent, message, history)
         var name = agent.name or "Draft agent"
-        query("INSERT INTO messages (agent, role, content, created_at) VALUES (?, 'user', ?, ?)", (name, message, now()))
-        query("INSERT INTO messages (agent, role, content, created_at) VALUES (?, 'assistant', ?, ?)", (name, reply, now()))
-        return {reply: reply}
+        query("INSERT INTO messages (agent, role, content, tools, created_at) VALUES (?, 'user', ?, '', ?)", (name, message, now()))
+        query("INSERT INTO messages (agent, role, content, tools, created_at) VALUES (?, 'assistant', ?, ?, ?)",
+              (name, result.reply, join(map(result.tool_calls, c => c.name), ", "), now()))
+        return {reply: result.reply, tool_calls: result.tool_calls}
 
     endpoint ask_support(message, history)
         var saved = query("SELECT config FROM agents ORDER BY updated_at DESC LIMIT 1")
         if len(saved) == 0
             return {reply: "No agent is saved yet. Build one on the **Agents** page first."}
-        return {reply: run_agent(json_parse(saved[0].config), message, history)}
+        var result = run_agent(json_parse(saved[0].config), message, history)
+        return {reply: result.reply, tool_calls: result.tool_calls}
 
     endpoint list_messages()
-        return {success: true, data: query("SELECT agent, role, content, created_at FROM messages ORDER BY id DESC LIMIT 200")}
+        return {success: true, data: query("SELECT agent, role, content, tools, created_at FROM messages ORDER BY id DESC LIMIT 200")}
+
+    endpoint list_outbox()
+        return {success: true, data: query("SELECT recipient, subject, body, created_at FROM support_outbox ORDER BY id DESC")}
 
     endpoint agent_stats()
         var agents = query("SELECT COUNT(*) AS n FROM agents")[0].n
         var total = query("SELECT COUNT(*) AS n FROM messages WHERE role = 'user'")[0].n
+        var calls = query("SELECT COUNT(*) AS n FROM messages WHERE role = 'assistant' AND tools != ''")[0].n
         var by_agent = query("SELECT agent, COUNT(*) AS messages FROM messages WHERE role = 'user' GROUP BY agent ORDER BY messages DESC LIMIT 8")
-        return {success: true, data: {agents: agents, conversations: total, by_agent: by_agent}}
+        return {success: true, data: {agents: agents, conversations: total, tool_turns: calls, by_agent: by_agent}}
 
 test "an agent needs a name"
     assert save_agent({id: "a1", name: ""}).success == false
 
-test "saved agents are listed"
-    save_agent({id: "t1", name: "Triage", instructions: "Classify tickets", model: "claude-opus-5-5", temperature: 0.2, tools: [], knowledge: "", memory: false})
-    assert len(filter(list_agents().data, a => a.id == "t1")) == 1
+test "tools are real functions the agent can run"
+    var agent = {name: "Support", instructions: "Help customers", model: "claude-opus-5-5", tools: ["search_docs", "create_task"], knowledge: "", memory: false}
+    var result = test_agent(agent, "Create a task: look into the refund policy docs", [])
+    assert len(result.tool_calls) > 0
+    assert len(query("SELECT * FROM support_tasks")) > 0

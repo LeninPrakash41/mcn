@@ -283,6 +283,7 @@ class MCNInterpreter:
 
         self._functions.update({
             "task": self._create_task,
+            "agent_run": self._agent_run,
             "await": self._await_tasks,
             "use":  self._use_package,
             "type": self._set_type_hint,
@@ -388,6 +389,13 @@ class MCNInterpreter:
             }
         except Exception as exc:
             return {"status_code": 0, "data": str(exc), "success": False}
+
+    def _agent_run(self, prompt: Any, options: Any = None) -> Any:
+        """agent_run(prompt, {system, model, tools, history}) — see agent_tools.py."""
+        from .agent_tools import run_agent
+        from .evaluator import CURRENT
+        caller = getattr(CURRENT, "evaluator", None) or self._evaluator
+        return run_agent(prompt, options, caller.functions)
 
     def _create_task(self, name: str, func: Any, *args: Any) -> str:
         if not callable(func):

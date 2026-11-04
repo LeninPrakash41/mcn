@@ -93,7 +93,7 @@ render
 
 - **`data_table`** has search, a filter dropdown for each column in `filters`, sortable headers, pagination, table/grid/list views and CSV export. Status-like columns become colored badges.
 - **Charts** (`bar_chart`, `line_chart`, `area_chart`, `pie_chart`, `donut_chart`, `sparkline`) are responsive, with tooltips and legends. `y_key` can list several series; `stacked` stacks bars.
-- **`kanban`** groups records into columns you drag cards between.
+- **`kanban`** groups records into columns you drag cards between, with a mouse, a finger on the grip, or the arrow keys.
 - **`grid_cols=N`** is one column on phones, two on tablets and N on wide screens.
 
 ## AI components
@@ -154,6 +154,24 @@ npm run dev
 
 The project uses Vite, React and Tailwind; the UI kit's source is in `src/components/ui`, so React is its only dependency. It calls the API at `http://localhost:8080` (set `VITE_API_URL` to change it).
 
+If the backend uses `auth` (see [security](#/guide/security)), the app sends a bearer token from `localStorage` key `mcn_token`, or `VITE_API_TOKEN`. After a login endpoint returns a token, store it with the generated helper:
+
+```ts
+import { setToken } from "./services/api"
+setToken(result.token)   // setToken(null) to log out
+```
+
 ## Mobile apps
 
-Studio's **App** view generates a Flutter project from `mobile/ui-manifest.json`, a JSON list of screens and widgets, with a client that calls your API and falls back to demo data offline. The mobile templates include ready-made manifests. Compiling `ui/app.mcn` components to Flutter is planned.
+Studio's **App** view compiles the same `ui/app.mcn` to a Flutter project. Each `component` becomes a screen, the `app` block's `nav` items become a bottom navigation bar (a drawer when there are more than five), and state, `on_load` handlers and endpoint calls work as they do on the web. Tables become lists, and `kanban` cards move with a long press and drag.
+
+`agent_builder` and `workflow_builder` are web-only; on mobile they show a note pointing to the web app. Projects without UI components still use `mobile/ui-manifest.json`, a JSON list of screens and widgets.
+
+```bash
+cd mobile
+flutter create .                                              # first time: adds the android/ios/web folders
+flutter pub get
+flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080   # Android emulator; iOS and web use localhost
+```
+
+Screens live in `lib/screens/` (one file per component), shared widgets in `lib/mcn/mcn_runtime.dart`, and the API client in `lib/services/mcn_client.dart`. For a service with `auth`, add `--dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login. [Web and mobile](#/reference/ui-elements) lists how each element appears on a phone.

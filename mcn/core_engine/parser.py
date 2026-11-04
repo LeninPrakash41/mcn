@@ -893,6 +893,8 @@ class Parser:
         """
         service name
             port 8080
+            auth "token"            # or "jwt"; every endpoint then needs a bearer token
+            public login, health    # endpoints that stay open
             endpoint name[(params)]
                 body
         """
@@ -902,6 +904,8 @@ class Parser:
 
         port: Optional[int] = None
         endpoints: List[ast.EndpointDecl] = []
+        auth = ""
+        public: List[str] = []
 
         self._skip_newlines()
         if self._check(TT.INDENT):
@@ -917,13 +921,26 @@ class Parser:
                     self._consume_end()
                 elif self._check(TT.ENDPOINT):
                     endpoints.append(self._endpoint_decl())
+                elif self._current().value == "auth":
+                    self._advance()
+                    mode_tok = self._consume(TT.STRING, 'Expected "token" or "jwt" after auth')
+                    if mode_tok.value not in ("token", "jwt"):
+                        raise ParseError('auth must be "token" or "jwt"', mode_tok)
+                    auth = mode_tok.value
+                    self._consume_end()
+                elif self._current().value == "public":
+                    self._advance()
+                    while not self._at_eol():
+                        public.append(self._advance().value)
+                        self._match(TT.COMMA)
+                    self._consume_end()
                 else:
                     self._advance()
             if self._check(TT.DEDENT):
                 self._advance()      # consume DEDENT
 
         return ast.ServiceDecl(name=name_tok.value, port=port, endpoints=endpoints,
-                               line=tok.line, col=tok.col)
+                               auth=auth, public=public, line=tok.line, col=tok.col)
 
     def _endpoint_decl(self) -> ast.EndpointDecl:
         tok      = self._advance()   # consume ENDPOINT

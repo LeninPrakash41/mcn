@@ -55,7 +55,8 @@ curl localhost:8080/                           # lists every endpoint
 - Arguments are matched to parameters **by name**. Missing ones use the parameter's default.
 - The return value is sent as JSON. Returning nothing sends `{}`.
 - An error inside an endpoint returns status 500 with `{"error": "<message>"}`.
-- Cross-origin requests are allowed, so a web app on another port can call the API.
+- Cross-origin requests are allowed, so a web app on another port can call the API. Set `MCN_CORS_ORIGINS` to limit which sites may call it.
+- Only declared endpoints are reachable, every response carries security headers, and requests are rate-limited. See [security](#/guide/security).
 
 > **Tip** Return a consistent shape, like `{success: true, data: ...}` or `{success: false, error: "..."}`. The UI and your tests can then check `.success` everywhere.
 
@@ -88,4 +89,14 @@ Studio's **Build & download** gives you a zip with a `Dockerfile`, `docker-compo
 mcn serve backend/main.mcn --host 0.0.0.0 --port 8080
 ```
 
-> **Warning** Endpoints have no authentication unless you add it. Use the `auth_*` built-ins (password hashing and signed tokens) before exposing an API to the internet.
+## Authentication
+
+Endpoints are open unless the service has an `auth` line. Add one before exposing an API to the internet:
+
+```mcn fragment
+service users_api
+    auth "token"            // or "jwt"
+    public list_users       // endpoints anyone may call
+```
+
+Callers then send `Authorization: Bearer <token>`. [Security](#/guide/security) explains both modes, `current_user()`, and `mcn audit`, which finds open services and other problems.

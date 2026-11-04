@@ -9,7 +9,7 @@ AtSign Award BarChart3 Bell BellRing Bookmark BookOpen Bot Box Briefcase Buildin
 CalendarDays Camera Check CheckCircle CheckSquare ChevronDown ChevronLeft ChevronRight ChevronsLeft
 ChevronsRight ChevronUp Circle CircleDot Clipboard ClipboardList Clock Cloud Code Cog Columns3 Command Copy
 CreditCard Database DollarSign Banknote Coins Euro Download Edit Eye EyeOff File FileText Filter Flag Folder FolderOpen Gauge GitBranch
-Globe GraduationCap Grid3x3 Hammer Hash Heart HelpCircle History Home Image Inbox Info Kanban Key Laptop
+Globe GraduationCap Grid3x3 GripVertical Hammer Hash Heart HelpCircle History Home Image Inbox Info Kanban Key Laptop
 Layers Layout LayoutDashboard LayoutGrid LayoutList LifeBuoy Lightbulb LineChart Link List ListChecks
 ListTodo Loader2 Lock LogOut Mail Map MapPin Maximize2 Megaphone Menu MessageCircle MessageSquare Mic
 Minus Monitor Moon MoreHorizontal MoreVertical Package PanelLeft PanelLeftClose PanelLeftOpen Paperclip

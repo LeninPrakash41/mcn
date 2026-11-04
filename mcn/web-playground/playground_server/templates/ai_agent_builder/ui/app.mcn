@@ -10,7 +10,7 @@ component Overview
         div grid_cols=3
             stat_card label="Agents" value=stats.agents icon="Bot" color="purple"
             stat_card label="Test conversations" value=stats.conversations icon="MessageSquare" color="blue"
-            stat_card label="Tools available" value=6 icon="Plug" color="green"
+            stat_card label="Turns that used tools" value=stats.tool_turns icon="Wrench" color="green"
         card
             card_header "Conversations by agent"
             card_content
@@ -18,9 +18,11 @@ component Overview
 
 component Agents
     state agents = []
+    state tools = []
 
     on load
         agents = list_agents().data
+        tools = list_tools().data
 
     on save
         var result = save_agent(agent)
@@ -32,7 +34,7 @@ component Agents
         agents = list_agents().data
 
     render
-        agent_builder agents=agents on_save=save on_test=test_agent on_delete=remove
+        agent_builder agents=agents tools=tools on_save=save on_test=test_agent on_delete=remove
 
 component Playground
     render
@@ -45,7 +47,16 @@ component History
         items = list_messages().data
 
     render
-        data_table title="Message history" description="Every test message and reply" columns=["agent", "role", "content", "created_at"] filters=["agent", "role"] page_size=10 views=["table", "list"]
+        data_table title="Message history" description="Every test message, reply and the tools used" columns=["agent", "role", "content", "tools", "created_at"] filters=["agent", "role"] page_size=10 views=["table", "list"]
+
+component Outbox
+    state items = []
+
+    on load
+        items = list_outbox().data
+
+    render
+        data_table title="Email drafts" description="Emails agents drafted, waiting for a person to send" columns=["recipient", "subject", "body", "created_at"] empty="No drafts yet"
 
 app AgentBuilder
     title "Agent Studio"
@@ -57,3 +68,4 @@ app AgentBuilder
             nav "Agents" Agents icon="Bot" group="Build"
             nav "Playground" Playground icon="MessageSquare" group="Build"
             nav "History" History icon="History" group="Monitor"
+            nav "Outbox" Outbox icon="Mail" group="Monitor"

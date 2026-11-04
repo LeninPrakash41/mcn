@@ -21,6 +21,17 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_VERBOSE` | off | Print the engine's debug log |
 | `MCN_AUDIT_LOG` | `~/.mcn/audit/hipaa_audit.jsonl` | File used by `healthcare`'s `hipaa_audit_log()` |
 
+## Security
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MCN_AUTH_SECRET` | random, saved in `~/.mcn/auth_secret` | Secret that signs tokens (`jwt_sign`, `auth_create_token`). Set the same value on every server |
+| `MCN_API_TOKEN` | — | Token callers send to services with `auth "token"`. Unset means those endpoints are closed |
+| `MCN_CORS_ORIGINS` | `*` | Comma-separated sites allowed to call your API from a browser |
+| `MCN_RATE_LIMIT` | `600` | Requests per minute per client. `0` turns it off |
+| `MCN_MAX_BODY_BYTES` | `1048576` | Largest request body accepted |
+| `MCN_APP_AUDIT_LOG` | `~/.mcn/audit/app_audit.jsonl` | File used by `audit_log()` |
+
 ## Studio
 
 | Variable | Default | Effect |
@@ -36,7 +47,9 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | Variable | Default | Effect |
 |---|---|---|
 | `VITE_API_URL` | `http://localhost:8080` | API base URL for the React app from `mcn build` |
-| `MCN_API_URL` | demo data | API base URL for the Flutter app (`flutter run --dart-define=MCN_API_URL=...`) |
+| `VITE_API_TOKEN` | — | Bearer token the React app sends (a token in `localStorage` key `mcn_token` wins) |
+| `MCN_API_URL` | `http://localhost:8080` | API base URL for the Flutter app (`flutter run --dart-define=MCN_API_URL=...`) |
+| `MCN_API_TOKEN` (Flutter) | — | Bearer token the Flutter app sends (`--dart-define=MCN_API_TOKEN=...`) |
 
 ## Files MCN creates
 

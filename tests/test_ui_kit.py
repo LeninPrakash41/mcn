@@ -105,8 +105,19 @@ def test_state_reads_after_assignment_see_the_new_value(compiled):
 
 def test_app_uses_app_shell(compiled):
     app = (compiled / "App.tsx").read_text()
-    assert 'layout="sidebar"' in app and 'footer="Acme"' in app and 'logo="Rocket"' in app
+    assert 'layout="sidebar"' in app and 'footer={"Acme"}' in app and 'logo={"Rocket"}' in app
     assert 'group: "Pipeline"' in app and 'icon: "TrendingUp"' in app
+
+
+def test_text_attributes_are_js_strings(tmp_path):
+    """JSX doesn't decode escapes in attribute strings: "·" written as "\\u00b7" showed literally."""
+    src = 'component Home\n    render\n        empty_state "Nothing" description="Add one \u00b7 now"\n\napp A\n    footer "A \u00b7 B"\n    nav "Home" Home\n'
+    interp = MCNInterpreter()
+    with contextlib.redirect_stdout(io.StringIO()):
+        interp.execute(src, quiet=True)
+        UICompiler(output_dir=tmp_path, endpoints={}).compile(interp._evaluator)
+    text = "".join(p.read_text() for p in (tmp_path / "src").rglob("*.tsx"))
+    assert 'footer={"A \\u00b7 B"}' in text and 'description={"Add one \\u00b7 now"}' in text
 
 
 def test_generated_app_depends_only_on_react(compiled):

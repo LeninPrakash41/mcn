@@ -13,6 +13,15 @@ All notable changes to MCN will be documented in this file.
   - `app` blocks take `footer` and `logo`; `nav` items take `group`
 - **Live preview**: Studio runs the actual compiled app in the browser with the kit, against the running backend (it used to show an approximation with sample data)
 - Templates: Operations Dashboard, AI Agent Builder, Workflow Automation (21 in total)
+- **`agent_run(prompt, options)`**: Claude calls MCN functions as tools. Parameters become the tool schema; MCN runs the loop and returns `{reply, tool_calls, steps}`. The AI Agent Builder template's tools (search docs, look up customers, create tasks, draft emails, notify the team) now really run, and `chat` shows the tools used under each reply
+- **Mobile apps compiled from MCN components**: `ui/app.mcn` compiles to Flutter screens with state, handlers, endpoint calls and navigation, instead of a separate screen manifest
+- `kanban` cards move by touch (drag the grip) and keyboard (← →), with screen-reader announcements
+- **Security**
+  - `auth "token" | "jwt"` and `public ...` in services; `current_user()` in endpoints
+  - Check functions: `validate`, `escape_html`, `sanitize_html`, `is_email`, `is_url`, `password_strength`, `rate_limit`, `require`, `secure_token`, `safe_equals`, `mask`, `audit_log`, `verify_audit_log`
+  - `mcn audit`: finds SQL injection, hard-coded secrets, request-controlled file paths and URLs, weak password hashing, open services and plain-http URLs
+  - Servers send security headers, rate-limit (`MCN_RATE_LIMIT`), cap body size (`MCN_MAX_BODY_BYTES`) and restrict CORS with `MCN_CORS_ORIGINS`
+  - Generated React and Flutter apps and Studio's preview send a bearer token
 
 ### Fixed
 - Exported apps read `.data` from an unresolved promise (`items = list_tasks().data` left lists empty)
@@ -21,6 +30,9 @@ All notable changes to MCN will be documented in this file.
 - A handler named after a JavaScript keyword (`on delete`) produced invalid code
 - `a or b` was typed as a boolean by `mcn check`
 - UI attributes can use keyword names (`chat endpoint=ask`)
+- **Security:** the built-in HTTP server let requests call any function, including built-ins such as `query` and `write_file`; only declared endpoints are reachable now
+- **Security:** tokens were signed with a built-in default secret when `MCN_AUTH_SECRET` wasn't set; each install now generates its own
+- **Security:** serving a file without a `service` ran the whole script per request and returned its variables; it now serves nothing
 
 ### Changed
 - Generated React apps depend only on React: the kit replaces recharts, sonner, lucide-react, react-router, clsx and tailwind-merge

@@ -34,7 +34,31 @@ from typing import Any, Dict, List, Optional
 # ── Config ────────────────────────────────────────────────────────────────────
 
 _DB_PATH = Path.home() / ".mcn" / "auth.db"
-_SECRET  = os.getenv("MCN_AUTH_SECRET", "mcn-auth-default-secret-change-in-production")
+def _install_secret() -> str:
+    """The signing secret: MCN_AUTH_SECRET, else a random one created once per
+    installation in ~/.mcn/auth_secret (readable only by its owner). There is no
+    shared default, so tokens from one install can't be forged elsewhere."""
+    if os.getenv("MCN_AUTH_SECRET"):
+        return os.environ["MCN_AUTH_SECRET"]
+    import secrets as _secrets
+    try:
+        from .paths import mcn_home
+    except ImportError:
+        from paths import mcn_home
+    path = mcn_home() / "auth_secret"
+    try:
+        if path.exists():
+            return path.read_text().strip()
+        value = _secrets.token_urlsafe(48)
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(value)
+        return value
+    except OSError:
+        return _secrets.token_urlsafe(48)       # unwritable home: valid for this process only
+
+
+_SECRET  = _install_secret()
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
 

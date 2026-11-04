@@ -106,6 +106,11 @@ def _friendly_call_error(name: str, exc: Exception, bound: bool = False) -> str:
 
 _UNDEFINED = object()          # sentinel — distinct from None
 
+import threading as _threading
+# The evaluator making the current call, so built-ins like agent_run can find
+# the program's own functions (the test runner uses a separate evaluator)
+CURRENT = _threading.local()
+
 
 class Environment:
     """
@@ -182,7 +187,8 @@ class Evaluator:
 
     def __init__(self, functions: Dict[str, Callable], max_steps: int = 100_000):
         self.functions       = functions         # shared with MCNInterpreter
-        self.function_params: Dict[str, List[str]] = {}   # param names per endpoint
+        self.function_params: Dict[str, List[str]] = {}
+        self.endpoint_auth: Dict[str, str] = {}      # endpoint → "" | "token" | "jwt"   # param names per endpoint
         self.globals    = Environment()
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
         self.app_decl:   Optional[ast.AppDecl]        = None  # app declaration
@@ -524,6 +530,9 @@ class Evaluator:
 
         # Register in both the environment and the shared functions dict
         # so the function is callable by name from anywhere.
+        # Parameter names, for tools that describe MCN functions (agent_run)
+        user_func.mcn_params = list(params)
+        user_func.mcn_required = [p for p in params if p not in defaults]
         env.define(name, user_func)
         self.functions[name] = user_func
 
@@ -664,6 +673,7 @@ class Evaluator:
                        prop.line, prop.col)
 
     def _eval_call(self, expr: ast.Call, env: Environment) -> Any:
+        CURRENT.evaluator = self
         if isinstance(expr.callee, ast.Variable) and env.get(expr.callee.name) is _UNDEFINED \
                 and expr.callee.name not in self.functions:
             name = expr.callee.name
@@ -693,6 +703,8 @@ class Evaluator:
                 raise
             except (ReturnSignal, MCNError):
                 raise
+            except PermissionError as exc:          # require(): the message is the whole story
+                raise MCNError(str(exc), expr.line, expr.col) from exc
             except Exception as exc:
                 name = getattr(expr.callee, "name", "?")
                 raise MCNError(_friendly_call_error(name, exc, bound=inspect.ismethod(callee)),
@@ -787,6 +799,8 @@ class Evaluator:
             env.define(ep.name, fn)
             self.functions[ep.name] = fn
             self.function_params[ep.name] = params
+            # How the HTTP server protects this endpoint: "", "token" or "jwt"
+            self.endpoint_auth[ep.name] = "" if ep.name in stmt.public else stmt.auth
 
         env.define(stmt.name, service)
         env.define(stmt.name, service)

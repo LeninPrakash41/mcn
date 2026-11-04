@@ -83,19 +83,21 @@ Name error on line 2, column 5: Undefined variable 'totl'
 Hint: Did you mean 'total'?
 ```
 
-`mcn check file.mcn` finds the same errors without running the code (`--json` for editors and CI). Set `MCN_VERBOSE=1` to see engine debug logs; MCN's own logs go to `~/.mcn/logs`.
+`mcn check file.mcn` finds the same errors without running the code (`--json` for editors and CI).
 
-**Mobile app (Flutter, optional).** With the backend running (press **Run** in the playground), start the generated app and point it at the backend:
+**Security.** Add `auth "token"` or `auth "jwt"` to a service to require a bearer token (`public name, ...` keeps some endpoints open). Every service gets security headers, rate limiting and a body size limit, and only declared endpoints are reachable. Check functions such as `validate`, `sanitize_html`, `rate_limit`, `require` and `audit_log` are built in, and `mcn audit .` finds SQL injection, hard-coded secrets, open services and more before you ship. Set `MCN_VERBOSE=1` to see engine debug logs; MCN's own logs go to `~/.mcn/logs`.
+
+**Mobile app (Flutter, optional).** Studio's **App** view compiles the same `ui/app.mcn` to Flutter: each component becomes a screen with the same state, handlers and endpoint calls. With the backend running, start it and point it at the backend:
 
 ```bash
-cd mcn/web-playground/workspace/mobile
-flutter create --platforms=web .        # first time only
+cd mobile                               # in the project Studio builds
+flutter create .                        # first time only
 flutter run -d chrome --dart-define=MCN_API_URL=http://localhost:8080
 ```
 
-On an Android emulator use `--dart-define=MCN_API_URL=http://10.0.2.2:8080`. Without a running backend the app shows demo data.
+On an Android emulator use `--dart-define=MCN_API_URL=http://10.0.2.2:8080`. For a service with `auth`, also pass `--dart-define=MCN_API_TOKEN=...`.
 
-**AI features.** Set `ANTHROPIC_API_KEY` to enable `ai()` calls and the Copilot. MCN uses `claude-opus-5-5` by default; override with `MCN_AI_MODEL` (for `ai()`) or `MCN_CLAUDE_MODEL` (for Copilot).
+**AI features.** Set `ANTHROPIC_API_KEY` to enable `ai()` calls and the Copilot. `agent_run(prompt, {tools: ["lookup_order"]})` lets Claude call your MCN functions as tools and returns the reply with every tool call. MCN uses `claude-opus-5-5` by default; override with `MCN_AI_MODEL` (for `ai()`) or `MCN_CLAUDE_MODEL` (for Copilot).
 
 The Web Playground includes built-in **Interactive Simulators** in the preview pane:
 * **DB Explorer**: Inspect database tables, explore generated schemas, and write SQL queries against the live SQLite instance.
