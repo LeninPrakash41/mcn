@@ -248,11 +248,11 @@ function switchWorkspace(workspace) {
     if (heroRunText) heroRunText.textContent = 'Run';
     if (heroPreviewText) heroPreviewText.textContent = 'App Preview';
     if (btnHeroRun) btnHeroRun.title = 'Run backend service for mobile app (Ctrl+Enter)';
-    if (btnHeroPreview) btnHeroPreview.title = 'Compile MCN/Dart to Flutter package and preview in mobile simulator (Cmd+R)';
+    if (btnHeroPreview) btnHeroPreview.title = 'Generate the Flutter app from ui/app.mcn and run it in the phone preview (Cmd+R)';
     if (verifyLabel) verifyLabel.textContent = 'Verify';
     if (btnVerify) btnVerify.title = 'Verify Flutter / Dart and MCN syntax';
     if (menuBuildRunText) menuBuildRunText.textContent = 'Run Mobile Backend';
-    if (menuBuildPreviewText) menuBuildPreviewText.textContent = 'Build Flutter Simulator';
+    if (menuBuildPreviewText) menuBuildPreviewText.textContent = 'Build & Preview Flutter App';
     if (menuBuildVerifyText) menuBuildVerifyText.textContent = 'Verify Flutter Code';
   } else if (workspace === 'repl') {
     if (heroRunText) heroRunText.textContent = 'Run';
@@ -324,8 +324,8 @@ function switchWorkspace(workspace) {
 
   // 6. Ensure an appropriate file is opened for the active mode
   if (workspace === 'flutter') {
-    if (!_active || _active.startsWith('ui/') || _active.startsWith('frontend/') || _active.startsWith('scripts/')) {
-      const candidates = ['mobile/lib/main.dart', 'mobile/pubspec.yaml', 'mobile/ui.mcn', 'backend/main.mcn'];
+    if (!_active || _active.startsWith('frontend/') || _active.startsWith('scripts/')) {
+      const candidates = ['ui/app.mcn', 'mobile/lib/main.dart', 'mobile/pubspec.yaml', 'backend/main.mcn'];
       for (const cand of candidates) {
         if (window._workspaceFiles && window._workspaceFiles.some(f => f.path === cand)) {
           openFile(cand);

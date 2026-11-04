@@ -61,7 +61,7 @@ The installer also works on a Raspberry Pi running 64-bit Raspberry Pi OS. See [
 | `ANTHROPIC_API_KEY` | Real AI answers instead of mock replies ([configuration](#/reference/configuration)) |
 | `mcn vscode` | The VS Code extension ([details](#/getting-started/vscode)) |
 | [Node.js 18+](https://nodejs.org) | Running the React app that `mcn build` generates |
-| [Flutter](https://docs.flutter.dev/get-started/install) | Running the generated mobile app |
+| [Flutter](https://docs.flutter.dev/get-started/install) 3.27 or newer | Running the generated mobile app, and the real app preview in Studio's App view |
 
 ## Troubleshooting
 

@@ -38,54 +38,12 @@ def build_mcn():
     backend_path = _request_workspace() / "backend" / "main.mcn"
 
     if platform == "flutter":
-        out_path = _request_workspace() / "mobile"
-        out_path.mkdir(parents=True, exist_ok=True)
-        manifest_path = out_path / "ui-manifest.json"
-        
-        # Ensure mobile/ui-manifest.json exists
-        if not manifest_path.exists():
-            manifest_path.write_text(json.dumps(_DEFAULT_MOBILE_MANIFEST, indent=2), encoding="utf-8")
-
-        # Clean up legacy flutter dir if present
-        legacy_flutter = _request_workspace() / "flutter"
-        # Only Studio's own workspace — never a developer's project (`mcn studio <dir>`)
-        if legacy_flutter.exists() and not os.environ.get("MCN_WORKSPACE"):
-            import shutil
-            shutil.rmtree(legacy_flutter, ignore_errors=True)
-
         try:
-            source = "manifest"
-            evaluator = None
-            if ui_path.exists():
-                # Compile the app's own MCN components when ui/app.mcn defines them
-                from mcn.core_engine.mcn_interpreter import MCNInterpreter
-                interp = MCNInterpreter()
-                interp.execute(ui_path.read_text(encoding="utf-8"), str(ui_path), quiet=True)
-                if interp._evaluator.components:
-                    evaluator = interp._evaluator
-            if evaluator is not None:
-                from mcn.fullstack.flutter_compiler import FlutterCompiler
-                from mcn.core_engine.ui_compiler import endpoints_from_backend
-                FlutterCompiler(endpoints=endpoints_from_backend(backend_path)).compile(evaluator, out_path, "mcn_mobile_app")
-                source = "ui/app.mcn"
-            else:
-                from mcn.fullstack.flutter_generator import FlutterProjectGenerator
-                FlutterProjectGenerator().generate_project(str(manifest_path), str(out_path), "mcn_mobile_app")
-
-            files = []
-            for p in sorted(out_path.rglob("*")):
-                if p.is_file():
-                    files.append(str(p.relative_to(_request_workspace())))
-                    
-            return jsonify({
-                "success": True,
-                "platform": "flutter",
-                "files": files,
-                "source": source,
-                "stdout": f"✓ Generated the Flutter app from {source}: {len(files)} files in mobile/\n"
-            })
+            result = build_flutter(_request_workspace())
         except Exception as e:
             return jsonify({"success": False, "error": str(e), "trace": traceback.format_exc()})
+        return jsonify({"success": True, "platform": "flutter", **result,
+                        "stdout": f"✓ Generated the Flutter app from {result['source']}: {len(result['files'])} files in mobile/\n"})
 
     # Default: React Compilation via UICompiler
     out_path = _request_workspace() / "frontend"
@@ -138,52 +96,142 @@ def build_mcn():
         return jsonify({"success": False, "error": f"{type(e).__name__}: {str(e)}", "trace": traceback.format_exc()})
 
 
+def build_flutter(ws: Path) -> dict:
+    """Generate mobile/ from ui/app.mcn's components (or, without any, from mobile/ui-manifest.json)."""
+    out_path = ws / "mobile"
+    out_path.mkdir(parents=True, exist_ok=True)
+    ui_path, backend_path = ws / "ui" / "app.mcn", ws / "backend" / "main.mcn"
+    legacy_flutter = ws / "flutter"
+    # Only Studio's own workspace — never a developer's project (`mcn studio <dir>`)
+    if legacy_flutter.exists() and not os.environ.get("MCN_WORKSPACE"):
+        import shutil
+        shutil.rmtree(legacy_flutter, ignore_errors=True)
+
+    evaluator = None
+    if ui_path.exists():
+        from mcn.core_engine.mcn_interpreter import MCNInterpreter
+        interp = MCNInterpreter()
+        interp.execute(ui_path.read_text(encoding="utf-8"), str(ui_path), quiet=True)
+        if interp._evaluator.components:
+            evaluator = interp._evaluator
+    if evaluator is not None:
+        from mcn.fullstack.flutter_compiler import FlutterCompiler
+        from mcn.core_engine.ui_compiler import endpoints_from_backend
+        FlutterCompiler(endpoints=endpoints_from_backend(backend_path)).compile(evaluator, out_path, "mcn_mobile_app")
+        (out_path / "ui-manifest.json").unlink(missing_ok=True)     # the components are the source now
+        source = "ui/app.mcn"
+    else:
+        manifest_path = out_path / "ui-manifest.json"
+        if not manifest_path.exists():
+            manifest_path.write_text(json.dumps(_DEFAULT_MOBILE_MANIFEST, indent=2), encoding="utf-8")
+        from mcn.fullstack.flutter_generator import FlutterProjectGenerator
+        FlutterProjectGenerator().generate_project(str(manifest_path), str(out_path), "mcn_mobile_app")
+        source = "mobile/ui-manifest.json"
+    files = [str(p.relative_to(ws)) for p in sorted(out_path.rglob("*"))
+             if p.is_file() and not _is_build_output(p.relative_to(out_path))]
+    return {"files": files, "source": source}
+
+
+def build_react(ws: Path) -> list:
+    """Compile ui/app.mcn to frontend/. Returns the files written."""
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    from mcn.core_engine.ui_compiler import UICompiler, endpoints_from_backend
+    interp = MCNInterpreter()
+    interp.execute((ws / "ui" / "app.mcn").read_text(encoding="utf-8"), quiet=True)
+    return UICompiler(output_dir=ws / "frontend", endpoints=endpoints_from_backend(ws / "backend" / "main.mcn")).compile(interp._evaluator)
+
+
+def _is_build_output(rel: Path) -> bool:
+    """Flutter's and the toolchain's own folders inside mobile/, which don't belong in listings or zips."""
+    return bool(set(rel.parts) & {"build", ".dart_tool", ".idea", ".gradle", "Pods", "node_modules"}) or rel.suffix == ".iml"
+
+
 # ── Production Download & Scaffolds ───────────────────────────────────────────
+
+_MOBILE_README = """# {name}: mobile app
+
+The Flutter app in `mobile/` is compiled from `ui/app.mcn`, and calls the MCN
+backend in `backend/`.
+
+## Run it
+
+1. Start the backend (install MCN first: https://github.com/LeninPrakash41/mcn):
+
+       mcn serve backend/main.mcn --host 0.0.0.0
+
+2. Run the app (install Flutter first: https://docs.flutter.dev/get-started/install):
+
+       cd mobile
+       flutter create .          # first time only: adds the android/ios/web folders
+       flutter pub get
+       flutter run --dart-define=MCN_API_URL=http://localhost:8080
+
+   On an Android emulator use `MCN_API_URL=http://10.0.2.2:8080`; on a real
+   phone use your computer's address on the same network. If the backend uses
+   `auth "token"`, add `--dart-define=MCN_API_TOKEN=...`.
+
+3. Build for release:
+
+       flutter build apk --dart-define=MCN_API_URL=https://your-api.example.com
+       flutter build ios --dart-define=MCN_API_URL=https://your-api.example.com
+
+To change the app, edit `ui/app.mcn` and rebuild it in MCN Studio (App view),
+which regenerates `mobile/lib/`.
+
+`Dockerfile` and `docker-compose.yml` run the backend on any server.
+"""
+
 
 @bp.route("/api/download")
 def download_project():
-    """Zip the project with complete production Docker, Nginx, and CI/CD bundle."""
+    """Zip the project for one platform: the React app (web) or the Flutter app (mobile),
+    with the backend and the files to deploy it. The app is rebuilt first, so the zip
+    always matches the code."""
     platform = request.args.get("platform", "react").lower()
-    frontend = _request_workspace() / "frontend"
-    backend = _request_workspace() / "backend"
-    
+    ws = _request_workspace()
     scaffolds_dir = Path(__file__).resolve().parent.parent / "scaffolds"
+    has_ui = (ws / "ui" / "app.mcn").exists()
+    try:
+        if platform == "flutter":
+            build_flutter(ws)
+        elif has_ui:
+            build_react(ws)
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Build failed, so there's nothing to download: {exc}"}), 400
+
+    def add_tree(zf, folder: Path, skip=lambda rel: False):
+        for p in sorted(folder.rglob("*")):
+            rel = p.relative_to(folder)
+            if p.is_file() and not skip(rel) and "__pycache__" not in rel.parts:
+                zf.write(p, p.relative_to(ws))
+
     buf = io.BytesIO()
-
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # 1. Package Frontend if present
-        if frontend.exists():
-            for p in sorted(frontend.rglob("*")):
-                if p.is_file() and "node_modules" not in p.parts and ".vite" not in p.parts:
-                    zf.write(p, p.relative_to(_request_workspace()))
-        
-        # 2. Package Backend if present
-        if backend.exists():
-            for p in sorted(backend.rglob("*")):
-                if p.is_file() and "__pycache__" not in p.parts:
-                    zf.write(p, p.relative_to(_request_workspace()))
+        if platform == "flutter":
+            add_tree(zf, ws / "mobile", _is_build_output)
+        elif (ws / "frontend").exists():
+            add_tree(zf, ws / "frontend", lambda rel: bool(set(rel.parts) & {"node_modules", ".vite", "dist"}))
+        if (ws / "backend").exists():
+            add_tree(zf, ws / "backend", lambda rel: rel.suffix in (".db", ".log"))
+        for p in sorted(ws.glob("*.mcn")):
+            zf.write(p, p.relative_to(ws))
+        if (ws / "ui").exists():
+            for p in sorted((ws / "ui").rglob("*.mcn")):
+                zf.write(p, p.relative_to(ws))
 
-        # 3. Package UI / MCN root files
-        for p in sorted(_request_workspace().glob("*.mcn")):
-            if p.is_file():
-                zf.write(p, p.relative_to(_request_workspace()))
-        if (_request_workspace() / "ui").exists():
-            for p in sorted((_request_workspace() / "ui").rglob("*.mcn")):
-                if p.is_file():
-                    zf.write(p, p.relative_to(_request_workspace()))
-
-        # 4. Inject Production Deployment Bundle
+        # Files to deploy the backend (and, for the web app, nginx and CI)
+        web_only = {"nginx.conf", "ci-cd.yml"}
         if scaffolds_dir.exists():
-            for sc in scaffolds_dir.rglob("*"):
-                if sc.is_file() and not sc.name.startswith(".DS_Store"):
-                    arcname = str(sc.relative_to(scaffolds_dir))
-                    zf.write(sc, arcname)
+            for sc in sorted(scaffolds_dir.rglob("*")):
+                if sc.is_file() and sc.name != ".DS_Store" and not (platform == "flutter" and sc.name in web_only):
+                    zf.write(sc, str(sc.relative_to(scaffolds_dir)))
         else:
-            # Fallback inline scaffolds
             from mcn.core_engine.mcn_deployer import _DOCKERFILE
             zf.writestr("Dockerfile", _DOCKERFILE)
-            zf.writestr("docker-compose.yml", "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n")
+            zf.writestr("docker-compose.yml", "services:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n")
             zf.writestr(".env.example", "PORT=8080\n# A long random string, e.g. the output of: openssl rand -hex 32\nMCN_AUTH_SECRET=\nMCN_API_TOKEN=\n")
+        if platform == "flutter":
+            zf.writestr("README.md", _MOBILE_README.format(name=ws.name if ws.name != "playground" else "MCN app"))
 
     buf.seek(0)
     filename = "mcn-flutter-app.zip" if platform == "flutter" else "mcn-fullstack-app.zip"

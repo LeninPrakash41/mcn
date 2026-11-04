@@ -89,6 +89,115 @@ def preview_source():
                     "backend_running": bool(core._mcn_backend and core._mcn_backend.poll() is None)})
 
 
+def _backend_running() -> bool:
+    return bool(core._mcn_backend and core._mcn_backend.poll() is None)
+
+
+def _start_backend(ws: Path) -> bool:
+    """(Re)start backend/main.mcn as an API on _BACKEND_PORT. False when there's no service to run."""
+    backend_file = ws / "backend" / "main.mcn"
+    if not backend_file.exists() or "service " not in backend_file.read_text(encoding="utf-8"):
+        return False
+    _stop_process(core._mcn_backend)
+    try:
+        b_out = open(ws / "backend_stdout.log", "w", encoding="utf-8")
+        b_err = open(ws / "backend_stderr.log", "w", encoding="utf-8")
+        core._mcn_backend = subprocess.Popen(
+            [sys.executable, "-m", "mcn.core_engine.mcn_cli", "serve",
+             "--file", str(backend_file), "--host", "0.0.0.0",
+             "--port", str(_BACKEND_PORT)],
+            # Run in the workspace so the app's database is the one DB Explorer shows
+            cwd=str(ws),
+            env=_env(PYTHONPATH=_mcn_path()),
+            stdout=b_out,
+            stderr=b_err,
+        )
+        b_out.close()
+        b_err.close()
+        import time; time.sleep(1)
+        return True
+    except Exception:
+        return False  # Non-fatal
+
+
+# ── Mobile preview: the generated Flutter app, built for the web, in the phone frame ──
+
+_MOBILE_JOB: dict = {"state": "idle"}
+
+
+def _flutter_web_build(ws: Path) -> None:
+    import shutil
+    mobile, log = ws / "mobile", _MOBILE_JOB["log"]
+
+    def step(label, cmd):
+        log.append(label)
+        proc = subprocess.run(cmd, cwd=mobile, capture_output=True, text=True)
+        if proc.returncode != 0:
+            tail = (proc.stdout + proc.stderr).strip().splitlines()[-12:]
+            raise RuntimeError(label + " failed:\n" + "\n".join(tail))
+
+    try:
+        flutter = shutil.which("flutter")
+        if not (mobile / "web").exists():
+            step("Adding web support to the Flutter project…",
+                 [flutter, "create", "--platforms=web", "--project-name", "mcn_mobile_app", "."])
+            (mobile / "test" / "widget_test.dart").unlink(missing_ok=True)   # the template test isn't for this app
+            readme = mobile / "README.md"
+            if readme.exists() and "A new Flutter project" in readme.read_text(encoding="utf-8"):
+                readme.unlink()
+        step("Compiling the Flutter app (the first build takes about 30 seconds)…",
+             [flutter, "build", "web", "--release", "--no-web-resources-cdn", "--base-href", "/preview-mobile/",
+              f"--dart-define=MCN_API_URL=http://localhost:{_BACKEND_PORT}", f"--dart-define=MCN_API_TOKEN={_DEV_TOKEN}"])
+        _MOBILE_JOB.update({"state": "done", "url": f"/preview-mobile/?v={int(__import__('time').time())}"})
+    except Exception as exc:
+        _MOBILE_JOB.update({"state": "failed", "error": str(exc)})
+
+
+@bp.route("/api/mobile/preview", methods=["POST"])
+def mobile_preview():
+    """Build the phone preview. With Flutter installed, it's the real Flutter app built for the
+    web; without, it's the same components rendered at phone size."""
+    import shutil
+    import threading
+    from .build import build_flutter, build_react
+    ws = _request_workspace()
+    if _MOBILE_JOB.get("state") == "running":
+        return jsonify({"success": True, **{k: v for k, v in _MOBILE_JOB.items() if k != "log"}})
+    try:
+        info = build_flutter(ws)
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Couldn't generate the Flutter app: {exc}"}), 400
+    _start_backend(ws)
+    if shutil.which("flutter") and info["source"] == "ui/app.mcn":
+        _MOBILE_JOB.clear()
+        _MOBILE_JOB.update({"state": "running", "mode": "flutter", "log": []})
+        threading.Thread(target=_flutter_web_build, args=(ws,), daemon=True).start()
+        return jsonify({"success": True, "state": "running", "mode": "flutter", "files": info["files"]})
+    try:
+        build_react(ws)
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Couldn't build the preview: {exc}"}), 400
+    reason = "Install Flutter to preview the native app here" if not shutil.which("flutter") else \
+        "This project has no UI components, so the preview shows the web layout"
+    return jsonify({"success": True, "state": "done", "mode": "web", "url": "/preview/", "note": reason, "files": info["files"]})
+
+
+@bp.route("/api/mobile/preview", methods=["GET"])
+def mobile_preview_status():
+    job = dict(_MOBILE_JOB)
+    job["step"] = (job.pop("log", None) or [""])[-1]
+    return jsonify({"success": True, **job})
+
+
+@bp.route("/preview-mobile/", defaults={"path": "index.html"})
+@bp.route("/preview-mobile/<path:path>")
+def mobile_preview_files(path):
+    web = _request_workspace() / "mobile" / "build" / "web"
+    if not (web / path).is_file():
+        path = "index.html"
+    return send_from_directory(web, path, max_age=0)
+
+
 @bp.route("/api/devserver/start", methods=["POST"])
 def devserver_start():
     ws           = _request_workspace()
@@ -110,28 +219,7 @@ def devserver_start():
         })
 
     # ── 1. Start MCN backend (if backend/main.mcn has a service declaration) ─
-    if backend_file.exists():
-        backend_src = backend_file.read_text(encoding="utf-8")
-        if "service " in backend_src:
-            _stop_process(core._mcn_backend)
-            try:
-                b_out = open(ws / "backend_stdout.log", "w", encoding="utf-8")
-                b_err = open(ws / "backend_stderr.log", "w", encoding="utf-8")
-                core._mcn_backend = subprocess.Popen(
-                    [sys.executable, "-m", "mcn.core_engine.mcn_cli", "serve",
-                     "--file", str(backend_file), "--host", "0.0.0.0",
-                     "--port", str(_BACKEND_PORT)],
-                    # Run in the workspace so the app's database is the one DB Explorer shows
-                    cwd=str(ws),
-                    env=_env(PYTHONPATH=_mcn_path()),
-                    stdout=b_out,
-                    stderr=b_err,
-                )
-                b_out.close()
-                b_err.close()
-                import time; time.sleep(1)
-            except Exception:
-                pass  # Non-fatal
+    _start_backend(ws)
 
     # ── 2. If node_modules exists, start Vite dev server ───────────────────────
     if _NPM_AVAILABLE and (frontend / "node_modules").exists():

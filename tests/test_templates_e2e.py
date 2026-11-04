@@ -119,3 +119,25 @@ def test_repo_example_parses(path):
     parser = Parser(Lexer(path.read_text(encoding="utf-8")).tokenize())
     parser.parse()
     assert parser.errors == [], parser.errors[0]
+
+
+def _zip_names(platform):
+    import io
+    import zipfile
+    res = quiet(client.get, f"/api/download?platform={platform}")
+    assert res.status_code == 200
+    return zipfile.ZipFile(io.BytesIO(res.data)).namelist()
+
+
+def test_downloads_contain_the_chosen_platform():
+    """Export Flutter Package used to download the React project."""
+    project = next(t for t in PROJECTS if t["id"] == "iot_smart_home")
+    quiet(client.post, "/api/workspace/reset", json={"files": project["files"]})
+    flutter = _zip_names("flutter")
+    assert "mobile/lib/main.dart" in flutter and "mobile/pubspec.yaml" in flutter
+    assert any(n.startswith("mobile/lib/screens/") for n in flutter)
+    assert "backend/main.mcn" in flutter and "ui/app.mcn" in flutter and "README.md" in flutter
+    assert not any(n.startswith("frontend/") for n in flutter) and "nginx.conf" not in flutter
+    web = _zip_names("react")
+    assert "frontend/src/App.tsx" in web and "nginx.conf" in web
+    assert not any(n.startswith("mobile/") for n in web)

@@ -114,10 +114,9 @@ async function autoFixWithAI() {
 
 async function buildAndLaunchPreview() {
   if (_activeWorkspace === 'flutter') {
-    await buildProject();
     const tabMobile = document.getElementById('tab-mobile-preview');
     switchPanel('flutter-preview', tabMobile);
-    renderFlutterSimulator();
+    await renderFlutterSimulator(true);   // generates mobile/ from ui/app.mcn, then builds and shows it
   } else if (_activeWorkspace === 'repl') {
     const tabRepl = document.getElementById('tab-repl-console');
     switchPanel('repl-console', tabRepl);

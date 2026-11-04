@@ -11,6 +11,7 @@ import jwt
 import time
 import uuid
 import sqlite3
+from .paths import mcn_home
 import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
@@ -85,7 +86,7 @@ class AuthSystem:
     def __init__(self):
         self.config = {}
         self.providers = {}
-        self.db_path = Path("./mcn_auth.db")
+        self.db_path = mcn_home("data") / "mcn_auth.db"   # MCN's own data, not the project folder
         self._init_database()
     
     def _init_database(self):
@@ -597,7 +598,7 @@ class WorkflowEngine:
     """Real workflow automation with SQLite persistence"""
     
     def __init__(self):
-        self.db_path = Path("./mcn_workflows.db")
+        self.db_path = mcn_home("data") / "mcn_workflows.db"   # MCN's own data, not the project folder
         self._init_database()
     
     def _init_database(self):
@@ -781,7 +782,7 @@ class AnalyticsSystem:
     """Real analytics system with SQLite storage"""
     
     def __init__(self):
-        self.db_path = Path("./mcn_analytics.db")
+        self.db_path = mcn_home("data") / "mcn_analytics.db"   # MCN's own data, not the project folder
         self._init_database()
     
     def _init_database(self):
@@ -1144,7 +1145,7 @@ class RealtimeSystem:
     
     def __init__(self):
         self.providers = {}
-        self.db_path = Path("./mcn_realtime.db")
+        self.db_path = mcn_home("data") / "mcn_realtime.db"   # MCN's own data, not the project folder
         self._init_database()
     
     def _init_database(self):
@@ -1467,7 +1468,7 @@ class ComplianceSystem:
     
     def __init__(self):
         self.frameworks = {}
-        self.db_path = Path("./mcn_compliance.db")
+        self.db_path = mcn_home("data") / "mcn_compliance.db"   # MCN's own data, not the project folder
         self._init_database()
     
     def _init_database(self):

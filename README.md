@@ -93,7 +93,7 @@ Hint: Did you mean 'total'?
 
 **Security.** Add `auth "token"` or `auth "jwt"` to a service to require a bearer token (`public name, ...` keeps some endpoints open). Every service gets security headers, rate limiting and a body size limit, and only declared endpoints are reachable. Check functions such as `validate`, `sanitize_html`, `rate_limit`, `require` and `audit_log` are built in, and `mcn audit .` finds SQL injection, hard-coded secrets, open services and more before you ship. Set `MCN_VERBOSE=1` to see engine debug logs; MCN's own logs go to `~/.mcn/logs`.
 
-**Mobile app (Flutter, optional).** Studio's **App** view compiles the same `ui/app.mcn` to Flutter: each component becomes a screen with the same state, handlers and endpoint calls. With the backend running, start it and point it at the backend:
+**Mobile app (Flutter, optional).** Studio's **App** view compiles the same `ui/app.mcn` to Flutter: each component becomes a screen with the same state, handlers and endpoint calls. **App Preview** runs the real Flutter app in a phone frame (when Flutter is installed), and **Export Flutter Package** downloads the project. To run it yourself, start the backend, then:
 
 ```bash
 cd mobile                               # in the project Studio builds

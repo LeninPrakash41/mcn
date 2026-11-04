@@ -128,7 +128,8 @@ function renderFileTree(files) {
     if (_activeWorkspace === 'react') {
       if (p.startsWith('mobile/') || p.startsWith('scripts/')) return false;
     } else if (_activeWorkspace === 'flutter') {
-      if (p.startsWith('ui/') || p.startsWith('frontend/') || p.startsWith('scripts/')) return false;
+      // ui/app.mcn is the source of the Flutter app, so it stays visible
+      if (p.startsWith('frontend/') || p.startsWith('scripts/')) return false;
     } else if (_activeWorkspace === 'repl') {
       if (p.startsWith('ui/') || p.startsWith('frontend/') || p.startsWith('mobile/')) return false;
     }

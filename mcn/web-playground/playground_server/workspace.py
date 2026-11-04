@@ -75,7 +75,9 @@ def workspace_files():
     ws    = _request_workspace()
     files = []
     for p in sorted(ws.rglob("*")):
-        if p.is_file() and "node_modules" not in p.parts and ".vite" not in p.parts:
+        parts = set(p.relative_to(ws).parts)
+        # Skip dependencies, build output and tool folders (Flutter's build/ and .dart_tool/ hold thousands of files)
+        if p.is_file() and not parts & {"node_modules", ".vite", ".dart_tool", "build", ".mcn", "__pycache__", ".git", ".idea", "dist"}:
             rel = str(p.relative_to(ws))
             files.append({"path": rel, "type": "file"})
     if not files:

@@ -163,7 +163,17 @@ setToken(result.token)   // setToken(null) to log out
 
 ## Mobile apps
 
-Studio's **App** view compiles the same `ui/app.mcn` to a Flutter project. Each `component` becomes a screen, the `app` block's `nav` items become a bottom navigation bar (a drawer when there are more than five), and state, `on_load` handlers and endpoint calls work as they do on the web. Tables become lists, and `kanban` cards move with a long press and drag.
+Studio's **App** view compiles the same `ui/app.mcn` to a native Flutter app built from Material 3 widgets that adapt to the platform, with the web kit's Lucide icons and [fl_chart](https://pub.dev/packages/fl_chart) charts. It behaves like a native app:
+
+- **Navigation:** a bottom navigation bar on phones (a drawer beyond five sections) and a navigation rail on tablets. Each section keeps its own page history and scroll position, so the Android back button, the iOS swipe-back gesture and tapping the current tab all work as expected.
+- **Screens:** large titles that collapse as you scroll, and pull to refresh (it runs the screen's `on load` again).
+- **Lists:** a search bar and filter chips. Tap a row to open its details on a new page; swipe left to delete, after a confirmation.
+- **Boards:** `kanban` columns snap one per screen on phones. Tap a card to pick its new column, or long-press to drag it.
+- **Details:** platform page transitions, switches and dialogs, snackbars, and haptic feedback.
+
+Each `component` becomes a screen, the `app` block's `nav` items become a bottom navigation bar (a drawer when there are more than five), and state, `on_load` handlers and endpoint calls work as they do on the web. Tables become lists, and `kanban` cards move with a long press and drag.
+
+Press **App Preview** in the App view to generate `mobile/` and run it in the phone frame. With [Flutter](https://docs.flutter.dev/get-started/install) installed, that's the real Flutter app, built for the web and talking to your backend (the first build takes about 30 seconds). Without Flutter, the frame shows the same components at phone size. **Export Flutter Package** downloads the Flutter project, the backend, `ui/app.mcn` and the files to deploy the backend, with a README for running it on Android and iOS.
 
 `agent_builder` and `workflow_builder` are web-only; on mobile they show a note pointing to the web app. Projects without UI components still use `mobile/ui-manifest.json`, a JSON list of screens and widgets.
 

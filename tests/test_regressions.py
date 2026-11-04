@@ -189,3 +189,19 @@ def test_flutter_state_named_like_a_handler_value(tmp_path):
                    '    render\n        button "Next" on_click=next\n\napp A\n    nav "Queue" Queue\n', quiet=True)
     FlutterCompiler({}).compile(interp._evaluator, tmp_path, "a")
     assert "final dynamic item = e" not in (tmp_path / "lib" / "screens" / "queue.dart").read_text()
+
+
+def test_flutter_runtime_has_every_kit_icon_and_ui_packages(tmp_path):
+    """The Flutter app uses the web kit's icons (Lucide) and fl_chart."""
+    import re
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    from mcn.fullstack.flutter_compiler import FlutterCompiler
+    kit = set(re.search(r"const NAMES = `(.*?)`", (ROOT / "mcn" / "ui-kit" / "react" / "gen-icons.mjs").read_text(), re.S).group(1).split())
+    runtime = (ROOT / "mcn" / "fullstack" / "flutter_runtime.dart").read_text()
+    mapped = set(re.findall(r"'(\w+)': LucideIcons\.", runtime))
+    assert {n.lower() for n in kit} <= mapped
+    interp = MCNInterpreter()
+    interp.execute('component Home\n    render\n        text "Hi"\n\napp A\n    nav "Home" Home\n', quiet=True)
+    FlutterCompiler({}).compile(interp._evaluator, tmp_path, "a")
+    pubspec = (tmp_path / "pubspec.yaml").read_text()
+    assert "lucide_icons_flutter:" in pubspec and "fl_chart:" in pubspec

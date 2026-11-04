@@ -1,9 +1,16 @@
 // MCN runtime for Flutter apps compiled from MCN components (do not edit:
 // regenerated on every build). Value helpers give MCN semantics (null-safe
-// property access, + for text and numbers, truthiness); the widgets are the
-// mobile counterparts of the MCN UI kit.
+// property access, + for text and numbers, truthiness). The widgets are native
+// Material 3, adapting to the platform: a bottom navigation bar on phones, a
+// navigation rail on tablets, a page history per tab with back navigation,
+// large collapsing titles, pull to refresh, swipe actions and haptics. Icons
+// are the web kit's (Lucide) and charts use fl_chart.
 import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 // ── Values ───────────────────────────────────────────────────────────────────
 
@@ -77,53 +84,166 @@ String mcnHumanize(String key) {
 
 List<dynamic> mcnList(dynamic v) => v is List ? v : const [];
 
+// ── Theme, icons and colors ──────────────────────────────────────────────────
+
+const Color _seed = Color(0xFF2563EB);   // the web kit's primary blue
+
+ThemeData mcnTheme(Brightness brightness) {
+  final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
+  final radius = BorderRadius.circular(16);
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    brightness: brightness,
+    // Each platform's own page transitions: Cupertino slide (and swipe back) on iOS, predictive back on Android
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    }),
+    cardTheme: CardThemeData(elevation: 0, margin: EdgeInsets.zero, color: scheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(borderRadius: radius)),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true, fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    ),
+    listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16)),
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating, showCloseIcon: true),
+    navigationBarTheme: NavigationBarThemeData(backgroundColor: scheme.surfaceContainer, elevation: 0),
+    navigationRailTheme: NavigationRailThemeData(backgroundColor: scheme.surfaceContainer),
+  );
+}
+
+const Map<String, IconData> _icons = {
+  'activity': LucideIcons.activity, 'alertcircle': LucideIcons.alertCircle,
+  'alerttriangle': LucideIcons.alertTriangle, 'archive': LucideIcons.archive, 'arrowdown': LucideIcons.arrowDown,
+  'arrowdownright': LucideIcons.arrowDownRight, 'arrowleft': LucideIcons.arrowLeft,
+  'arrowright': LucideIcons.arrowRight, 'arrowup': LucideIcons.arrowUp, 'arrowupright': LucideIcons.arrowUpRight,
+  'atsign': LucideIcons.atSign, 'award': LucideIcons.award, 'banknote': LucideIcons.banknote,
+  'barchart3': LucideIcons.barChart3, 'battery': LucideIcons.battery, 'batterycharging': LucideIcons.batteryCharging,
+  'bell': LucideIcons.bell, 'bellring': LucideIcons.bellRing, 'blinds': LucideIcons.blinds,
+  'bluetooth': LucideIcons.bluetooth, 'bookmark': LucideIcons.bookmark, 'bookopen': LucideIcons.bookOpen,
+  'bot': LucideIcons.bot, 'box': LucideIcons.box, 'brain': LucideIcons.brain, 'briefcase': LucideIcons.briefcase,
+  'building': LucideIcons.building, 'building2': LucideIcons.building2, 'calendar': LucideIcons.calendar,
+  'calendardays': LucideIcons.calendarDays, 'camera': LucideIcons.camera, 'cctv': LucideIcons.cctv,
+  'check': LucideIcons.check, 'checkcircle': LucideIcons.checkCircle, 'checksquare': LucideIcons.checkSquare,
+  'chevrondown': LucideIcons.chevronDown, 'chevronleft': LucideIcons.chevronLeft,
+  'chevronright': LucideIcons.chevronRight, 'chevronsleft': LucideIcons.chevronsLeft,
+  'chevronsright': LucideIcons.chevronsRight, 'chevronup': LucideIcons.chevronUp, 'circle': LucideIcons.circle,
+  'circledot': LucideIcons.circleDot, 'clipboard': LucideIcons.clipboard,
+  'clipboardcheck': LucideIcons.clipboardCheck, 'clipboardlist': LucideIcons.clipboardList,
+  'clock': LucideIcons.clock, 'cloud': LucideIcons.cloud, 'cloudrain': LucideIcons.cloudRain,
+  'code': LucideIcons.code, 'cog': LucideIcons.cog, 'coins': LucideIcons.coins, 'columns3': LucideIcons.columns3,
+  'command': LucideIcons.command, 'copy': LucideIcons.copy, 'cpu': LucideIcons.cpu,
+  'creditcard': LucideIcons.creditCard, 'database': LucideIcons.database, 'dices': LucideIcons.dices,
+  'dollarsign': LucideIcons.dollarSign, 'doorclosed': LucideIcons.doorClosed, 'dooropen': LucideIcons.doorOpen,
+  'download': LucideIcons.download, 'droplets': LucideIcons.droplets, 'edit': LucideIcons.edit,
+  'euro': LucideIcons.euro, 'eye': LucideIcons.eye, 'eyeoff': LucideIcons.eyeOff, 'fan': LucideIcons.fan,
+  'file': LucideIcons.file, 'filetext': LucideIcons.fileText, 'filter': LucideIcons.filter, 'flag': LucideIcons.flag,
+  'flame': LucideIcons.flame, 'flaskconical': LucideIcons.flaskConical, 'folder': LucideIcons.folder,
+  'folderopen': LucideIcons.folderOpen, 'gauge': LucideIcons.gauge, 'gitbranch': LucideIcons.gitBranch,
+  'globe': LucideIcons.globe, 'graduationcap': LucideIcons.graduationCap, 'grid3x3': LucideIcons.grid3x3,
+  'gripvertical': LucideIcons.gripVertical, 'hammer': LucideIcons.hammer, 'hash': LucideIcons.hash,
+  'heart': LucideIcons.heart, 'helpcircle': LucideIcons.helpCircle, 'highlighter': LucideIcons.highlighter,
+  'history': LucideIcons.history, 'home': LucideIcons.home, 'house': LucideIcons.house, 'image': LucideIcons.image,
+  'inbox': LucideIcons.inbox, 'info': LucideIcons.info, 'kanban': LucideIcons.kanban, 'key': LucideIcons.key,
+  'lamp': LucideIcons.lamp, 'laptop': LucideIcons.laptop, 'layers': LucideIcons.layers, 'layout': LucideIcons.layout,
+  'layoutdashboard': LucideIcons.layoutDashboard, 'layoutgrid': LucideIcons.layoutGrid,
+  'layoutlist': LucideIcons.layoutList, 'leaf': LucideIcons.leaf, 'lifebuoy': LucideIcons.lifeBuoy,
+  'lightbulb': LucideIcons.lightbulb, 'linechart': LucideIcons.lineChart, 'link': LucideIcons.link,
+  'list': LucideIcons.list, 'listchecks': LucideIcons.listChecks, 'listtodo': LucideIcons.listTodo,
+  'loader2': LucideIcons.loader2, 'lock': LucideIcons.lock, 'logout': LucideIcons.logOut, 'mail': LucideIcons.mail,
+  'map': LucideIcons.map, 'mappin': LucideIcons.mapPin, 'maximize2': LucideIcons.maximize2,
+  'megaphone': LucideIcons.megaphone, 'menu': LucideIcons.menu, 'messagecircle': LucideIcons.messageCircle,
+  'messagesquare': LucideIcons.messageSquare, 'mic': LucideIcons.mic, 'microchip': LucideIcons.microchip,
+  'minus': LucideIcons.minus, 'monitor': LucideIcons.monitor, 'moon': LucideIcons.moon,
+  'morehorizontal': LucideIcons.moreHorizontal, 'morevertical': LucideIcons.moreVertical,
+  'package': LucideIcons.package, 'panelleft': LucideIcons.panelLeft, 'panelleftclose': LucideIcons.panelLeftClose,
+  'panelleftopen': LucideIcons.panelLeftOpen, 'paperclip': LucideIcons.paperclip, 'pause': LucideIcons.pause,
+  'pencil': LucideIcons.pencil, 'percent': LucideIcons.percent, 'phone': LucideIcons.phone,
+  'piechart': LucideIcons.pieChart, 'play': LucideIcons.play, 'plug': LucideIcons.plug, 'plus': LucideIcons.plus,
+  'pluscircle': LucideIcons.plusCircle, 'power': LucideIcons.power, 'printer': LucideIcons.printer,
+  'radio': LucideIcons.radio, 'receipt': LucideIcons.receipt, 'refreshcw': LucideIcons.refreshCw,
+  'repeat': LucideIcons.repeat, 'rocket': LucideIcons.rocket, 'router': LucideIcons.router, 'save': LucideIcons.save,
+  'scantext': LucideIcons.scanText, 'search': LucideIcons.search, 'send': LucideIcons.send,
+  'server': LucideIcons.server, 'settings': LucideIcons.settings, 'share2': LucideIcons.share2,
+  'shield': LucideIcons.shield, 'shieldalert': LucideIcons.shieldAlert, 'shieldcheck': LucideIcons.shieldCheck,
+  'shoppingbag': LucideIcons.shoppingBag, 'shoppingcart': LucideIcons.shoppingCart, 'sigma': LucideIcons.sigma,
+  'signal': LucideIcons.signal, 'siren': LucideIcons.siren, 'sliders': LucideIcons.sliders,
+  'smartphone': LucideIcons.smartphone, 'sparkles': LucideIcons.sparkles, 'sprout': LucideIcons.sprout,
+  'square': LucideIcons.square, 'star': LucideIcons.star, 'sun': LucideIcons.sun, 'table': LucideIcons.table,
+  'tag': LucideIcons.tag, 'tags': LucideIcons.tags, 'target': LucideIcons.target, 'terminal': LucideIcons.terminal,
+  'thermometer': LucideIcons.thermometer, 'thumbsup': LucideIcons.thumbsUp, 'timer': LucideIcons.timer,
+  'toggleleft': LucideIcons.toggleLeft, 'trash2': LucideIcons.trash2, 'trendingdown': LucideIcons.trendingDown,
+  'trendingup': LucideIcons.trendingUp, 'trophy': LucideIcons.trophy, 'truck': LucideIcons.truck,
+  'type': LucideIcons.type, 'upload': LucideIcons.upload, 'user': LucideIcons.user,
+  'usercheck': LucideIcons.userCheck, 'userplus': LucideIcons.userPlus, 'users': LucideIcons.users,
+  'users2': LucideIcons.users2, 'vibrate': LucideIcons.vibrate, 'video': LucideIcons.video,
+  'wallet': LucideIcons.wallet, 'warehouse': LucideIcons.warehouse, 'waves': LucideIcons.waves,
+  'webhook': LucideIcons.webhook, 'wifi': LucideIcons.wifi, 'wind': LucideIcons.wind,
+  'workflow': LucideIcons.workflow, 'wrench': LucideIcons.wrench, 'x': LucideIcons.x, 'xcircle': LucideIcons.xCircle,
+  'zap': LucideIcons.zap,
+};
+
+IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? LucideIcons.circle;
+
+/// The web kit's chart palette.
+const List<Color> mcnPalette = [Color(0xFF6366F1), Color(0xFF06B6D4), Color(0xFFF59E0B), Color(0xFF10B981),
+  Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFFEF4444), Color(0xFF64748B)];
+
+Color mcnTone(dynamic name) => const {
+      'green': Color(0xFF10B981), 'emerald': Color(0xFF10B981), 'red': Color(0xFFEF4444), 'blue': Color(0xFF2563EB),
+      'sky': Color(0xFF0EA5E9), 'amber': Color(0xFFF59E0B), 'orange': Color(0xFFF97316), 'purple': Color(0xFF8B5CF6),
+      'violet': Color(0xFF8B5CF6), 'pink': Color(0xFFEC4899), 'slate': Color(0xFF64748B),
+    }[mcnStr(name).toLowerCase()] ?? const Color(0xFF6366F1);
+
+String mcnCompact(num v) {
+  final a = v.abs();
+  String trim(String s) => s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+  if (a >= 1e9) return '${trim((v / 1e9).toStringAsFixed(1))}B';
+  if (a >= 1e6) return '${trim((v / 1e6).toStringAsFixed(1))}M';
+  if (a >= 1e3) return '${trim((v / 1e3).toStringAsFixed(a >= 1e4 ? 0 : 1))}k';
+  return a >= 10 || v == v.roundToDouble() ? mcnFormat(v.round()) : v.toStringAsFixed(1);
+}
+
+/// A round axis step (1, 2 or 5 × 10ⁿ) that splits 0..max into about four parts.
+double mcnNiceStep(double max) {
+  if (max <= 0) return 1;
+  final raw = max / 4;
+  final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+  final f = raw / mag;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+}
+
 // ── Notifications ────────────────────────────────────────────────────────────
 
+final GlobalKey<ScaffoldMessengerState> _messenger = GlobalKey<ScaffoldMessengerState>();
+
 void mcnNotify(BuildContext context, dynamic message, [dynamic kind = 'info']) {
-  final colors = {'success': Colors.green.shade700, 'error': Colors.red.shade700, 'warning': Colors.orange.shade800};
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+  final scheme = Theme.of(context).colorScheme;
+  final error = mcnStr(kind) == 'error';
+  if (error) HapticFeedback.mediumImpact();
+  (_messenger.currentState ?? ScaffoldMessenger.maybeOf(context))?.showSnackBar(SnackBar(
     content: Text(mcnStr(message)),
-    backgroundColor: colors[mcnStr(kind)],
-    behavior: SnackBarBehavior.floating,
+    backgroundColor: error ? scheme.error : null,
   ));
 }
 
-// ── Icons ────────────────────────────────────────────────────────────────────
-
-const Map<String, IconData> _icons = {
-  'layoutdashboard': Icons.dashboard_outlined, 'home': Icons.home_outlined, 'users': Icons.people_outline,
-  'user': Icons.person_outline, 'trendingup': Icons.trending_up, 'dollarsign': Icons.attach_money,
-  'shoppingcart': Icons.shopping_cart_outlined, 'alerttriangle': Icons.warning_amber_outlined, 'bot': Icons.smart_toy_outlined,
-  'messagesquare': Icons.chat_bubble_outline, 'messagecircle': Icons.chat_bubble_outline, 'history': Icons.history,
-  'mail': Icons.mail_outline, 'workflow': Icons.account_tree_outlined, 'kanban': Icons.view_kanban_outlined,
-  'calendar': Icons.calendar_today_outlined, 'building2': Icons.business_outlined, 'building': Icons.business_outlined,
-  'settings': Icons.settings_outlined, 'checkcircle': Icons.check_circle_outline, 'play': Icons.play_arrow_outlined,
-  'listtodo': Icons.checklist, 'checksquare': Icons.check_box_outlined, 'target': Icons.track_changes, 'package': Icons.inventory_2_outlined,
-  'filetext': Icons.description_outlined, 'receipt': Icons.receipt_long_outlined, 'barchart3': Icons.bar_chart, 'linechart': Icons.show_chart,
-  'piechart': Icons.pie_chart_outline, 'gauge': Icons.speed, 'sparkles': Icons.auto_awesome, 'plug': Icons.power_outlined,
-  'wrench': Icons.build_outlined, 'bell': Icons.notifications_none, 'search': Icons.search, 'inbox': Icons.inbox_outlined,
-  'folderopen': Icons.folder_open_outlined, 'rocket': Icons.rocket_launch_outlined, 'database': Icons.storage, 'globe': Icons.public,
-  'clock': Icons.schedule, 'star': Icons.star_border, 'heart': Icons.favorite_border, 'thermometer': Icons.thermostat, 'lightbulb': Icons.lightbulb_outline,
-  'droplets': Icons.water_drop_outlined, 'dooropen': Icons.door_front_door_outlined, 'doorclosed': Icons.door_front_door_outlined,
-  'house': Icons.home_outlined, 'cpu': Icons.memory, 'microchip': Icons.memory, 'fan': Icons.mode_fan_off_outlined,
-  'activity': Icons.monitor_heart_outlined, 'radio': Icons.sensors, 'signal': Icons.signal_cellular_alt, 'wifi': Icons.wifi,
-  'power': Icons.power_settings_new, 'zap': Icons.bolt, 'battery': Icons.battery_std, 'batterycharging': Icons.battery_charging_full,
-  'bluetooth': Icons.bluetooth, 'cloudrain': Icons.water, 'wind': Icons.air, 'flame': Icons.local_fire_department_outlined,
-  'leaf': Icons.eco_outlined, 'sprout': Icons.grass, 'waves': Icons.waves, 'lamp': Icons.light_outlined, 'blinds': Icons.blinds,
-  'cctv': Icons.videocam_outlined, 'router': Icons.router_outlined, 'siren': Icons.campaign_outlined, 'vibrate': Icons.vibration,
-  'flaskconical': Icons.science_outlined, 'brain': Icons.psychology_outlined, 'tags': Icons.sell_outlined, 'tag': Icons.label_outline,
-  'clipboardcheck': Icons.assignment_turned_in_outlined, 'highlighter': Icons.highlight, 'scantext': Icons.document_scanner_outlined,
-  'sigma': Icons.functions, 'dices': Icons.casino_outlined, 'trendingdown': Icons.trending_down,
-};
-
-IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? Icons.circle_outlined;
-
-const List<Color> mcnPalette = [Color(0xFF6366F1), Color(0xFF06B6D4), Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFFEC4899), Color(0xFF8B5CF6)];
-
-Color mcnTone(dynamic name) => const {
-      'green': Color(0xFF16A34A), 'red': Color(0xFFDC2626), 'blue': Color(0xFF2563EB),
-      'amber': Color(0xFFD97706), 'purple': Color(0xFF9333EA),
-    }[mcnStr(name)] ?? const Color(0xFF6366F1);
+Future<bool> mcnConfirm(BuildContext context, String title, {String action = 'Delete'}) async {
+  final ok = await showAdaptiveDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog.adaptive(
+      title: Text(title),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), child: Text(action)),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
 
 // ── App shell ────────────────────────────────────────────────────────────────
 
@@ -134,81 +254,221 @@ class MCNSection {
   const MCNSection(this.label, this.icon, this.build);
 }
 
-/// Bottom navigation for up to five sections, a drawer for more.
+/// What a screen needs from the shell: its title, and a way to open the drawer.
+class MCNScope extends InheritedWidget {
+  final String title;
+  final VoidCallback? openDrawer;
+  const MCNScope({super.key, required this.title, this.openDrawer, required super.child});
+  static MCNScope? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<MCNScope>();
+  @override
+  bool updateShouldNotify(MCNScope old) => old.title != title || old.openDrawer != openDrawer;
+}
+
+/// Phones: a bottom navigation bar (up to five sections) or a drawer (more).
+/// Tablets and desktop: a navigation rail. Every section keeps its own page
+/// history, so detail pages slide in and the back button or swipe-back returns.
 class MCNApp extends StatefulWidget {
   final String title;
+  final String? logo;
   final List<MCNSection> sections;
-  const MCNApp({super.key, required this.title, required this.sections});
+  const MCNApp({super.key, required this.title, required this.sections, this.logo});
   @override
   State<MCNApp> createState() => _MCNAppState();
 }
 
 class _MCNAppState extends State<MCNApp> {
   int _index = 0;
+  late final List<GlobalKey<NavigatorState>> _tabs = [for (final _ in widget.sections) GlobalKey<NavigatorState>()];
+  final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
+
+  void _select(int i) {
+    HapticFeedback.selectionClick();
+    if (i == _index) {
+      _tabs[i].currentState?.popUntil((r) => r.isFirst);   // tapping the current tab goes back to its start
+    } else {
+      setState(() => _index = i);
+    }
+  }
+
+  void _back() {
+    final nav = _tabs[_index].currentState;
+    if (nav != null && nav.canPop()) {
+      nav.pop();
+    } else if (_index != 0) {
+      setState(() => _index = 0);
+    } else {
+      SystemNavigator.pop();
+    }
+  }
+
+  Widget _tab(int i, VoidCallback? openDrawer) {
+    final s = widget.sections[i];
+    return Navigator(
+      key: _tabs[i],
+      onGenerateRoute: (settings) => MaterialPageRoute(settings: settings,
+          builder: (_) => MCNScope(title: s.label, openDrawer: openDrawer, child: s.build())),
+    );
+  }
+
+  Widget _brand(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(children: [
+      Container(width: 36, height: 36, decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(10)),
+          child: Icon(mcnIcon(widget.logo ?? 'layoutdashboard'), size: 18, color: scheme.onPrimary)),
+      const SizedBox(width: 12),
+      Flexible(child: Text(widget.title, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium)),
+    ]);
+  }
+
+  Widget _shell(BuildContext context) {
+    final sections = widget.sections;
+    if (sections.isEmpty) return const Scaffold();
+    return LayoutBuilder(builder: (context, size) {
+      final rail = size.maxWidth >= 640 && sections.length > 1;
+      final drawer = !rail && sections.length > 5;
+      final pages = IndexedStack(index: _index, children: [
+        for (var i = 0; i < sections.length; i++) _tab(i, drawer ? () => _scaffold.currentState?.openDrawer() : null),
+      ]);
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) { if (!didPop) _back(); },
+        child: Scaffold(
+          key: _scaffold,
+          drawer: drawer ? NavigationDrawer(
+            selectedIndex: _index,
+            onDestinationSelected: (i) { Navigator.pop(context); _select(i); },
+            children: [
+              Padding(padding: const EdgeInsets.fromLTRB(28, 20, 16, 12), child: _brand(context)),
+              for (final s in sections) NavigationDrawerDestination(icon: Icon(mcnIcon(s.icon)), label: Text(s.label)),
+            ],
+          ) : null,
+          body: rail ? Row(children: [
+            SafeArea(child: NavigationRail(
+              extended: size.maxWidth >= 1100,
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              labelType: size.maxWidth >= 1100 ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+              leading: Padding(padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: size.maxWidth >= 1100 ? SizedBox(width: 200, child: _brand(context))
+                      : Container(width: 40, height: 40, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(12)),
+                          child: Icon(mcnIcon(widget.logo ?? 'layoutdashboard'), size: 20, color: Theme.of(context).colorScheme.onPrimary))),
+              destinations: [for (final s in sections) NavigationRailDestination(icon: Icon(mcnIcon(s.icon)), label: Text(s.label))],
+            )),
+            const VerticalDivider(width: 1),
+            Expanded(child: pages),
+          ]) : pages,
+          bottomNavigationBar: !rail && !drawer && sections.length > 1 ? NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: _select,
+            destinations: [for (final s in sections) NavigationDestination(icon: Icon(mcnIcon(s.icon)), label: s.label)],
+          ) : null,
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: widget.title,
+        debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: _messenger,
+        theme: mcnTheme(Brightness.light),
+        darkTheme: mcnTheme(Brightness.dark),
+        themeMode: ThemeMode.system,
+        home: Builder(builder: _shell),
+      );
+}
+
+/// A screen: a large title that collapses as you scroll, pull to refresh, and
+/// content padded to fit phones and centred on wide screens.
+class MCNPage extends StatelessWidget {
+  final List<Widget> children;
+  final Future<dynamic> Function()? onRefresh;
+  final String? title;
+  const MCNPage({super.key, required this.children, this.onRefresh, this.title});
   @override
   Widget build(BuildContext context) {
-    final sections = widget.sections;
-    final useBar = sections.length > 1 && sections.length <= 5;
-    return MaterialApp(
-      title: widget.title,
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF4F46E5), useMaterial3: true),
-      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF4F46E5), useMaterial3: true, brightness: Brightness.dark),
-      home: Builder(builder: (context) => Scaffold(
-        appBar: AppBar(title: Text(sections.length > 1 ? sections[_index].label : widget.title)),
-        drawer: useBar || sections.length < 2 ? null : Drawer(
-          child: ListView(children: [
-            DrawerHeader(child: Align(alignment: Alignment.bottomLeft,
-                child: Text(widget.title, style: Theme.of(context).textTheme.titleLarge))),
-            for (var i = 0; i < sections.length; i++)
-              ListTile(
-                leading: Icon(mcnIcon(sections[i].icon)), title: Text(sections[i].label), selected: i == _index,
-                onTap: () { setState(() => _index = i); Navigator.pop(context); },
+    final scope = MCNScope.of(context);
+    final canPop = Navigator.of(context).canPop();
+    return Scaffold(
+      body: LayoutBuilder(builder: (context, size) {
+        final side = math.max(16.0, (size.maxWidth - 1100) / 2);
+        final scroll = CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar.large(
+              title: Text(title ?? scope?.title ?? ''),
+              leading: !canPop && scope?.openDrawer != null
+                  ? IconButton(icon: const Icon(LucideIcons.menu), tooltip: 'Menu', onPressed: scope!.openDrawer) : null,
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(side, 4, side, 24 + MediaQuery.paddingOf(context).bottom),
+              sliver: SliverList.separated(
+                itemCount: children.length,
+                itemBuilder: (_, i) => children[i],
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
               ),
-          ]),
-        ),
-        body: sections.isEmpty ? const SizedBox.shrink() : KeyedSubtree(key: ValueKey(_index), child: sections[_index].build()),
-        bottomNavigationBar: useBar ? NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [for (final s in sections) NavigationDestination(icon: Icon(mcnIcon(s.icon)), label: s.label)],
-        ) : null,
-      )),
+            ),
+          ],
+        );
+        return onRefresh == null ? scroll : RefreshIndicator.adaptive(
+          edgeOffset: 152,
+          onRefresh: () async { HapticFeedback.lightImpact(); await onRefresh!(); },
+          child: scroll,
+        );
+      }),
     );
   }
 }
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
-/// grid_cols=N: N columns on wide screens, two on tablets, one on phones.
+/// grid_cols=N: N columns on wide screens, two on tablets (and phones, for 4-column rows), one on narrow phones.
 class MCNGrid extends StatelessWidget {
   final int columns;
   final List<Widget> children;
   const MCNGrid({super.key, required this.columns, required this.children});
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final n = c.maxWidth > 900 ? columns : (c.maxWidth > 560 ? math.min(2, columns) : (columns >= 4 ? 2 : 1));
+        final n = c.maxWidth > 900 ? columns : (c.maxWidth > 560 ? math.min(2, columns) : (columns >= 4 && c.maxWidth >= 300 ? 2 : 1));
         final w = (c.maxWidth - 12 * (n - 1)) / n;
         return Wrap(spacing: 12, runSpacing: 12, children: [for (final child in children) SizedBox(width: w, child: child)]);
       });
 }
 
+/// Vertical stack with even spacing (forms, card bodies).
+class MCNStack extends StatelessWidget {
+  final List<Widget> children;
+  final double gap;
+  const MCNStack({super.key, required this.children, this.gap = 12});
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (var i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: gap), children[i]],
+      ]);
+}
+
 class MCNCard extends StatelessWidget {
   final String? title;
+  final String? description;
   final List<Widget> children;
-  const MCNCard({super.key, this.title, required this.children});
+  const MCNCard({super.key, this.title, this.description, required this.children});
   @override
-  Widget build(BuildContext context) => Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            if (title != null) Padding(padding: const EdgeInsets.only(bottom: 12),
-                child: Text(title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
-            ...children,
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (title != null) Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          if (description != null) Padding(padding: const EdgeInsets.only(top: 2),
+              child: Text(description!, style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          if (title != null || description != null) const SizedBox(height: 12),
+          MCNStack(children: children),
+        ]),
+      ),
+    );
+  }
 }
 
 class MCNStat extends StatelessWidget {
@@ -217,24 +477,45 @@ class MCNStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = mcnTone(color);
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
-      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(mcnStr(label), style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 4),
-            Text('${mcnFormat(value)}${mcnStr(unit)}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-          ])),
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: tone.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-            child: Icon(mcnIcon(icon), color: tone, size: 20),
+            width: 34, height: 34,
+            decoration: BoxDecoration(color: tone.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
+            child: Icon(mcnIcon(icon), color: tone, size: 18),
           ),
+          const SizedBox(height: 12),
+          // One line each: long labels end in "…" and big values shrink, so words never break
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('${mcnFormat(value)}${mcnStr(unit)}', maxLines: 1,
+                style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()])),
+          ),
+          const SizedBox(height: 2),
+          Text(mcnStr(label), maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
         ]),
       ),
     );
+  }
+}
+
+class MCNText extends StatelessWidget {
+  final dynamic text;
+  final String style; // h1 | h2 | h3 | p | muted | small
+  const MCNText(this.text, {super.key, this.style = 'p'});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final muted = t.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    final s = {'h1': t.headlineSmall, 'h2': t.titleLarge, 'h3': t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      'muted': muted, 'small': t.labelLarge}[style] ?? t.bodyLarge;
+    return Text(mcnStr(text), style: s);
   }
 }
 
@@ -242,15 +523,20 @@ class MCNEmpty extends StatelessWidget {
   final dynamic title, description, icon;
   const MCNEmpty({super.key, this.title, this.description, this.icon});
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Column(children: [
-          Icon(mcnIcon(icon ?? 'inbox'), size: 36, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 8),
-          Text(mcnStr(title), style: Theme.of(context).textTheme.titleSmall),
-          if (description != null) Text(mcnStr(description), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      child: Column(children: [
+        Icon(mcnIcon(icon ?? 'inbox'), size: 36, color: scheme.outline),
+        const SizedBox(height: 12),
+        Text(mcnStr(title), textAlign: TextAlign.center, style: t.titleSmall),
+        if (description != null) Padding(padding: const EdgeInsets.only(top: 4),
+            child: Text(mcnStr(description), textAlign: TextAlign.center, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
+      ]),
+    );
+  }
 }
 
 /// A screen that only exists in the web app (agent and workflow builders).
@@ -258,42 +544,170 @@ class MCNWebOnly extends StatelessWidget {
   final String name;
   const MCNWebOnly(this.name, {super.key});
   @override
-  Widget build(BuildContext context) => MCNEmpty(title: '$name is available in the web app', icon: 'monitor',
-      description: 'Open this app in a browser to use the $name.');
+  Widget build(BuildContext context) => Card(child: MCNEmpty(title: '$name is available in the web app', icon: 'monitor',
+      description: 'Open this app in a browser to use the $name.'));
 }
 
+const Map<String, String> _badgeTones = {
+  'active': 'emerald', 'done': 'emerald', 'completed': 'emerald', 'won': 'emerald', 'paid': 'emerald', 'approved': 'emerald',
+  'success': 'emerald', 'open': 'sky', 'pending': 'amber', 'review': 'amber', 'draft': 'slate', 'in progress': 'sky',
+  'in_progress': 'sky', 'new': 'sky', 'proposal': 'violet', 'qualification': 'violet', 'lost': 'red', 'failed': 'red',
+  'rejected': 'red', 'overdue': 'red', 'cancelled': 'red', 'high': 'red', 'urgent': 'red', 'medium': 'amber', 'low': 'slate',
+};
+
+/// Colored pill for a status-like value; the color comes from the word, as on the web.
 class MCNBadge extends StatelessWidget {
   final dynamic value;
   const MCNBadge(this.value, {super.key});
   @override
   Widget build(BuildContext context) {
     final text = mcnStr(value);
-    final good = {'paid', 'active', 'done', 'won', 'success', 'completed', 'approved'}.contains(text.toLowerCase());
-    final bad = {'overdue', 'failed', 'lost', 'cancelled', 'rejected', 'high', 'urgent'}.contains(text.toLowerCase());
-    final color = good ? Colors.green : bad ? Colors.red : Colors.indigo;
+    const tones = ['emerald', 'sky', 'amber', 'red', 'violet', 'slate'];
+    final tone = mcnTone(_badgeTones[text.toLowerCase()] ?? tones[text.codeUnits.fold<int>(0, (a, b) => a + b) % tones.length]);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-      child: Text(text, style: TextStyle(fontSize: 12, color: color.shade700, fontWeight: FontWeight.w500)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: tone.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
+      child: Text(text.isEmpty ? '—' : text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+          color: dark ? Color.lerp(tone, Colors.white, 0.35) : Color.lerp(tone, Colors.black, 0.3))),
     );
   }
 }
 
+class MCNAlert extends StatelessWidget {
+  final dynamic text;
+  final dynamic title;
+  const MCNAlert(this.text, {super.key, this.title});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.secondaryContainer,
+      child: ListTile(
+        leading: Icon(LucideIcons.info, color: scheme.onSecondaryContainer),
+        title: title == null ? Text(mcnStr(text)) : Text(mcnStr(title)),
+        subtitle: title == null ? null : Text(mcnStr(text)),
+        textColor: scheme.onSecondaryContainer,
+      ),
+    );
+  }
+}
+
+class MCNSeparator extends StatelessWidget {
+  const MCNSeparator({super.key});
+  @override
+  Widget build(BuildContext context) => const Divider(height: 8);
+}
+
+class MCNProgress extends StatelessWidget {
+  final dynamic value;
+  const MCNProgress(this.value, {super.key});
+  @override
+  Widget build(BuildContext context) => ClipRRect(borderRadius: BorderRadius.circular(99),
+      child: LinearProgressIndicator(value: (mcnNum(value) / 100).clamp(0, 1).toDouble(), minHeight: 8));
+}
+
+// ── Forms ────────────────────────────────────────────────────────────────────
+
+class MCNButton extends StatelessWidget {
+  final dynamic label;
+  final String variant; // default | outline | secondary | ghost | destructive
+  final VoidCallback? onPressed;
+  final dynamic icon;
+  const MCNButton(this.label, {super.key, this.variant = 'default', this.onPressed, this.icon});
+  @override
+  Widget build(BuildContext context) {
+    final child = Text(mcnStr(label));
+    final i = icon == null ? null : Icon(mcnIcon(icon), size: 18);
+    final tap = onPressed == null ? null : () { HapticFeedback.lightImpact(); onPressed!(); };
+    final error = Theme.of(context).colorScheme.error;
+    final Widget button = switch (variant) {
+      'outline' => i == null ? OutlinedButton(onPressed: tap, child: child) : OutlinedButton.icon(onPressed: tap, icon: i, label: child),
+      'secondary' => i == null ? FilledButton.tonal(onPressed: tap, child: child) : FilledButton.tonalIcon(onPressed: tap, icon: i, label: child),
+      'ghost' => i == null ? TextButton(onPressed: tap, child: child) : TextButton.icon(onPressed: tap, icon: i, label: child),
+      'destructive' => FilledButton(onPressed: tap, style: FilledButton.styleFrom(backgroundColor: error), child: child),
+      _ => i == null ? FilledButton(onPressed: tap, child: child) : FilledButton.icon(onPressed: tap, icon: i, label: child),
+    };
+    return Align(alignment: Alignment.centerLeft, child: button);
+  }
+}
+
+class MCNInput extends StatelessWidget {
+  final dynamic label, placeholder;
+  final TextEditingController? controller;
+  final bool number, multiline;
+  final ValueChanged<String>? onChanged;
+  const MCNInput({super.key, this.label, this.placeholder, this.controller, this.number = false, this.multiline = false, this.onChanged});
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        onChanged: onChanged,
+        minLines: multiline ? 3 : 1,
+        maxLines: multiline ? 6 : 1,
+        textInputAction: multiline ? TextInputAction.newline : TextInputAction.next,
+        keyboardType: number ? const TextInputType.numberWithOptions(decimal: true, signed: true)
+            : (multiline ? TextInputType.multiline : TextInputType.text),
+        decoration: InputDecoration(
+          labelText: label == null ? null : mcnStr(label),
+          hintText: placeholder == null ? null : mcnStr(placeholder),
+        ),
+      );
+}
+
+class MCNSelect extends StatelessWidget {
+  final dynamic label;
+  final dynamic options;
+  final dynamic value;
+  final ValueChanged<String> onChanged;
+  const MCNSelect({super.key, this.label, this.options, this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    final items = mcnList(options).map(mcnStr).toList();
+    final current = items.contains(mcnStr(value)) ? mcnStr(value) : null;
+    return DropdownMenu<String>(
+      key: ValueKey('$current${items.join('|')}'),
+      initialSelection: current,
+      expandedInsets: EdgeInsets.zero,
+      label: label == null ? null : Text(mcnStr(label)),
+      dropdownMenuEntries: [for (final o in items) DropdownMenuEntry(value: o, label: o)],
+      onSelected: (v) { if (v != null) { HapticFeedback.selectionClick(); onChanged(v); } },
+    );
+  }
+}
+
+class MCNSwitch extends StatelessWidget {
+  final dynamic label;
+  final dynamic value;
+  final ValueChanged<bool> onChanged;
+  const MCNSwitch({super.key, this.label, this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) => SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(mcnStr(label)),
+        value: mcnTruthy(value),
+        onChanged: (b) { HapticFeedback.selectionClick(); onChanged(b); },
+      );
+}
+
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-/// Mobile data_table: search, filter chips and a card per record.
+final _badgeColumn = RegExp(r'^(status|stage|priority|state|type|split|label|source)$');
+
+/// Mobile data_table: a search bar, filter chips and a native list. Tap a row
+/// to open it (its own page, with back navigation); swipe left to delete.
 class MCNDataList extends StatefulWidget {
   final dynamic data;
   final List<dynamic> columns;
   final List<dynamic> filters;
   final String? title;
+  final String? description;
   final String? titleKey;
   final int pageSize;
   final Future<void> Function(dynamic row)? onDelete;
   final void Function(dynamic row)? onTap;
   final String? empty;
-  const MCNDataList({super.key, this.data, this.columns = const [], this.filters = const [], this.title, this.titleKey,
-      this.pageSize = 20, this.onDelete, this.onTap, this.empty});
+  const MCNDataList({super.key, this.data, this.columns = const [], this.filters = const [], this.title, this.description,
+      this.titleKey, this.pageSize = 20, this.onDelete, this.onTap, this.empty});
   @override
   State<MCNDataList> createState() => _MCNDataListState();
 }
@@ -303,123 +717,294 @@ class _MCNDataListState extends State<MCNDataList> {
   final Map<String, String?> _filter = {};
   int _shown = 0;
 
+  List<String> _cols(List<dynamic> rows) => widget.columns.isNotEmpty ? widget.columns.map(mcnStr).toList()
+      : (rows.isNotEmpty && rows.first is Map ? (rows.first as Map).keys.map(mcnStr).where((k) => k != 'id').take(5).toList() : <String>[]);
+
+  void _open(BuildContext context, dynamic row, List<String> cols, String titleKey) {
+    if (widget.onTap != null) { widget.onTap!(row); return; }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => MCNDetailPage(
+      row: row, titleKey: titleKey, columns: cols,
+      onDelete: widget.onDelete == null ? null : () async { await widget.onDelete!(row); },
+    )));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
     final rows = mcnList(widget.data);
-    final cols = widget.columns.isNotEmpty ? widget.columns.map(mcnStr).toList()
-        : (rows.isNotEmpty && rows.first is Map ? (rows.first as Map).keys.map(mcnStr).where((k) => k != 'id').take(5).toList() : <String>[]);
-    final titleKey = widget.titleKey ?? (cols.isNotEmpty ? cols.first : 'title');
+    final cols = _cols(rows);
+    final titleKey = widget.titleKey ?? cols.firstWhere((k) => k != 'id', orElse: () => cols.isNotEmpty ? cols.first : 'title');
     final q = _query.toLowerCase();
     final filtered = rows.where((r) =>
-        (q.isEmpty || cols.any((c) => mcnStr(mcnGet(r, c)).toLowerCase().contains(q))) &&
+        (q.isEmpty || cols.any((col) => mcnStr(mcnGet(r, col)).toLowerCase().contains(q))) &&
         _filter.entries.every((f) => f.value == null || mcnStr(mcnGet(r, f.key)) == f.value)).toList();
     final limit = _shown == 0 ? widget.pageSize : _shown;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (widget.title != null) Padding(padding: const EdgeInsets.only(bottom: 8),
-          child: Text(widget.title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
-      TextField(
-        decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search…', border: OutlineInputBorder(), isDense: true),
+    final shown = filtered.take(limit).toList();
+    final badgeCols = cols.where((c) => c != titleKey && _badgeColumn.hasMatch(c)).toList();
+    final otherCols = cols.where((c) => c != titleKey && !_badgeColumn.hasMatch(c)).toList();
+
+    // A table titled like its screen ("Orders" on Orders) doesn't repeat the heading
+    final title = widget.title != null && widget.title != MCNScope.of(context)?.title ? widget.title : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (title != null) Text(title, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+      if (widget.description != null) Text(widget.description!, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+      if (title != null || widget.description != null) const SizedBox(height: 10),
+      SearchBar(
+        hintText: 'Search',
+        leading: const Padding(padding: EdgeInsets.only(left: 4), child: Icon(LucideIcons.search, size: 20)),
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
         onChanged: (v) => setState(() => _query = v),
       ),
       for (final key in widget.filters.map(mcnStr))
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(children: [
-            Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text('All ${mcnHumanize(key).toLowerCase()}'),
-                selected: _filter[key] == null, onSelected: (_) => setState(() => _filter[key] = null))),
+        SizedBox(
+          height: 48,
+          child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(top: 8), children: [
             for (final v in rows.map((r) => mcnStr(mcnGet(r, key))).where((v) => v.isNotEmpty).toSet())
-              Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(v), selected: _filter[key] == v,
-                  onSelected: (_) => setState(() => _filter[key] = v))),
+              Padding(padding: const EdgeInsets.only(right: 8), child: FilterChip(
+                label: Text(v),
+                selected: _filter[key] == v,
+                onSelected: (on) { HapticFeedback.selectionClick(); setState(() => _filter[key] = on ? v : null); },
+              )),
           ]),
         ),
       const SizedBox(height: 8),
-      if (filtered.isEmpty) MCNEmpty(title: rows.isEmpty ? (widget.empty ?? 'Nothing here yet') : 'No matches', icon: rows.isEmpty ? 'inbox' : 'search'),
-      for (final r in filtered.take(limit))
-        Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            onTap: widget.onTap == null ? null : () => widget.onTap!(r),
-            title: Text(mcnFormat(mcnGet(r, titleKey)), style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              for (final c in cols.where((c) => c != titleKey))
-                RegExp(r'^(status|stage|priority|state|type)$').hasMatch(c)
-                    ? MCNBadge(mcnGet(r, c))
-                    : Text('${mcnHumanize(c)}: ${mcnFormat(mcnGet(r, c))}', style: Theme.of(context).textTheme.bodySmall),
-            ]),
-            trailing: widget.onDelete == null ? null : IconButton(
-              icon: const Icon(Icons.delete_outline), tooltip: 'Delete',
-              onPressed: () => widget.onDelete!(r),
-            ),
-          ),
-        ),
-      if (filtered.length > limit)
-        Center(child: TextButton(onPressed: () => setState(() => _shown = limit + widget.pageSize),
-            child: Text('Show more (${filtered.length - limit} left)'))),
+      Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          if (shown.isEmpty)
+            MCNEmpty(title: rows.isEmpty ? (widget.empty ?? 'Nothing here yet') : 'No matches', icon: rows.isEmpty ? 'inbox' : 'search'),
+          for (var i = 0; i < shown.length; i++) ...[
+            if (i > 0) Divider(height: 1, indent: 72, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            _row(context, shown[i], titleKey, badgeCols, otherCols, cols),
+          ],
+          if (filtered.length > limit)
+            TextButton(onPressed: () => setState(() => _shown = limit + widget.pageSize),
+                child: Text('Show more (${filtered.length - limit} left)')),
+        ]),
+      ),
+      Padding(padding: const EdgeInsets.only(top: 8, left: 4),
+          child: Text('${filtered.length} of ${rows.length}', style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
     ]);
+  }
+
+  Widget _row(BuildContext context, dynamic r, String titleKey, List<String> badgeCols, List<String> otherCols, List<String> cols) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = mcnFormat(mcnGet(r, titleKey));
+    final tile = ListTile(
+      leading: CircleAvatar(
+        backgroundColor: mcnPalette[title.codeUnits.fold<int>(0, (a, b) => a + b) % mcnPalette.length].withValues(alpha: 0.16),
+        child: Text(title.isEmpty ? '?' : title.characters.first.toUpperCase(),
+            style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
+      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: otherCols.isEmpty ? null : Text(
+        otherCols.take(3).map((c) => mcnFormat(mcnGet(r, c))).where((v) => v != '—').join(' · '),
+        maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        for (final c in badgeCols.take(1)) MCNBadge(mcnGet(r, c)),
+        const SizedBox(width: 4),
+        Icon(LucideIcons.chevronRight, size: 18, color: scheme.onSurfaceVariant),
+      ]),
+      onTap: () => _open(context, r, cols, titleKey),
+    );
+    if (widget.onDelete == null) return tile;
+    return Dismissible(
+      key: ValueKey(mcnGet(r, 'id') ?? r.hashCode),
+      direction: DismissDirection.endToStart,
+      background: Container(color: scheme.error, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 24),
+          child: Icon(LucideIcons.trash2, color: scheme.onError)),
+      confirmDismiss: (_) => mcnConfirm(context, 'Delete $title?'),
+      onDismissed: (_) { HapticFeedback.mediumImpact(); widget.onDelete!(r); },
+      child: tile,
+    );
   }
 }
 
-/// Board with a column per value of groupBy; long-press a card to move it.
+/// One record on its own page, opened from a list (back button / swipe back to return).
+class MCNDetailPage extends StatelessWidget {
+  final dynamic row;
+  final String titleKey;
+  final List<String> columns;
+  final Future<void> Function()? onDelete;
+  const MCNDetailPage({super.key, required this.row, required this.titleKey, required this.columns, this.onDelete});
+  @override
+  Widget build(BuildContext context) {
+    final keys = row is Map ? (row as Map).keys.map(mcnStr).toList() : columns;
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: CustomScrollView(slivers: [
+        SliverAppBar.large(
+          title: Text(mcnFormat(mcnGet(row, titleKey))),
+          actions: [
+            if (onDelete != null) IconButton(
+              icon: const Icon(LucideIcons.trash2), tooltip: 'Delete',
+              onPressed: () async {
+                if (!await mcnConfirm(context, 'Delete ${mcnFormat(mcnGet(row, titleKey))}?')) return;
+                await onDelete!();
+                if (context.mounted) Navigator.of(context).pop();
+              },
+            ),
+          ],
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverToBoxAdapter(child: Card(child: Column(children: [
+            for (var i = 0; i < keys.length; i++) ...[
+              if (i > 0) Divider(height: 1, indent: 16, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              ListTile(
+                title: Text(mcnHumanize(keys[i]), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                subtitle: _badgeColumn.hasMatch(keys[i])
+                    ? Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(top: 4), child: MCNBadge(mcnGet(row, keys[i]))))
+                    : Text(mcnFormat(mcnGet(row, keys[i])), style: Theme.of(context).textTheme.bodyLarge),
+              ),
+            ],
+          ]))),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Board with a column per value of groupBy. Phones swipe between columns;
+/// long-press a card to drag it, or tap it to pick its new column.
 class MCNKanban extends StatefulWidget {
   final dynamic data;
   final String groupBy;
   final List<dynamic> columns;
   final String? titleKey;
+  final List<dynamic> fields;
   final Future<dynamic> Function(dynamic item, String to)? onMove;
-  const MCNKanban({super.key, this.data, this.groupBy = 'status', this.columns = const [], this.titleKey, this.onMove});
+  const MCNKanban({super.key, this.data, this.groupBy = 'status', this.columns = const [], this.titleKey, this.fields = const [], this.onMove});
   @override
   State<MCNKanban> createState() => _MCNKanbanState();
 }
 
 class _MCNKanbanState extends State<MCNKanban> {
   List<dynamic> _items = [];
+  final _pages = PageController(viewportFraction: 0.86);
   @override
   void initState() { super.initState(); _items = List.of(mcnList(widget.data)); }
   @override
-  void didUpdateWidget(MCNKanban old) { super.didUpdateWidget(old); _items = List.of(mcnList(widget.data)); }
+  void didUpdateWidget(MCNKanban old) {
+    super.didUpdateWidget(old);
+    // Only new data replaces the board; a rebuild (rotation, resize) keeps the moves made here
+    if (!identical(old.data, widget.data)) _items = List.of(mcnList(widget.data));
+  }
+  @override
+  void dispose() { _pages.dispose(); super.dispose(); }
+
+  Future<void> _move(int i, String col) async {
+    if (mcnStr(mcnGet(_items[i], widget.groupBy)) == col) return;
+    HapticFeedback.mediumImpact();
+    final item = Map<String, dynamic>.from(_items[i] as Map)..[widget.groupBy] = col;
+    setState(() => _items[i] = item);
+    await widget.onMove?.call(item, col);
+  }
+
+  Future<void> _pick(BuildContext context, int i, List<String> cols) async {
+    final to = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,      // above the bottom navigation bar
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('Move to', style: Theme.of(context).textTheme.titleMedium)),
+        for (final c in cols)
+          ListTile(
+            title: Text(c),
+            trailing: mcnStr(mcnGet(_items[i], widget.groupBy)) == c ? const Icon(LucideIcons.check) : null,
+            onTap: () => Navigator.pop(context, c),
+          ),
+      ])),
+    );
+    if (to != null) await _move(i, to);
+  }
+
+  Widget _card(BuildContext context, int i, String titleKey, List<String> cols) {
+    final t = Theme.of(context).textTheme;
+    final item = _items[i];
+    final body = Card(
+      color: Theme.of(context).colorScheme.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _pick(context, i, cols),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(mcnFormat(mcnGet(item, titleKey)), style: t.titleSmall),
+            for (final f in widget.fields.map(mcnStr))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(children: [
+                  Expanded(child: Text(mcnHumanize(f), style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+                  RegExp(r'^(status|priority|type)$').hasMatch(f) ? MCNBadge(mcnGet(item, f)) : Text(mcnFormat(mcnGet(item, f)), style: t.bodySmall),
+                ]),
+              ),
+          ]),
+        ),
+      ),
+    );
+    return LongPressDraggable<int>(
+      data: i,
+      onDragStarted: HapticFeedback.selectionClick,
+      feedback: Material(color: Colors.transparent, child: SizedBox(width: 260, child: Transform.rotate(angle: 0.03, child: body))),
+      childWhenDragging: Opacity(opacity: 0.35, child: body),
+      child: body,
+    );
+  }
+
+  Widget _column(BuildContext context, String col, String titleKey, List<String> cols) {
+    final scheme = Theme.of(context).colorScheme;
+    final count = _items.where((r) => mcnStr(mcnGet(r, widget.groupBy)) == col).length;
+    return DragTarget<int>(
+      onAcceptWithDetails: (d) => _move(d.data, col),
+      builder: (context, candidate, _) => AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: candidate.isNotEmpty ? scheme.primaryContainer : scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Row(children: [
+              Expanded(child: Text(col, style: Theme.of(context).textTheme.titleSmall)),
+              Badge(label: Text('$count'), backgroundColor: scheme.secondary),
+            ]),
+          ),
+          Expanded(child: ListView(children: [
+            for (var i = 0; i < _items.length; i++)
+              if (mcnStr(mcnGet(_items[i], widget.groupBy)) == col)
+                Padding(padding: const EdgeInsets.only(bottom: 8), child: _card(context, i, titleKey, cols)),
+            if (count == 0) Padding(padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text('Drop cards here', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall)),
+          ])),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final cols = widget.columns.isNotEmpty ? widget.columns.map(mcnStr).toList()
         : _items.map((r) => mcnStr(mcnGet(r, widget.groupBy))).toSet().toList();
     final titleKey = widget.titleKey ?? 'title';
-    return SizedBox(
-      height: 420,
-      child: ListView(scrollDirection: Axis.horizontal, children: [
-        for (final col in cols)
-          DragTarget<int>(
-            onAcceptWithDetails: (d) async {
-              final item = Map<String, dynamic>.from(_items[d.data] as Map)..[widget.groupBy] = col;
-              setState(() => _items[d.data] = item);
-              await widget.onMove?.call(item, col);
-            },
-            builder: (context, candidate, _) => Container(
-              width: 260,
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: candidate.isNotEmpty ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(col, style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Expanded(child: ListView(children: [
-                  for (var i = 0; i < _items.length; i++)
-                    if (mcnStr(mcnGet(_items[i], widget.groupBy)) == col)
-                      LongPressDraggable<int>(
-                        data: i,
-                        feedback: SizedBox(width: 240, child: Card(child: ListTile(title: Text(mcnFormat(mcnGet(_items[i], titleKey)))))),
-                        childWhenDragging: Opacity(opacity: 0.4, child: Card(child: ListTile(title: Text(mcnFormat(mcnGet(_items[i], titleKey)))))),
-                        child: Card(child: ListTile(title: Text(mcnFormat(mcnGet(_items[i], titleKey))), trailing: const Icon(Icons.drag_indicator))),
-                      ),
-                ])),
+    final height = (MediaQuery.sizeOf(context).height * 0.62).clamp(360.0, 720.0);
+    return LayoutBuilder(builder: (context, size) {
+      final phone = size.maxWidth < 640;
+      return SizedBox(
+        height: height,
+        child: phone
+            ? PageView(controller: _pages, padEnds: false, children: [for (final c in cols) _column(context, c, titleKey, cols)])
+            : ListView(scrollDirection: Axis.horizontal, children: [
+                for (final c in cols) SizedBox(width: 290, child: _column(context, c, titleKey, cols)),
               ]),
-            ),
-          ),
-      ]),
-    );
+      );
+    });
   }
 }
 
@@ -432,88 +1017,118 @@ class MCNChart extends StatelessWidget {
   final List<dynamic> y;
   final double height;
   const MCNChart({super.key, required this.kind, this.data, this.x = 'label', this.y = const ['value'], this.height = 220});
+
   @override
   Widget build(BuildContext context) {
     final rows = mcnList(data);
     if (rows.isEmpty) return SizedBox(height: height, child: const MCNEmpty(title: 'No data yet', icon: 'barchart3'));
     final keys = y.map(mcnStr).toList();
-    return Column(children: [
-      SizedBox(height: height, width: double.infinity,
-          child: CustomPaint(painter: _ChartPainter(kind, rows, x, keys, Theme.of(context).colorScheme.outlineVariant))),
-      if (kind == 'pie' || kind == 'donut' || keys.length > 1)
-        Padding(padding: const EdgeInsets.only(top: 8), child: Wrap(spacing: 12, runSpacing: 4, children: [
-          for (var i = 0; i < (kind == 'pie' || kind == 'donut' ? rows.length : keys.length); i++)
+    final round = kind == 'pie' || kind == 'donut';
+    final legend = round ? [for (final r in rows) mcnStr(mcnGet(r, x))] : (keys.length > 1 ? keys.map(mcnHumanize).toList() : <String>[]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SizedBox(height: height, child: round ? _pie(context, rows, keys.first) : _xy(context, rows, keys)),
+      if (legend.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(top: 12), child: Wrap(spacing: 14, runSpacing: 6, children: [
+          for (var i = 0; i < legend.length; i++)
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 10, height: 10, decoration: BoxDecoration(color: mcnPalette[i % mcnPalette.length], borderRadius: BorderRadius.circular(2))),
-              const SizedBox(width: 4),
-              Text(kind == 'pie' || kind == 'donut' ? mcnStr(mcnGet(rows[i], x)) : mcnHumanize(keys[i]), style: Theme.of(context).textTheme.bodySmall),
+              Container(width: 10, height: 10, decoration: BoxDecoration(color: mcnPalette[i % mcnPalette.length], borderRadius: BorderRadius.circular(3))),
+              const SizedBox(width: 6),
+              Text(legend[i], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ]),
         ])),
     ]);
   }
-}
 
-class _ChartPainter extends CustomPainter {
-  final String kind;
-  final List<dynamic> rows;
-  final String x;
-  final List<String> keys;
-  final Color grid;
-  _ChartPainter(this.kind, this.rows, this.x, this.keys, this.grid);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (kind == 'pie' || kind == 'donut') {
-      final values = rows.map((r) => mcnNum(mcnGet(r, keys.first)).toDouble()).toList();
-      final total = values.fold<double>(0, (a, b) => a + b);
-      if (total <= 0) return;
-      final r = math.min(size.width, size.height) / 2 - 4;
-      final rect = Rect.fromCircle(center: size.center(Offset.zero), radius: r);
-      var start = -math.pi / 2;
-      for (var i = 0; i < values.length; i++) {
-        final sweep = values[i] / total * math.pi * 2;
-        canvas.drawArc(rect, start, sweep, kind == 'pie',
-            Paint()..color = mcnPalette[i % mcnPalette.length]..style = kind == 'pie' ? PaintingStyle.fill : PaintingStyle.stroke
-              ..strokeWidth = r * 0.38);
-        start += sweep;
-      }
-      return;
-    }
-    final maxV = rows.expand((r) => keys.map((k) => mcnNum(mcnGet(r, k)).toDouble())).fold<double>(0, math.max);
-    if (maxV <= 0) return;
-    final gridPaint = Paint()..color = grid..strokeWidth = 1;
-    for (var i = 0; i <= 4; i++) {
-      final gy = size.height - size.height * i / 4;
-      canvas.drawLine(Offset(0, gy), Offset(size.width, gy), gridPaint);
-    }
-    final band = size.width / rows.length;
-    for (var k = 0; k < keys.length; k++) {
-      final color = mcnPalette[k % mcnPalette.length];
-      if (kind == 'bar') {
-        final w = band * 0.7 / keys.length;
-        for (var i = 0; i < rows.length; i++) {
-          final h = mcnNum(mcnGet(rows[i], keys[k])) / maxV * size.height;
-          canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(band * i + band * 0.15 + w * k, size.height - h, w - 2, h), const Radius.circular(3)),
-              Paint()..color = color);
-        }
-      } else {
-        final path = Path();
-        for (var i = 0; i < rows.length; i++) {
-          final px = band * i + band / 2;
-          final py = size.height - mcnNum(mcnGet(rows[i], keys[k])) / maxV * size.height;
-          i == 0 ? path.moveTo(px, py) : path.lineTo(px, py);
-        }
-        if (kind == 'area') {
-          final fill = Path.from(path)..lineTo(band * (rows.length - 1) + band / 2, size.height)..lineTo(band / 2, size.height)..close();
-          canvas.drawPath(fill, Paint()..color = color.withValues(alpha: 0.15));
-        }
-        canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.5);
-      }
-    }
+  Widget _pie(BuildContext context, List<dynamic> rows, String key) {
+    final values = rows.map((r) => mcnNum(mcnGet(r, key)).toDouble()).toList();
+    final total = values.fold<double>(0, (a, b) => a + b);
+    if (total <= 0) return const MCNEmpty(title: 'No data yet', icon: 'piechart');
+    final donut = kind == 'donut';
+    return LayoutBuilder(builder: (context, size) {
+      final r = math.min(size.maxWidth, size.maxHeight) / 2;
+      return Stack(alignment: Alignment.center, children: [
+        PieChart(PieChartData(
+          sectionsSpace: 2,
+          centerSpaceRadius: donut ? r * 0.58 : 0,
+          sections: [
+            for (var i = 0; i < values.length; i++)
+              PieChartSectionData(
+                value: values[i],
+                color: mcnPalette[i % mcnPalette.length],
+                radius: donut ? r * 0.32 : r * 0.92,
+                title: donut ? '' : '${(values[i] / total * 100).round()}%',
+                titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+          ],
+        )),
+        if (donut) Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(mcnCompact(total), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('Total', style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      ]);
+    });
   }
 
-  @override
-  bool shouldRepaint(covariant _ChartPainter old) => old.rows != rows;
+  Widget _xy(BuildContext context, List<dynamic> rows, List<String> keys) {
+    final scheme = Theme.of(context).colorScheme;
+    final muted = Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant);
+    final maxV = rows.expand((r) => keys.map((k) => mcnNum(mcnGet(r, k)).toDouble())).fold<double>(0, math.max);
+    final yStep = mcnNiceStep(maxV);
+    final top = maxV <= 0 ? yStep * 4 : (maxV / yStep).ceil() * yStep;
+    final step = (rows.length / 6).ceil().clamp(1, 1 << 30);
+    final grid = FlGridData(show: true, drawVerticalLine: false, horizontalInterval: yStep,
+        getDrawingHorizontalLine: (_) => FlLine(color: scheme.outlineVariant, strokeWidth: 1, dashArray: [4, 4]));
+    Widget bottom(double v, TitleMeta meta) {
+      final i = v.round();
+      if (i < 0 || i >= rows.length || i % step != 0 || (v - i).abs() > 0.01) return const SizedBox.shrink();
+      final label = mcnStr(mcnGet(rows[i], x));
+      return SideTitleWidget(meta: meta, child: Text(label.length > 8 ? '${label.substring(0, 7)}…' : label, style: muted));
+    }
+    final titles = FlTitlesData(
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, interval: yStep,
+          getTitlesWidget: (v, meta) => SideTitleWidget(meta: meta, child: Text(mcnCompact(v), style: muted)))),
+      bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, interval: 1, getTitlesWidget: bottom)),
+    );
+    if (kind == 'bar') {
+      final width = math.max(4.0, math.min(18.0, 220 / (rows.length * keys.length)));
+      return BarChart(BarChartData(
+        maxY: top, gridData: grid, titlesData: titles, borderData: FlBorderData(show: false),
+        barTouchData: BarTouchData(touchTooltipData: BarTouchTooltipData(getTooltipColor: (_) => scheme.inverseSurface,
+            getTooltipItem: (g, gi, rod, ri) => BarTooltipItem(mcnFormat(rod.toY), TextStyle(color: scheme.onInverseSurface, fontSize: 12)))),
+        barGroups: [
+          for (var i = 0; i < rows.length; i++)
+            BarChartGroupData(x: i, barsSpace: 3, barRods: [
+              for (var k = 0; k < keys.length; k++)
+                BarChartRodData(toY: mcnNum(mcnGet(rows[i], keys[k])).toDouble(), color: mcnPalette[k % mcnPalette.length],
+                    width: width, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+            ]),
+        ],
+      ));
+    }
+    return LineChart(LineChartData(
+      minY: 0, maxY: top, minX: 0, maxX: (rows.length - 1).toDouble().clamp(1, double.infinity),
+      gridData: grid, titlesData: titles, borderData: FlBorderData(show: false),
+      lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (_) => scheme.inverseSurface,
+          getTooltipItems: (spots) => [for (final s in spots) LineTooltipItem(mcnFormat(s.y), TextStyle(color: scheme.onInverseSurface, fontSize: 12))])),
+      lineBarsData: [
+        for (var k = 0; k < keys.length; k++)
+          LineChartBarData(
+            spots: [for (var i = 0; i < rows.length; i++) FlSpot(i.toDouble(), mcnNum(mcnGet(rows[i], keys[k])).toDouble())],
+            // Smooth curves for a few points; straight lines for dense series, where curves overshoot
+            isCurved: rows.length <= 16, preventCurveOverShooting: true, barWidth: rows.length > 30 ? 1.8 : 2.5,
+            color: mcnPalette[k % mcnPalette.length],
+            dotData: FlDotData(show: rows.length <= 12),
+            belowBarData: BarAreaData(
+              show: kind == 'area',
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [
+                mcnPalette[k % mcnPalette.length].withValues(alpha: 0.28), mcnPalette[k % mcnPalette.length].withValues(alpha: 0.02)]),
+            ),
+          ),
+      ],
+    ));
+  }
 }
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
@@ -531,7 +1146,11 @@ class MCNChat extends StatefulWidget {
 class _MCNChatState extends State<MCNChat> {
   final List<Map<String, String>> _messages = [];
   final _input = TextEditingController();
+  final _scroll = ScrollController();
   bool _busy = false;
+
+  @override
+  void dispose() { _input.dispose(); _scroll.dispose(); super.dispose(); }
 
   String _replyText(dynamic r) {
     if (r is String) return r;
@@ -542,45 +1161,81 @@ class _MCNChatState extends State<MCNChat> {
     return mcnStr(mcnGet(r, 'error') ?? r);
   }
 
+  void _toEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+      });
+
   Future<void> _send(String text) async {
     final message = text.trim();
     if (message.isEmpty || _busy) return;
+    HapticFeedback.lightImpact();
     final history = List<Map<String, String>>.of(_messages);
     setState(() { _messages.add({'role': 'user', 'content': message}); _busy = true; _input.clear(); });
+    _toEnd();
     String reply;
     try { reply = _replyText(await widget.onSend(message, history)); } catch (e) { reply = 'Something went wrong: $e'; }
     if (!mounted) return;
     setState(() { _messages.add({'role': 'assistant', 'content': reply}); _busy = false; });
+    _toEnd();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
     final shown = [if (widget.welcome != null) {'role': 'assistant', 'content': widget.welcome!}, ..._messages];
-    return MCNCard(title: widget.title, children: [
-      SizedBox(
-        height: 380,
-        child: ListView(children: [
-          for (final m in shown)
-            Align(
-              alignment: m['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                constraints: const BoxConstraints(maxWidth: 300),
-                decoration: BoxDecoration(color: m['role'] == 'user' ? scheme.primary : scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(14)),
-                child: Text(m['content'] ?? '', style: TextStyle(color: m['role'] == 'user' ? scheme.onPrimary : scheme.onSurface)),
+    final height = (MediaQuery.sizeOf(context).height * 0.55).clamp(320.0, 640.0);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        ListTile(
+          leading: CircleAvatar(backgroundColor: scheme.primaryContainer, child: Icon(LucideIcons.bot, size: 18, color: scheme.onPrimaryContainer)),
+          title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(_busy ? 'Typing…' : 'Online'),
+        ),
+        const Divider(height: 1),
+        SizedBox(
+          height: height,
+          child: ListView(controller: _scroll, padding: const EdgeInsets.all(12), children: [
+            for (final m in shown)
+              Align(
+                alignment: m['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
+                  decoration: BoxDecoration(
+                    color: m['role'] == 'user' ? scheme.primary : scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
+                      bottomLeft: Radius.circular(m['role'] == 'user' ? 18 : 4), bottomRight: Radius.circular(m['role'] == 'user' ? 4 : 18)),
+                  ),
+                  child: Text(m['content'] ?? '', style: t.bodyMedium?.copyWith(color: m['role'] == 'user' ? scheme.onPrimary : scheme.onSurface)),
+                ),
               ),
-            ),
-          if (_busy) const Padding(padding: EdgeInsets.all(8), child: Text('Thinking…')),
-        ]),
-      ),
-      if (_messages.isEmpty && widget.suggestions.isNotEmpty)
-        Wrap(spacing: 6, children: [for (final s in widget.suggestions) ActionChip(label: Text(mcnStr(s)), onPressed: () => _send(mcnStr(s)))]),
-      Row(children: [
-        Expanded(child: TextField(controller: _input, decoration: const InputDecoration(hintText: 'Type a message…'), onSubmitted: _send)),
-        IconButton(icon: const Icon(Icons.send), onPressed: _busy ? null : () => _send(_input.text)),
+            if (_busy) Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.all(8),
+                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator.adaptive(strokeWidth: 2)))),
+          ]),
+        ),
+        if (_messages.isEmpty && widget.suggestions.isNotEmpty)
+          SizedBox(height: 48, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+            for (final s in widget.suggestions)
+              Padding(padding: const EdgeInsets.only(right: 8), child: ActionChip(label: Text(mcnStr(s)), onPressed: () => _send(mcnStr(s)))),
+          ])),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 8, 12),
+          child: Row(children: [
+            Expanded(child: TextField(
+              controller: _input,
+              textInputAction: TextInputAction.send,
+              onSubmitted: _send,
+              decoration: InputDecoration(hintText: 'Message', border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none)),
+            )),
+            const SizedBox(width: 6),
+            IconButton.filled(icon: const Icon(LucideIcons.send, size: 18), onPressed: _busy ? null : () => _send(_input.text)),
+          ]),
+        ),
       ]),
-    ]);
+    );
   }
 }
