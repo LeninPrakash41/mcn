@@ -10,6 +10,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 // ── Values ───────────────────────────────────────────────────────────────────
@@ -30,7 +31,10 @@ bool mcnTruthy(dynamic v) => !(v == null || v == false || v == 0 || v == '');
 
 num mcnNum(dynamic v) {
   if (v is num) return v;
-  if (v is String) return num.tryParse(v) ?? 0;
+  if (v is String) {
+    final cleaned = v.replaceAll(RegExp(r'[\$,€,£,¥,\s,%]'), '').replaceAll(',', '');
+    return num.tryParse(cleaned) ?? num.tryParse(v) ?? 0;
+  }
   if (v is bool) return v ? 1 : 0;
   return 0;
 }
@@ -86,32 +90,105 @@ List<dynamic> mcnList(dynamic v) => v is List ? v : const [];
 
 // ── Theme, icons and colors ──────────────────────────────────────────────────
 
-const Color _seed = Color(0xFF2563EB);   // the web kit's primary blue
+const Color _seed = Color(0xFF2563EB); // Vibrant modern primary blue
 
 ThemeData mcnTheme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
-  final radius = BorderRadius.circular(16);
-  return ThemeData(
+  final isDark = brightness == Brightness.dark;
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _seed,
+    brightness: brightness,
+    surface: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+  );
+  final radius = BorderRadius.circular(18);
+
+  final baseTheme = ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     brightness: brightness,
-    // Each platform's own page transitions: Cupertino slide (and swipe back) on iOS, predictive back on Android
+    scaffoldBackgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF8FAFC),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
     }),
-    cardTheme: CardThemeData(elevation: 0, margin: EdgeInsets.zero, color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: radius)),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true, fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: isDark ? const Color(0xFF131D31) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
     ),
-    listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16)),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating, showCloseIcon: true),
-    navigationBarTheme: NavigationBarThemeData(backgroundColor: scheme.surfaceContainer, elevation: 0),
-    navigationRailTheme: NavigationRailThemeData(backgroundColor: scheme.surfaceContainer),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+          width: 1,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      labelStyle: TextStyle(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+    ),
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      showCloseIcon: true,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      elevation: 0,
+      indicatorColor: scheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+      surfaceTintColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return TextStyle(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          color: selected ? scheme.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+        );
+      }),
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      indicatorColor: scheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+    ),
+  );
+
+  final textTheme = GoogleFonts.interTextTheme(baseTheme.textTheme);
+  return baseTheme.copyWith(
+    textTheme: textTheme.copyWith(
+      headlineLarge: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      headlineMedium: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      headlineSmall: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.3),
+      titleLarge: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.2),
+      titleMedium: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      titleSmall: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      bodyLarge: textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
+      bodyMedium: textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.4),
+      bodySmall: textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.3),
+      labelLarge: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+    ),
   );
 }
 
@@ -188,9 +265,17 @@ const Map<String, IconData> _icons = {
 
 IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? LucideIcons.circle;
 
-/// The web kit's chart palette.
-const List<Color> mcnPalette = [Color(0xFF6366F1), Color(0xFF06B6D4), Color(0xFFF59E0B), Color(0xFF10B981),
-  Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFFEF4444), Color(0xFF64748B)];
+/// Modern, accessible, vibrant Flutter chart palette.
+const List<Color> mcnPalette = [
+  Color(0xFF4F46E5), // Indigo
+  Color(0xFF06B6D4), // Cyan
+  Color(0xFF10B981), // Emerald
+  Color(0xFFF59E0B), // Amber
+  Color(0xFFEC4899), // Pink
+  Color(0xFF8B5CF6), // Purple
+  Color(0xFF2563EB), // Blue
+  Color(0xFFF97316), // Orange
+];
 
 Color mcnTone(dynamic name) => const {
       'green': Color(0xFF10B981), 'emerald': Color(0xFF10B981), 'red': Color(0xFFEF4444), 'blue': Color(0xFF2563EB),
@@ -424,17 +509,38 @@ class MCNPage extends StatelessWidget {
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
-/// grid_cols=N: N columns on wide screens, two on tablets (and phones, for 4-column rows), one on narrow phones.
+/// grid_cols=N: responsive Flutter grid adapting to phone, tablet and desktop.
+/// Charts and full-width content expand to 1 column on phones for clarity.
 class MCNGrid extends StatelessWidget {
   final int columns;
   final List<Widget> children;
   const MCNGrid({super.key, required this.columns, required this.children});
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final n = c.maxWidth > 900 ? columns : (c.maxWidth > 560 ? math.min(2, columns) : (columns >= 4 && c.maxWidth >= 300 ? 2 : 1));
-        final w = (c.maxWidth - 12 * (n - 1)) / n;
-        return Wrap(spacing: 12, runSpacing: 12, children: [for (final child in children) SizedBox(width: w, child: child)]);
-      });
+    final hasChart = children.any((w) => w is MCNChart);
+    final int n;
+    if (c.maxWidth > 900) {
+      n = columns;
+    } else if (c.maxWidth > 600) {
+      n = math.min(2, columns);
+    } else {
+      if (hasChart || columns <= 1) {
+        n = 1;
+      } else if (columns >= 2 && c.maxWidth >= 320) {
+        n = 2;
+      } else {
+        n = 1;
+      }
+    }
+    const gap = 12.0;
+    final w = (c.maxWidth - gap * (n - 1)) / n;
+    return Wrap(
+      spacing: gap,
+      runSpacing: gap,
+      children: [for (final child in children) SizedBox(width: w, child: child)],
+    );
+  });
 }
 
 /// Vertical stack with even spacing (forms, card bodies).
@@ -453,53 +559,132 @@ class MCNCard extends StatelessWidget {
   final String? description;
   final List<Widget> children;
   const MCNCard({super.key, this.title, this.description, required this.children});
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (title != null) Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          if (description != null) Padding(padding: const EdgeInsets.only(top: 2),
-              child: Text(description!, style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
-          if (title != null || description != null) const SizedBox(height: 12),
-          MCNStack(children: children),
-        ]),
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (title != null) ...[
+              Text(
+                title!,
+                style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.2),
+              ),
+              if (description != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    description!,
+                    style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              const SizedBox(height: 14),
+            ] else if (description != null) ...[
+              Text(
+                description!,
+                style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+            ],
+            MCNStack(children: children),
+          ],
+        ),
       ),
     );
   }
 }
 
 class MCNStat extends StatelessWidget {
-  final dynamic label, value, icon, color, unit;
-  const MCNStat({super.key, this.label, this.value, this.icon, this.color, this.unit});
+  final dynamic label, value, icon, color, unit, change;
+  const MCNStat({super.key, this.label, this.value, this.icon, this.color, this.unit, this.change});
+
   @override
   Widget build(BuildContext context) {
     final tone = mcnTone(color);
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final changeNum = change != null ? mcnNum(change) : null;
+    final hasChange = changeNum != null && changeNum != 0;
+    final isPos = hasChange && changeNum >= 0;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(color: tone.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
-            child: Icon(mcnIcon(icon), color: tone, size: 18),
-          ),
-          const SizedBox(height: 12),
-          // One line each: long labels end in "…" and big values shrink, so words never break
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text('${mcnFormat(value)}${mcnStr(unit)}', maxLines: 1,
-                style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()])),
-          ),
-          const SizedBox(height: 2),
-          Text(mcnStr(label), maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-        ]),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(mcnIcon(icon), color: tone, size: 20),
+                ),
+                if (hasChange)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPos ? LucideIcons.trendingUp : LucideIcons.trendingDown,
+                          size: 13,
+                          color: isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${isPos ? '+' : ''}${changeNum.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${mcnFormat(value)}${mcnStr(unit)}',
+                maxLines: 1,
+                style: t.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              mcnHumanize(mcnStr(label)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: t.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -509,12 +694,19 @@ class MCNText extends StatelessWidget {
   final dynamic text;
   final String style; // h1 | h2 | h3 | p | muted | small
   const MCNText(this.text, {super.key, this.style = 'p'});
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final muted = t.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
-    final s = {'h1': t.headlineSmall, 'h2': t.titleLarge, 'h3': t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      'muted': muted, 'small': t.labelLarge}[style] ?? t.bodyLarge;
+    final scheme = Theme.of(context).colorScheme;
+    final muted = t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
+    final s = {
+      'h1': t.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+      'h2': t.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      'h3': t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      'muted': muted,
+      'small': t.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+    }[style] ?? t.bodyLarge;
     return Text(mcnStr(text), style: s);
   }
 }
@@ -555,10 +747,11 @@ const Map<String, String> _badgeTones = {
   'rejected': 'red', 'overdue': 'red', 'cancelled': 'red', 'high': 'red', 'urgent': 'red', 'medium': 'amber', 'low': 'slate',
 };
 
-/// Colored pill for a status-like value; the color comes from the word, as on the web.
+/// Modern status badge pill with subtle border and optional dot.
 class MCNBadge extends StatelessWidget {
   final dynamic value;
   const MCNBadge(this.value, {super.key});
+
   @override
   Widget build(BuildContext context) {
     final text = mcnStr(value);
@@ -566,10 +759,31 @@ class MCNBadge extends StatelessWidget {
     final tone = mcnTone(_badgeTones[text.toLowerCase()] ?? tones[text.codeUnits.fold<int>(0, (a, b) => a + b) % tones.length]);
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: tone.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
-      child: Text(text.isEmpty ? '—' : text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-          color: dark ? Color.lerp(tone, Colors.white, 0.35) : Color.lerp(tone, Colors.black, 0.3))),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: dark ? 0.2 : 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: tone.withValues(alpha: dark ? 0.35 : 0.25), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            margin: const EdgeInsets.only(right: 6),
+            decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
+          ),
+          Text(
+            text.isEmpty ? '—' : text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: dark ? Color.lerp(tone, Colors.white, 0.35) : Color.lerp(tone, Colors.black, 0.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -615,18 +829,35 @@ class MCNButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final dynamic icon;
   const MCNButton(this.label, {super.key, this.variant = 'default', this.onPressed, this.icon});
+
   @override
   Widget build(BuildContext context) {
-    final child = Text(mcnStr(label));
+    final child = Text(mcnStr(label), style: const TextStyle(fontWeight: FontWeight.w600));
     final i = icon == null ? null : Icon(mcnIcon(icon), size: 18);
     final tap = onPressed == null ? null : () { HapticFeedback.lightImpact(); onPressed!(); };
     final error = Theme.of(context).colorScheme.error;
+    final btnStyle = ButtonStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+    );
     final Widget button = switch (variant) {
-      'outline' => i == null ? OutlinedButton(onPressed: tap, child: child) : OutlinedButton.icon(onPressed: tap, icon: i, label: child),
-      'secondary' => i == null ? FilledButton.tonal(onPressed: tap, child: child) : FilledButton.tonalIcon(onPressed: tap, icon: i, label: child),
-      'ghost' => i == null ? TextButton(onPressed: tap, child: child) : TextButton.icon(onPressed: tap, icon: i, label: child),
-      'destructive' => FilledButton(onPressed: tap, style: FilledButton.styleFrom(backgroundColor: error), child: child),
-      _ => i == null ? FilledButton(onPressed: tap, child: child) : FilledButton.icon(onPressed: tap, icon: i, label: child),
+      'outline' => i == null
+          ? OutlinedButton(onPressed: tap, style: btnStyle, child: child)
+          : OutlinedButton.icon(onPressed: tap, style: btnStyle, icon: i, label: child),
+      'secondary' => i == null
+          ? FilledButton.tonal(onPressed: tap, style: btnStyle, child: child)
+          : FilledButton.tonalIcon(onPressed: tap, style: btnStyle, icon: i, label: child),
+      'ghost' => i == null
+          ? TextButton(onPressed: tap, style: btnStyle, child: child)
+          : TextButton.icon(onPressed: tap, style: btnStyle, icon: i, label: child),
+      'destructive' => FilledButton(
+          onPressed: tap,
+          style: btnStyle.copyWith(backgroundColor: WidgetStatePropertyAll(error)),
+          child: child,
+        ),
+      _ => i == null
+          ? FilledButton(onPressed: tap, style: btnStyle, child: child)
+          : FilledButton.icon(onPressed: tap, style: btnStyle, icon: i, label: child),
     };
     return Align(alignment: Alignment.centerLeft, child: button);
   }
@@ -1016,27 +1247,87 @@ class MCNChart extends StatelessWidget {
   final String x;
   final List<dynamic> y;
   final double height;
-  const MCNChart({super.key, required this.kind, this.data, this.x = 'label', this.y = const ['value'], this.height = 220});
+  final String? title;
+  const MCNChart({super.key, required this.kind, this.data, this.x = 'label', this.y = const ['value'], this.height = 240, this.title});
 
   @override
   Widget build(BuildContext context) {
     final rows = mcnList(data);
-    if (rows.isEmpty) return SizedBox(height: height, child: const MCNEmpty(title: 'No data yet', icon: 'barchart3'));
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    if (rows.isEmpty) {
+      return Card(
+        child: SizedBox(
+          height: height,
+          child: const MCNEmpty(title: 'No chart data yet', icon: 'barchart3'),
+        ),
+      );
+    }
     final keys = y.map(mcnStr).toList();
     final round = kind == 'pie' || kind == 'donut';
     final legend = round ? [for (final r in rows) mcnStr(mcnGet(r, x))] : (keys.length > 1 ? keys.map(mcnHumanize).toList() : <String>[]);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SizedBox(height: height, child: round ? _pie(context, rows, keys.first) : _xy(context, rows, keys)),
-      if (legend.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(top: 12), child: Wrap(spacing: 14, runSpacing: 6, children: [
-          for (var i = 0; i < legend.length; i++)
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 10, height: 10, decoration: BoxDecoration(color: mcnPalette[i % mcnPalette.length], borderRadius: BorderRadius.circular(3))),
-              const SizedBox(width: 6),
-              Text(legend[i], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-            ]),
-        ])),
-    ]);
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (title != null && title!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+        SizedBox(height: height, child: round ? _pie(context, rows, keys.first) : _xy(context, rows, keys)),
+        if (legend.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < legend.length; i++)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: mcnPalette[i % mcnPalette.length].withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: mcnPalette[i % mcnPalette.length].withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: mcnPalette[i % mcnPalette.length],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          legend[i],
+                          style: t.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: content,
+      ),
+    );
   }
 
   Widget _pie(BuildContext context, List<dynamic> rows, String key) {
@@ -1048,82 +1339,200 @@ class MCNChart extends StatelessWidget {
       final r = math.min(size.maxWidth, size.maxHeight) / 2;
       return Stack(alignment: Alignment.center, children: [
         PieChart(PieChartData(
-          sectionsSpace: 2,
+          sectionsSpace: 3,
           centerSpaceRadius: donut ? r * 0.58 : 0,
           sections: [
             for (var i = 0; i < values.length; i++)
               PieChartSectionData(
                 value: values[i],
                 color: mcnPalette[i % mcnPalette.length],
-                radius: donut ? r * 0.32 : r * 0.92,
+                radius: donut ? r * 0.35 : r * 0.90,
                 title: donut ? '' : '${(values[i] / total * 100).round()}%',
-                titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                titleStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                ),
               ),
           ],
         )),
-        if (donut) Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(mcnCompact(total), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          Text('Total', style: Theme.of(context).textTheme.bodySmall),
-        ]),
+        if (donut)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                mcnCompact(total),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              Text(
+                'Total',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
       ]);
     });
   }
 
   Widget _xy(BuildContext context, List<dynamic> rows, List<String> keys) {
     final scheme = Theme.of(context).colorScheme;
-    final muted = Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w500,
+    );
     final maxV = rows.expand((r) => keys.map((k) => mcnNum(mcnGet(r, k)).toDouble())).fold<double>(0, math.max);
     final yStep = mcnNiceStep(maxV);
     final top = maxV <= 0 ? yStep * 4 : (maxV / yStep).ceil() * yStep;
-    final step = (rows.length / 6).ceil().clamp(1, 1 << 30);
-    final grid = FlGridData(show: true, drawVerticalLine: false, horizontalInterval: yStep,
-        getDrawingHorizontalLine: (_) => FlLine(color: scheme.outlineVariant, strokeWidth: 1, dashArray: [4, 4]));
+    final step = (rows.length / 5).ceil().clamp(1, 1 << 30);
+    final grid = FlGridData(
+      show: true,
+      drawVerticalLine: false,
+      horizontalInterval: yStep,
+      getDrawingHorizontalLine: (_) => FlLine(
+        color: scheme.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.4),
+        strokeWidth: 1,
+        dashArray: [5, 5],
+      ),
+    );
+
     Widget bottom(double v, TitleMeta meta) {
       final i = v.round();
       if (i < 0 || i >= rows.length || i % step != 0 || (v - i).abs() > 0.01) return const SizedBox.shrink();
       final label = mcnStr(mcnGet(rows[i], x));
-      return SideTitleWidget(meta: meta, child: Text(label.length > 8 ? '${label.substring(0, 7)}…' : label, style: muted));
+      final display = label.length > 8 ? '${label.substring(0, 7)}…' : label;
+      return SideTitleWidget(meta: meta, space: 6, child: Text(display, style: muted));
     }
+
     final titles = FlTitlesData(
       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, interval: yStep,
-          getTitlesWidget: (v, meta) => SideTitleWidget(meta: meta, child: Text(mcnCompact(v), style: muted)))),
-      bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, interval: 1, getTitlesWidget: bottom)),
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 42,
+          interval: yStep,
+          getTitlesWidget: (v, meta) => SideTitleWidget(
+            meta: meta,
+            space: 6,
+            child: Text(mcnCompact(v), style: muted),
+          ),
+        ),
+      ),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(showTitles: true, reservedSize: 26, interval: 1, getTitlesWidget: bottom),
+      ),
     );
+
     if (kind == 'bar') {
-      final width = math.max(4.0, math.min(18.0, 220 / (rows.length * keys.length)));
-      return BarChart(BarChartData(
-        maxY: top, gridData: grid, titlesData: titles, borderData: FlBorderData(show: false),
-        barTouchData: BarTouchData(touchTooltipData: BarTouchTooltipData(getTooltipColor: (_) => scheme.inverseSurface,
-            getTooltipItem: (g, gi, rod, ri) => BarTooltipItem(mcnFormat(rod.toY), TextStyle(color: scheme.onInverseSurface, fontSize: 12)))),
-        barGroups: [
-          for (var i = 0; i < rows.length; i++)
-            BarChartGroupData(x: i, barsSpace: 3, barRods: [
-              for (var k = 0; k < keys.length; k++)
-                BarChartRodData(toY: mcnNum(mcnGet(rows[i], keys[k])).toDouble(), color: mcnPalette[k % mcnPalette.length],
-                    width: width, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-            ]),
-        ],
-      ));
+      return LayoutBuilder(builder: (context, size) {
+        final totalBars = rows.length * keys.length;
+        final barWidth = math.max(8.0, math.min(22.0, (size.maxWidth - 50) / (totalBars * 1.7)));
+        return BarChart(BarChartData(
+          maxY: top,
+          gridData: grid,
+          titlesData: titles,
+          borderData: FlBorderData(show: false),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipColor: (_) => scheme.inverseSurface,
+              getTooltipItem: (g, gi, rod, ri) {
+                final rowLabel = mcnStr(mcnGet(rows[g.x], x));
+                return BarTooltipItem(
+                  '$rowLabel\n${mcnFormat(rod.toY)}',
+                  TextStyle(color: scheme.onInverseSurface, fontSize: 12, fontWeight: FontWeight.w600),
+                );
+              },
+            ),
+          ),
+          barGroups: [
+            for (var i = 0; i < rows.length; i++)
+              BarChartGroupData(
+                x: i,
+                barsSpace: 4,
+                barRods: [
+                  for (var k = 0; k < keys.length; k++)
+                    BarChartRodData(
+                      toY: mcnNum(mcnGet(rows[i], keys[k])).toDouble(),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          mcnPalette[k % mcnPalette.length],
+                          mcnPalette[k % mcnPalette.length].withValues(alpha: 0.72),
+                        ],
+                      ),
+                      width: barWidth,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: top,
+                        color: scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.25 : 0.35),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ));
+      });
     }
+
     return LineChart(LineChartData(
-      minY: 0, maxY: top, minX: 0, maxX: (rows.length - 1).toDouble().clamp(1, double.infinity),
-      gridData: grid, titlesData: titles, borderData: FlBorderData(show: false),
-      lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(getTooltipColor: (_) => scheme.inverseSurface,
-          getTooltipItems: (spots) => [for (final s in spots) LineTooltipItem(mcnFormat(s.y), TextStyle(color: scheme.onInverseSurface, fontSize: 12))])),
+      minY: 0,
+      maxY: top,
+      minX: 0,
+      maxX: (rows.length - 1).toDouble().clamp(1, double.infinity),
+      gridData: grid,
+      titlesData: titles,
+      borderData: FlBorderData(show: false),
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (_) => scheme.inverseSurface,
+          getTooltipItems: (spots) => [
+            for (final s in spots)
+              LineTooltipItem(
+                mcnFormat(s.y),
+                TextStyle(color: scheme.onInverseSurface, fontSize: 12, fontWeight: FontWeight.w600),
+              )
+          ],
+        ),
+      ),
       lineBarsData: [
         for (var k = 0; k < keys.length; k++)
           LineChartBarData(
-            spots: [for (var i = 0; i < rows.length; i++) FlSpot(i.toDouble(), mcnNum(mcnGet(rows[i], keys[k])).toDouble())],
-            // Smooth curves for a few points; straight lines for dense series, where curves overshoot
-            isCurved: rows.length <= 16, preventCurveOverShooting: true, barWidth: rows.length > 30 ? 1.8 : 2.5,
+            spots: [
+              for (var i = 0; i < rows.length; i++)
+                FlSpot(i.toDouble(), mcnNum(mcnGet(rows[i], keys[k])).toDouble())
+            ],
+            isCurved: rows.length <= 20,
+            preventCurveOverShooting: true,
+            barWidth: 3.0,
             color: mcnPalette[k % mcnPalette.length],
-            dotData: FlDotData(show: rows.length <= 12),
+            dotData: FlDotData(
+              show: rows.length <= 16,
+              getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                radius: 4,
+                color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                strokeWidth: 2.5,
+                strokeColor: mcnPalette[k % mcnPalette.length],
+              ),
+            ),
             belowBarData: BarAreaData(
-              show: kind == 'area',
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [
-                mcnPalette[k % mcnPalette.length].withValues(alpha: 0.28), mcnPalette[k % mcnPalette.length].withValues(alpha: 0.02)]),
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  mcnPalette[k % mcnPalette.length].withValues(alpha: kind == 'area' ? 0.28 : 0.08),
+                  mcnPalette[k % mcnPalette.length].withValues(alpha: 0.0),
+                ],
+              ),
             ),
           ),
       ],
@@ -1213,7 +1622,7 @@ class _MCNChatState extends State<MCNChat> {
                   child: Text(m['content'] ?? '', style: t.bodyMedium?.copyWith(color: m['role'] == 'user' ? scheme.onPrimary : scheme.onSurface)),
                 ),
               ),
-            if (_busy) Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.all(8),
+            if (_busy) const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.all(8),
                 child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator.adaptive(strokeWidth: 2)))),
           ]),
         ),

@@ -70,12 +70,15 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.6.2 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   http: ^1.1.0
+  google_fonts: ^6.2.1
+  fl_chart: ^1.3.0
+  lucide_icons_flutter: ^3.1.25
 
 dev_dependencies:
   flutter_test:
@@ -135,7 +138,10 @@ class MCNClient {
             
     def _generate_ui_components(self, output_path: Path):
         """Generate custom styled widgets representing MCN design tokens"""
-        widgets_code = """import 'package:flutter/material.dart';
+        widgets_code = """import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class UIButton extends StatelessWidget {
   final String text;
@@ -152,17 +158,14 @@ class UIButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade600,
-          foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: FilledButton(
+        style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         onPressed: onPressed,
-        child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+        child: Text(text, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -182,23 +185,29 @@ class UIInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: TextField(
         decoration: InputDecoration(
           hintText: placeholder,
           filled: true,
-          fillColor: Colors.grey.shade100,
+          fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.primary, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
+        style: GoogleFonts.inter(),
         onChanged: onChanged,
       ),
     );
@@ -219,13 +228,13 @@ class UIText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    TextStyle style = const TextStyle(fontSize: 16, color: Colors.black87);
+    TextStyle style = GoogleFonts.inter(fontSize: 15, height: 1.4);
     if (tag == 'h1') {
-      style = const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black);
+      style = GoogleFonts.inter(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5);
     } else if (tag == 'h2') {
-      style = const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87);
+      style = GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.3);
     } else if (tag == 'h3') {
-      style = const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey);
+      style = GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600);
     }
     
     return Padding(
@@ -247,17 +256,18 @@ class UIContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isRow = className.contains('row') || className.contains('header');
-    
+    final bool isRow = className.contains('row') || className.contains('header');
     if (isRow) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: children,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: children,
+        ),
       );
     }
-    
     return Padding(
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
@@ -281,30 +291,40 @@ class UITable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('No data available', style: TextStyle(color: Colors.grey)),
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Center(
+            child: Text('No data available', style: TextStyle(color: Colors.grey)),
+          ),
         ),
       );
     }
     
     return Card(
-      elevation: 1,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: columns.map((col) => DataColumn(
-            label: Text(col, style: const TextStyle(fontWeight: FontWeight.bold)),
-          )).toList(),
-          rows: data.map((row) {
-            return DataRow(
-              cells: columns.map((col) {
-                final cellValue = row[col.toLowerCase()] ?? row[col] ?? '-';
-                return DataCell(Text(cellValue.toString()));
-              }).toList(),
-            );
-          }).toList(),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: columns.map((col) => DataColumn(
+              label: Text(col, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            )).toList(),
+            rows: data.map((row) {
+              return DataRow(
+                cells: columns.map((col) {
+                  final cellValue = row is Map ? (row[col.toLowerCase()] ?? row[col] ?? '-') : '-';
+                  return DataCell(Text(cellValue.toString(), style: GoogleFonts.inter()));
+                }).toList(),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -325,30 +345,101 @@ class UIChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const palette = [Color(0xFF4F46E5), Color(0xFF06B6D4), Color(0xFF10B981), Color(0xFFF59E0B)];
+    final isBar = type == 'bar';
+    final isPie = type == 'pie' || type == 'donut';
+
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 12.0),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Chart: ${type.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text('Dynamic Data Points: ${data.length}', style: const TextStyle(color: Colors.blueAccent)),
-              ),
+            Text(
+              '${type.toUpperCase()} CHART',
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: scheme.primary, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 220,
+              child: data.isEmpty
+                  ? Center(child: Text('No data points', style: GoogleFonts.inter(color: scheme.onSurfaceVariant)))
+                  : (isPie
+                      ? PieChart(PieChartData(
+                          sectionsSpace: 3,
+                          sections: [
+                            for (var i = 0; i < data.length; i++)
+                              PieChartSectionData(
+                                value: _toNum(data[i]),
+                                color: palette[i % palette.length],
+                                radius: 50,
+                                title: '${_toNum(data[i]).round()}',
+                                titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                          ],
+                        ))
+                      : isBar
+                          ? BarChart(BarChartData(
+                              titlesData: const FlTitlesData(
+                                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              barGroups: [
+                                for (var i = 0; i < data.length; i++)
+                                  BarChartGroupData(x: i, barRods: [
+                                    BarChartRodData(
+                                      toY: _toNum(data[i]),
+                                      color: palette[i % palette.length],
+                                      width: 14,
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+                                    ),
+                                  ]),
+                              ],
+                            ))
+                          : LineChart(LineChartData(
+                              titlesData: const FlTitlesData(
+                                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: [
+                                    for (var i = 0; i < data.length; i++)
+                                      FlSpot(i.toDouble(), _toNum(data[i])),
+                                  ],
+                                  isCurved: true,
+                                  color: palette[0],
+                                  barWidth: 3,
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: palette[0].withValues(alpha: 0.15),
+                                  ),
+                                ),
+                              ],
+                            ))),
             ),
           ],
         ),
       ),
     );
+  }
+
+  double _toNum(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v is Map) {
+      for (final key in ['value', 'amount', 'count', 'y']) {
+        if (v[key] is num) return (v[key] as num).toDouble();
+      }
+    }
+    return 10.0;
   }
 }
 
@@ -365,22 +456,25 @@ class UIAgentChat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: const Color(0xFF1E293B),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Chat with $agentName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.blueAccent)),
+            Text('Chat with $agentName', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
             const SizedBox(height: 12),
             Container(
-              height: 250,
+              height: 200,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(12),
               ),
+              child: Center(child: Text('Messages appear here', style: GoogleFonts.inter(color: Colors.grey))),
             ),
             const SizedBox(height: 12),
             Row(
@@ -389,19 +483,17 @@ class UIAgentChat extends StatelessWidget {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Type your message...',
-                      hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: GoogleFonts.inter(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () {},
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20)),
-                  child: const Text('Send', style: TextStyle(color: Colors.white)),
+                  child: const Text('Send'),
                 ),
               ],
             )
@@ -425,15 +517,17 @@ class UIEnterpriseSearch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: const Color(0xFF1E293B),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Search $datasourceName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.indigoAccent)),
+            Text('Search $datasourceName', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -441,31 +535,32 @@ class UIEnterpriseSearch extends StatelessWidget {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search enterprise data...',
-                      hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: GoogleFonts.inter(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () {},
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigoAccent, padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20)),
-                  child: const Text('Search', style: TextStyle(color: Colors.white)),
+                  child: const Text('Search'),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Container(
-              height: 150,
+              height: 120,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text('Enter a query to search across connected data sources.', style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic)),
+              child: Center(
+                child: Text('Enter a query to search across connected data sources.',
+                    style: GoogleFonts.inter(color: Colors.grey, fontStyle: FontStyle.italic)),
+              ),
             ),
           ],
         ),
@@ -720,6 +815,7 @@ class _{class_name}State extends State<{class_name}> {{
                 first_page_class = class_name
                 
         main_code = f"""import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 {chr(10).join(imports)}
 
 void main() {{
@@ -731,11 +827,15 @@ class MyApp extends StatelessWidget {{
 
   @override
   Widget build(BuildContext context) {{
+    final baseTheme = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+      useMaterial3: true,
+    );
     return MaterialApp(
       title: 'MCN Mobile App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+      debugShowCheckedModeBanner: false,
+      theme: baseTheme.copyWith(
+        textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme),
       ),
       initialRoute: '/',
       routes: {{
