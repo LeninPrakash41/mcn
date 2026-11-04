@@ -88,7 +88,7 @@
     .split-copy li { padding-left: 26px; position: relative; color: var(--text-soft); }
     .split-copy li::before { content: ""; position: absolute; left: 0; top: 9px; width: 12px; height: 7px; border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg); }
 
-    .targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+    .targets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 28px; }
     .target { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }
     .target small { color: var(--text-muted); font: 500 12px/1 var(--mono); }
     .target h3 { margin: 8px 0 6px; font-size: 16px; }
@@ -158,7 +158,7 @@
       <div>
         <span class="eyebrow"><b>v2.4</b> Open source · MIT licensed</span>
         <h1>One language for your <em>whole app</em>.</h1>
-        <p class="lede">Write the database, API and web UI in MCN, with AI as a built-in function. Errors explain how to fix themselves, and a browser IDE comes included.</p>
+        <p class="lede">Write the database, API, web and mobile UI, and even the devices it controls, in MCN. AI agents, security checks and a browser IDE are built in, and errors explain how to fix themselves.</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="docs/#/getting-started/quick-start">
             Build your first app
@@ -175,7 +175,7 @@
           <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh</code>
           <button class="copy-btn" type="button" id="install-copy" data-copy="curl -fsSL https://raw.githubusercontent.com/LeninPrakash41/mcn/main/install.sh | sh" aria-label="Copy install command">Copy</button>
         </div>
-        <div class="meta-row"><span>One command, no setup</span><span>Works offline</span><span>Compiles to React</span></div>
+        <div class="meta-row"><span>One command, no setup</span><span>Works offline</span><span>React, Flutter &amp; Raspberry Pi</span></div>
       </div>
 
       <div class="window" role="region" aria-label="Example MCN project">
@@ -183,6 +183,7 @@
           <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
           <button class="tab" role="tab" aria-selected="true" aria-controls="ex-backend" id="t-backend">backend/main.mcn</button>
           <button class="tab" role="tab" aria-selected="false" aria-controls="ex-ui" id="t-ui">ui/app.mcn</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="ex-iot" id="t-iot">iot.mcn</button>
           <button class="tab" role="tab" aria-selected="false" aria-controls="ex-term" id="t-term">terminal</button>
         </div>
 <pre id="ex-backend" role="tabpanel" aria-labelledby="t-backend" data-lang="mcn">// The project `mcn init my-app` creates
@@ -240,6 +241,21 @@ app MyApp
         tabs
             tab "Add"   AddTask
             tab "Tasks" TaskList</pre>
+<pre id="ex-iot" role="tabpanel" aria-labelledby="t-iot" data-lang="mcn" hidden>// Simulated in Studio. Real pins on a Raspberry Pi.
+device("register", "temp", {type: "temperature_sensor", driver: "gpio", pin: 4, sensor: "dht22"})
+device("register", "fan",  {type: "fan", driver: "gpio", pin: 17})
+
+function on_temp(value)
+    if value &gt; 28
+        device("on", "fan")
+    if value &lt; 25
+        device("off", "fan")
+
+device("watch", "temp", on_temp)
+
+// An Arduino on USB, or an ESP32 over MQTT
+device("register", "soil", {type: "soil_moisture", driver: "serial", pin: "A0", scale: [0, 100]})
+device("register", "porch", {type: "light", driver: "mqtt", topic: "home/porch"})</pre>
 <pre id="ex-term" role="tabpanel" aria-labelledby="t-term" data-lang="bash" hidden>$ mcn init my-app &amp;&amp; cd my-app
 Created my-app/
 
@@ -275,7 +291,7 @@ MCN Studio — http://localhost:5003</pre>
         <div class="step"><code>mcn init my-app</code><h3>Create</h3><p>A backend with endpoints and tests, a UI, and a README listing the commands.</p></div>
         <div class="step"><code>mcn test backend/main.mcn</code><h3>Test</h3><p><code style="display:inline;padding:0 4px;margin:0">test</code> blocks live next to the code they check.</p></div>
         <div class="step"><code>mcn studio .</code><h3>Build visually</h3><p>Edit, run and see your real app live in the browser, with the database and AI calls one click away.</p></div>
-        <div class="step"><code>mcn build ui/app.mcn</code><h3>Ship</h3><p>Generate a React project, download a Flutter app, or serve the API with Docker files included.</p></div>
+        <div class="step"><code>mcn build ui/app.mcn</code><h3>Ship</h3><p>Generate a React project, compile the same UI to a Flutter app, or serve the API with Docker files included.</p></div>
       </div>
     </div>
   </section>
@@ -294,9 +310,24 @@ MCN Studio — http://localhost:5003</pre>
           <p><code>ai()</code>, <code>classify()</code>, <code>extract()</code> and <code>rag()</code> are built in. Without an API key they return mock answers, so code still runs in class.</p>
         </div>
         <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6"/></svg></div>
+          <h3>Agents that use your code</h3>
+          <p><code>agent_run()</code> lets Claude call your own functions as tools: look up an order, open a ticket, draft an email. The chat shows every tool it used.</p>
+        </div>
+        <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg></div>
           <h3>Backend and UI together</h3>
-          <p>A <code>service</code> becomes an HTTP API; <code>component</code>s become React screens that call it. No API client to write.</p>
+          <p>A <code>service</code> becomes an HTTP API; <code>component</code>s become React screens and Flutter screens that call it. No API client to write.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.5-2 8-6 8-11V5l-8-3-8 3v6c0 5 2.5 9 8 11Z"/></svg></div>
+          <h3>Secure by default</h3>
+          <p>Token or JWT auth in one line, security headers, rate limits and input checks built in. <code>mcn audit</code> finds SQL injection and leaked secrets before you ship.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></div>
+          <h3>Real hardware, same code</h3>
+          <p><code>device()</code> drives Raspberry Pi pins, Arduino and ESP32 boards, and MQTT gear. In Studio the same code runs against live simulated devices.</p>
         </div>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
@@ -311,12 +342,12 @@ MCN Studio — http://localhost:5003</pre>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
           <h3>A complete UI kit</h3>
-          <p>Data grids with search, filters and pagination, charts, kanban boards, notifications, chat, agent and workflow builders — one line each.</p>
+          <p>Data grids, charts, touch-friendly kanban boards, chat, agent and workflow builders, one line each, on the web and on phones.</p>
         </div>
         <div class="feature">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.5-2 8-6 8-11V5l-8-3-8 3v6c0 5 2.5 9 8 11Z"/></svg></div>
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-8 4 16 3-8h2"/></svg></div>
           <h3>Tested, top to bottom</h3>
-          <p>All 21 templates, every example and the generated React and Flutter apps are compiled and checked on every change.</p>
+          <p>Every template and example, the generated React and Flutter apps and the board firmware are built and checked on every change.</p>
         </div>
       </div>
     </div>
@@ -352,13 +383,14 @@ Hint: Did you mean 'total'?</code></pre>
   <section id="targets">
     <div class="container">
       <div class="section-head">
-        <p class="kicker">Three ways to ship</p>
-        <h2>Serve it as an API, ship it on the web, take it to phones.</h2>
+        <p class="kicker">Four ways to ship</p>
+        <h2>An API, a web app, a phone app, and the devices around them.</h2>
       </div>
       <div class="targets">
         <div class="target"><small>mcn serve</small><h3>HTTP API</h3><p>Each endpoint answers GET and POST, with interactive docs at <code>/docs</code>.</p></div>
         <div class="target"><small>mcn build</small><h3>React web app</h3><p>Vite, Tailwind and shadcn/ui components, already calling your endpoints.</p></div>
-        <div class="target"><small>Studio → App</small><h3>Flutter mobile app</h3><p>Generated from a screen manifest, with a live client for your API and demo data offline.</p></div>
+        <div class="target"><small>Studio → App</small><h3>Flutter mobile app</h3><p>Compiled from the same components: native screens, navigation and charts, calling your API.</p></div>
+        <div class="target"><small>mcn add iot</small><h3>Raspberry Pi &amp; Arduino</h3><p>Run on a Pi with real pins, or drive Arduino and ESP32 boards. <code>mcn iot firmware</code> writes the sketch.</p></div>
       </div>
     </div>
   </section>
@@ -372,7 +404,7 @@ Hint: Did you mean 'total'?</code></pre>
         <p>Open the <b>Templates</b> menu in Studio. Each one runs, builds and is covered by tests.</p>
       </div>
       <div class="chip-group"><h4>AI &amp; automation</h4><div class="chips">
-        <span class="chip"><b>AI agent builder</b> · configure, test, deploy</span>
+        <span class="chip"><b>AI agent builder</b> · agents with real tools</span>
         <span class="chip"><b>Workflow automation</b> · visual builder, real runs</span>
         <span class="chip"><b>Operations dashboard</b> · charts, data grid, kanban</span>
       </div></div>
@@ -385,10 +417,10 @@ Hint: Did you mean 'total'?</code></pre>
         <span class="chip"><b>Prompt marketplace</b> · AI workflows</span>
       </div></div>
       <div class="chip-group"><h4>Mobile &amp; IoT</h4><div class="chips">
-        <span class="chip"><b>Smart home</b> · sensors and climate</span>
+        <span class="chip"><b>Smart home</b> · Raspberry Pi sensors, automations</span>
         <span class="chip"><b>Expense tracker</b> · budgets</span>
         <span class="chip"><b>Field inspection</b> · audits</span>
-        <span class="chip"><b>Telemetry hub</b> · alerts</span>
+        <span class="chip"><b>Telemetry hub</b> · MQTT, alerts, Arduino alarm</span>
       </div></div>
       <div class="chip-group"><h4>Backends &amp; learning</h4><div class="chips">
         <span class="chip"><b>REST service</b></span>
@@ -418,6 +450,7 @@ Hint: Did you mean 'total'?</code></pre>
             <li>Starter guide, 8 exercises and reference solutions</li>
             <li>Facilitator guide with metrics and a feedback form</li>
             <li>Mock AI mode, so no API keys are needed in class</li>
+            <li>Raspberry Pi and Arduino projects, simulated until the hardware arrives</li>
           </ul>
           <a class="btn btn-secondary btn-sm" href="docs/#/getting-started/student-pilot">Student pilot kit</a>
         </div>
@@ -428,6 +461,7 @@ Hint: Did you mean 'total'?</code></pre>
             <li>Domain packages: payments, auth, healthcare, finance, Slack</li>
             <li>Downloads include Dockerfile, docker-compose and CI</li>
             <li><code>mcn generate</code> drafts an app from a description</li>
+            <li>Service auth, rate limits and <code>mcn audit</code> for security reviews</li>
           </ul>
           <a class="btn btn-secondary btn-sm" href="docs/#/guide/services">Build an API</a>
         </div>

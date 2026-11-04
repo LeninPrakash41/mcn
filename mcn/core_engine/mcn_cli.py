@@ -762,6 +762,10 @@ def main():
         help="Print diagnostics as JSON (for editors and CI)"
     )
 
+    # IoT hardware tools
+    from .iot_cli import add_parser as _add_iot_parser
+    _add_iot_parser(subparsers)
+
     # Audit command
     audit_parser = subparsers.add_parser(
         "audit", help="Scan MCN code for security problems (SQL injection, secrets, open services)"
@@ -978,6 +982,10 @@ def main():
 
     elif args.command == "agent":
         return _cmd_agent(args)
+
+    elif args.command == "iot":
+        from .iot_cli import main as iot_main
+        return iot_main(args)
 
     elif args.command == "audit":
         from .security_audit import audit_path

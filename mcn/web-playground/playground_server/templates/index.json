@@ -165,17 +165,16 @@
   ]
  },
  {
-  "badge": "Flutter UI",
+  "badge": "IoT · Raspberry Pi",
   "category": "flutter_app",
-  "description": "Cross-platform mobile control for climate, sensors, and lighting.",
+  "description": "Sensors, lights, a fan and blinds with automations. Simulated in Studio, real pins on a Raspberry Pi; web and mobile UI.",
   "id": "iot_smart_home",
   "name": "Smart Home IoT Controller",
-  "open": "ui/app.mcn",
+  "open": "backend/main.mcn",
   "project": true,
   "files": [
    "backend/main.mcn",
-   "ui/app.mcn",
-   "mobile/ui-manifest.json"
+   "ui/app.mcn"
   ]
  },
  {
@@ -217,7 +216,7 @@
  {
   "badge": "IoT Stream",
   "category": "backend",
-  "description": "Live sensor stream processing, threshold alerts, and device control.",
+  "description": "Readings over HTTP and MQTT, alerts that sound an Arduino buzzer, and per-sensor stats.",
   "file": "backend/main.mcn",
   "id": "iot_processor",
   "name": "IoT Telemetry Ingestion Hub"

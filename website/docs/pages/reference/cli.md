@@ -52,6 +52,18 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn packages remove <name>` | Uninstall |
 | `mcn new-package <org/name> [--path] [--author] [--description]` | Scaffold a new package |
 
+## Hardware
+
+| Command | What it does |
+|---|---|
+| `mcn add iot` | Install hardware support: Raspberry Pi GPIO, USB serial and MQTT |
+| `mcn iot firmware arduino [--out DIR]` | Write the USB firmware sketch for Arduino, ESP32 and Pico (`driver: "serial"`) |
+| `mcn iot firmware esp32 [--out DIR]` | Write the WiFi + MQTT sketch for ESP32 (`driver: "mqtt"`) |
+| `mcn iot ports` | List boards plugged in over USB |
+| `mcn iot service <file> [--serve] [--port]` | Write a systemd unit that starts the app when a Raspberry Pi boots |
+
+See [IoT and hardware](#/guide/iot).
+
 ## Configuration and logs
 
 | Command | What it does |

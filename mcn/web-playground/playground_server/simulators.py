@@ -2,7 +2,9 @@
 from pathlib import Path
 from flask import Blueprint
 from .core import (
+    _BACKEND_PORT,
     _SIMULATED_DEVICES,
+    seed_demo_devices,
     _request_workspace,
     jsonify,
     request,
@@ -76,46 +78,78 @@ def exec_db_query():
         return jsonify({"success": False, "error": str(e)})
 
 def _iot():
-    """The process-wide device registry shared with every MCN script run."""
+    """This process's device registry (scripts run with Run), with the demo devices."""
+    from mcn.core_engine.iot import shared_registry
+    registry = shared_registry()
+    seed_demo_devices(registry)
+    return registry
+
+
+def _backend(method: str, action: str, body: dict = None):
+    """The running Preview backend's devices: (status, json) or None when it isn't running."""
+    from . import core
+    from .devserver import _DEV_TOKEN
+    if not (core._mcn_backend and core._mcn_backend.poll() is None):
+        return None
+    import json as _json
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{_BACKEND_PORT}/_mcn/iot/{action}", method=method,
+        data=_json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {_DEV_TOKEN}"})
     try:
-        from mcn.core_engine.mcn_v3_extensions import get_shared_iot_connector
-    except ImportError:
-        from core_engine.mcn_v3_extensions import get_shared_iot_connector  # type: ignore
-    iot = get_shared_iot_connector()
-    # Demo devices so the panel is useful before a script registers its own
-    for device_id, spec in _SIMULATED_DEVICES.items():
-        if device_id not in iot.devices:
-            iot.register_device(device_id, spec["type"], {"simulated": True})
-            if spec["type"] in iot.UNITS:
-                iot.set_override(device_id, spec["value"])
-            else:
-                iot.devices[device_id]["state"] = spec["value"]
-    return iot
+        with urllib.request.urlopen(req, timeout=2) as res:
+            return res.status, _json.loads(res.read())
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, _json.loads(e.read())
+        except ValueError:
+            return e.code, {"success": False, "error": f"backend returned {e.code}"}
+    except Exception:
+        return None
 
 
 @bp.route("/api/iot/devices", methods=["GET"])
 def get_iot_devices():
-    return jsonify({"success": True, "devices": _iot().snapshot()})
+    devices = {k: {**v, "source": "studio"} for k, v in _iot().snapshot().items()}
+    remote = _backend("GET", "devices")
+    if remote and remote[0] == 200 and remote[1].get("devices"):
+        # The app's own devices replace Studio's demo ones
+        devices = {k: v for k, v in devices.items() if k not in _SIMULATED_DEVICES}
+        devices.update({k: {**v, "source": "backend"} for k, v in remote[1]["devices"].items()})
+    return jsonify({"success": True, "devices": devices, "backend": remote is not None})
+
 
 @bp.route("/api/iot/device/value", methods=["POST"])
 def set_iot_device_value():
+    """Set an output, or hold an input at a value (null releases it)."""
     data = request.get_json(silent=True) or {}
-    device_id = data.get("device_id")
+    device_id, value = data.get("device_id"), data.get("value")
+    action = "pin" if data.get("pin") or value is None else "value"
+    if data.get("source") == "backend":
+        remote = _backend("POST", action, {"device_id": device_id, "value": value})
+        if remote is None:
+            return jsonify({"success": False, "error": "The backend isn't running"})
+        return jsonify(remote[1])
     iot = _iot()
     if not device_id or device_id not in iot.devices:
         return jsonify({"success": False, "error": "Invalid device ID"})
     try:
-        if iot.devices[device_id]["type"] in iot.UNITS:
-            iot.set_override(device_id, data.get("value"))
-        else:
-            iot.send_command(device_id, "set", {"value": data.get("value"), "source": "simulator"})
-        return jsonify({"success": True})
-    except (TypeError, ValueError) as e:
+        result = iot.pin(device_id, value) if action == "pin" else iot.write(device_id, value, source="simulator")
+        return jsonify({"success": True, "value": result})
+    except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 @bp.route("/api/iot/commands", methods=["GET"])
 def get_iot_commands():
-    return jsonify({"success": True, "commands": list(_iot().command_log)})
+    commands = [{**c, "source": "studio"} for c in _iot().command_log]
+    remote = _backend("GET", "commands")
+    if remote and remote[0] == 200:
+        commands += [{**c, "source": "backend"} for c in remote[1].get("commands", [])]
+    commands.sort(key=lambda c: c.get("timestamp", 0))
+    return jsonify({"success": True, "commands": commands[-200:]})
 
 
 def _ai_trace():

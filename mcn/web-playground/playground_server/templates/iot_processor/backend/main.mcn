@@ -1,14 +1,60 @@
-// Backend Microservice: IoT Telemetry Processor
+// IoT Telemetry Hub
+//
+// Readings arrive three ways: any board can POST to /ingest_reading (an ESP32,
+// a Pi script, a cron job), the server-room sensor publishes over MQTT, and an
+// Arduino on USB drives the alarm buzzer. In Studio all of it is simulated;
+// on real hardware run `mcn add iot` and `mcn serve backend/main.mcn --host 0.0.0.0`.
+
+query("CREATE TABLE IF NOT EXISTS telemetry (id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id TEXT, value REAL, alert INTEGER, created_at TEXT)")
+
+device("register", "server_room_temp", {type: "temperature_sensor", driver: "mqtt", topic: "office/server_room/temperature", location: "Server room"})
+device("register", "alarm", {type: "buzzer", driver: "serial", pin: 8, location: "Server room"})
+
+var ALERT_ABOVE = 30.0    // °C
+
+function record(sensor_id, value)
+    var reading = float(value)
+    var is_alert = reading > ALERT_ABOVE
+    query("INSERT INTO telemetry (sensor_id, value, alert, created_at) VALUES (?, ?, ?, ?)", (sensor_id, reading, 1 if is_alert else 0, now()))
+    if is_alert
+        device("on", "alarm")
+        log("HIGH TEMPERATURE on " + sensor_id + ": " + str(reading) + "°C")
+    return {sensor_id: sensor_id, value: reading, alert: is_alert}
+
+function on_server_room(value)
+    record("server_room_temp", value)
+
+device("watch", "server_room_temp", on_server_room, 5)
+
 service telemetry_service
     port 9090
 
     endpoint ingest_reading(sensor_id, reading_val)
-        var is_alert = reading_val > 30.0
-        if is_alert
-            log("⚠️ HIGH TEMPERATURE ALERT on sensor " + sensor_id + ": " + str(reading_val) + "°C")
-        return {sensor_id: sensor_id, alert: is_alert, logged: true}
+        if not sensor_id
+            return {success: false, error: "sensor_id is required"}
+        return {success: true, data: record(sensor_id, reading_val)}
 
-log("⚡ IoT Telemetry Ingestion Hub Online")
+    endpoint latest(limit = 20)
+        return {success: true, data: query("SELECT sensor_id, value, alert, created_at FROM telemetry ORDER BY id DESC LIMIT ?", (limit,))}
+
+    endpoint sensor_stats()
+        return {success: true, data: query("SELECT sensor_id, COUNT(*) AS readings, ROUND(AVG(value), 1) AS average, MAX(value) AS highest, SUM(alert) AS alerts FROM telemetry GROUP BY sensor_id ORDER BY sensor_id")}
+
+    endpoint silence_alarm()
+        device("off", "alarm")
+        return {success: true}
+
+test "readings above the limit raise an alert and sound the alarm"
+    device("off", "alarm")
+    assert record("sensor_office", 23.4).alert == false
+    assert device("read", "alarm").value == 0
+    assert record("sensor_server_room", 34.8).alert == true
+    assert device("read", "alarm").value == 1
+
+test "ingest needs a sensor id"
+    assert ingest_reading("", 20).success == false
+
+log("IoT Telemetry Hub online")
 var r1 = ingest_reading("sensor_office", 23.4)
 var r2 = ingest_reading("sensor_server_room", 34.8)
-log("Ingestion results: Office alert=" + str(r1.alert) + ", Server Room alert=" + str(r2.alert))
+log("Office alert: " + str(r1.data.alert) + ", server room alert: " + str(r2.data.alert))

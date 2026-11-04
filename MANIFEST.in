@@ -25,3 +25,5 @@ global-exclude *.py[co]
 global-exclude .DS_Store
 global-exclude *.log
 global-exclude *.db
+include mcn/fullstack/*.dart
+recursive-include mcn/iot_firmware *.ino

@@ -36,6 +36,7 @@ EXTRAS_REQUIRE = {
     "mongodb": ["pymongo>=4.0.0"],
     "ml": ["scikit-learn>=1.3.0", "pandas>=2.0.0", "numpy>=1.24.0"],
     "scheduler": ["apscheduler>=3.10.0"],
+    "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
     "dev": ["pytest>=7.0", "pytest-cov>=4.0"],
 }
 
@@ -75,6 +76,8 @@ setup(
     package_data={
         "mcn": [
             "version.py",
+            "fullstack/*.dart",
+            "iot_firmware/*/*.ino",
             "studio/vscode-mcn/syntaxes/*.json",
             "studio/vscode-mcn/package.json",
             "studio/vscode-mcn/*.vsix",

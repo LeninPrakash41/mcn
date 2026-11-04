@@ -32,12 +32,12 @@ def test_iot_panel_override_changes_what_code_reads():
 
 def test_iot_commands_from_code_show_in_log():
     run('device("register", "fan_1", {type: "fan"})\n'
-        'device("command", "fan_1", {command: "spin", speed: 3})')
+        'device("command", "fan_1", {command: "on", speed: 3})')
     log = client.get("/api/iot/commands").get_json()["commands"]
     last = log[-1]
-    assert (last["device_id"], last["command"], last["params"]["speed"]) == ("fan_1", "spin", 3)
-    # actuators report their last command as state
-    assert client.get("/api/iot/devices").get_json()["devices"]["fan_1"]["value"] == "spin"
+    assert (last["device_id"], last["command"], last["params"]["speed"]) == ("fan_1", "on", 3)
+    # outputs report what they were set to
+    assert client.get("/api/iot/devices").get_json()["devices"]["fan_1"]["value"] == 1
 
 
 def test_iot_demo_devices_and_validation():

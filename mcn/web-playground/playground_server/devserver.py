@@ -26,7 +26,9 @@ _DEV_TOKEN = os.getenv("MCN_API_TOKEN") or secrets.token_urlsafe(24)
 
 
 def _env(**extra) -> dict:
-    return {**os.environ, "MCN_API_TOKEN": _DEV_TOKEN, **extra}
+    # MCN_DEV_TOOLS lets Studio's IoT panel see and drive the backend's devices
+    return {**os.environ, "MCN_API_TOKEN": _DEV_TOKEN, "MCN_DEV_TOOLS": "1",
+            "MCN_IOT_SIMULATE": os.getenv("MCN_IOT_SIMULATE", "1"), **extra}
 
 _PREVIEW_PAGE = Path(__file__).resolve().parent / "preview_live.html"
 

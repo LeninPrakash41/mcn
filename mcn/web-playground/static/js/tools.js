@@ -65,94 +65,121 @@ async function runConsoleSQL() {
   }
 }
 
+// IoT panel: Studio's own devices plus the running Preview backend's, refreshed while the panel is open
+let iotTimer = null
+let iotBusy = false
+
+function iotWhere(info) {
+  const w = info.where || {}
+  const parts = []
+  if (info.driver && info.driver !== 'simulated') parts.push(info.driver)
+  if (w.pin !== undefined) parts.push('pin ' + w.pin)
+  if (w.channel !== undefined) parts.push('channel ' + w.channel)
+  if (w.sensor) parts.push(w.sensor)
+  if (w.port) parts.push(w.port)
+  if (w.topic) parts.push(w.topic)
+  if (w.url) parts.push(w.url)
+  if (info.location) parts.push(info.location)
+  return parts.join(' · ')
+}
+
+function iotControl(id, info) {
+  const key = `'${escapeHtml(id)}', '${info.source}'`
+  const val = info.value
+  const unit = escapeHtml(info.unit || '')
+  const release = info.pinned
+    ? `<button class="btn btn-sm" title="Back to the simulated reading" onclick="setIoTValue(${key}, null, true)" style="padding:2px 6px;font-size:10px;">↺ live</button>` : ''
+  if (info.kind === 'sensor' || info.kind === 'level') {
+    const lo = info.min ?? 0, hi = info.max ?? 100
+    const step = (hi - lo) > 50 ? 1 : 0.5
+    const pin = info.kind === 'sensor'
+    return `<div style="display:flex;align-items:center;gap:8px;">
+      <input type="range" min="${lo}" max="${hi}" step="${step}" value="${val}" style="flex:1;height:4px;"
+        oninput="this.nextElementSibling.textContent = this.value + '${unit}'"
+        onchange="setIoTValue(${key}, Number(this.value), ${pin})" />
+      <span style="font-weight:600;color:var(--text);min-width:56px;text-align:right;font-size:11.5px;">${escapeHtml(val)}${unit}</span>${release}</div>`
+  }
+  if (info.kind === 'binary_sensor') {
+    return `<div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn btn-sm" onclick="setIoTValue(${key}, ${val ? 0 : 1}, true)"
+        style="padding:2px 10px;font-size:11px;background:${val ? '#3b82f6' : 'var(--surface3)'};color:${val ? '#fff' : 'var(--text)'};">
+        ${val ? 'Detected: clear it' : 'Trigger'}</button>${release}</div>`
+  }
+  if (info.kind === 'switch') {
+    return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11.5px;">
+      <input type="checkbox" ${val ? 'checked' : ''} onchange="setIoTValue(${key}, this.checked ? 1 : 0, false)" />
+      <span style="font-weight:600;color:${val ? '#22c55e' : 'var(--muted)'};">${val ? 'ON' : 'OFF'}</span></label>`
+  }
+  return `<input type="text" value="${escapeHtml(val)}" class="form-input" style="padding:2px 6px;font-size:11px;"
+    onchange="setIoTValue(${key}, this.value, false)" />`
+}
+
 async function refreshIoTSimulator() {
   const container = document.getElementById('iot-devices-list')
   if (!container) return
+  const panel = document.getElementById('panel-iot-simulator')
+  if (panel && panel.classList.contains('active') && !iotTimer) {
+    iotTimer = setInterval(() => {
+      if (!panel.classList.contains('active')) { clearInterval(iotTimer); iotTimer = null; return }
+      refreshIoTSimulator()
+    }, 1500)
+  }
+  // Don't redraw under the user's hand while they drag a slider or type
+  const active = document.activeElement
+  if (iotBusy || (active && container.contains(active) && active.matches('input[type=range], input[type=text]'))) return
+  iotBusy = true
   try {
-    const r = await apiFetch('/api/iot/devices')
-    const d = await r.json()
-    if (d.success && d.devices && Object.keys(d.devices).length > 0) {
-      container.innerHTML = Object.entries(d.devices).map(([id, info]) => {
-        let controlHtml = ''
-        if (info.type === 'temperature_sensor') {
-          controlHtml = `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <input type="range" min="15" max="35" step="0.5" value="${info.value}" 
-                style="flex:1;height:4px;border-radius:2px;outline:none;"
-                oninput="this.nextElementSibling.textContent = this.value + '°C'"
-                onchange="updateIoTOverride('${id}', this.value)" />
-              <span style="font-weight:bold;color:#f3f4f6;min-width:38px;font-size:11px;">${info.value}°C</span>
-            </div>
-          `
-        } else if (info.type === 'humidity_sensor') {
-          controlHtml = `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <input type="range" min="20" max="90" step="1" value="${info.value}" 
-                style="flex:1;height:4px;border-radius:2px;outline:none;"
-                oninput="this.nextElementSibling.textContent = this.value + '%'"
-                onchange="updateIoTOverride('${id}', this.value)" />
-              <span style="font-weight:bold;color:#f3f4f6;min-width:38px;font-size:11px;">${info.value}%</span>
-            </div>
-          `
-        } else if (info.type === 'motion_sensor') {
-          controlHtml = `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <button class="btn btn-sm" onclick="updateIoTOverride('${id}', ${info.value ? 0 : 1})" 
-                style="padding:2px 8px;font-size:10px;background:${info.value ? '#3b82f6' : 'var(--surface3)'};">
-                ${info.value ? '[ACTIVE] Motion Active' : 'Trigger Motion'}
-              </button>
-            </div>
-          `
-        } else {
-          controlHtml = `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <input type="text" value="${info.value}" class="form-input" style="padding:2px 6px;font-size:11px;"
-                onchange="updateIoTOverride('${id}', this.value)" />
-            </div>
-          `
-        }
-        
-        return `
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;flex-direction:column;gap:4px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <strong style="color:var(--text);font-size:12px;">${id}</strong>
-              <span style="font-size:10px;background:var(--surface3);color:var(--muted);padding:1px 6px;border-radius:4px;">${info.type}</span>
-            </div>
-            ${controlHtml}
+    const d = await (await apiFetch('/api/iot/devices')).json()
+    const live = document.getElementById('iot-live')
+    if (live) live.textContent = d.backend ? '● live · backend running' : '● live'
+    const entries = Object.entries((d.success && d.devices) || {})
+    if (entries.length) {
+      container.innerHTML = entries.map(([id, info]) => `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <strong style="color:var(--text);font-size:12px;">${escapeHtml(id)}</strong>
+            <span style="display:flex;gap:4px;">
+              ${info.source === 'backend' ? '<span style="font-size:10px;background:rgba(59,130,246,.15);color:#60a5fa;padding:1px 6px;border-radius:4px;">backend</span>' : ''}
+              <span style="font-size:10px;background:var(--surface3);color:var(--muted);padding:1px 6px;border-radius:4px;">${escapeHtml(info.type)}</span>
+            </span>
           </div>
-        `
-      }).join('')
+          ${iotControl(id, info)}
+          ${iotWhere(info) ? `<div style="font-size:10.5px;color:var(--muted);">${escapeHtml(iotWhere(info))}${info.simulated && info.driver !== 'simulated' ? ' (simulated)' : ''}</div>` : ''}
+        </div>`).join('')
     } else {
-      container.innerHTML = '<div style="text-align:center;font-style:italic;color:var(--muted);padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;">No IoT devices registered. Run IoT code first.</div>'
+      container.innerHTML = '<div style="text-align:center;font-style:italic;color:var(--muted);padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;">No devices yet. Register one with device("register", ...) and press Run.</div>'
     }
-    
-    const logsRes = await apiFetch('/api/iot/commands')
-    const logsD = await logsRes.json()
+
+    const logsD = await (await apiFetch('/api/iot/commands')).json()
     const logContainer = document.getElementById('iot-actions-log')
     if (logContainer && logsD.success && logsD.commands && logsD.commands.length > 0) {
       logContainer.innerHTML = logsD.commands.slice().reverse().map(cmd => `
         <div style="border-bottom:1px solid var(--border);padding:4px 0;font-size:10.5px;">
-          <span style="color:#565f89;">[${new Date(cmd.timestamp*1000).toLocaleTimeString()}]</span>
-          <strong style="color:#89ddff;">${cmd.device_id}</strong>: 
-          <span style="color:#bb9af3;">${cmd.command}</span> 
-          <span style="color:var(--muted);">${JSON.stringify(cmd.params || {})}</span>
-        </div>
-      `).join('')
+          <span style="color:#565f89;">[${new Date(cmd.timestamp * 1000).toLocaleTimeString()}]</span>
+          <strong style="color:#89ddff;">${escapeHtml(cmd.device_id)}</strong>:
+          <span style="color:#bb9af3;">${escapeHtml(cmd.command)}</span>
+          <span style="color:var(--muted);">${escapeHtml(JSON.stringify(cmd.params || {}))}</span>
+        </div>`).join('')
     }
   } catch (e) {
-    container.innerHTML = `<div style="color:#f87171;">Failed to load devices: ${e.message}</div>`
+    container.innerHTML = `<div style="color:#f87171;">Couldn't load devices: ${escapeHtml(e.message)}</div>`
+  } finally {
+    iotBusy = false
   }
 }
 
-async function updateIoTOverride(deviceId, value) {
+async function setIoTValue(deviceId, source, value, pin) {
   try {
-    await apiFetch('/api/iot/device/value', {
+    const r = await apiFetch('/api/iot/device/value', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId, value })
+      body: JSON.stringify({ device_id: deviceId, source, value, pin })
     })
-    refreshIoTSimulator()
+    const d = await r.json()
+    if (!d.success && d.error) appendLog('error', `${deviceId}: ${d.error}`)
   } catch (e) {}
+  if (document.activeElement) document.activeElement.blur()
+  refreshIoTSimulator()
 }
 
 function escapeHtml(value) {

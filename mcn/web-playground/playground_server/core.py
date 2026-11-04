@@ -18,6 +18,8 @@ from pathlib import Path
 _SERVER_DIR = Path(__file__).resolve().parent.parent   # mcn/web-playground
 _DEFAULT_WORKSPACE = _SERVER_DIR / "workspace"
 _ENV_WORKSPACE = os.environ.get("MCN_WORKSPACE")
+# Studio simulates every device, even ones declared with driver: "gpio" or "serial"
+os.environ.setdefault("MCN_IOT_SIMULATE", "1")
 
 if _ENV_WORKSPACE:
     WORKSPACE = Path(_ENV_WORKSPACE)
@@ -146,11 +148,18 @@ _DEV_PORT     = 5174
 _BACKEND_PORT = 8080
 
 # Demo devices seeded into the shared IoT registry (see simulators._iot)
+# Demo devices so the IoT panel has something to show before a script registers its own
 _SIMULATED_DEVICES = {
-    "office_temp": {"type": "temperature_sensor", "value": 22.5, "unit": "°C"},
-    "office_occupancy": {"type": "motion_sensor", "value": 0, "unit": "active"},
-    "hvac_system": {"type": "hvac_controller", "value": "idle", "unit": "status"}
+    "office_temp": {"type": "temperature_sensor", "location": "office"},
+    "office_occupancy": {"type": "motion_sensor", "location": "office"},
+    "hvac_system": {"type": "hvac_controller", "location": "office"},
 }
+
+
+def seed_demo_devices(registry) -> None:
+    for device_id, config in _SIMULATED_DEVICES.items():
+        if device_id not in registry.devices:
+            registry.register(device_id, config)
 _AI_TRACE_LOGS = []
 
 # ── npm availability check ────────────────────────────────────────────────────

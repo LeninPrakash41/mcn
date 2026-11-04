@@ -51,7 +51,10 @@ mcn add ml           # train() and predict()
 mcn add postgres     # PostgreSQL databases
 mcn add mongodb      # MongoDB databases
 mcn add scheduler    # schedule blocks on a cron timetable
+mcn add iot          # real hardware: Raspberry Pi pins, Arduino/ESP32 over USB, MQTT
 ```
+
+The installer also works on a Raspberry Pi running 64-bit Raspberry Pi OS. See [IoT and hardware](#/guide/iot).
 
 | Also useful | For |
 |---|---|

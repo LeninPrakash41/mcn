@@ -1,12 +1,110 @@
-// Smart Home Mobile Backend
-service iot_api
-    port 8080
-    endpoint get_home_state()
-        return {
-            living_room_temp: 22.5,
-            humidity: 45,
-            hvac_mode: "auto",
-            lights_on: 4
-        }
+// Smart Home — backend
+//
+// The same code runs simulated in Studio and on a Raspberry Pi. On the Pi,
+// wire the parts to these pins (BCM numbering), run `mcn add iot`, then:
+//     mcn serve backend/main.mcn --host 0.0.0.0
+// Before exposing it beyond your home network, add `auth "token"` to the service.
 
-log("⚡ Smart Home IoT Controller Backend Online")
+device("register", "living_temp",     {type: "temperature_sensor", driver: "gpio", pin: 4, sensor: "dht22", location: "Living room"})
+device("register", "living_humidity", {type: "humidity_sensor", driver: "gpio", pin: 4, sensor: "dht22", location: "Living room"})
+device("register", "hallway_motion",  {type: "motion_sensor", driver: "gpio", pin: 17, location: "Hallway"})
+device("register", "front_door",      {type: "door_sensor", driver: "gpio", pin: 27, location: "Front door"})
+device("register", "living_light",    {type: "light", driver: "gpio", pin: 22, location: "Living room"})
+device("register", "hallway_light",   {type: "light", driver: "gpio", pin: 23, location: "Hallway"})
+device("register", "fan",             {type: "fan", driver: "gpio", pin: 24, location: "Living room"})
+device("register", "blinds",          {type: "servo", driver: "gpio", pin: 18, location: "Living room"})
+
+query("CREATE TABLE IF NOT EXISTS home_events (id INTEGER PRIMARY KEY AUTOINCREMENT, device TEXT, event TEXT, created_at TEXT)")
+
+var FAN_ON_ABOVE = 26     // °C
+
+function log_event(device_id, event)
+    query("INSERT INTO home_events (device, event, created_at) VALUES (?, ?, ?)", (device_id, event, now()))
+
+// Automations: each runs when a reading changes
+
+function on_motion(value)
+    if value == 1
+        device("on", "hallway_light")
+        log_event("hallway_motion", "Motion in the hallway: light on")
+    else
+        device("off", "hallway_light")
+
+function on_door(value)
+    log_event("front_door", "Front door " + ("opened" if value == 1 else "closed"))
+
+function on_temperature(value)
+    var fan_on = device("read", "fan").value == 1
+    if value > FAN_ON_ABOVE and not fan_on
+        device("on", "fan")
+        log_event("fan", "Fan on at " + str(value) + "°C")
+    if value < FAN_ON_ABOVE - 1 and fan_on
+        device("off", "fan")
+        log_event("fan", "Fan off at " + str(value) + "°C")
+
+device("watch", "hallway_motion", on_motion)
+device("watch", "front_door", on_door)
+device("watch", "living_temp", on_temperature, 2)
+
+service home_api
+    port 8080
+
+    endpoint home_state()
+        var fan_text = "Fan is " + ("on" if device("read", "fan").value == 1 else "off") + ". It turns on by itself above " + str(FAN_ON_ABOVE) + "°C."
+        return {success: true, data: {
+            temperature: device("read", "living_temp").value,
+            humidity: device("read", "living_humidity").value,
+            motion: device("read", "hallway_motion").value,
+            door: "Open" if device("read", "front_door").value == 1 else "Closed",
+            living_light: device("read", "living_light").value,
+            fan: device("read", "fan").value,
+            blinds: device("read", "blinds").value,
+            fan_on_above: FAN_ON_ABOVE,
+            light_text: "Light is " + ("on" if device("read", "living_light").value == 1 else "off"),
+            fan_text: fan_text,
+            blinds_text: "Blinds at " + str(device("read", "blinds").value) + "°"
+        }}
+
+    endpoint list_devices()
+        var rows = []
+        var all = device("list")
+        for id in keys(all)
+            var d = all[id]
+            var shown = str(d.value) + d.unit
+            if d.kind == "switch" or d.kind == "binary_sensor"
+                shown = "On" if d.value == 1 else "Off"
+            rows.push({id: id, location: d.location, type: d.type, status: shown, pin: d.where.pin})
+        return {success: true, data: rows}
+
+    endpoint toggle(id)
+        var value = device("toggle", id).value
+        log_event(id, ("Turned on" if value == 1 else "Turned off") + " from the app")
+        return {success: true, value: value}
+
+    endpoint set_blinds(angle)
+        device("write", "blinds", angle)
+        log_event("blinds", "Blinds set to " + str(angle) + "°")
+        return {success: true}
+
+    endpoint recent_events(limit = 20)
+        var rows = query("SELECT device, event, created_at FROM home_events ORDER BY id DESC LIMIT ?", (limit,))
+        for row in rows
+            row.line = substr(row.created_at, 11, 19) + "  " + row.event
+        return {success: true, data: rows}
+
+test "the fan turns on when it gets hot and off when it cools"
+    device("off", "fan")
+    on_temperature(30)
+    assert device("read", "fan").value == 1
+    on_temperature(20)
+    assert device("read", "fan").value == 0
+
+test "motion turns the hallway light on"
+    on_motion(1)
+    assert device("read", "hallway_light").value == 1
+    on_motion(0)
+    assert device("read", "hallway_light").value == 0
+
+test "the app can toggle a light"
+    device("off", "living_light")
+    assert toggle("living_light").value == 1

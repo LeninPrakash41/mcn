@@ -37,23 +37,17 @@ trigger("order_placed", {id: 1042})
 
 ## IoT devices
 
-`device()` registers, reads and controls devices. In Studio, registered devices appear in the **IoT Simulator**, where sliders change their readings and commands show up in a log.
+`device()` reads sensors and drives outputs, simulated in Studio and real on a Raspberry Pi, an Arduino or anything on MQTT:
 
 ```mcn
 device("register", "office_temp", {type: "temperature_sensor", location: "office"})
 device("register", "office_fan", {type: "fan"})
 
-var reading = device("read", "office_temp").value
-if reading > 25
-    device("command", "office_fan", {command: "on", value: "high"})
-log("Temperature: " + str(reading))
+if device("read", "office_temp").value > 25
+    device("on", "office_fan")
 ```
 
-| Operation | Meaning |
-|---|---|
-| `device("register", id, {type, location})` | Add a device. Sensor types: `temperature_sensor`, `humidity_sensor`, `motion_sensor` |
-| `device("read", id)` | Current reading as `{value: ...}` |
-| `device("command", id, {command, ...})` | Send a command; actuators remember it as their state |
+[IoT and hardware](#/guide/iot) covers every device type, the drivers, watching for changes and Studio's simulator.
 
 ## Timing
 

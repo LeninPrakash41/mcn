@@ -32,6 +32,14 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_MAX_BODY_BYTES` | `1048576` | Largest request body accepted |
 | `MCN_APP_AUDIT_LOG` | `~/.mcn/audit/app_audit.jsonl` | File used by `audit_log()` |
 
+## IoT
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MCN_IOT_SIMULATE` | not set (Studio: `1`) | `1` simulates every device; `0` requires the hardware; unset uses hardware when it's there and simulates otherwise |
+| `MCN_MQTT_URL` | `mqtt://localhost:1883` | Broker for `driver: "mqtt"` devices that don't set `broker` |
+| `MCN_MQTT_USER` / `MCN_MQTT_PASSWORD` | — | Broker login |
+
 ## Studio
 
 | Variable | Default | Effect |

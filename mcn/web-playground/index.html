@@ -549,15 +549,17 @@
       <!-- IoT Simulator Panel -->
       <div class="panel-section" id="panel-iot-simulator" style="padding:16px;flex-direction:column;gap:12px;overflow-y:auto;background:var(--surface);">
         <div class="form-group" style="display:flex;gap:6px;align-items:center;">
-          <h4 style="font-size:12.5px;font-weight:600;color:var(--text);margin:0;">Simulated Devices</h4>
+          <h4 style="font-size:12.5px;font-weight:600;color:var(--text);margin:0;">Devices</h4>
+          <span id="iot-live" style="font-size:10.5px;color:var(--muted);">● live</span>
           <button class="btn btn-sm" onclick="refreshIoTSimulator()" style="margin-left:auto;padding:3px 8px;font-size:11px;">↻ Refresh</button>
         </div>
+        <p style="margin:0;font-size:11px;color:var(--muted);line-height:1.5;">Every device is simulated here. Move a sensor to test your code, or flip an output. On a Raspberry Pi or with an Arduino plugged in, the same code drives real hardware.</p>
         <div id="iot-devices-list" style="display:flex;flex-direction:column;gap:10px;">
-          <div style="text-align:center;font-style:italic;color:var(--muted);padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">No IoT devices registered. Run IoT code first.</div>
+          <div style="text-align:center;font-style:italic;color:var(--muted);padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">No devices yet. Register one with device("register", ...) and press Run.</div>
         </div>
-        
+
         <div class="form-group" style="flex:1;display:flex;flex-direction:column;gap:4px;min-height:140px;">
-          <label style="font-size:11px;font-weight:600;color:var(--muted)">Device Commands & Actions Log</label>
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">Commands log</label>
           <div id="iot-actions-log" style="flex:1;background:#1a1b26;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#c0caf5;line-height:1.5;">
             <div style="color:#565f89;font-style:italic;">No commands recorded.</div>
           </div>

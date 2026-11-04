@@ -8,15 +8,17 @@ log("=== Simple IoT Demo ===")
 var reg1 = device("register", "temp_sensor", {"type": "temperature_sensor"})
 log("Temperature sensor: " + reg1.message)
 
-var reg2 = device("register", "smart_light", {"type": "smart_light"})
+var reg2 = device("register", "smart_light", {"type": "light"})
 log("Smart light: " + reg2.message)
 
 // Read sensor data
 var temp_reading = device("read", "temp_sensor")
-log("Temperature reading: " + temp_reading.value + " " + temp_reading.unit)
+log("Temperature reading: " + str(temp_reading.value) + " " + temp_reading.unit)
+
+var reg3 = device("register", "motion_sensor", {"type": "motion_sensor"})
 
 var motion_reading = device("read", "motion_sensor")
-log("Motion status: " + motion_reading.value)
+log("Motion status: " + str(motion_reading.value))
 
 // Send commands
 var light_cmd = device("command", "smart_light", {"command": "on"})

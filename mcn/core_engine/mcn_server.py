@@ -67,6 +67,36 @@ def _guard(evaluator: Evaluator, fn_name: str, authorization: Optional[str], cli
     return None
 
 
+def _dev_iot(method: str, path: str, body: Dict[str, Any], authorization: Optional[str]) -> Optional[Tuple[int, Any]]:
+    """Studio's IoT panel driving the devices of a backend it started.
+
+    Only exists when Studio sets MCN_DEV_TOOLS=1, and needs Studio's token.
+    Returns None for paths that aren't these routes.
+    """
+    if not path.startswith("/_mcn/iot/"):
+        return None
+    from . import security
+    from .iot import shared_registry
+    if os.getenv("MCN_DEV_TOOLS") != "1":
+        return 404, {"error": "Not found"}
+    ok, _, error = security.check_auth("token", authorization)
+    if not ok:
+        return 401, {"error": error}
+    reg, action = shared_registry(), path[len("/_mcn/iot/"):]
+    try:
+        if action == "devices" and method == "GET":
+            return 200, {"success": True, "devices": reg.snapshot()}
+        if action == "commands" and method == "GET":
+            return 200, {"success": True, "commands": list(reg.command_log)}
+        if action == "value" and method == "POST":
+            return 200, {"success": True, "value": reg.write(str(body.get("device_id")), body.get("value"), source="simulator")}
+        if action == "pin" and method == "POST":
+            return 200, {"success": True, "value": reg.pin(str(body.get("device_id")), body.get("value"))}
+    except Exception as exc:
+        return 400, {"success": False, "error": str(exc)}
+    return 404, {"error": "Not found"}
+
+
 def _coerce(raw):
     """Query-string values arrive as text; '10' → 10, '2.5' → 2.5."""
     for convert in (int, float):
@@ -120,6 +150,18 @@ class MCNServer:
                         continue
                     response.headers.setdefault(key, value)
                 return response
+
+            @self.app.api_route("/_mcn/iot/{action}", methods=["GET", "POST"], include_in_schema=False)
+            async def dev_iot(action: str, request: Request):
+                body = {}
+                if request.method == "POST":
+                    try:
+                        body = await request.json()
+                    except Exception:
+                        body = {}
+                status, payload = _dev_iot(request.method, f"/_mcn/iot/{action}", body or {},
+                                           request.headers.get("authorization"))
+                return JSONResponse(payload, status_code=status)
 
             try:
                 from apscheduler.schedulers.background import BackgroundScheduler
@@ -327,7 +369,15 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             query_params = {k: v[0] if len(v) == 1 else v for k, v in qs.items()}
             return fn_name, path_arg, query_params
 
+        def _dev(self, method: str, body: Dict[str, Any]) -> bool:
+            handled = _dev_iot(method, urllib.parse.urlparse(self.path).path, body, self.headers.get("Authorization"))
+            if handled:
+                self._send_json(*handled)
+            return bool(handled)
+
         def do_GET(self):
+            if self._dev("GET", {}):
+                return
             fn_name, path_arg, query_params = self._resolve_endpoint(self.path)
 
             if not fn_name:
@@ -353,6 +403,13 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
         def do_POST(self):
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
             length = int(self.headers.get("Content-Length", 0) or 0)
+            if self.path.startswith("/_mcn/iot/"):
+                try:
+                    data = json.loads(self.rfile.read(min(length, 65536)) or b"{}") if length else {}
+                except json.JSONDecodeError:
+                    data = {}
+                self._dev("POST", data if isinstance(data, dict) else {})
+                return
             if self._refused(fn_name, length):
                 return
 

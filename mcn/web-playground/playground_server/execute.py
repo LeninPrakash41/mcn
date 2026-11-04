@@ -8,7 +8,7 @@ from .core import (
     Severity,
     TestRunner,
     _EXEC_TIMEOUT_S,
-    _SIMULATED_DEVICES,
+    seed_demo_devices,
     _capture_stdout,
     _run_with_timeout,
     _sse,
@@ -51,20 +51,9 @@ def execute_mcn():
         interp._functions["log"]  = _capture_log
         interp._functions["echo"] = _capture_log
 
-        # 1. Pre-populate IoT devices with simulated states if supported
-        if hasattr(interp, "_ensure_v3_systems"):
-            try:
-                interp._ensure_v3_systems()
-            except Exception:
-                pass
-        if hasattr(interp, "iot_connector") and hasattr(interp.iot_connector, "devices"):
-            for dev_id, dev in _SIMULATED_DEVICES.items():
-                interp.iot_connector.devices[dev_id] = {
-                    "type": dev["type"],
-                    "connection": {},
-                    "override_value": dev["value"],
-                    "status": "registered"
-                }
+        # Demo devices for the IoT panel (kept between runs, so the panel's values stick)
+        from mcn.core_engine.iot import shared_registry
+        seed_demo_devices(shared_registry())
 
         with _capture_stdout() as buf:
             result = interp.execute(code, quiet=True)

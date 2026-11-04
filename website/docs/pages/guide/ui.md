@@ -174,4 +174,4 @@ flutter pub get
 flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080   # Android emulator; iOS and web use localhost
 ```
 
-Screens live in `lib/screens/` (one file per component), shared widgets in `lib/mcn/mcn_runtime.dart`, and the API client in `lib/services/mcn_client.dart`. For a service with `auth`, add `--dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login. [Web and mobile](#/reference/ui-elements) lists how each element appears on a phone.
+Screens live in `lib/screens/` (one file per component), shared widgets in `lib/mcn/mcn_runtime.dart`, and the API client in `lib/services/mcn_client.dart`. For a service with `auth`, add `--dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login. [Web and mobile](#/reference/ui-elements#web-and-mobile) lists how each element appears on a phone.

@@ -1,6 +1,6 @@
 # UI elements
 
-Every element available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented under their parent. All of them come from the **MCN UI kit**: the same components render in Studio's preview and in the React app `mcn build` generates. Studio's **App** view compiles the same file to Flutter; the [web and mobile](#/reference/ui-elements) section at the end lists how each element appears there.
+Every element available in a component's `render` block. Each line is `element "text" attribute=value ...`, and children are indented under their parent. All of them come from the **MCN UI kit**: the same components render in Studio's preview and in the React app `mcn build` generates. Studio's **App** view compiles the same file to Flutter; [web and mobile](#/reference/ui-elements#web-and-mobile) lists how each element appears there.
 
 ## App frame
 

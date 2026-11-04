@@ -599,23 +599,10 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": f"Postman generation failed: {str(e)}"}
             
-    def _device_operation(self, operation: str, device_id: str = None, config: dict = None):
-        try:
-            self._ensure_v3_systems()
-            if operation == "register":
-                device_type = config.get("type", "unknown") if isinstance(config, dict) else "unknown"
-                result = self.iot_connector.register_device(device_id, device_type, config or {})
-                return {"success": True, "message": result}
-            elif operation == "read":
-                val = self.iot_connector.read_device(device_id)
-                return {"value": val}
-            elif operation == "command":
-                cmd = config.get("command", "unknown") if isinstance(config, dict) else "unknown"
-                result = self.iot_connector.send_command(device_id, cmd, config or {})
-                return {"success": True, "message": result}
-            return {"error": f"Unknown device operation: {operation}"}
-        except Exception as e:
-            return {"error": str(e)}
+    def _device_operation(self, operation: str, device_id: str = None, config: Any = None, extra: Any = None):
+        from .iot import device
+        self._ensure_v3_systems()
+        return device(operation, device_id, config, extra)
 
     def _on_event(self, event_name: str, handler_func: Any = None):
         try:

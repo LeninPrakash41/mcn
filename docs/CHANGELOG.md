@@ -16,6 +16,13 @@ All notable changes to MCN will be documented in this file.
 - **`agent_run(prompt, options)`**: Claude calls MCN functions as tools. Parameters become the tool schema; MCN runs the loop and returns `{reply, tool_calls, steps}`. The AI Agent Builder template's tools (search docs, look up customers, create tasks, draft emails, notify the team) now really run, and `chat` shows the tools used under each reply
 - **Mobile apps compiled from MCN components**: `ui/app.mcn` compiles to Flutter screens with state, handlers, endpoint calls and navigation, instead of a separate screen manifest
 - `kanban` cards move by touch (drag the grip) and keyboard (← →), with screen-reader announcements
+- **IoT hardware**: the same `device()` code is simulated in Studio and drives real hardware
+  - Drivers: `gpio` (Raspberry Pi pins, DHT sensors, MCP3008), `serial` (Arduino, ESP32, Pico over USB), `mqtt` (ESP32, Tasmota, Zigbee2MQTT, Home Assistant) and `http`
+  - 28 device types; `on`, `off`, `toggle`, `write`, `watch`, `list` and `remove`
+  - `mcn iot firmware arduino|esp32` writes board firmware; `mcn iot ports`; `mcn iot service` starts an app when a Pi boots; `mcn add iot`
+  - `MCN_IOT_SIMULATE`: simulate, require hardware, or fall back to simulation
+  - Studio's IoT Simulator updates live, controls every device type, and shows and drives the devices of the running backend
+  - Smart Home template rebuilt on real devices and automations; Telemetry Hub takes readings over HTTP and MQTT and sounds an Arduino alarm
 - **Security**
   - `auth "token" | "jwt"` and `public ...` in services; `current_user()` in endpoints
   - Check functions: `validate`, `escape_html`, `sanitize_html`, `is_email`, `is_url`, `password_strength`, `rate_limit`, `require`, `secure_token`, `safe_equals`, `mask`, `audit_log`, `verify_audit_log`
@@ -32,6 +39,10 @@ All notable changes to MCN will be documented in this file.
 - UI attributes can use keyword names (`chat endpoint=ask`)
 - **Security:** the built-in HTTP server let requests call any function, including built-ins such as `query` and `write_file`; only declared endpoints are reachable now
 - **Security:** tokens were signed with a built-in default secret when `MCN_AUTH_SECRET` wasn't set; each install now generates its own
+- The IoT Simulator didn't show the devices of a running backend, and the IoT templates didn't use `device()`
+- Pressing Run reset the IoT Simulator's demo devices
+- The Flutter runtime and board firmware were missing from installed packages
+- Docs pages could show a stale copy after an update (the build now versions its files)
 - **Security:** serving a file without a `service` ran the whole script per request and returned its variables; it now serves nothing
 
 ### Changed

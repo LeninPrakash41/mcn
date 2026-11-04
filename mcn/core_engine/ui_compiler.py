@@ -1628,7 +1628,8 @@ class UICompiler:
             # on_submit / on_click → onSubmit / onClick
             if key.startswith("on_"):
                 react_evt = "on" + _pascal(key[3:])
-                handler   = _expr_to_ts(val)
+                # on_click=close_blinds names the `on close_blinds` handler, generated as closeBlinds
+                handler   = _handler_name(val.name) if isinstance(val, ast.Variable) else _expr_to_ts(val)
                 props.append(f'{react_evt}={{{handler}}}')
                 continue
 

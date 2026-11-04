@@ -19,6 +19,7 @@ FEATURES = {
     "mongodb":   "MongoDB via connect_mongodb()",
     "ml":        "train(), predict() and the other machine-learning built-ins",
     "scheduler": "schedule blocks that run on a cron timetable",
+    "iot":       "real hardware for device(): Raspberry Pi pins, Arduino/ESP32 over USB, MQTT",
 }
 
 _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source checkouts
@@ -26,6 +27,7 @@ _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source chec
     "mongodb": ["pymongo>=4.0.0"],
     "ml": ["scikit-learn>=1.3.0", "pandas>=2.0.0", "numpy>=1.24.0"],
     "scheduler": ["apscheduler>=3.10.0"],
+    "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
 }
 
 

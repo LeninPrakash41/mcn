@@ -706,6 +706,8 @@ class Evaluator:
             except PermissionError as exc:          # require(): the message is the whole story
                 raise MCNError(str(exc), expr.line, expr.col) from exc
             except Exception as exc:
+                if type(exc).__name__ == "HardwareError":   # device(): says what to check
+                    raise MCNError(f"Device error: {exc}", expr.line, expr.col) from exc
                 name = getattr(expr.callee, "name", "?")
                 raise MCNError(_friendly_call_error(name, exc, bound=inspect.ismethod(callee)),
                                expr.line, expr.col) from exc
