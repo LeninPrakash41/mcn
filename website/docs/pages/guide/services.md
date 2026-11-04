@@ -83,7 +83,7 @@ mcn serve endpoints/       # serves the endpoints of every .mcn file in the fold
 
 ## Deploying
 
-Studio's **Build & download** gives you a zip with a `Dockerfile`, `docker-compose.yml`, an nginx config and a GitHub Actions workflow. To run the API in a container yourself:
+`mcn deploy --target vercel` puts the API and its web app online at one URL; [deploying](#/guide/deploy) covers Vercel, containers and a Raspberry Pi. Studio's **Build & download** gives you a zip with a `Dockerfile`, `docker-compose.yml`, an nginx config and a GitHub Actions workflow. To run the API in a container yourself:
 
 ```bash
 mcn serve backend/main.mcn --host 0.0.0.0 --port 8080

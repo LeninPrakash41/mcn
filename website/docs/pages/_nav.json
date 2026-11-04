@@ -19,6 +19,7 @@
       "guide/database",
       "guide/services",
       "guide/security",
+      "guide/deploy",
       "guide/ui",
       "guide/ai",
       "guide/tasks-events-iot",

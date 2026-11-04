@@ -502,6 +502,7 @@ class DeviceRegistry:
             old = self.devices.get(device_id)
             if old is not None:
                 old.driver.close()
+                self.watchers.pop(device_id, None)   # running the script again re-adds its watches
             device = Device(str(device_id), config or {})
             if old is not None and old.override is not None and device.simulated:
                 device.override = old.override       # keep what the simulator pinned across reruns

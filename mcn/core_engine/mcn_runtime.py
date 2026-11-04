@@ -32,6 +32,26 @@ def _http_timeout():
         return float(os.environ["MCN_HTTP_TIMEOUT"])
     return (5, 30)
 
+def _pg_placeholders(sql: str) -> str:
+    """? → %s outside quoted strings, and a literal % → %% (psycopg2's format)."""
+    out, quote = [], None
+    for ch in sql:
+        if quote:
+            out.append("%%" if ch == "%" else ch)
+            if ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+            out.append(ch)
+        elif ch == "?":
+            out.append("%s")
+        elif ch == "%":
+            out.append("%%")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 class MCNRuntime:
     def __init__(self):
         self.db_connection = None
@@ -142,12 +162,16 @@ class MCNRuntime:
             return [{"affected_rows": cursor.rowcount}]
 
     def _query_postgresql(self, sql: str, params: tuple = None) -> List[Dict]:
-        """PostgreSQL query execution"""
+        """PostgreSQL query execution. MCN code uses ? placeholders, as with SQLite."""
         cursor = self.db_connection.cursor()
-        if params:
-            cursor.execute(sql, params)
-        else:
-            cursor.execute(sql)
+        try:
+            if params:
+                cursor.execute(_pg_placeholders(sql), params)
+            else:
+                cursor.execute(sql)
+        except Exception:
+            self.db_connection.rollback()      # otherwise every later query fails too
+            raise
 
         if sql.strip().upper().startswith("SELECT"):
             columns = [desc[0] for desc in cursor.description]
@@ -408,17 +432,21 @@ class MCNRuntime:
             return f"Date format error: {str(e)}"
 
     def connect_postgresql(
-        self, host: str, database: str, user: str, password: str, port: int = 5432
+        self, host: str, database: str = None, user: str = None, password: str = None, port: int = 5432
     ):
-        """Connect to PostgreSQL database"""
+        """Connect to PostgreSQL: connect_postgresql(host, database, user, password, port?),
+        or one URL such as env("DATABASE_URL") from Vercel Postgres, Neon or Supabase."""
         try:
             import psycopg2
         except ImportError:
             return {"success": False, "error": "PostgreSQL support isn't installed. Run: mcn add postgres"}
         try:
-            self.db_connection = psycopg2.connect(
-                host=host, database=database, user=user, password=password, port=port
-            )
+            if database is None and str(host).startswith(("postgres://", "postgresql://")):
+                self.db_connection = psycopg2.connect(str(host))
+            else:
+                self.db_connection = psycopg2.connect(
+                    host=host, database=database, user=user, password=password, port=port
+                )
             self.db_type = "postgresql"
             return {"success": True, "message": "Connected to PostgreSQL"}
         except Exception as e:

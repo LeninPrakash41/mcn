@@ -769,8 +769,53 @@ function openDeployModal() {
   m.classList.remove('hidden')
   document.getElementById('deploy-status').classList.add('hidden')
   document.getElementById('deploy-result').classList.add('hidden')
+  document.getElementById('deploy-vercel-result').classList.add('hidden')
   document.getElementById('deploy-submit').disabled = false
-  document.getElementById('deploy-submit').textContent = '⬇ Build & Download'
+  onDeployTargetChange()
+}
+
+function onDeployTargetChange() {
+  const vercel = document.getElementById('deploy-target').value === 'vercel'
+  document.getElementById('deploy-vercel-opts').style.display = vercel ? 'flex' : 'none'
+  document.getElementById('deploy-submit').textContent = vercel ? 'Deploy to Vercel' : '⬇ Build & Download'
+}
+
+async function deployToVercel(appName) {
+  const statusEl = document.getElementById('deploy-status')
+  const statusTxt = document.getElementById('deploy-status-text')
+  const submitBtn = document.getElementById('deploy-submit')
+  const resultEl = document.getElementById('deploy-vercel-result')
+  statusEl.classList.remove('hidden')
+  resultEl.classList.add('hidden')
+  statusTxt.textContent = 'Building and uploading to Vercel… this takes a minute or two'
+  submitBtn.disabled = true
+  try {
+    const start = await apiFetch('/api/deploy/vercel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_name: appName, prod: document.getElementById('deploy-prod').checked })
+    })
+    const s = await start.json()
+    if (!s.success) throw new Error(s.error)
+    let job
+    for (;;) {
+      await new Promise(r => setTimeout(r, 3000))
+      job = await (await apiFetch('/api/deploy/vercel')).json()
+      if (job.state !== 'running') break
+    }
+    if (job.state !== 'done') throw new Error(job.error || 'The deployment failed')
+    statusEl.classList.add('hidden')
+    const link = document.getElementById('deploy-vercel-url')
+    link.href = job.url
+    link.textContent = job.url
+    resultEl.classList.remove('hidden')
+    showToast('Deployed to Vercel', 'success')
+  } catch (e) {
+    statusEl.classList.add('hidden')
+    await showIdeAlert('Deploy Failed', e.message, 'error')
+  } finally {
+    submitBtn.disabled = false
+  }
 }
 
 function closeDeployModal() {
@@ -780,6 +825,7 @@ function closeDeployModal() {
 async function submitDeploy() {
   const appName = document.getElementById('deploy-name').value.trim() || 'mcn-app'
   const target  = document.getElementById('deploy-target').value
+  if (target === 'vercel') return deployToVercel(appName)
 
   const statusEl = document.getElementById('deploy-status')
   const statusTxt = document.getElementById('deploy-status-text')

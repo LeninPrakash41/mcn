@@ -1,6 +1,6 @@
 # MCN — Macincode Scripting Language
 
-A full-stack scripting language built for the AI era. Write backend services, data pipelines, AI workflows, and React UIs — all in a single `.mcn` file. AI is a language primitive, not a library call.
+A full-stack scripting language built for the AI era. Write the backend, web and mobile UI, AI agents and the devices your app controls in `.mcn` files, then put it online with one command. AI is a language primitive, not a library call.
 
 ```mcn
 use "healthcare"
@@ -25,6 +25,11 @@ log("Admitted {admission.patient_id} — risk: {risk}")
 | SIs re-implement domain logic for every client | Package it once: `use "accenture/healthcare"` |
 | Bolt.new / v0 generate code you still have to maintain | MCN is the runtime — no generated mess |
 | Non-technical builders can't use code-gen output | MCN reads like English, executes like a program |
+| Agents need tool-calling plumbing | `agent_run(prompt, {tools: ["lookup_order"]})` lets Claude call your MCN functions |
+| Web and mobile apps are two codebases | One `ui/app.mcn` compiles to React and to Flutter |
+| IoT prototypes get rewritten for real hardware | The same `device()` code is simulated in Studio and drives a Raspberry Pi, Arduino or ESP32 |
+| Security gets bolted on late | `auth "token"`, rate limits and security headers are built in; `mcn audit` checks your code |
+| Deploying a full-stack app takes a day | `mcn deploy --target vercel` puts the web app and its API online at one URL |
 
 ---
 
@@ -37,11 +42,12 @@ MCN is designed to act as an **Internal Low/No-Code Platform** engine (ideal for
 Unlike other app builders that generate separate frontend and backend codebases, **MCN itself acts as the backend server.**
 
 1. **Write the backend (`backend/main.mcn`):** tables, a `service` with `endpoint`s, AI calls and `test` blocks.
-2. **Write the UI (`ui/app.mcn`):** `component`s with `state`, `on submit` / `on load` handlers and a `render` tree, plus an `app` layout. `mcn build ui/app.mcn` compiles it to a React + Tailwind + shadcn/ui project whose API client calls your endpoints; Studio also renders it as a Flutter app.
+2. **Write the UI (`ui/app.mcn`):** `component`s with `state`, `on submit` / `on load` handlers and a `render` tree, plus an `app` layout. `mcn build ui/app.mcn` compiles it to a React + Tailwind project whose API client calls your endpoints, and Studio compiles the same file to a Flutter app.
 3. **Run the backend:** `mcn serve backend/main.mcn` starts an HTTP API (GET and POST for every endpoint, interactive docs at `/docs`).
+4. **Ship it:** `mcn deploy --target vercel` puts the React app and the API online at one URL.
 
 ### Why this works:
-- **Zero API Boilerplate:** You never have to write REST APIs. The React frontend is automatically wired to call your MCN endpoints over HTTP.
+- **Zero API Boilerplate:** You never have to write REST APIs. The React and Flutter apps are automatically wired to call your MCN endpoints over HTTP.
 - **Generate from a description:** `mcn generate "A leave tracker with manager approval"` writes the backend and UI with Claude, then validates them.
 - **Secure Integration:** Database credentials and API keys stay firmly on the MCN backend server, never touching the React View layer.
 
@@ -70,7 +76,7 @@ mcn studio .                      # open it in MCN Studio → http://localhost:5
 
 `mcn upgrade` updates MCN, `mcn add ml` (or `postgres`, `mongodb`, `scheduler`) adds optional features, and `mcn uninstall` removes it. Node.js is only needed to run the generated React app.
 
-**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, and inspect the database, IoT devices and AI calls. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** menu has 21 starter apps. Studio only accepts connections from your own machine.
+**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** menu has 21 starter apps. Studio only accepts connections from your own machine.
 
 **Editor support.** `mcn vscode` installs the bundled VS Code extension: highlighting, completions, hover docs, errors underlined as you type, and commands to run, test, serve and open Studio.
 
@@ -97,6 +103,10 @@ flutter run -d chrome --dart-define=MCN_API_URL=http://localhost:8080
 
 On an Android emulator use `--dart-define=MCN_API_URL=http://10.0.2.2:8080`. For a service with `auth`, also pass `--dart-define=MCN_API_TOKEN=...`.
 
+**IoT in Studio.** Open an IoT file (or the **Smart Home** template) and press **Run**: every device it registers appears in the **IoT Simulator** panel, live. Drag a sensor's slider, trigger a motion sensor or flip a relay, and your `watch` automations react. Press **Preview** instead to run the backend as an API with its web app; the panel then shows and drives the backend's devices. Devices declared for a Raspberry Pi or Arduino are simulated in Studio with their pins shown.
+
+**Deploy.** `mcn deploy --target vercel` (or **Build → Deploy** in Studio) compiles the UI to React and puts it on Vercel with your backend at `/api`, on one URL. `mcn deploy --target docker` writes a zip for any container host. See the [deploying guide](website/docs/pages/guide/deploy.md).
+
 **AI features.** Set `ANTHROPIC_API_KEY` to enable `ai()` calls and the Copilot. `agent_run(prompt, {tools: ["lookup_order"]})` lets Claude call your MCN functions as tools and returns the reply with every tool call. MCN uses `claude-opus-5-5` by default; override with `MCN_AI_MODEL` (for `ai()`) or `MCN_CLAUDE_MODEL` (for Copilot).
 
 The Web Playground includes built-in **Interactive Simulators** in the preview pane:
@@ -118,7 +128,7 @@ The full guide — install, quick start, language guide, and CLI and built-in re
 
 ```mcn
 var score = 85
-var grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : "F"
+var grade = score >= 90 ? "A" : (score >= 80 ? "B" : (score >= 70 ? "C" : "F"))
 
 // Compound assignment
 var total = 0
@@ -142,7 +152,7 @@ var is_even = score % 2 == 0 ? "even" : "odd"
 ```mcn
 var user = {name: "Alice", role: "viewer", score: 0}
 user.role  = "admin"          // property assignment
-user.score += 10              // compound on property (via temp var)
+user.score = user.score + 10  // update a property
 
 var items = ["a", "b", "c"]
 items[1] = "B"                // index assignment
@@ -181,12 +191,17 @@ catch
 ## AI Primitives
 
 ```mcn
+var article  = "MCN compiles one UI file to React and Flutter..."
+var question = "What does MCN compile to?"
+var message  = "I want my money back for order 1042"
+var raw_text = "Order 1042 for Ana Silva, 3 items, total $59.90"
+
 // Free-form generation
 var summary = ai("Summarize in 3 bullets: " + article)
 
 // Explicit model routing
-var fast   = llm("claude-haiku-4-5", "Quick answer: " + question)
-var deep   = llm("claude-opus-4-6",  "Detailed analysis: " + question)
+var fast   = llm("claude-haiku-5-5", "Quick answer: " + question)
+var deep   = llm("claude-opus-5-5",  "Detailed analysis: " + question)
 
 // Zero-shot classification
 var intent = classify(message, ["buy", "refund", "support"])
@@ -209,7 +224,7 @@ prompt support_reply
     user   "Customer said: {{message}}"
     format text
 
-var reply = support_reply.run({message: customer_input})
+var reply = support_reply.run({message: message})
 
 // Human-in-the-loop
 checkpoint("Review before sending", reply)
@@ -227,6 +242,27 @@ vector_upsert("doc3", "The `rag()` function retrieves then answers")
 var answer = rag("How do I process a payment in MCN?")
 log(answer)
 ```
+
+### Agents that use your functions
+
+`agent_run` gives Claude your MCN functions as tools. MCN runs the loop (Claude asks for a tool, MCN calls the function, sends the result back) until Claude answers.
+
+```mcn
+function lookup_order(order_id)
+    return {id: order_id, status: "shipped", eta: "Friday"}
+
+function create_ticket(subject, priority = "normal")
+    return {created: true, subject: subject}
+
+var result = agent_run("Where is order 1042? Open a ticket if it's late.", {
+    system: "You are a support agent. Use the tools; don't guess.",
+    tools: ["lookup_order", {name: "create_ticket", description: "Open a ticket for a person to follow up"}]
+})
+log(result.reply)              // the answer
+log(len(result.tool_calls))    // every tool call, with its input and output
+```
+
+Return `tool_calls` from an endpoint and the `chat` element shows "Used N tools" under the reply. Without an API key it runs in mock mode, so the wiring can be tested in class or CI.
 
 ### AI Model Management (v3.0)
 
@@ -311,6 +347,7 @@ var matches = regex_extract("user@example.com", "[a-z]+@[a-z]+\.[a-z]+")
 
 ```mcn
 var scores = [90, 85, 92, 78, 95]
+var users  = [{name: "Ana", department: "Sales"}, {name: "Ben", department: "Ops"}]
 var avg    = average(scores)              // 88.0
 var top    = sort_list(scores, "", true)  // descending
 var groups = group_by(users, "department")
@@ -534,18 +571,21 @@ mcn build ui/app.mcn --out frontend
 cd frontend && npm install && npm run dev
 ```
 
-**Supported UI elements:**
+The same file compiles to Flutter in Studio's **App** view, with native screens, navigation and charts.
+
+**UI elements** (all from the built-in MCN UI kit, with React as the only dependency):
 
 | Category | Elements |
 |---|---|
-| Layout | `div`, `div grid_cols=N`, `card`, `card_header`, `card_content`, `card_footer` |
-| Forms | `form`, `input`, `textarea`, `select`, `button`, `checkbox`, `switch`, `radio` |
-| Data display | `table`, `badge`, `alert`, `separator`, `progress`, `skeleton`, `avatar` |
-| Charts | `bar_chart`, `line_chart`, `pie_chart` (via Recharts) |
-| KPI | `stat_card label="..." value=var color="blue" icon="TrendingUp" trend=5` |
-| Navigation | `tabs`, `tab`, `sidebar`, `nav`, `scroll_area` |
-| Overlays | `modal show=boolVar`, `sheet`, `dropdown_menu`, `tooltip` |
-| Misc | `accordion`, `pagination page=var total=var page_size=N` |
+| App frame | `app` with `sidebar`/`tabs` layouts, `nav` groups, ⌘K search, notifications, dark mode |
+| Data | `data_table` (search, filters, sorting, pagination, CSV export), `kanban` (mouse, touch and keyboard), `stat_card` |
+| Charts | `bar_chart`, `line_chart`, `area_chart`, `pie_chart`, `donut_chart`, `sparkline` |
+| AI | `chat` / `chat_widget` (shows agent tool calls), `agent_builder`, `workflow_builder` |
+| Layout | `div grid_cols=N`, `card`, `card_header`, `card_content`, `tabs`, `accordion`, `modal`, `separator` |
+| Forms | `form`, `input`, `textarea`, `select`, `checkbox`, `switch`, `radio_group`, `button` |
+| Feedback | `alert`, `badge`, `empty_state`, `progress`, `notify(message, kind)` |
+
+The full list, with which elements appear on mobile, is in the [UI elements reference](website/docs/pages/reference/ui-elements.md).
 
 Themes: `"professional"` · `"modern"` · `"minimal"` · `"default"`
 
@@ -591,7 +631,7 @@ test "basic arithmetic"
 
 test "ternary and else-if"
     var x = 75
-    var grade = x >= 90 ? "A" : x >= 80 ? "B" : x >= 70 ? "C" : "F"
+    var grade = x >= 90 ? "A" : (x >= 80 ? "B" : (x >= 70 ? "C" : "F"))
     assert_equal(grade, "C")
 
 test "collections"
@@ -662,23 +702,66 @@ agent researcher
 var result = researcher.analyze("MCN competitive landscape")
 ```
 
-## IoT & Edge Computing (v3.0)
+## IoT & Hardware
 
-MCN provides first-class support for registering and communicating with IoT devices and edge nodes directly from your scripting environment.
+The same `device()` code is simulated in Studio and drives real hardware: Raspberry Pi pins (`driver: "gpio"`), an Arduino, ESP32 or Pico over USB (`"serial"`), ESP32 and smart-home gear over MQTT (`"mqtt"`), or an HTTP device (`"http"`).
 
 ```mcn
-use "iot"
+device("register", "greenhouse_temp", {type: "temperature_sensor", driver: "gpio", pin: 4, sensor: "dht22"})
+device("register", "vent_fan", {type: "fan", driver: "gpio", pin: 17})
+device("register", "soil", {type: "soil_moisture", driver: "serial", pin: "A0", scale: [0, 100]})
 
-// Connect and configure devices
-device("register", "temp_sensor", {"type": "temperature_sensor"})
-device("register", "smart_light", {"type": "smart_light"})
+function on_temperature(value)
+    if value > 28
+        device("on", "vent_fan")
+    if value < 25
+        device("off", "vent_fan")
 
-// Read state and send commands
-var temp = device("read", "temp_sensor")
-if temp > 25 {
-    device("command", "smart_light", {"action": "turn_on"})
-}
+device("watch", "greenhouse_temp", on_temperature, 2)
+log("Soil moisture: " + str(device("read", "soil").value) + "%")
 ```
+
+```bash
+mcn add iot                       # on the Pi: hardware support
+mcn iot firmware arduino          # the USB firmware sketch for Arduino / ESP32 / Pico
+mcn iot firmware esp32            # the WiFi + MQTT sketch for ESP32
+mcn iot service backend/main.mcn  # start the app when the Pi boots
+```
+
+`MCN_IOT_SIMULATE=0` makes missing hardware an error (use it in production); unset, MCN simulates whatever isn't connected and says so. The [IoT and hardware guide](website/docs/pages/guide/iot.md) lists the 28 device types, wiring for each part and the MQTT options.
+
+## Security
+
+```mcn
+service orders_api
+    auth "token"                  // or "jwt"
+    public health                 // endpoints anyone may call
+
+    endpoint health()
+        return {ok: true}
+
+    endpoint delete_order(id)
+        require(id > 0, "Pick an order")
+        query("DELETE FROM orders WHERE id = ?", (id,))
+        audit_log("delete_order", {id: id})
+        return {success: true}
+```
+
+- Only declared endpoints are reachable over HTTP; every response gets security headers; requests are rate-limited and body size is capped.
+- Built-in checks: `validate`, `sanitize_html`, `escape_html`, `is_email`, `password_strength`, `rate_limit`, `require`, `secure_token`, `safe_equals`, `mask`, and a tamper-evident `audit_log`.
+- `mcn audit .` finds SQL injection, hard-coded secrets, open services, unsafe file paths and weak password hashing before you ship (`--json` for CI).
+
+See the [security guide](website/docs/pages/guide/security.md).
+
+## Deploying
+
+```bash
+mcn deploy --target vercel          # React app + API (at /api) on Vercel, one URL
+mcn deploy --target vercel --prod   # production
+mcn deploy --target docker          # zip with Dockerfile and docker-compose for any host
+```
+
+The first Vercel deploy asks you to log in (Studio uses a `VERCEL_TOKEN` from **Secrets**). Keys like `ANTHROPIC_API_KEY` come from the project's `.env`. On Vercel, SQLite data is temporary, so use PostgreSQL (`connect_postgresql(env("DATABASE_URL"))`) for data that must last; `watch`, schedules and hardware need an always-on host or a Pi. See the [deploying guide](website/docs/pages/guide/deploy.md).
 
 ## Event-Driven Programming (v3.0)
 
@@ -730,6 +813,17 @@ mcn build ui/app.mcn --out frontend    # compile MCN UI → React
 mcn generate "An invoice app with PDF export"  # AI-generated app (needs ANTHROPIC_API_KEY)
 mcn generate "..." --out ./myapp --build       # generate + compile
 
+# ── Ship & secure ────────────────────────────────────────────────────────
+mcn deploy --target vercel [--prod]    # web app + API on Vercel
+mcn deploy --target docker             # zip with Docker files
+mcn audit .                            # security scan; --json, --fail-on high|medium|low
+
+# ── Hardware ─────────────────────────────────────────────────────────────
+mcn add iot                            # Raspberry Pi GPIO, USB serial, MQTT
+mcn iot firmware arduino|esp32         # write the board firmware
+mcn iot ports                          # boards plugged in over USB
+mcn iot service app.mcn                # start on boot (systemd)
+
 # ── Packages ─────────────────────────────────────────────────────────────
 mcn packages list                      # all available packages
 mcn packages info healthcare           # exports + docs
@@ -750,6 +844,11 @@ mcn config show
 | `MCN_HOME` | Where MCN keeps logs, packages and Studio's workspace (default `~/.mcn`) |
 | `MCN_HTTP_TIMEOUT` | Seconds before `trigger()` gives up (default 5s to connect, 30s to respond) |
 | `MCN_VERBOSE` | Print engine debug logs |
+| `MCN_AUTH_SECRET`, `MCN_API_TOKEN` | Secret for signed tokens; token for services with `auth "token"` |
+| `MCN_CORS_ORIGINS`, `MCN_RATE_LIMIT` | Allowed browser origins; requests per minute per client (default 600) |
+| `MCN_IOT_SIMULATE` | `1` simulate all devices, `0` require hardware, unset: simulate what isn't connected |
+| `MCN_MQTT_URL` | Broker for MQTT devices |
+| `VERCEL_TOKEN` | Lets Studio deploy to Vercel |
 
 ---
 
@@ -758,9 +857,9 @@ mcn config show
 | Version | Status | Focus |
 |---|---|---|
 | v2.0–2.3 | Released | Pipelines, services, workflows, AI primitives, test runner, formatter, full-stack compiler, 100+ built-ins, packages |
-| **v2.4** | **Current** | Friendly errors and `mcn check` (syntax + undefined names), `mcn init` full-stack projects, `mcn studio <folder>`, working VS Code extension with live errors, GET for every endpoint, parallel `task`/`await`, every example run in CI |
-| v2.5 | Planned | Error on null property access (opt-in strict mode), arrow functions with statement bodies, public package registry |
-| v3.0 | Planned | Hosted Studio, 1-click deploy, local LLM (Ollama) |
+| v2.4 | Released | Friendly errors and `mcn check`, `mcn init` projects, `mcn studio <folder>`, VS Code extension with live errors, GET for every endpoint, parallel `task`/`await` |
+| **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel** |
+| v3.0 | Planned | Hosted Studio, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
 
 ---
 
@@ -769,7 +868,8 @@ mcn config show
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setting up a development copy and running the tests, and [`docs/contributing/`](docs/contributing/README.md) for how MCN is built.
 
 **Areas actively needed:**
-- Cloud runtime / deploy button
+- More deploy targets (Railway, Fly.io, Render) next to Vercel
+- Trying the IoT drivers on more boards (ESP8266, Pico, Arduino R4)
 - Rewriting the scripts in `examples/legacy/` for current MCN
 - Public package registry (npm-style, for SI packages)
 - More domain packages (`payments`, `logistics`, `hr`, `legal`)

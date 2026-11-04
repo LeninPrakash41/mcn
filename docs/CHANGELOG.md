@@ -16,6 +16,7 @@ All notable changes to MCN will be documented in this file.
 - **`agent_run(prompt, options)`**: Claude calls MCN functions as tools. Parameters become the tool schema; MCN runs the loop and returns `{reply, tool_calls, steps}`. The AI Agent Builder template's tools (search docs, look up customers, create tasks, draft emails, notify the team) now really run, and `chat` shows the tools used under each reply
 - **Mobile apps compiled from MCN components**: `ui/app.mcn` compiles to Flutter screens with state, handlers, endpoint calls and navigation, instead of a separate screen manifest
 - `kanban` cards move by touch (drag the grip) and keyboard (← →), with screen-reader announcements
+- **Deploy to Vercel**: `mcn deploy --target vercel [--prod]` and Studio's **Build → Deploy** put the React app and its backend (at `/api`) online at one URL; settings come from `.env`, with a stable `MCN_AUTH_SECRET`
 - **IoT hardware**: the same `device()` code is simulated in Studio and drives real hardware
   - Drivers: `gpio` (Raspberry Pi pins, DHT sensors, MCP3008), `serial` (Arduino, ESP32, Pico over USB), `mqtt` (ESP32, Tasmota, Zigbee2MQTT, Home Assistant) and `http`
   - 28 device types; `on`, `off`, `toggle`, `write`, `watch`, `list` and `remove`
@@ -40,7 +41,8 @@ All notable changes to MCN will be documented in this file.
 - **Security:** the built-in HTTP server let requests call any function, including built-ins such as `query` and `write_file`; only declared endpoints are reachable now
 - **Security:** tokens were signed with a built-in default secret when `MCN_AUTH_SECRET` wasn't set; each install now generates its own
 - The IoT Simulator didn't show the devices of a running backend, and the IoT templates didn't use `device()`
-- Pressing Run reset the IoT Simulator's demo devices
+- Pressing Run reset the IoT Simulator's demo devices, and running a script again doubled its `watch` handlers
+- Studio's deploy dialog couldn't be opened from any menu
 - The Flutter runtime and board firmware were missing from installed packages
 - Docs pages could show a stale copy after an update (the build now versions its files)
 - **Security:** serving a file without a `service` ran the whole script per request and returned its variables; it now serves nothing

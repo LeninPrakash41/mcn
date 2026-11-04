@@ -40,9 +40,14 @@ def test_iot_commands_from_code_show_in_log():
     assert client.get("/api/iot/devices").get_json()["devices"]["fan_1"]["value"] == 1
 
 
-def test_iot_demo_devices_and_validation():
+def test_iot_demo_devices_and_validation(monkeypatch):
+    from mcn.core_engine import iot
+    monkeypatch.setattr(iot, "_SHARED", None)            # a fresh registry: only the demo devices
     devices = client.get("/api/iot/devices").get_json()["devices"]
     assert {"office_temp", "office_occupancy", "hvac_system"} <= set(devices)
+    run('device("register", "mine", {type: "light"})')   # the user's own devices replace them
+    devices = client.get("/api/iot/devices").get_json()["devices"]
+    assert "mine" in devices and "office_temp" not in devices
     bad = client.post("/api/iot/device/value", json={"device_id": "nope", "value": 1}).get_json()
     assert bad["success"] is False
 

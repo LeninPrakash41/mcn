@@ -39,7 +39,8 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 |---|---|
 | `mcn build <ui-file> [--out frontend]` | Compile MCN components to a React + Vite + Tailwind + shadcn/ui project |
 | `mcn generate "<description>"` | Write a backend and UI with Claude, then validate them. Options: `--out DIR`, `--port`, `--build`, `--model` |
-| `mcn deploy [folder] [--target zip\|docker\|cloud] [--name] [--out]` | Package a project as a zip or Docker image |
+| `mcn deploy --target vercel [--name] [--prod]` | Put the React app and its backend (at `/api`) on Vercel. `--stage-only` writes the Vercel project without uploading. See [deploying](#/guide/deploy) |
+| `mcn deploy [folder] [--target zip\|docker] [--name] [--out]` | Package a project as a zip with Docker files |
 
 ## Packages
 

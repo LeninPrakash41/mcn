@@ -26,7 +26,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 1. **Run** (▶) executes the current file. For `backend/main.mcn` this starts the API on its `port`.
 2. **Preview** compiles `ui/app.mcn` and runs the real app in the preview pane, using the same components as the exported React app and calling your running backend. Nothing needs installing.
-3. **Build & download** produces a zip of the React project (or the Flutter app in the App view) with a Dockerfile, `docker-compose.yml` and a CI workflow.
+3. **Build & download** produces a zip of the React project (or the Flutter app in the App view) with a Dockerfile, `docker-compose.yml` and a CI workflow. **Build → Deploy** puts the web app and its API on Vercel and gives you the live link ([deploying](#/guide/deploy)).
 
 ## Inspectors
 

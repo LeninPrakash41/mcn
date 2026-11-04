@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import time
 import traceback
 import zipfile
 from datetime import datetime
@@ -224,6 +225,46 @@ def deploy_project():
         })
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+
+
+# ── Deploy to Vercel (runs in the background; the page polls for the result) ──
+
+_VERCEL_JOB: dict = {"state": "idle"}
+
+
+@bp.route("/api/deploy/vercel", methods=["POST"])
+def deploy_vercel():
+    import threading
+    from mcn.core_engine.vercel_deploy import DeployError, deploy
+    if _VERCEL_JOB.get("state") == "running":
+        return jsonify({"success": False, "error": "A deployment is already running"}), 409
+    if not os.environ.get("VERCEL_TOKEN"):
+        return jsonify({"success": False, "needs_token": True,
+                        "error": "Add a VERCEL_TOKEN in Secrets first. Create one at https://vercel.com/account/tokens"}), 400
+    data = request.get_json(silent=True) or {}
+    name = (data.get("app_name") or "mcn-app").strip() or "mcn-app"
+    workspace = _request_workspace()
+    log: list = []
+    _VERCEL_JOB.clear()
+    _VERCEL_JOB.update({"state": "running", "log": log, "started": time.time()})
+
+    def run():
+        try:
+            result = deploy(workspace, name, prod=bool(data.get("prod")), interactive=False, log=log.append)
+            _VERCEL_JOB.update({"state": "done", **result})
+        except DeployError as exc:
+            _VERCEL_JOB.update({"state": "failed", "error": str(exc)})
+        except Exception as exc:
+            _VERCEL_JOB.update({"state": "failed", "error": f"Deploy failed: {exc}"})
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"success": True, "state": "running"})
+
+
+@bp.route("/api/deploy/vercel", methods=["GET"])
+def deploy_vercel_status():
+    job = {k: v for k, v in _VERCEL_JOB.items() if k != "started"}
+    return jsonify({"success": True, **job})
 
 
 # ── Multi-Database SQL Migration Generator ────────────────────────────────────

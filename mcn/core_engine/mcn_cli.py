@@ -559,6 +559,20 @@ def _cmd_deploy(args) -> int:
         print(f"Error: workspace not found: {workspace}")
         return 1
 
+    if args.target == "vercel":
+        from .vercel_deploy import DeployError, deploy, stage
+        try:
+            if args.stage_only:
+                out = stage(workspace, args.name)
+                print(f"✓ Vercel project written to {out}\n  Deploy it with `vercel deploy` there, or push it to a Git repo connected to Vercel.")
+                return 0
+            result = deploy(workspace, args.name, prod=args.prod)
+        except DeployError as exc:
+            print(f"Deploy failed: {exc}")
+            return 1
+        print(f"\n✓ Live at {result['url']}\n  Web app: {result['url']}\n  API:     {result['url']}/api/<endpoint>")
+        return 0
+
     print(f"Packaging '{args.name}' from {workspace} (target: {args.target})...")
 
     try:
@@ -893,9 +907,12 @@ def main():
         help="Workspace path (default: current directory)"
     )
     deploy_parser.add_argument(
-        "--target", choices=["zip", "docker", "cloud"], default="zip",
-        help="Deployment target: zip (default), docker, or cloud (needs MCN_DEPLOY_URL)"
+        "--target", choices=["zip", "docker", "vercel", "cloud"], default="zip",
+        help="zip (default), docker, vercel (web app + API on Vercel), or cloud (needs MCN_DEPLOY_URL)"
     )
+    deploy_parser.add_argument("--prod", action="store_true", help="vercel: deploy to production, not a preview URL")
+    deploy_parser.add_argument("--stage-only", action="store_true",
+                               help="vercel: write the Vercel project to .mcn/deploy/<name>/ without uploading")
     deploy_parser.add_argument(
         "--name", default="mcn-app",
         help="Application name used for the package and Docker image (default: mcn-app)"

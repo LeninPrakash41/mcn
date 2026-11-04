@@ -113,6 +113,8 @@ def _backend(method: str, action: str, body: dict = None):
 @bp.route("/api/iot/devices", methods=["GET"])
 def get_iot_devices():
     devices = {k: {**v, "source": "studio"} for k, v in _iot().snapshot().items()}
+    if any(k not in _SIMULATED_DEVICES for k in devices):      # the user's own devices replace the demo ones
+        devices = {k: v for k, v in devices.items() if k not in _SIMULATED_DEVICES}
     remote = _backend("GET", "devices")
     if remote and remote[0] == 200 and remote[1].get("devices"):
         # The app's own devices replace Studio's demo ones

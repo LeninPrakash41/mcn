@@ -127,6 +127,9 @@
           <div class="menu-action" id="menu-build-verify" onclick="checkActiveFile()">
             <span id="menu-build-verify-text">Run Static Verification</span>
           </div>
+          <div class="menu-action" onclick="openDeployModal()">
+            <span>Deploy (Vercel, Docker)…</span>
+          </div>
         </div>
       </div>
 
@@ -1288,7 +1291,7 @@
   <div class="modal-card">
     <div class="modal-hdr">
       <div class="modal-title">Deploy MCN App</div>
-      <div class="modal-sub">Package your workspace as a Docker-ready zip for any cloud platform</div>
+      <div class="modal-sub">Put your app online with Vercel, or download a Docker-ready zip for any cloud</div>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -1297,14 +1300,29 @@
       </div>
       <div class="form-group">
         <label class="form-label">Target</label>
-        <select class="form-input" id="deploy-target">
+        <select class="form-input" id="deploy-target" onchange="onDeployTargetChange()">
+          <option value="vercel">Vercel: web app + API, live URL</option>
           <option value="zip">Zip only (download)</option>
           <option value="docker">Zip + Docker command</option>
         </select>
       </div>
+      <div id="deploy-vercel-opts" style="display:flex;flex-direction:column;gap:8px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+          <input type="checkbox" id="deploy-prod" /> Production (otherwise a preview URL)
+        </label>
+        <div style="font-size:11.5px;color:var(--fg-dim);line-height:1.5;">
+          Needs a <code>VERCEL_TOKEN</code> in <b>Secrets</b> (create one at vercel.com/account/tokens). Builds the React app from <code>ui/app.mcn</code> and runs <code>backend/</code> at <code>/api</code>. Settings like <code>ANTHROPIC_API_KEY</code> come from the project's <code>.env</code>.
+          SQLite data on Vercel is temporary; use PostgreSQL for data that must last.
+        </div>
+      </div>
       <div class="gen-status hidden" id="deploy-status">
         <div class="spinner"></div>
         <span id="deploy-status-text">Building…</span>
+      </div>
+      <div class="hidden" id="deploy-vercel-result">
+        <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✓ Your app is live</div>
+        <a id="deploy-vercel-url" href="#" target="_blank" rel="noopener" style="font-size:13px;word-break:break-all;"></a>
+        <div style="font-size:11.5px;color:var(--fg-dim);margin-top:6px;">The API is at the same address under <code>/api/&lt;endpoint&gt;</code>.</div>
       </div>
       <div class="hidden" id="deploy-result">
         <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✓ Deployment package ready!</div>

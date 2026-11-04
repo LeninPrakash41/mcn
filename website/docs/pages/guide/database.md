@@ -51,4 +51,4 @@ if conn.success
     var rows = query("SELECT * FROM orders LIMIT 10")
 ```
 
-After `connect_postgresql(host, database, user, password, port?)` succeeds, `query()` runs against PostgreSQL. `connect_mongodb(connection_string, database)` works the same way. Both are optional features: add them once with `mcn add postgres` or `mcn add mongodb`. Keep passwords in environment variables and read them with `env()`.
+After `connect_postgresql(host, database, user, password, port?)` succeeds, `query()` runs against PostgreSQL. It also takes one connection URL, as hosted databases give you: `connect_postgresql(env("DATABASE_URL"))`. Keep using `?` placeholders; write table definitions in PostgreSQL SQL (`SERIAL` instead of `AUTOINCREMENT`). `connect_mongodb(connection_string, database)` works the same way. Both are optional features: add them once with `mcn add postgres` or `mcn add mongodb`. Keep passwords in environment variables and read them with `env()`.

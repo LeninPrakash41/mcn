@@ -40,6 +40,13 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_MQTT_URL` | `mqtt://localhost:1883` | Broker for `driver: "mqtt"` devices that don't set `broker` |
 | `MCN_MQTT_USER` / `MCN_MQTT_PASSWORD` | — | Broker login |
 
+## Deploying
+
+| Variable | Default | Effect |
+|---|---|---|
+| `VERCEL_TOKEN` | — | Lets Studio (and `mcn deploy --target vercel` without logging in) deploy to Vercel. Create one at vercel.com/account/tokens |
+| `MCN_DEPLOY_SOURCE` | MCN on GitHub | Where a Vercel deployment installs MCN from |
+
 ## Studio
 
 | Variable | Default | Effect |
