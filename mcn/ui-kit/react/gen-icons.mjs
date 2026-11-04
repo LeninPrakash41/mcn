@@ -18,6 +18,8 @@ Search Send Server Settings Share2 Shield ShieldAlert ShieldCheck ShoppingBag Sh
 Smartphone Sparkles Square Star Sun Table Tag Target Terminal ThumbsUp Timer ToggleLeft Trash2 TrendingDown
 TrendingUp Trophy Truck Type Upload User UserCheck UserPlus Users Users2 Video Wallet Warehouse Webhook
 Wifi Workflow Wrench X XCircle Zap
+Thermometer Droplets DoorOpen DoorClosed House Cpu Fan Radio Power Battery BatteryCharging Bluetooth
+CloudRain Wind Flame Leaf Sprout Waves Lamp Blinds Cctv Router Microchip Signal Siren Vibrate
 `.trim().split(/\s+/)
 
 const missing = NAMES.filter((n) => !icons[n])

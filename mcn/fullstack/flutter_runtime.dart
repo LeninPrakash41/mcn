@@ -104,6 +104,13 @@ const Map<String, IconData> _icons = {
   'wrench': Icons.build_outlined, 'bell': Icons.notifications_none, 'search': Icons.search, 'inbox': Icons.inbox_outlined,
   'folderopen': Icons.folder_open_outlined, 'rocket': Icons.rocket_launch_outlined, 'database': Icons.storage, 'globe': Icons.public,
   'clock': Icons.schedule, 'star': Icons.star_border, 'heart': Icons.favorite_border, 'thermometer': Icons.thermostat, 'lightbulb': Icons.lightbulb_outline,
+  'droplets': Icons.water_drop_outlined, 'dooropen': Icons.door_front_door_outlined, 'doorclosed': Icons.door_front_door_outlined,
+  'house': Icons.home_outlined, 'cpu': Icons.memory, 'microchip': Icons.memory, 'fan': Icons.mode_fan_off_outlined,
+  'activity': Icons.monitor_heart_outlined, 'radio': Icons.sensors, 'signal': Icons.signal_cellular_alt, 'wifi': Icons.wifi,
+  'power': Icons.power_settings_new, 'zap': Icons.bolt, 'battery': Icons.battery_std, 'batterycharging': Icons.battery_charging_full,
+  'bluetooth': Icons.bluetooth, 'cloudrain': Icons.water, 'wind': Icons.air, 'flame': Icons.local_fire_department_outlined,
+  'leaf': Icons.eco_outlined, 'sprout': Icons.grass, 'waves': Icons.waves, 'lamp': Icons.light_outlined, 'blinds': Icons.blinds,
+  'cctv': Icons.videocam_outlined, 'router': Icons.router_outlined, 'siren': Icons.campaign_outlined, 'vibrate': Icons.vibration,
 };
 
 IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? Icons.circle_outlined;

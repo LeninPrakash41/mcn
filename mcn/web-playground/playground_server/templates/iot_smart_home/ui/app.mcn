@@ -11,18 +11,22 @@ component Home
     on light
         toggle("living_light")
         home = home_state().data
+        events = recent_events(6).data
 
     on fan
         toggle("fan")
         home = home_state().data
+        events = recent_events(6).data
 
     on open_blinds
         set_blinds(180)
         home = home_state().data
+        events = recent_events(6).data
 
     on close_blinds
         set_blinds(0)
         home = home_state().data
+        events = recent_events(6).data
 
     on refresh
         home = home_state().data
@@ -38,19 +42,24 @@ component Home
             card
                 card_header "Living room"
                 card_content
-                    text {home.light_text}
-                    button "Toggle light" on_click=light
-                    text {home.fan_text}
-                    button "Toggle fan" on_click=fan variant="outline"
-                    text {home.blinds_text}
-                    button "Open blinds" on_click=open_blinds variant="outline"
-                    button "Close blinds" on_click=close_blinds variant="outline"
+                    div
+                        p {home.light_text}
+                        button "Toggle light" on_click=light
+                    separator
+                    div
+                        p {home.fan_text}
+                        button "Toggle fan" on_click=fan variant="outline"
+                    separator
+                    div
+                        p {home.blinds_text}
+                        button "Open blinds" on_click=open_blinds variant="outline"
+                        button "Close blinds" on_click=close_blinds variant="outline"
             card
                 card_header "Recent activity"
                 card_content
                     button "Refresh" on_click=refresh variant="ghost"
                     for e in events
-                        text {e.line}
+                        p {e.line}
 
 component Devices
     state items = []

@@ -90,7 +90,7 @@ Notifications are a function, not an element: `notify("Saved", "success")` in an
 
 ## Icons
 
-Any `icon=` attribute takes a [Lucide](https://lucide.dev/icons) icon name such as `Users`, `TrendingUp`, `ShoppingCart`, `Bot` or `Workflow` (case doesn't matter). MCN includes about 170 common icons; an unknown name shows a circle.
+Any `icon=` attribute takes a [Lucide](https://lucide.dev/icons) icon name such as `Users`, `TrendingUp`, `ShoppingCart`, `Bot` or `Workflow` (case doesn't matter). MCN includes about 200 common icons, including sensors and devices for IoT apps; an unknown name shows a circle.
 
 ## Web and mobile
 
