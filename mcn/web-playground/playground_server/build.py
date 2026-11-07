@@ -317,13 +317,118 @@ def deploy_vercel_status():
 
 # ── Multi-Database SQL Migration Generator ────────────────────────────────────
 
+def _extract_create_tables(text: str):
+    """Robustly extract table names and column definition bodies from SQL CREATE TABLE statements,
+    handling nested parentheses like `DEFAULT (datetime('now'))` or `NUMERIC(12, 2)`.
+    """
+    results = []
+    pattern = re.compile(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)\s*\(', re.IGNORECASE)
+    for m in pattern.finditer(text):
+        tname = m.group(1).strip()
+        start_idx = m.end()
+        depth = 1
+        i = start_idx
+        in_single_quote = False
+        in_double_quote = False
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if ch == "'" and not in_double_quote:
+                in_single_quote = not in_single_quote
+            elif ch == '"' and not in_single_quote:
+                in_double_quote = not in_double_quote
+            elif not in_single_quote and not in_double_quote:
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                    if depth == 0:
+                        break
+            i += 1
+        if depth == 0:
+            body = text[start_idx:i].strip()
+            results.append((tname, body))
+    return results
+
+
+def _split_columns(body: str):
+    """Split comma-separated column definitions without splitting inside quotes or nested parentheses."""
+    cols = []
+    current = []
+    depth = 0
+    in_single_quote = False
+    in_double_quote = False
+    for ch in body:
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current.append(ch)
+        elif ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current.append(ch)
+        elif ch == '(' and not in_single_quote and not in_double_quote:
+            depth += 1
+            current.append(ch)
+        elif ch == ')' and not in_single_quote and not in_double_quote:
+            depth -= 1
+            current.append(ch)
+        elif ch == ',' and depth == 0 and not in_single_quote and not in_double_quote:
+            c = ''.join(current).strip()
+            if c:
+                cols.append(c)
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        c = ''.join(current).strip()
+        if c:
+            cols.append(c)
+    return cols
+
+
+def _format_pg_column(col: str, dialect: str = "postgres") -> str:
+    """Format and quote SQLite column definition for PostgreSQL / Supabase."""
+    col = col.strip()
+    if not col:
+        return ""
+    parts = col.split(None, 1)
+    if not parts:
+        return col
+    col_name = parts[0]
+    rest = parts[1] if len(parts) > 1 else ""
+
+    # Quote column name if it collides with reserved words or types (e.g. `text TEXT` or `order INTEGER`)
+    clean_name = col_name.strip('"`[]')
+    reserved = {
+        "text", "user", "order", "group", "table", "select", "check",
+        "default", "limit", "offset", "primary", "from", "where", "column",
+        "values", "key", "desc", "asc", "type", "all", "case"
+    }
+    if clean_name.lower() in reserved:
+        col_name = f'"{clean_name}"'
+    else:
+        col_name = clean_name
+
+    if dialect in ("postgres", "supabase"):
+        rest = re.sub(r'\bINTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b', 'SERIAL PRIMARY KEY', rest, flags=re.IGNORECASE)
+        rest = re.sub(r'\bINTEGER\s+PRIMARY\s+KEY\b', 'SERIAL PRIMARY KEY', rest, flags=re.IGNORECASE)
+        rest = re.sub(r'\bTEXT\b', 'VARCHAR(255)', rest, flags=re.IGNORECASE)
+        rest = re.sub(r'\bREAL\b', 'NUMERIC(12, 2)', rest, flags=re.IGNORECASE)
+        rest = re.sub(r"DEFAULT\s*\(datetime\('now'\)\)", "DEFAULT NOW()", rest, flags=re.IGNORECASE)
+        rest = re.sub(r"DEFAULT\s*\(CURRENT_TIMESTAMP\)", "DEFAULT NOW()", rest, flags=re.IGNORECASE)
+
+    return f"{col_name} {rest}".strip()
+
+
 @bp.route("/api/database/export_migrations")
 def export_database_migrations():
     """Translate workspace SQLite tables and contracts into PostgreSQL / Supabase DDL migrations."""
+    import sqlite3
     dialect = request.args.get("dialect", "postgres").lower()
     
+    ws = _request_workspace()
     mcn_texts = []
-    for f in sorted(_request_workspace().rglob("*.mcn")):
+    
+    # 1. Collect all .mcn files in the current workspace
+    for f in sorted(ws.rglob("*.mcn")):
         if f.is_file() and not any(p in ("node_modules", "frontend", ".git", "__pycache__") for p in f.parts):
             try:
                 mcn_texts.append(f.read_text(encoding="utf-8"))
@@ -340,27 +445,106 @@ def export_database_migrations():
     ]
 
     if dialect in ("postgres", "supabase"):
-        lines.append("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n")
+        lines.append('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";\n')
 
-    # 1. Parse CREATE TABLE statements
-    for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)\s*\(([^)]+)\)', all_code, re.IGNORECASE):
-        tname = m.group(1).strip()
-        body = m.group(2).strip()
+    created_tables = set()
+
+    # 1. Parse CREATE TABLE statements from MCN code with paren nesting support
+    for tname, body in _extract_create_tables(all_code):
+        lower_tname = tname.lower()
+        if lower_tname in created_tables:
+            continue
+        created_tables.add(lower_tname)
 
         col_defs = []
-        for col in body.split(","):
-            col = col.strip()
-            if not col: continue
-            
-            if dialect in ("postgres", "supabase"):
-                col = re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'SERIAL PRIMARY KEY', col, flags=re.IGNORECASE)
-                col = re.sub(r'\bTEXT\b', 'VARCHAR(255)', col, flags=re.IGNORECASE)
-                col = re.sub(r'\bREAL\b', 'NUMERIC(12, 2)', col, flags=re.IGNORECASE)
-                col = re.sub(r"DEFAULT\s*\(datetime\('now'\)\)", "DEFAULT NOW()", col, flags=re.IGNORECASE)
-            col_defs.append(f"    {col}")
+        for col in _split_columns(body):
+            formatted_col = _format_pg_column(col, dialect=dialect)
+            if formatted_col:
+                col_defs.append(f"    {formatted_col}")
 
         lines.append(f"CREATE TABLE IF NOT EXISTS {tname} (\n" + ",\n".join(col_defs) + "\n);\n")
 
+        if dialect == "supabase":
+            lines.append(f"-- Enable Row Level Security for Supabase\nALTER TABLE {tname} ENABLE ROW LEVEL SECURITY;\nCREATE POLICY \"Allow authenticated read\" ON {tname} FOR SELECT TO authenticated USING (true);\n")
+
+    # 2. Inspect active workspace SQLite database (mcn_data.db) for any tables already created dynamically
+    candidate_db_paths = [
+        ws / "mcn_data.db",
+        Path("mcn_data.db"),
+        Path.home() / ".mcn" / "playground" / "mcn_data.db"
+    ]
+    for db_path in candidate_db_paths:
+        if db_path.exists() and db_path.is_file():
+            try:
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                cursor.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
+                for tname, sql in cursor.fetchall():
+                    if not sql or tname.lower() in created_tables:
+                        continue
+                    # Extract definition body from the sqlite sql
+                    extracted = _extract_create_tables(sql)
+                    if extracted:
+                        _, body = extracted[0]
+                    else:
+                        m = re.search(r'\((.*)\)', sql, re.DOTALL)
+                        body = m.group(1) if m else ""
+                    if not body:
+                        continue
+
+                    created_tables.add(tname.lower())
+                    col_defs = []
+                    for col in _split_columns(body):
+                        formatted_col = _format_pg_column(col, dialect=dialect)
+                        if formatted_col:
+                            col_defs.append(f"    {formatted_col}")
+
+                    lines.append(f"-- Discovered from active SQLite store: {db_path.name}\nCREATE TABLE IF NOT EXISTS {tname} (\n" + ",\n".join(col_defs) + "\n);\n")
+                    if dialect == "supabase":
+                        lines.append(f"-- Enable Row Level Security for Supabase\nALTER TABLE {tname} ENABLE ROW LEVEL SECURITY;\nCREATE POLICY \"Allow authenticated read\" ON {tname} FOR SELECT TO authenticated USING (true);\n")
+                conn.close()
+            except Exception:
+                pass
+
+    # 3. Parse contract declarations for any models not already translated
+    type_map = {
+        "str": "VARCHAR(255)",
+        "int": "INTEGER",
+        "float": "NUMERIC(12, 2)",
+        "bool": "BOOLEAN",
+        "datetime": "TIMESTAMPTZ DEFAULT NOW()",
+        "date": "DATE",
+        "json": "JSONB",
+        "dict": "JSONB",
+        "list": "JSONB"
+    }
+    for m in re.finditer(r'contract\s+([A-Za-z0-9_]+)\b[^\n]*\n((?:[ \t]+[A-Za-z0-9_]+[ \t]*:[ \t]*[^\n]+\n?)+)', all_code):
+        cname = m.group(1).strip()
+        if cname.endswith('y'):
+            tname = cname[:-1].lower() + 'ies'
+        elif cname.endswith('s'):
+            tname = cname.lower()
+        else:
+            tname = cname.lower() + 's'
+
+        if tname in created_tables:
+            continue
+        created_tables.add(tname)
+
+        col_defs = ["    id SERIAL PRIMARY KEY"]
+        for line in m.group(2).strip().splitlines():
+            line = line.strip()
+            if not line or ':' not in line:
+                continue
+            field_name, field_type = [part.strip() for part in line.split(':', 1)]
+            pg_type = type_map.get(field_type.lower(), "VARCHAR(255)")
+            clean_name = field_name.strip('"`[]')
+            if clean_name.lower() in {"text", "user", "order", "group", "table", "select", "check", "default"}:
+                field_name = f'"{clean_name}"'
+            col_defs.append(f"    {field_name} {pg_type}")
+        col_defs.append("    created_at TIMESTAMPTZ DEFAULT NOW()")
+
+        lines.append(f"-- Derived from contract {cname}\nCREATE TABLE IF NOT EXISTS {tname} (\n" + ",\n".join(col_defs) + "\n);\n")
         if dialect == "supabase":
             lines.append(f"-- Enable Row Level Security for Supabase\nALTER TABLE {tname} ENABLE ROW LEVEL SECURITY;\nCREATE POLICY \"Allow authenticated read\" ON {tname} FOR SELECT TO authenticated USING (true);\n")
 

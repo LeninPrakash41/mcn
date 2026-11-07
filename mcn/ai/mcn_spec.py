@@ -186,8 +186,11 @@ component ComponentName
     pie_chart data=arrayVar name_key="fieldName" value_key="fieldName" height=300
 
 ### KPI Cards
-    stat_card label="Total Items" value=countVar unit="items"
-    stat_card label="Revenue" value=revenueVar unit="$"
+    stat_card label="Total Deals" value=countVar icon="TrendingUp" color="blue"
+    stat_card label="Contacts" value=countVar icon="Users" color="green"
+    stat_card label="Companies" value=countVar icon="Building2" color="purple"
+    stat_card label="Activities" value=countVar icon="Calendar" color="amber"
+    stat_card label="Revenue" value=revenueVar unit="$" icon="DollarSign" color="emerald"
 
 ### Pagination
     pagination page=pageVar total=totalVar page_size=10
@@ -310,24 +313,43 @@ app ItemManager
 
 ## Pattern 2: Dashboard with charts + stats
 component Dashboard
-    state stats      = {}
-    state chart_data = []
-    state total      = 0
-    state insight    = ""
+    state deals      = []
+    state contacts   = []
+    state companies  = []
+    state activities = []
 
     on load
-        var response = list_items()
-        chart_data = response.data
-        total      = response.total
-        insight    = response.insight
+        var d = list_deals()
+        deals = d.data
+        var c = list_contacts()
+        contacts = c.data
+        var co = list_companies()
+        companies = co.data
+        var a = list_activities()
+        activities = a.data
 
     render
-        card
-            card_header "Dashboard Overview"
-            div grid_cols=3
-                stat_card label="Total Items"  value=total  unit=""
-                stat_card label="AI Insight"   value=insight unit=""
-            bar_chart data=chart_data x_key="status" y_key="id" height=300
+        div
+            h2 "Overview"
+            div grid_cols=4
+                stat_card label="Total Deals"  value=deals.length     icon="TrendingUp" color="blue"
+                stat_card label="Contacts"     value=contacts.length  icon="Users"      color="green"
+                stat_card label="Companies"    value=companies.length icon="Building2"  color="purple"
+                stat_card label="Activities"   value=activities.length icon="Calendar"  color="amber"
+            div grid_cols=2
+                card
+                    card_header "Deals Value Distribution"
+                    bar_chart data=deals x_key="title" y_key="value" height=300
+                card
+                    card_header "Recent Deals"
+                    table data=deals
+                        table_header
+                            table_row
+                                table_head "title"
+                                table_head "value"
+                                table_head "stage"
+                                table_head "contact"
+                        table_body
 
 ## Pattern 3: Multi-step / multi-tab with sidebar
 // Use sidebar nav + route components for multi-page apps

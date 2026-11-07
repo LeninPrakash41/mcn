@@ -30,6 +30,12 @@ def index():
     return send_from_directory(_THIS_DIR, "index.html", max_age=0)
 
 
+@bp.route("/admin")
+@bp.route("/admin/")
+def admin_page():
+    return send_from_directory(_THIS_DIR, "admin.html", max_age=0)
+
+
 @bp.route("/website")
 def website_redirect():
     # The site uses relative links, which only resolve under the trailing slash

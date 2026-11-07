@@ -877,14 +877,13 @@ document.getElementById('deploy-modal').addEventListener('click', function(e) {
   if (e.target === this) closeDeployModal()
 })
 
-// ── Auth ────────────────────────────────────────────────────────────────────
+// ── Auth & User Workspace Profile Management ────────────────────────────────
 
 let _authToken = localStorage.getItem('mcn_token') || ''
 let _authUser  = null
-let _authGuest = false
+let _authMode  = 'login'
 
 try { _authUser = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch(e) {}
-
 
 function _getAuthHeaders() {
   return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {}
@@ -895,4 +894,181 @@ async function apiFetch(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers || {}, _getAuthHeaders())
   return fetch(url, opts)
 }
+
+function openAuthModal() {
+  const m = document.getElementById('auth-profile-modal');
+  if (!m) return;
+  m.classList.remove('hidden');
+  renderAuthModalState();
+}
+
+function closeAuthModal() {
+  const m = document.getElementById('auth-profile-modal');
+  if (m) m.classList.add('hidden');
+}
+
+function setAuthMode(mode) {
+  _authMode = mode;
+  const loginTab = document.getElementById('auth-tab-btn-login');
+  const regTab = document.getElementById('auth-tab-btn-register');
+  const submitBtn = document.getElementById('btn-auth-submit');
+  const msgEl = document.getElementById('auth-modal-msg');
+  if (msgEl) msgEl.style.display = 'none';
+
+  if (mode === 'login') {
+    if (loginTab) {
+      loginTab.style.color = 'var(--accent)';
+      loginTab.style.borderBottomColor = 'var(--accent)';
+    }
+    if (regTab) {
+      regTab.style.color = 'var(--muted)';
+      regTab.style.borderBottomColor = 'transparent';
+    }
+    if (submitBtn) submitBtn.textContent = 'Sign In';
+  } else {
+    if (loginTab) {
+      loginTab.style.color = 'var(--muted)';
+      loginTab.style.borderBottomColor = 'transparent';
+    }
+    if (regTab) {
+      regTab.style.color = 'var(--accent)';
+      regTab.style.borderBottomColor = 'var(--accent)';
+    }
+    if (submitBtn) submitBtn.textContent = 'Create Account & Seed Workspace';
+  }
+}
+
+async function renderAuthModalState() {
+  const profileView = document.getElementById('auth-profile-view');
+  const formView = document.getElementById('auth-form-view');
+  const authLabel = document.getElementById('user-auth-label');
+  const statusTenant = document.getElementById('status-tenant');
+
+  if (_authToken && _authUser) {
+    if (profileView) profileView.style.display = 'block';
+    if (formView) formView.style.display = 'none';
+    const emailEl = document.getElementById('profile-display-email');
+    const wsEl = document.getElementById('profile-display-ws');
+    if (emailEl) emailEl.textContent = _authUser.email || 'Developer';
+    if (wsEl) wsEl.textContent = `~/.mcn/workspaces/${_authUser.id || ''}`;
+    if (authLabel) authLabel.textContent = (_authUser.email || 'Account').split('@')[0];
+    if (statusTenant) {
+      statusTenant.textContent = `Tenant Workspace (${_authUser.email})`;
+      statusTenant.style.color = '#10b981';
+    }
+  } else {
+    if (profileView) profileView.style.display = 'none';
+    if (formView) formView.style.display = 'flex';
+    if (authLabel) authLabel.textContent = 'Sign In';
+    if (statusTenant) {
+      statusTenant.textContent = 'Guest Mode (Temporary Workspace)';
+      statusTenant.style.color = 'var(--muted)';
+    }
+  }
+}
+
+async function submitUserAuth() {
+  const emailInp = document.getElementById('auth-inp-email');
+  const pwdInp = document.getElementById('auth-inp-pwd');
+  const msgEl = document.getElementById('auth-modal-msg');
+  const submitBtn = document.getElementById('btn-auth-submit');
+
+  const email = (emailInp?.value || '').trim();
+  const password = (pwdInp?.value || '').trim();
+
+  if (!email || !password) {
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = '#fef2f2';
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = 'Please enter both email and password.';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = _authMode === 'login' ? 'Signing in…' : 'Creating account…';
+  }
+
+  const endpoint = _authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const d = await res.json();
+    if (!res.ok || !d.success) throw new Error(d.error || 'Authentication failed');
+
+    _authToken = d.token;
+    _authUser = d.user;
+    localStorage.setItem('mcn_token', d.token);
+    localStorage.setItem('mcn_user', JSON.stringify(d.user));
+
+    renderAuthModalState();
+    closeAuthModal();
+
+    // Reload files from newly assigned persistent user workspace
+    if (typeof loadFiles === 'function') {
+      await loadFiles();
+    }
+    if (typeof refreshWorkspaceStatus === 'function') {
+      refreshWorkspaceStatus();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Welcome back, ${d.user.email}! Persistent workspace connected.`, 'success');
+    }
+  } catch (err) {
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = '#fef2f2';
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = err.message;
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account & Seed Workspace';
+    }
+  }
+}
+
+async function userLogout() {
+  _authToken = '';
+  _authUser = null;
+  localStorage.removeItem('mcn_token');
+  localStorage.removeItem('mcn_user');
+
+  renderAuthModalState();
+  closeAuthModal();
+
+  if (typeof loadFiles === 'function') {
+    await loadFiles();
+  }
+  if (typeof refreshWorkspaceStatus === 'function') {
+    refreshWorkspaceStatus();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Signed out. Reverted to temporary guest workspace.', 'info');
+  }
+}
+
+function switchUserToGuest() {
+  userLogout();
+}
+
+// Global modal dismiss on backdrop click
+document.addEventListener('DOMContentLoaded', () => {
+  const m = document.getElementById('auth-profile-modal');
+  if (m) {
+    m.addEventListener('click', (e) => {
+      if (e.target === m) closeAuthModal();
+    });
+  }
+  renderAuthModalState();
+});
 

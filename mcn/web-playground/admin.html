@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCN Admin Console — Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-surface: #161b22;
+      --bg-subtle: #21262d;
+      --border: #30363d;
+      --text: #f0f6fc;
+      --muted: #8b949e;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --card-radius: 12px;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .brand-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(37, 99, 235, 0.2);
+      color: #60a5fa;
+      font-weight: 600;
+      border: 1px solid rgba(37, 99, 235, 0.4);
+    }
+
+    .top-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .top-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .top-link:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: var(--bg-subtle);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #282e37; }
+
+    /* Login Landing View */
+    .login-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { border-color: var(--accent); }
+
+    /* Admin Dashboard View */
+    .dashboard-container {
+      display: none;
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1360px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .nav-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      padding: 12px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 18px 20px;
+    }
+    .stat-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .stat-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .panel-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-subtle);
+    }
+    td {
+      font-size: 13px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .badge-pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-admin { background: #3730a3; color: #c7d2fe; }
+    .badge-user { background: var(--bg-subtle); color: var(--muted); }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert-error { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+    .alert-success { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <a href="/website/" class="brand-wrap">
+      <div class="brand-logo">M</div>
+      <div>
+        <div class="brand-title">MCN Control Center</div>
+      </div>
+      <span class="brand-badge">ADMIN</span>
+    </a>
+
+    <div class="top-links">
+      <a href="/website/" class="top-link">Website</a>
+      <a href="/ide" class="top-link">Studio IDE</a>
+      <a href="/website/docs/#/getting-started/introduction" class="top-link">Documentation</a>
+      <button id="btn-logout" onclick="adminLogout()" class="btn btn-secondary" style="display:none;">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- Login Landing View -->
+  <div class="login-container" id="view-login">
+    <div class="login-box">
+      <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Administrator Sign In</div>
+      <div style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+        Sign in to view studio telemetry, user accounts, isolated workspaces, and broadcast release updates.
+      </div>
+
+      <div class="alert alert-error" id="login-error"></div>
+
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input class="form-input" type="email" id="inp-email" placeholder="admin@mcn.dev" value="admin@mcn.dev" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="inp-password" placeholder="••••••••" />
+      </div>
+
+      <button class="btn btn-primary" id="btn-submit-login" onclick="submitLogin()" style="width: 100%; padding: 12px; margin-top: 6px;">
+        Sign In to Control Center
+      </button>
+
+      <div style="font-size: 12px; color: var(--muted); margin-top: 18px; text-align: center;">
+        Default system admin: <code>admin@mcn.dev</code> / <code>Admin123!</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard View -->
+  <div class="dashboard-container" id="view-dashboard">
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview &amp; Health</button>
+      <button class="tab-btn" id="tab-users" onclick="switchTab('users')">Users &amp; Tenant Workspaces</button>
+      <button class="tab-btn" id="tab-feedback" onclick="switchTab('feedback')">Feedback &amp; Bug Outbox</button>
+      <button class="tab-btn" id="tab-broadcast" onclick="switchTab('broadcast')">Release Updates &amp; Broadcasts</button>
+    </div>
+
+    <!-- Tab 1: Overview & Health -->
+    <div id="content-overview">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-total-users">0</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-admin-users">0</div>
+          <div class="stat-label">Administrators</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-workspaces">0</div>
+          <div class="stat-label">Isolated Workspaces</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-optins">0</div>
+          <div class="stat-label">Update Opt-Ins</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-feedback">0</div>
+          <div class="stat-label">Feedback Submissions</div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Studio System Health &amp; Runtime Metrics</span>
+          <button class="btn btn-secondary" onclick="loadOverview()" style="font-size: 12px; padding: 4px 10px;">↻ Refresh</button>
+        </div>
+        <div id="health-diagnostics" style="font-family: var(--font-mono); font-size: 12.5px; line-height: 1.8; color: var(--muted);">
+          Loading diagnostics…
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Users & Workspaces -->
+    <div id="content-users" style="display:none;">
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Registered User Accounts &amp; Multi-Tenant Isolation</span>
+          <button class="btn btn-secondary" onclick="loadUsers()" style="font-size: 12px; padding: 4px 10px;">↻ Refresh</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created At</th>
+                <th>Tenant Workspace Directory</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Feedback & Bug Outbox -->
+    <div id="content-feedback" style="display:none;">
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Developer Feedback &amp; Diagnostic Traces</span>
+          <button class="btn btn-secondary" onclick="loadFeedback()" style="font-size: 12px; padding: 4px 10px;">↻ Refresh</button>
+        </div>
+        <div id="feedback-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Broadcasts -->
+    <div id="content-broadcast" style="display:none;">
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Dispatch Major Release Updates &amp; Tutorials</span>
+        </div>
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 18px;">
+          Dispatches major release notes, tutorials, or architecture upgrades to all registered community developers who opted in.
+        </div>
+
+        <div class="alert alert-success" id="bc-success"></div>
+        <div class="alert alert-error" id="bc-error"></div>
+
+        <div class="form-group">
+          <label class="form-label">Broadcast Category</label>
+          <select class="form-input" id="bc-category" style="padding: 10px 14px;">
+            <option value="release_update">Major Release Update (e.g. MCN v3.1)</option>
+            <option value="tutorial">New Architecture Tutorial &amp; Guide</option>
+            <option value="announcement">Developer Announcement</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subject / Announcement Title</label>
+          <input class="form-input" type="text" id="bc-title" placeholder="e.g. MCN v3.1 Released: Multi-Tenant Studio &amp; Native Flutter Preview" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Message Content</label>
+          <textarea class="form-input" id="bc-content" rows="4" style="resize:vertical;" placeholder="Write release notes, documentation links, and syntax changes..."></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="btn-broadcast" onclick="submitBroadcast()" style="padding: 11px 22px;">
+          Dispatch Broadcast to Subscribers
+        </button>
+
+        <div style="margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px;">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 14px;">Broadcast History</div>
+          <div id="broadcast-history"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let _token = localStorage.getItem('mcn_admin_token') || '';
+
+    function _headers() {
+      return {
+        'Authorization': `Bearer ${_token}`,
+        'Content-Type': 'application/json'
+      };
+    }
+
+    async function init() {
+      if (_token) {
+        try {
+          const res = await fetch('/api/admin/overview', { headers: _headers() });
+          if (res.ok) {
+            showDashboard();
+            return;
+          }
+        } catch (e) {}
+      }
+      showLogin();
+    }
+
+    function showLogin() {
+      document.getElementById('view-login').style.display = 'flex';
+      document.getElementById('view-dashboard').style.display = 'none';
+      document.getElementById('btn-logout').style.display = 'none';
+    }
+
+    function showDashboard() {
+      document.getElementById('view-login').style.display = 'none';
+      document.getElementById('view-dashboard').style.display = 'block';
+      document.getElementById('btn-logout').style.display = 'inline-flex';
+      loadOverview();
+    }
+
+    async function submitLogin() {
+      const email = document.getElementById('inp-email').value.trim();
+      const password = document.getElementById('inp-password').value.trim();
+      const errEl = document.getElementById('login-error');
+      const btn = document.getElementById('btn-submit-login');
+
+      errEl.style.display = 'none';
+      if (!email || !password) {
+        errEl.textContent = 'Please enter both email and password.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Authenticating…';
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const d = await res.json();
+        if (!res.ok || !d.success) {
+          throw new Error(d.error || 'Invalid credentials or non-admin account');
+        }
+
+        _token = d.token;
+        localStorage.setItem('mcn_admin_token', d.token);
+        showDashboard();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In to Control Center';
+      }
+    }
+
+    function adminLogout() {
+      _token = '';
+      localStorage.removeItem('mcn_admin_token');
+      showLogin();
+    }
+
+    function switchTab(tab) {
+      ['overview', 'users', 'feedback', 'broadcast'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+        document.getElementById(`content-${t}`).style.display = (t === tab) ? 'block' : 'none';
+      });
+
+      if (tab === 'overview') loadOverview();
+      if (tab === 'users') loadUsers();
+      if (tab === 'feedback') loadFeedback();
+      if (tab === 'broadcast') loadBroadcasts();
+    }
+
+    async function loadOverview() {
+      try {
+        const res = await fetch('/api/admin/overview', { headers: _headers() });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error);
+
+        const m = d.metrics || {};
+        document.getElementById('stat-total-users').textContent = m.total_users ?? 0;
+        document.getElementById('stat-admin-users').textContent = m.admin_users ?? 0;
+        document.getElementById('stat-workspaces').textContent = m.isolated_workspaces ?? 0;
+        document.getElementById('stat-optins').textContent = m.opt_in_subscribers ?? 0;
+        document.getElementById('stat-feedback').textContent = m.total_feedback ?? 0;
+
+        const healthRes = await fetch('/api/admin/health', { headers: _headers() });
+        const hd = await healthRes.json();
+        const h = hd.health || {};
+
+        document.getElementById('health-diagnostics').innerHTML = `
+          <div><b>System Status:</b> <span style="color:#10b981;">● Healthy / Operational</span></div>
+          <div><b>Platform:</b> ${h.platform} (Python ${d.system?.python_version || '3.x'})</div>
+          <div><b>SQLite Auth DB:</b> ${h.auth_db?.path} (${h.auth_db?.size_bytes} bytes)</div>
+          <div><b>Multi-Tenant Workspaces Root:</b> ${h.workspaces_dir?.path}</div>
+          <div><b>Telemetry Outbox Log:</b> ${h.outbox_file?.size_bytes} bytes</div>
+          <div><b>Timestamp:</b> ${h.timestamp}</div>
+        `;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadUsers() {
+      const tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--muted);">Loading users…</td></tr>';
+
+      try {
+        const res = await fetch('/api/admin/users', { headers: _headers() });
+        const d = await res.json();
+        const users = d.users || [];
+
+        tbody.innerHTML = users.map(u => {
+          const isAdmin = (u.roles || []).includes('admin');
+          const roleLabel = isAdmin ? 'admin' : 'user';
+          const actionText = isAdmin ? 'Revoke Admin' : 'Make Admin';
+          const actionType = isAdmin ? 'revoke' : 'assign';
+
+          return `
+            <tr>
+              <td style="font-weight:600;">${u.email}</td>
+              <td><span class="badge-pill ${isAdmin ? 'badge-admin' : 'badge-user'}">${roleLabel}</span></td>
+              <td style="color:var(--muted);">${u.created_at ? new Date(u.created_at * 1000).toLocaleDateString() : '—'}</td>
+              <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">${u.workspace_path}</td>
+              <td style="text-align:right;">
+                <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px;" onclick="toggleRole('${u.id}', '${actionType}')">${actionText}</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger);padding:16px;">Failed to load users: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function toggleRole(userId, action) {
+      try {
+        await fetch('/api/admin/users/role', {
+          method: 'POST',
+          headers: _headers(),
+          body: JSON.stringify({ user_id: userId, role: 'admin', action }),
+        });
+        loadUsers();
+        loadOverview();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function loadFeedback() {
+      const container = document.getElementById('feedback-list');
+      container.innerHTML = '<div style="color:var(--muted);padding:16px;">Loading submissions…</div>';
+
+      try {
+        const res = await fetch('/api/admin/feedback', { headers: _headers() });
+        const d = await res.json();
+        const items = d.feedback || [];
+
+        if (items.length === 0) {
+          container.innerHTML = '<div style="color:var(--muted);padding:16px;">No feedback submissions yet.</div>';
+          return;
+        }
+
+        container.innerHTML = items.map(fb => `
+          <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-weight:700;font-size:14px;">${fb.subject || 'Submission'}</span>
+              <span class="badge-pill badge-user">${fb.feedback_type || 'feedback'}</span>
+            </div>
+            <div style="font-size:13px;line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${fb.message}</div>
+            <div style="font-size:11.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;">
+              <span>Submitted by: <b>${fb.email || 'Anonymous'}</b></span>
+              <span>${fb.created_at ? new Date(fb.created_at).toLocaleString() : ''}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = `<div style="color:var(--danger);padding:16px;">Error: ${e.message}</div>`;
+      }
+    }
+
+    async function loadBroadcasts() {
+      const el = document.getElementById('broadcast-history');
+      try {
+        const res = await fetch('/api/admin/broadcasts', { headers: _headers() });
+        const d = await res.json();
+        const bcs = d.broadcasts || [];
+
+        if (bcs.length === 0) {
+          el.innerHTML = '<div style="color:var(--muted);font-size:12.5px;">No broadcasts sent yet.</div>';
+          return;
+        }
+
+        el.innerHTML = bcs.map(b => `
+          <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;">
+              <span>${b.title}</span>
+              <span style="color:#10b981;font-size:11.5px;">Dispatched (${b.recipients_count} recipients)</span>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${b.content}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">${new Date(b.created_at).toLocaleString()} by ${b.sent_by}</div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function submitBroadcast() {
+      const title = document.getElementById('bc-title').value.trim();
+      const content = document.getElementById('bc-content').value.trim();
+      const category = document.getElementById('bc-category').value;
+      const succEl = document.getElementById('bc-success');
+      const errEl = document.getElementById('bc-error');
+      const btn = document.getElementById('btn-broadcast');
+
+      succEl.style.display = 'none';
+      errEl.style.display = 'none';
+
+      if (!title || !content) {
+        errEl.textContent = 'Please enter both title and broadcast message content.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Dispatching…';
+
+      try {
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: _headers(),
+          body: JSON.stringify({ title, content, category }),
+        });
+        const d = await res.json();
+        if (!res.ok || !d.success) throw new Error(d.error || 'Failed to dispatch');
+
+        succEl.textContent = d.message;
+        succEl.style.display = 'block';
+        document.getElementById('bc-title').value = '';
+        document.getElementById('bc-content').value = '';
+        loadBroadcasts();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Dispatch Broadcast to Subscribers';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
+

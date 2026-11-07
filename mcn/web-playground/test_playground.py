@@ -824,6 +824,112 @@ def test_telemetry_feedback(r):
         r.check(data.get("success") is True, "feedback success is True")
 
 
+def test_auth_registration_and_workspace_isolation(r):
+    """Test full account registration and workspace isolation between users."""
+    import uuid
+    uid = str(uuid.uuid4())[:8]
+    user1_email = f"user1_{uid}@example.com"
+    user2_email = f"user2_{uid}@example.com"
+    pwd = "SecurePassword123!"
+
+    with app.test_client() as c:
+        # Register user 1
+        res1 = c.post("/api/auth/register", json={"email": user1_email, "password": pwd})
+        r.eq(res1.status_code, 200, "user1 registration status is 200")
+        data1 = res1.get_json()
+        token1 = data1.get("token")
+        r.check(bool(token1), "user1 receives JWT token")
+
+        # Register user 2
+        res2 = c.post("/api/auth/register", json={"email": user2_email, "password": pwd})
+        r.eq(res2.status_code, 200, "user2 registration status is 200")
+        data2 = res2.get_json()
+        token2 = data2.get("token")
+        r.check(bool(token2), "user2 receives JWT token")
+
+        # User 1 writes a private file into their isolated workspace
+        private_filename = f"user1_secret_{uid}.mcn"
+        write_res = c.post(
+            "/api/workspace/file",
+            headers={"Authorization": f"Bearer {token1}"},
+            json={"path": private_filename, "content": "var secret = 42\n"}
+        )
+        r.eq(write_res.status_code, 200, "user1 writes private file")
+
+        # User 1 verifies their file exists
+        list1 = c.get("/api/workspace/files", headers={"Authorization": f"Bearer {token1}"}).get_json()
+        r.check(any(f.get("path") == private_filename for f in list1.get("files", [])), "user1 sees their file")
+
+        # User 2 should NOT see user 1's private file
+        list2 = c.get("/api/workspace/files", headers={"Authorization": f"Bearer {token2}"}).get_json()
+        r.check(not any(f.get("path") == private_filename for f in list2.get("files", [])), "user2 isolated from user1")
+
+        # Anonymous guest should NOT see user 1's private file
+        list_anon = c.get("/api/workspace/files").get_json()
+        r.check(not any(f.get("path") == private_filename for f in list_anon.get("files", [])), "guest isolated from user1")
+
+
+def test_admin_console_flow_and_broadcast(r):
+    """Test admin authentication, overview stats, feedback retrieval, and release broadcast."""
+    import uuid
+    from mcn.core_engine.auth_primitives import auth_create_user, auth_assign_role, auth_login
+
+    uid = str(uuid.uuid4())[:8]
+    admin_email = f"admin_{uid}@mcn.dev"
+    pwd = "AdminSecurePass123!"
+
+    u = auth_create_user(admin_email, pwd)
+    auth_assign_role(u["id"], "admin")
+
+    with app.test_client() as c:
+        # Non-admin / unauthenticated access to admin overview should be 401
+        res_unauth = c.get("/api/admin/overview")
+        r.eq(res_unauth.status_code, 401, "unauthenticated access blocked")
+
+        # Admin login
+        login_res = c.post("/api/admin/login", json={"email": admin_email, "password": pwd})
+        r.eq(login_res.status_code, 200, "admin login 200")
+        admin_token = login_res.get_json().get("token")
+        r.check(bool(admin_token), "received admin token")
+
+        headers = {"Authorization": f"Bearer {admin_token}"}
+
+        # Overview stats
+        overview_res = c.get("/api/admin/overview", headers=headers)
+        r.eq(overview_res.status_code, 200, "admin overview 200")
+        m = overview_res.get_json().get("metrics", {})
+        r.check("total_users" in m, "metrics contains total_users")
+        r.check(m.get("admin_users", 0) >= 1, "at least 1 admin user reported")
+
+        # Health check
+        health_res = c.get("/api/admin/health", headers=headers)
+        r.eq(health_res.status_code, 200, "admin health 200")
+        r.check(health_res.get_json().get("health", {}).get("status") == "healthy", "system is healthy")
+
+        # Users list
+        users_res = c.get("/api/admin/users", headers=headers)
+        r.eq(users_res.status_code, 200, "admin users list 200")
+        user_list = users_res.get_json().get("users", [])
+        r.check(any(usr.get("email") == admin_email for usr in user_list), "admin listed in users")
+
+        # Feedback list
+        fb_res = c.get("/api/admin/feedback", headers=headers)
+        r.eq(fb_res.status_code, 200, "admin feedback 200")
+
+        # Broadcast release updates
+        bc_res = c.post(
+            "/api/admin/broadcast",
+            headers=headers,
+            json={
+                "title": "MCN v3.1 Architecture Release",
+                "content": "Check out the new native mobile preview & isolated workspaces.",
+                "category": "release_update"
+            }
+        )
+        r.eq(bc_res.status_code, 200, "admin broadcast 200")
+        r.check(bc_res.get_json().get("success") is True, "broadcast sent successfully")
+
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 
 # ── Security: local-only access ──────────────────────────────────────────────
@@ -942,6 +1048,8 @@ SUITES = {
         ("GET  /api/telemetry/status",                 test_telemetry_status),
         ("POST /api/telemetry/register (Developer)",   test_telemetry_register),
         ("POST /api/telemetry/feedback (Diagnostics)", test_telemetry_feedback),
+        ("Auth Registration & Workspace Isolation",    test_auth_registration_and_workspace_isolation),
+        ("Admin Console & Release Broadcast",          test_admin_console_flow_and_broadcast),
     ],
 }
 

@@ -10,6 +10,32 @@
   }
 })();
 
+// ── Global Modal Close Helper ───────────────────────────────────────────────
+function closeModal(modalId) {
+  if (modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.classList.add('hidden');
+    return;
+  }
+  // If called without arguments, close any currently visible modal overlay
+  document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+}
+window.closeModal = closeModal;
+
+// Escape key to dismiss active top modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const activeModals = Array.from(document.querySelectorAll('.modal-overlay:not(.hidden)'));
+    if (activeModals.length > 0) {
+      // Don't close ide-dialog-modal here as it handles its own Escape with resolver
+      const topModal = activeModals[activeModals.length - 1];
+      if (topModal.id !== 'ide-dialog-modal') {
+        topModal.classList.add('hidden');
+      }
+    }
+  }
+});
+
 // ── Toast Notification System ───────────────────────────────────────────────
 function showToast(message, type = 'info', duration = 3500) {
   const container = document.getElementById('toast-container')

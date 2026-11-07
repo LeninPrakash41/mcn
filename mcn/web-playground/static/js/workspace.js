@@ -272,6 +272,13 @@ function closeAboutModal() {
 function openDocumentation() {
   window.open('https://github.com/mcn-lang/mcn', '_blank');
 }
+function closeModal(modalId) {
+  const el = document.getElementById(modalId);
+  if (el) {
+    el.classList.add('hidden');
+  }
+}
+
 function openSwaggerDocs() {
   window.open('/docs', '_blank');
   showToast('Opened API Swagger Explorer on /docs', 'info');
@@ -284,17 +291,18 @@ async function openDatabaseMigrationsModal() {
     if (d.success) {
       const sql = d.migration_sql;
       const modalHtml = `
-        <div style="display:flex;flex-direction:column;gap:12px;max-width:550px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:620px;width:100%;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
-              <span style="font-size:10px;color:#38bdf8;font-weight:700;text-transform:uppercase;">DATABASE MIGRATION</span>
-              <h3 style="font-size:14px;font-weight:800;color:#fff;margin:2px 0 0 0;">PostgreSQL &amp; Supabase DDL Schema</h3>
+              <span style="font-size:10px;color:#38bdf8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">DATABASE MIGRATION</span>
+              <h3 style="font-size:15px;font-weight:800;color:#fff;margin:2px 0 0 0;">PostgreSQL &amp; Supabase DDL Schema</h3>
+              <p style="font-size:11.5px;color:#94a3b8;margin:3px 0 0 0;">Exported from workspace SQLite schema and contracts</p>
             </div>
-            <button onclick="closeModal('db-mig-modal')" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;">✕</button>
+            <button onclick="closeModal('db-mig-modal')" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;" title="Close">✕</button>
           </div>
-          <div style="background:#080e21;border:1px solid #1e293b;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#38bdf8;max-height:280px;overflow-y:auto;white-space:pre-wrap;">${sql.replace(/</g, '&lt;')}</div>
+          <div style="background:#080e21;border:1px solid #1e293b;border-radius:8px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11.5px;color:#38bdf8;max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;line-height:1.5;">${sql.replace(/</g, '&lt;')}</div>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="navigator.clipboard.writeText(\`${sql.replace(/`/g, '\\`')}\`); showToast('SQL Migration copied to clipboard!', 'success');" class="btn btn-hero-run" style="padding:6px 14px;font-size:11px;">📋 Copy SQL DDL</button>
+            <button id="copy-sql-btn" class="btn btn-hero-run" style="padding:6px 14px;font-size:11px;">📋 Copy SQL DDL</button>
             <button onclick="closeModal('db-mig-modal')" class="btn" style="padding:6px 12px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;">Close</button>
           </div>
         </div>
@@ -303,11 +311,21 @@ async function openDatabaseMigrationsModal() {
       if (!m) {
         m = document.createElement('div');
         m.id = 'db-mig-modal';
-        m.className = 'modal-backdrop';
-        m.innerHTML = `<div class="modal-card" id="db-mig-card"></div>`;
+        m.className = 'modal-overlay';
+        m.innerHTML = `<div class="modal-card" id="db-mig-card" style="padding:20px;max-width:640px;"></div>`;
+        m.addEventListener('click', function(e) {
+          if (e.target === m) closeModal('db-mig-modal');
+        });
         document.body.appendChild(m);
       }
       document.getElementById('db-mig-card').innerHTML = modalHtml;
+      const copyBtn = document.getElementById('copy-sql-btn');
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(sql);
+          showToast('SQL Migration copied to clipboard!', 'success');
+        };
+      }
       m.classList.remove('hidden');
     }
   } catch (err) {
@@ -316,18 +334,18 @@ async function openDatabaseMigrationsModal() {
 }
 function showVsCodeExtensionModal() {
   const modalHtml = `
-    <div style="display:flex;flex-direction:column;gap:12px;max-width:520px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:540px;width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <span style="font-size:10px;color:#38bdf8;font-weight:700;text-transform:uppercase;">DEVELOPER TOOLING</span>
-          <h3 style="font-size:14px;font-weight:800;color:#fff;margin:2px 0 0 0;">Official MCN VS Code Extension</h3>
+          <span style="font-size:10px;color:#38bdf8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">DEVELOPER TOOLING</span>
+          <h3 style="font-size:15px;font-weight:800;color:#fff;margin:2px 0 0 0;">Official MCN VS Code Extension</h3>
         </div>
-        <button onclick="closeModal('vscode-ext-modal')" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;">✕</button>
+        <button onclick="closeModal('vscode-ext-modal')" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;" title="Close">✕</button>
       </div>
       <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">
         Syntax highlighting, completions, hover docs, and errors underlined as you type (the same checks as <code>mcn check</code>), plus commands to run, test, serve and open Studio.
       </div>
-      <div style="background:#080e21;border:1px solid #1e293b;border-radius:8px;padding:10px;font-family:monospace;font-size:11px;color:#38bdf8;">
+      <div style="background:#080e21;border:1px solid #1e293b;border-radius:8px;padding:12px;font-family:monospace;font-size:11.5px;color:#38bdf8;">
         # Installs the extension bundled with MCN (needs the <code>code</code> command on PATH):<br>
         mcn vscode
       </div>
@@ -341,8 +359,11 @@ function showVsCodeExtensionModal() {
   if (!m) {
     m = document.createElement('div');
     m.id = 'vscode-ext-modal';
-    m.className = 'modal-backdrop';
-    m.innerHTML = `<div class="modal-card" id="vscode-ext-card"></div>`;
+    m.className = 'modal-overlay';
+    m.innerHTML = `<div class="modal-card" id="vscode-ext-card" style="padding:20px;max-width:560px;"></div>`;
+    m.addEventListener('click', function(e) {
+      if (e.target === m) closeModal('vscode-ext-modal');
+    });
     document.body.appendChild(m);
   }
   document.getElementById('vscode-ext-card').innerHTML = modalHtml;

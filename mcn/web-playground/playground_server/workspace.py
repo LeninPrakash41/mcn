@@ -20,12 +20,20 @@ bp = Blueprint("workspace", __name__)
 
 @bp.route("/api/workspace/info")
 def workspace_info():
-    """Which folder Studio is editing, and whether it's the user's own project (templates can't replace it)."""
+    """Which folder Studio is editing, whether it's the user's own project, and tenant isolation state."""
+    user = _current_user()
     ws = _request_workspace()
     own = bool(os.environ.get("MCN_WORKSPACE")) and ws == core.WORKSPACE
     home = str(Path.home())
     path = str(ws)
-    return jsonify({"own_project": own, "path": "~" + path[len(home):] if path.startswith(home) else path})
+    return jsonify({
+        "own_project": own,
+        "path": "~" + path[len(home):] if path.startswith(home) else path,
+        "authenticated": bool(user),
+        "user_id": user.get("sub") if user else None,
+        "email": user.get("email") if user else None,
+        "is_tenant": bool(user and ws != core.WORKSPACE),
+    })
 
 
 @bp.route("/api/workspace/reset", methods=["POST"])

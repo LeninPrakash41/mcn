@@ -235,7 +235,7 @@
     <!-- AI & Generation Tools -->
     <div class="nav-group">
       <button class="btn btn-coral-sm" onclick="openAgentStudioModal()" title="AI Copilot Studio & Code Generation">
-        <span>✨ Copilot</span>
+        <span>Copilot</span>
       </button>
     </div>
 
@@ -250,15 +250,16 @@
         </svg>
       </button>
 
-      <div id="community-area" style="display:flex; align-items:center; gap:4px;">
-        <button class="btn btn-icon" onclick="openFeedbackModal()" id="btn-feedback" title="Submit Feedback &amp; Bug Reports" aria-label="Submit Feedback">
+      <div id="community-area" style="display:flex; align-items:center; gap:6px;">
+        <!-- User Profile / Auth Button -->
+        <button class="btn btn-sm" id="btn-user-auth" onclick="openAuthModal()" style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; font-size:12px; font-weight:600; border-radius:6px; background:var(--bg-card); border:1px solid var(--border); color:var(--text);" title="Sign In to Save Workspaces">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="user-auth-label">Sign In</span>
+        </button>
+
+        <!-- Community & Feedback Button -->
+        <button class="btn btn-icon btn-community-icon" onclick="openCommunityModal('register')" id="btn-register" title="Community Hub &amp; Feedback" aria-label="Community Hub">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-        </button>
-        <button class="btn btn-icon btn-community-icon" onclick="openCommunityModal('register')" id="btn-register" title="Community Hub &amp; Developer Registration" aria-label="Register Installation">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        </button>
-        <button class="btn btn-icon badge-registered-icon" id="registered-badge" style="display:none;" onclick="openCommunityModal('register')" title="Registered Community Member (Click to manage)" aria-label="Registered Community Profile">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
         </button>
       </div>
     </div>
@@ -538,6 +539,9 @@
   <span class="status-div">|</span>
   <span id="status-ws" style="opacity:.7">~/.mcn/playground</span>
   <div style="flex:1"></div>
+  <span id="status-tenant" style="font-size:11px;color:var(--muted);margin-right:12px;">Guest Mode (Temporary Workspace)</span>
+  <span id="status-srv" style="opacity:.7"></span>
+</div>
   <span id="status-srv" style="opacity:.7"></span>
 </div>
 
@@ -737,7 +741,7 @@
   <div class="modal-card copilot-card">
     <div class="copilot-hdr">
       <div class="copilot-hdr-left">
-        <div class="copilot-hdr-icon">🚀</div>
+        <div class="copilot-hdr-icon" style="font-size:12px;font-weight:700;">GEN</div>
         <div>
           <div class="copilot-hdr-title">AI Full-Stack Generator</div>
           <div class="copilot-hdr-sub">Describe your full-stack app in natural language — generates MCN backend &amp; frontend</div>
@@ -755,19 +759,19 @@
         <label class="form-label" style="margin-bottom:4px;">App Architecture Presets</label>
         <div class="copilot-chips-grid">
           <div class="copilot-chip-item" onclick="setGenPreset('Enterprise CRM dashboard with leads pipeline, contacts management, activity timeline, deals Kanban, and REST endpoints for each entity.')">
-            <span>💼</span> <span>Enterprise CRM &amp; Pipeline</span>
+            <span>Enterprise CRM &amp; Pipeline</span>
           </div>
           <div class="copilot-chip-item" onclick="setGenPreset('Real-time Crypto Portfolio Tracker with price alerts cron job, wallet balance cards, transaction history, and buy/sell modals.')">
-            <span>📈</span> <span>Crypto Portfolio Tracker</span>
+            <span>Crypto Portfolio Tracker</span>
           </div>
           <div class="copilot-chip-item" onclick="setGenPreset('E-Commerce Storefront with product catalog grid, category filters, shopping cart drawer, checkout modal, and inventory stock service.')">
-            <span>🛒</span> <span>E-Commerce &amp; Inventory</span>
+            <span>E-Commerce &amp; Inventory</span>
           </div>
           <div class="copilot-chip-item" onclick="setGenPreset('Agile Kanban Board with sprint backlog, drag-and-drop task columns, team member badges, priority tags, and task detail drawer.')">
-            <span>📋</span> <span>Agile Project Kanban</span>
+            <span>Agile Project Kanban</span>
           </div>
           <div class="copilot-chip-item" onclick="setGenPreset('Full-stack AI Prompt & Workflow Marketplace where creators publish, test, fork, rate, and monetize prompts and multi-step AI pipelines with live AI playground and creator analytics.')">
-            <span>✨</span> <span>Prompt &amp; AI Marketplace</span>
+            <span>Prompt &amp; AI Marketplace</span>
           </div>
         </div>
       </div>
@@ -793,7 +797,7 @@
         </label>
         <input type="file" id="gen-file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.svg,.md,.json,.txt" style="display:none;" onchange="handleGenFileSelect(this.files)" />
         <div class="copilot-dropzone" id="gen-dropzone" onclick="document.getElementById('gen-file-input').click()">
-          <div class="copilot-dropzone-icon">📎</div>
+          <div class="copilot-dropzone-icon" style="font-size:12px;font-weight:600;">ATTACH</div>
           <div class="copilot-dropzone-text">Drop PDF (BRD/PRD), Flowchart diagrams, or Figma UI mockups here, or <span style="color:var(--accent); text-decoration:underline;">browse files</span></div>
           <div class="copilot-dropzone-sub">Supports PDF (PRD/BRD), PNG/JPG/WEBP/SVG (Figma &amp; Flowcharts), Markdown, JSON (up to 15MB each)</div>
         </div>
@@ -816,20 +820,20 @@
       <!-- Post-Generation Status Card -->
       <div class="copilot-success-card hidden" id="gen-success-card" style="margin-top:10px;">
         <div class="copilot-success-hdr">
-          <div class="copilot-success-icon">🎉</div>
+          <div class="copilot-success-icon" style="font-size:12px;font-weight:700;">OK</div>
           <div>
             <div class="copilot-success-title">Full-Stack Application Generated!</div>
             <div class="copilot-success-sub" id="gen-success-summary">Backend services, REST APIs, and multi-view UI are ready.</div>
           </div>
         </div>
         <div class="copilot-artifact-list">
-          <span class="copilot-artifact-badge">✓ backend/main.mcn</span>
-          <span class="copilot-artifact-badge">✓ ui/app.mcn</span>
+          <span class="copilot-artifact-badge">backend/main.mcn</span>
+          <span class="copilot-artifact-badge">ui/app.mcn</span>
         </div>
         <div class="copilot-success-actions">
-          <button class="btn btn-sm" onclick="closeGenerateModal(); openFile('backend/main.mcn')">📂 Open Backend</button>
-          <button class="btn btn-sm" onclick="closeGenerateModal(); openFile('ui/app.mcn')">⚛️ Open UI</button>
-          <button class="btn btn-hero-preview btn-sm" onclick="closeGenerateModal(); buildAndLaunchPreview()">⚡ Build &amp; Preview</button>
+          <button class="btn btn-sm" onclick="closeGenerateModal(); openFile('backend/main.mcn')">Open Backend</button>
+          <button class="btn btn-sm" onclick="closeGenerateModal(); openFile('ui/app.mcn')">Open UI</button>
+          <button class="btn btn-hero-preview btn-sm" onclick="closeGenerateModal(); buildAndLaunchPreview()">Build &amp; Preview</button>
           <button class="btn btn-primary btn-sm" onclick="closeGenerateModal()">Done</button>
         </div>
       </div>
@@ -837,7 +841,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeGenerateModal()">Cancel</button>
-      <button class="btn btn-gradient" id="gen-submit" onclick="submitGenerate()">🚀 Generate Full-Stack App</button>
+      <button class="btn btn-gradient" id="gen-submit" onclick="submitGenerate()">Generate Full-Stack App</button>
     </div>
   </div>
 </div>
@@ -847,7 +851,7 @@
   <div class="modal-card copilot-card">
     <div class="copilot-hdr">
       <div class="copilot-hdr-left">
-        <div class="copilot-hdr-icon">✨</div>
+        <div class="copilot-hdr-icon" style="font-size:12px;font-weight:700;">UI</div>
         <div>
           <div class="copilot-hdr-title">AI Copilot Studio</div>
           <div class="copilot-hdr-sub">Prompt the AI Coding Agent to refine interfaces, components &amp; layouts</div>
@@ -865,10 +869,10 @@
         <label class="form-label" style="margin-bottom:4px;">Target Refinement Layer</label>
         <div class="copilot-segmented">
           <button type="button" class="copilot-seg-btn active" id="agent-mode-mcn" onclick="switchAgentMode('mcn')">
-            <span>🔷</span> <span>MCN Architecture (ui/app.mcn)</span>
+            <span>MCN Architecture (ui/app.mcn)</span>
           </button>
           <button type="button" class="copilot-seg-btn" id="agent-mode-compiled" onclick="switchAgentMode('compiled')">
-            <span>⚛️</span> <span>Compiled React TSX (frontend/src/App.tsx)</span>
+            <span>Compiled React TSX (frontend/src/App.tsx)</span>
           </button>
         </div>
         <input type="hidden" id="agent-mode-val" value="mcn" />
@@ -878,23 +882,23 @@
       <div class="form-group">
         <label class="form-label" style="margin-bottom:4px;">Design Intent Quick Presets</label>
         <div class="copilot-chips-grid">
-          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Add Glassmorphism Theme (blur panels, translucent card borders, clean neon accent rings)')">
-            <span>✨</span> <span>Glassmorphic Layout</span>
+          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Add KPI metric stat cards (grid_cols=4) with Lucide icon badges (TrendingUp, Users, Building2, Calendar) and color accents.')">
+            <span>Metric Stat Cards</span>
           </div>
-          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Convert main layout to a responsive 3-column dashboard grid layout (grid grid-cols-1 md:grid-cols-3 gap-6)')">
-            <span>📐</span> <span>3-Column Grid</span>
+          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Add responsive multi-column layouts (div grid_cols=2 and div grid_cols=3) with bar_chart and data tables.')">
+            <span>Grid &amp; Charts</span>
+          </div>
+          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Add complete CRUD modal editing flow (edit_item, show_edit_modal, form on_submit=handleSave).')">
+            <span>CRUD Edit Modal</span>
+          </div>
+          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Organize app into a responsive sidebar layout with navigation items for Dashboard, Tables, and Forms.')">
+            <span>Sidebar Navigation</span>
           </div>
           <div class="copilot-chip-item" onclick="setAgentPreset('compiled', 'Add hover scale-up micro-animations (scale 1.01, hover-scale) and smooth transition timings to all buttons and cards')">
-            <span>⚡</span> <span>Micro-Animations</span>
+            <span>Micro-Animations</span>
           </div>
-          <div class="copilot-chip-item" onclick="setAgentPreset('compiled', 'Transform layout to luxury dark mode cyberpunk aesthetic with glowing borders and radial accent gradient backgrounds')">
-            <span>🌙</span> <span>Cyberpunk Aesthetic</span>
-          </div>
-          <div class="copilot-chip-item" onclick="setAgentPreset('mcn', 'Add KPI metric stat cards with percentage trend indicators, sparkline placeholders, and icon badges')">
-            <span>📊</span> <span>Metric Stat Cards</span>
-          </div>
-          <div class="copilot-chip-item" onclick="setAgentPreset('compiled', 'Add interactive form field focus rings, real-time validation badges, and floating toast notifications')">
-            <span>🛡️</span> <span>Interactive Form UX</span>
+          <div class="copilot-chip-item" onclick="setAgentPreset('compiled', 'Transform layout to modern dark mode with glowing borders and radial accent gradient backgrounds')">
+            <span>Modern Dark Theme</span>
           </div>
         </div>
       </div>
@@ -908,7 +912,7 @@
             <button class="prompt-clear" onclick="document.getElementById('agent-prompt').value=''; document.getElementById('agent-prompt').focus();">Clear</button>
           </div>
           <textarea class="copilot-textarea" id="agent-prompt" rows="3"
-            placeholder="e.g. Add a dark-mode glassmorphic navbar with rounded stats cards, glowing borders, and hover transitions."></textarea>
+            placeholder="e.g. Add 4 KPI stat cards with icons, a 2-column grid with a distribution chart, and an activity table."></textarea>
         </div>
       </div>
 
@@ -927,18 +931,18 @@
       <!-- Post-Generation Status Card -->
       <div class="copilot-success-card hidden" id="agent-success-card" style="margin-top:10px;">
         <div class="copilot-success-hdr">
-          <div class="copilot-success-icon">✨</div>
+          <div class="copilot-success-icon" style="font-size:12px;font-weight:700;">OK</div>
           <div>
             <div class="copilot-success-title">UI Refined Successfully!</div>
             <div class="copilot-success-sub" id="agent-success-summary">Applied refinements to interface components and styling.</div>
           </div>
         </div>
         <div class="copilot-artifact-list">
-          <span class="copilot-artifact-badge" id="agent-success-badge">✓ ui/app.mcn</span>
+          <span class="copilot-artifact-badge" id="agent-success-badge">ui/app.mcn</span>
         </div>
         <div class="copilot-success-actions">
-          <button class="btn btn-sm" id="btn-agent-open-file" onclick="closeAgentStudioModal(); openFile(_agentSuccessTarget || 'ui/app.mcn')">📂 View in Editor</button>
-          <button class="btn btn-hero-preview btn-sm" onclick="closeAgentStudioModal(); buildAndLaunchPreview()">⚡ Launch Preview (Cmd+R)</button>
+          <button class="btn btn-sm" id="btn-agent-open-file" onclick="closeAgentStudioModal(); openFile(_agentSuccessTarget || 'ui/app.mcn')">View in Editor</button>
+          <button class="btn btn-hero-preview btn-sm" onclick="closeAgentStudioModal(); buildAndLaunchPreview()">Launch Preview (Cmd+R)</button>
           <button class="btn btn-primary btn-sm" onclick="closeAgentStudioModal()">Done</button>
         </div>
       </div>
@@ -946,7 +950,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeAgentStudioModal()">Cancel</button>
-      <button class="btn btn-gradient" id="agent-submit" onclick="submitAgentEnhance()">✨ Refine Interface</button>
+      <button class="btn btn-gradient" id="agent-submit" onclick="submitAgentEnhance()">Refine Interface</button>
     </div>
   </div>
 </div>
@@ -956,7 +960,7 @@
   <div class="modal-card copilot-card">
     <div class="copilot-hdr">
       <div class="copilot-hdr-left">
-        <div class="copilot-hdr-icon">⚡</div>
+        <div class="copilot-hdr-icon" style="font-size:12px;font-weight:700;">API</div>
         <div>
           <div class="copilot-hdr-title">AI Backend Agent</div>
           <div class="copilot-hdr-sub">Generate or extend MCN backend services, REST APIs, databases &amp; jobs</div>
@@ -974,10 +978,10 @@
         <label class="form-label" style="margin-bottom:4px;">Backend Operation Target</label>
         <div class="copilot-segmented">
           <button type="button" class="copilot-seg-btn active" id="backend-mode-enhance" onclick="switchBackendMode('backend')">
-            <span>⚡</span> <span>Enhance Active Backend (backend/main.mcn)</span>
+            <span>Enhance Active Backend (backend/main.mcn)</span>
           </button>
           <button type="button" class="copilot-seg-btn" id="backend-mode-scratch" onclick="switchBackendMode('generate_backend')">
-            <span>🚀</span> <span>Generate New Backend from Scratch</span>
+            <span>Generate New Backend from Scratch</span>
           </button>
         </div>
         <input type="hidden" id="backend-mode-val" value="backend" />
@@ -988,22 +992,22 @@
         <label class="form-label" style="margin-bottom:4px;">Backend Intent Presets</label>
         <div class="copilot-chips-grid">
           <div class="copilot-chip-item" onclick="setBackendPreset('backend', 'Add JWT authentication endpoints: POST /auth/login, POST /auth/register, POST /auth/refresh with proper token validation')">
-            <span>🔐</span> <span>JWT Auth Endpoints</span>
+            <span>JWT Auth Endpoints</span>
           </div>
           <div class="copilot-chip-item" onclick="setBackendPreset('backend', 'Add full CRUD REST endpoints (GET list, GET by id, POST create, PUT update, DELETE) for the main database table')">
-            <span>📦</span> <span>Full CRUD REST API</span>
+            <span>Full CRUD REST API</span>
           </div>
           <div class="copilot-chip-item" onclick="setBackendPreset('backend', 'Add a cron scheduled job that runs every midnight to clean up expired records and log a summary')">
-            <span>⏰</span> <span>Midnight Cron Job</span>
+            <span>Midnight Cron Job</span>
           </div>
           <div class="copilot-chip-item" onclick="setBackendPreset('backend', 'Add input validation and proper error handling (400/404/500) to all existing endpoints')">
-            <span>🛡️</span> <span>Validation &amp; Errors</span>
+            <span>Validation &amp; Errors</span>
           </div>
           <div class="copilot-chip-item" onclick="setBackendPreset('backend', 'Add role-based access control: admin and user roles, protect write endpoints to admin only')">
-            <span>👥</span> <span>RBAC Permissions</span>
+            <span>RBAC Permissions</span>
           </div>
           <div class="copilot-chip-item" onclick="setBackendPreset('generate_backend', 'Generate a complete REST API backend with CRUD endpoints, database tables, auth, and a health-check endpoint')">
-            <span>🌐</span> <span>Full Backend Scaffold</span>
+            <span>Full Backend Scaffold</span>
           </div>
         </div>
       </div>
@@ -1036,18 +1040,18 @@
       <!-- Post-Generation Status Card -->
       <div class="copilot-success-card hidden" id="backend-success-card" style="margin-top:10px;">
         <div class="copilot-success-hdr">
-          <div class="copilot-success-icon">⚡</div>
+          <div class="copilot-success-icon" style="font-size:12px;font-weight:700;">OK</div>
           <div>
             <div class="copilot-success-title">Backend Architecture Generated!</div>
             <div class="copilot-success-sub" id="backend-success-summary">Generated database tables, contracts, and REST endpoints.</div>
           </div>
         </div>
         <div class="copilot-artifact-list">
-          <span class="copilot-artifact-badge">✓ backend/main.mcn</span>
+          <span class="copilot-artifact-badge">backend/main.mcn</span>
         </div>
         <div class="copilot-success-actions">
-          <button class="btn btn-sm" onclick="closeBackendAgentModal(); openFile('backend/main.mcn')">📂 View in Editor</button>
-          <button class="btn btn-hero-run btn-sm" onclick="closeBackendAgentModal(); runActiveFile()">▶ Run Backend API</button>
+          <button class="btn btn-sm" onclick="closeBackendAgentModal(); openFile('backend/main.mcn')">View in Editor</button>
+          <button class="btn btn-hero-run btn-sm" onclick="closeBackendAgentModal(); runActiveFile()">Run Backend API</button>
           <button class="btn btn-primary btn-sm" onclick="closeBackendAgentModal()">Done</button>
         </div>
       </div>
@@ -1055,7 +1059,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeBackendAgentModal()">Cancel</button>
-      <button class="btn btn-gradient" id="backend-submit" onclick="submitBackendAgent()">⚡ Apply Backend Logic</button>
+      <button class="btn btn-gradient" id="backend-submit" onclick="submitBackendAgent()">Apply Backend Logic</button>
     </div>
   </div>
 </div>
@@ -1213,6 +1217,77 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── User Profile & Authentication Modal ───────────────────────────────── -->
+<div class="modal-overlay hidden" id="auth-profile-modal">
+  <div class="modal-card" style="width:440px; max-width:92vw;">
+    <div style="padding:22px 24px 0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;">M</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);" id="auth-modal-title">Developer Workspace Profile</div>
+          <div style="font-size:11.5px;color:var(--muted);" id="auth-modal-sub">Sign in to save and sync your modules permanently</div>
+        </div>
+      </div>
+      <button onclick="closeAuthModal()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;">&times;</button>
+    </div>
+
+    <!-- Active User Profile View -->
+    <div id="auth-profile-view" style="display:none; padding:20px 24px;">
+      <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">Signed In As</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-top:2px;" id="profile-display-email">user@example.com</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">
+          Workspace Directory: <span style="font-family:'JetBrains Mono',monospace;color:var(--text);" id="profile-display-ws">~/.mcn/workspaces/...</span>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:18px;">
+        Your files, backend services, and UI modules are isolated and permanently stored in your tenant directory.
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-secondary" onclick="switchUserToGuest()" style="flex:1; padding:8px; font-size:12.5px;">Switch to Guest (Temp)</button>
+        <button class="btn btn-primary" onclick="userLogout()" style="padding:8px 16px; font-size:12.5px;">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- Sign In & Register Form View -->
+    <div id="auth-form-view" style="padding:20px 24px; display:flex; flex-direction:column; gap:12px;">
+      <!-- Switch tab: Login / Register -->
+      <div style="display:flex; border-bottom:1px solid var(--border); margin-bottom:6px;">
+        <button id="auth-tab-btn-login" onclick="setAuthMode('login')"
+          style="flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-1px;">
+          Sign In
+        </button>
+        <button id="auth-tab-btn-register" onclick="setAuthMode('register')"
+          style="flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;">
+          Create Account
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input class="form-input" type="email" id="auth-inp-email" placeholder="you@company.com" style="padding:9px 12px;font-size:13px;" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="auth-inp-pwd" placeholder="At least 8 characters" style="padding:9px 12px;font-size:13px;" />
+      </div>
+
+      <div id="auth-modal-msg" style="display:none; font-size:12.5px; padding:8px 12px; border-radius:6px; line-height:1.4;"></div>
+
+      <div style="padding-top:4px;">
+        <button class="btn btn-primary" id="btn-auth-submit" onclick="submitUserAuth()" style="width:100%; padding:10px; font-size:13px; font-weight:600; border-radius:6px;">
+          Sign In
+        </button>
+      </div>
+
+      <div style="font-size:11.5px; color:var(--muted); text-align:center; margin-top:4px;">
+        Guests can work temporarily in <code>~/.mcn/playground</code> without logging in.
+      </div>
+    </div>
   </div>
 </div>
 

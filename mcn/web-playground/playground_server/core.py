@@ -76,14 +76,16 @@ except ImportError:
 try:
     from mcn.core_engine.auth_primitives import (
         auth_create_user, auth_login, auth_verify_token,
-        auth_get_user, auth_require
+        auth_get_user, auth_require, auth_list_users,
+        auth_assign_role, auth_revoke_role
     )
     _AUTH_AVAILABLE = True
 except ImportError:
     try:
         from core_engine.auth_primitives import (  # type: ignore
             auth_create_user, auth_login, auth_verify_token,
-            auth_get_user, auth_require
+            auth_get_user, auth_require, auth_list_users,
+            auth_assign_role, auth_revoke_role
         )
         _AUTH_AVAILABLE = True
     except ImportError:
