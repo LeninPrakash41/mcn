@@ -1,258 +1,282 @@
 [
- {
-  "badge": "Analytics",
-  "category": "repl",
-  "description": "Native SQLite report generation, KPIs, time-series trends, distribution, and markdown export.",
-  "file": "backend/main.mcn",
-  "id": "db_analytics",
-  "name": "Database Reports & Analytics Engine"
- },
- {
-  "badge": "Basics",
-  "category": "repl",
-  "description": "Variables, strings, array operations, and condition branches.",
-  "file": "backend/main.mcn",
-  "id": "hello",
-  "name": "Hello World & Variables"
- },
- {
-  "badge": "Logic",
-  "category": "repl",
-  "description": "Recursion, default arguments, and pure functions.",
-  "file": "backend/main.mcn",
-  "id": "functions",
-  "name": "Functions & Logic"
- },
- {
-  "badge": "ETL",
-  "category": "repl",
-  "description": "Multi-stage data extraction, transform, and load pipeline.",
-  "file": "backend/main.mcn",
-  "id": "pipeline",
-  "name": "Data Pipeline & ETL"
- },
- {
-  "badge": "Test",
-  "category": "repl",
-  "description": "Declarative test suites and assertion blocks.",
-  "file": "backend/main.mcn",
-  "id": "tests",
-  "name": "Unit Testing & Assertions"
- },
- {
-  "badge": "Math",
-  "category": "repl",
-  "description": "In-memory sorting, aggregations, and statistics.",
-  "file": "backend/main.mcn",
-  "id": "algorithms",
-  "name": "Algorithms & Analytics"
- },
- {
-  "badge": "Data & Charts",
-  "category": "internal_app",
-  "description": "KPIs, area and donut charts, a filterable orders table with grid/list views, a drag-and-drop task board, notifications and an AI assistant.",
-  "id": "ops_dashboard",
-  "name": "Operations Dashboard",
-  "open": "ui/app.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "AI Agents",
-  "category": "internal_app",
-  "description": "Configure AI agents (instructions, model, tools, knowledge), test them in a live chat, deploy one as a support assistant and review the history.",
-  "id": "ai_agent_builder",
-  "name": "AI Agent Builder",
-  "open": "ui/app.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Automation",
-  "category": "internal_app",
-  "description": "Visual workflow builder: triggers, AI, HTTP, condition, database and notification steps, real execution with step-by-step results and run history.",
-  "id": "workflow_automation",
-  "name": "Workflow Automation",
-  "open": "ui/app.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Full-Stack",
-  "category": "internal_app",
-  "description": "Executive dashboard, pipeline table, deals breakdown, and lead stats.",
-  "id": "sales_hub",
-  "name": "Sales Intelligence Hub",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "use analytics",
-  "category": "internal_app",
-  "description": "Multi-dimensional SQLite analytics engine, KPIs, trend analysis, Pareto distribution, and executive reports.",
-  "id": "analytics_hub",
-  "name": "Executive Analytics & BI Hub",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "SQLite CRUD",
-  "category": "internal_app",
-  "description": "SQLite relational item storage, CRUD endpoints, and inventory UI.",
-  "id": "item_manager",
-  "name": "Inventory & Item Manager",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Enterprise",
-  "category": "internal_app",
-  "description": "Multi-stage customer relationship manager, deal velocity, and contacts.",
-  "id": "crm",
-  "name": "Customer CRM & Lead Engine",
-  "open": "ui/app.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Heavy Duty",
-  "category": "internal_app",
-  "description": "Job orders, site milestone tracking, compliance, and material inventory.",
-  "id": "construction",
-  "name": "Construction Project Manager",
-  "open": "ui/app.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Marketplace",
-  "category": "internal_app",
-  "description": "Creator marketplace to publish, test, fork, rate, and orchestrate AI prompts and multi-stage workflows.",
-  "id": "prompt_marketplace",
-  "name": "Prompt & Workflow Marketplace",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Data labeling",
-  "category": "data",
-  "description": "A labeling queue with AI or rule-based suggestions, a review board, an audit log and CSV import and export.",
-  "id": "data_labeling",
-  "name": "Data Labeling Studio",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Machine learning",
-  "category": "data",
-  "description": "Train logistic regression and k-nearest neighbours on churn data, compare runs, and predict. Every step is readable MCN.",
-  "id": "ml_training_lab",
-  "name": "ML Training Lab",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "IoT · Raspberry Pi",
-  "category": "flutter_app",
-  "description": "Sensors, lights, a fan and blinds with automations. Simulated in Studio, real pins on a Raspberry Pi; web and mobile UI.",
-  "id": "iot_smart_home",
-  "name": "Smart Home IoT Controller",
-  "open": "backend/main.mcn",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn"
-  ]
- },
- {
-  "badge": "Flutter UI",
-  "category": "flutter_app",
-  "description": "Mobile financial ledger, expense categorization, and charts.",
-  "id": "expense_tracker",
-  "name": "Mobile Expense & Budget Tracker",
-  "open": "mobile/lib/main.dart",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn",
-   "mobile/ui-manifest.json"
-  ]
- },
- {
-  "badge": "Flutter UI",
-  "category": "flutter_app",
-  "description": "On-site quality checklist, safety audit forms, and sign-offs.",
-  "id": "field_inspector",
-  "name": "Field Inspection & Site Audit",
-  "open": "mobile/lib/main.dart",
-  "project": true,
-  "files": [
-   "backend/main.mcn",
-   "ui/app.mcn",
-   "mobile/ui-manifest.json"
-  ]
- },
- {
-  "badge": "Microservice",
-  "category": "backend",
-  "description": "Multi-endpoint JSON microservice with port binding and health check.",
-  "file": "backend/main.mcn",
-  "id": "rest_service",
-  "name": "High-Throughput REST Service"
- },
- {
-  "badge": "IoT Stream",
-  "category": "backend",
-  "description": "Readings over HTTP and MQTT, alerts that sound an Arduino buzzer, and per-sensor stats.",
-  "file": "backend/main.mcn",
-  "id": "iot_processor",
-  "name": "IoT Telemetry Ingestion Hub"
- },
- {
-  "badge": "AI & RAG",
-  "category": "backend",
-  "description": "Multi-agent prompt routing, template interpolation, and structured output.",
-  "file": "backend/main.mcn",
-  "id": "ai_prompt_router",
-  "name": "Enterprise AI Prompt Router"
- }
+  {
+    "badge": "Analytics",
+    "category": "repl",
+    "description": "Native SQLite report generation, KPIs, time-series trends, distribution, and markdown export.",
+    "file": "backend/main.mcn",
+    "id": "db_analytics",
+    "name": "Database Reports & Analytics Engine"
+  },
+  {
+    "badge": "Basics",
+    "category": "repl",
+    "description": "Variables, strings, array operations, and condition branches.",
+    "file": "backend/main.mcn",
+    "id": "hello",
+    "name": "Hello World & Variables"
+  },
+  {
+    "badge": "Logic",
+    "category": "repl",
+    "description": "Recursion, default arguments, and pure functions.",
+    "file": "backend/main.mcn",
+    "id": "functions",
+    "name": "Functions & Logic"
+  },
+  {
+    "badge": "ETL",
+    "category": "repl",
+    "description": "Multi-stage data extraction, transform, and load pipeline.",
+    "file": "backend/main.mcn",
+    "id": "pipeline",
+    "name": "Data Pipeline & ETL"
+  },
+  {
+    "badge": "Test",
+    "category": "repl",
+    "description": "Declarative test suites and assertion blocks.",
+    "file": "backend/main.mcn",
+    "id": "tests",
+    "name": "Unit Testing & Assertions"
+  },
+  {
+    "badge": "Math",
+    "category": "repl",
+    "description": "In-memory sorting, aggregations, and statistics.",
+    "file": "backend/main.mcn",
+    "id": "algorithms",
+    "name": "Algorithms & Analytics"
+  },
+  {
+    "badge": "Data & Charts",
+    "category": "internal_app",
+    "description": "KPIs, area and donut charts, a filterable orders table with grid/list views, a drag-and-drop task board, notifications and an AI assistant.",
+    "id": "ops_dashboard",
+    "name": "Operations Dashboard",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "AI Agents",
+    "category": "internal_app",
+    "description": "Configure AI agents (instructions, model, tools, knowledge), test them in a live chat, deploy one as a support assistant and review the history.",
+    "id": "ai_agent_builder",
+    "name": "AI Agent Builder",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Automation",
+    "category": "internal_app",
+    "description": "Visual workflow builder: triggers, AI, HTTP, condition, database and notification steps, real execution with step-by-step results and run history.",
+    "id": "workflow_automation",
+    "name": "Workflow Automation",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Full-Stack",
+    "category": "internal_app",
+    "description": "Executive dashboard, pipeline table, deals breakdown, and lead stats.",
+    "id": "sales_hub",
+    "name": "Sales Intelligence Hub",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "use analytics",
+    "category": "internal_app",
+    "description": "Multi-dimensional SQLite analytics engine, KPIs, trend analysis, Pareto distribution, and executive reports.",
+    "id": "analytics_hub",
+    "name": "Executive Analytics & BI Hub",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "SQLite CRUD",
+    "category": "internal_app",
+    "description": "SQLite relational item storage, CRUD endpoints, and inventory UI.",
+    "id": "item_manager",
+    "name": "Inventory & Item Manager",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Enterprise",
+    "category": "internal_app",
+    "description": "Multi-stage customer relationship manager, deal velocity, and contacts.",
+    "id": "crm",
+    "name": "Customer CRM & Lead Engine",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Heavy Duty",
+    "category": "internal_app",
+    "description": "Job orders, site milestone tracking, compliance, and material inventory.",
+    "id": "construction",
+    "name": "Construction Project Manager",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Marketplace",
+    "category": "internal_app",
+    "description": "Creator marketplace to publish, test, fork, rate, and orchestrate AI prompts and multi-stage workflows.",
+    "id": "prompt_marketplace",
+    "name": "Prompt & Workflow Marketplace",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Data labeling",
+    "category": "data",
+    "description": "A labeling queue with AI or rule-based suggestions, a review board, an audit log and CSV import and export.",
+    "id": "data_labeling",
+    "name": "Data Labeling Studio",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Machine learning",
+    "category": "data",
+    "description": "Train logistic regression and k-nearest neighbours on churn data, compare runs, and predict. Every step is readable MCN.",
+    "id": "ml_training_lab",
+    "name": "ML Training Lab",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "IoT \u00b7 Raspberry Pi",
+    "category": "flutter_app",
+    "description": "Sensors, lights, a fan and blinds with automations. Simulated in Studio, real pins on a Raspberry Pi; web and mobile UI.",
+    "id": "iot_smart_home",
+    "name": "Smart Home IoT Controller",
+    "open": "backend/main.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
+    "badge": "Flutter UI",
+    "category": "flutter_app",
+    "description": "Mobile financial ledger, expense categorization, and charts.",
+    "id": "expense_tracker",
+    "name": "Mobile Expense & Budget Tracker",
+    "open": "mobile/lib/main.dart",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn",
+      "mobile/ui-manifest.json"
+    ]
+  },
+  {
+    "badge": "Flutter UI",
+    "category": "flutter_app",
+    "description": "On-site quality checklist, safety audit forms, and sign-offs.",
+    "id": "field_inspector",
+    "name": "Field Inspection & Site Audit",
+    "open": "mobile/lib/main.dart",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn",
+      "mobile/ui-manifest.json"
+    ]
+  },
+  {
+    "badge": "Microservice",
+    "category": "backend",
+    "description": "Multi-endpoint JSON microservice with port binding and health check.",
+    "file": "backend/main.mcn",
+    "id": "rest_service",
+    "name": "High-Throughput REST Service"
+  },
+  {
+    "badge": "IoT Stream",
+    "category": "backend",
+    "description": "Readings over HTTP and MQTT, alerts that sound an Arduino buzzer, and per-sensor stats.",
+    "file": "backend/main.mcn",
+    "id": "iot_processor",
+    "name": "IoT Telemetry Ingestion Hub"
+  },
+  {
+    "badge": "AI & RAG",
+    "category": "backend",
+    "description": "Multi-agent prompt routing, template interpolation, and structured output.",
+    "file": "backend/main.mcn",
+    "id": "ai_prompt_router",
+    "name": "Enterprise AI Prompt Router"
+  },
+  {
+    "id": "rubiks_cube",
+    "name": "Rubik's Cube 3x3 Permutation Lab",
+    "category": "student",
+    "badge": "Student",
+    "description": "3x3 Rubik\u2019s cube state representations, face permutations, clockwise rotations, and group theory moves.",
+    "file": "backend/main.mcn"
+  },
+  {
+    "id": "trigonometry",
+    "name": "Trigonometry & Wave Harmonic Analysis",
+    "category": "student",
+    "badge": "Student",
+    "description": "Taylor series sine and cosine approximations, Pythagorean identities, and Fourier harmonic wave synthesis.",
+    "file": "backend/main.mcn"
+  },
+  {
+    "id": "engineering_math",
+    "name": "Engineering Mathematics & Numerical Methods",
+    "category": "student",
+    "badge": "Student",
+    "description": "Matrix algebra, 2x2 determinants, Simpson 1/3rd numerical integration, and Euler differential equation solvers.",
+    "file": "backend/main.mcn"
+  }
 ]

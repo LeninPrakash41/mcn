@@ -1,0 +1,53 @@
+// ── Trigonometry & Wave Analysis Lab in MCN ───────────────────────────
+log("=== MCN Student Lab: Trigonometry & Periodic Functions ===")
+
+var PI = 3.141592653589793
+
+function deg_to_rad(deg) {
+    return deg * (PI / 180.0)
+}
+
+function factorial(n) {
+    if (n <= 1) { return 1 }
+    return n * factorial(n - 1)
+}
+
+// Taylor Series Approximation for sin(x)
+function approx_sin(x_rad) {
+    var term1 = x_rad
+    var term2 = pow(x_rad, 3) / factorial(3)
+    var term3 = pow(x_rad, 5) / factorial(5)
+    var term4 = pow(x_rad, 7) / factorial(7)
+    return term1 - term2 + term3 - term4
+}
+
+// Taylor Series Approximation for cos(x)
+function approx_cos(x_rad) {
+    var term1 = 1.0
+    var term2 = pow(x_rad, 2) / factorial(2)
+    var term3 = pow(x_rad, 4) / factorial(4)
+    var term4 = pow(x_rad, 6) / factorial(6)
+    return term1 - term2 + term3 - term4
+}
+
+// Test trigonometric identities: sin^2(x) + cos^2(x) == 1
+var angles = [0, 30, 45, 60, 90]
+log("Angle (Deg) | Sin(x) | Cos(x) | Pythagorean Identity (sin² + cos²)")
+log("---------------------------------------------------------------")
+
+for deg in angles {
+    var rad = deg_to_rad(deg)
+    var s = approx_sin(rad)
+    var c = approx_cos(rad)
+    var identity = pow(s, 2) + pow(c, 2)
+    log(to_str(deg) + "° | sin: " + to_str(round(s * 1000) / 1000) + " | cos: " + to_str(round(c * 1000) / 1000) + " | sum: " + to_str(round(identity * 100) / 100))
+}
+
+// Wave synthesis: Fourier harmonic sum
+log("\nHarmonic Signal Synthesis (f(t) = sin(t) + 0.33*sin(3t)):")
+var time_steps = [0.0, 0.5, 1.0, 1.5, 2.0]
+for t in time_steps {
+    var wave = approx_sin(t) + 0.33 * approx_sin(3.0 * t)
+    log("t=" + to_str(t) + "s -> Amplitude: " + to_str(wave))
+}
+

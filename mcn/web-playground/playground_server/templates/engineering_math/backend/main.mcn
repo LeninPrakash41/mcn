@@ -1,0 +1,59 @@
+// ── Engineering Mathematics: Linear Algebra, Differential & Numerical Methods ──
+log("=== MCN Student Lab: Engineering Mathematics Suite ===")
+
+// 1. Matrix Multiplication (2x2)
+function matrix_mult_2x2(A, B) {
+    return [
+        [A[0][0]*B[0][0] + A[0][1]*B[1][0], A[0][0]*B[0][1] + A[0][1]*B[1][1]],
+        [A[1][0]*B[0][0] + A[1][1]*B[1][0], A[1][0]*B[0][1] + A[1][1]*B[1][1]]
+    ]
+}
+
+// 2. Determinant of 2x2 Matrix
+function matrix_det_2x2(M) {
+    return (M[0][0] * M[1][1]) - (M[0][1] * M[1][0])
+}
+
+var MatA = [[4, 3], [2, 1]]
+var MatB = [[1, 2], [3, 4]]
+
+log("Matrix A: " + json_str(MatA))
+log("Matrix B: " + json_str(MatB))
+log("Determinant of Matrix A: " + to_str(matrix_det_2x2(MatA)))
+log("Product A x B: " + json_str(matrix_mult_2x2(MatA, MatB)))
+
+// 3. Numerical Integration (Simpson's 1/3rd Rule for f(x) = x^2)
+function f(x) {
+    return pow(x, 2)
+}
+
+function simpson_integral(a, b, n) {
+    var h = (b - a) / n
+    var sum = f(a) + f(b)
+    for i in range(1, n) {
+        var x = a + i * h
+        if (i % 2 == 0) {
+            sum = sum + 2 * f(x)
+        } else {
+            sum = sum + 4 * f(x)
+        }
+    }
+    return (h / 3.0) * sum
+}
+
+var integral_res = simpson_integral(0, 3, 6)
+log("\nNumerical Integration of x² from 0 to 3 (Exact = 9.0):")
+log("Computed Integral: " + to_str(integral_res))
+
+// 4. Differential Equation: Euler's Method for dy/dx = y (Solution: y = e^x)
+log("\nOrdinary Differential Equation (Euler's Method: dy/dx = y, y(0)=1):")
+var x_curr = 0.0
+var y_curr = 1.0
+var step_h = 0.2
+
+for step in range(1, 6) {
+    y_curr = y_curr + step_h * y_curr
+    x_curr = x_curr + step_h
+    log("Step " + to_str(step) + ": x=" + to_str(round(x_curr * 10) / 10) + " -> y=" + to_str(round(y_curr * 1000) / 1000))
+}
+

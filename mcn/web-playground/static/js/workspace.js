@@ -153,7 +153,17 @@ function renderFileTree(files) {
     : names.sort()
 
   const renderNode = (node, parent, depth) => {
+    let hasRenderedDivider = false;
     for (const name of sortFolders(Object.keys(node.folders), depth)) {
+      // Add section divider between MCN source (backend, ui) and generated code (frontend, mobile)
+      if (depth === 0 && (name === 'frontend' || name === 'mobile') && !hasRenderedDivider) {
+        const divider = document.createElement('div')
+        divider.className = 'tree-section-divider'
+        divider.innerHTML = `<span>Generated Code (${_activeWorkspace === 'flutter' ? 'Mobile' : 'Web'})</span>`
+        parent.appendChild(divider)
+        hasRenderedDivider = true
+      }
+
       const sub = node.folders[name]
       const isExpanded = _expandedFolders.has(sub.key)
       const header = document.createElement('div')
@@ -195,9 +205,150 @@ function makeFileItem(path) {
   el.dataset.path = path
   const name = path.split('/').pop()
   el.title = path
-  el.innerHTML = `<span class="tree-icon">${fileIcon(path)}</span><span>${escapeHtml(name)}</span>`
-  el.onclick = () => openFile(path)
+  el.innerHTML = `
+    <span class="tree-icon">${fileIcon(path)}</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(name)}</span>
+    <button class="tree-item-actions" onclick="showFileContextMenu(event, '${escapeHtml(path)}')" title="File actions (Rename, Delete, Move)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="2.2"></circle>
+        <circle cx="12" cy="12" r="2.2"></circle>
+        <circle cx="12" cy="19" r="2.2"></circle>
+      </svg>
+    </button>
+  `
+  el.onclick = (e) => {
+    if (!e.target.closest('.tree-item-actions')) {
+      openFile(path)
+    }
+  }
   return el
+}
+
+// ── File Tree Actions: Rename, Delete, Move ──────────────────────────────────
+let _activeContextMenu = null;
+
+function hideFileContextMenu() {
+  if (_activeContextMenu) {
+    _activeContextMenu.remove();
+    _activeContextMenu = null;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.file-context-menu') && !e.target.closest('.tree-item-actions')) {
+    hideFileContextMenu();
+  }
+});
+
+function showFileContextMenu(e, path) {
+  e.stopPropagation();
+  e.preventDefault();
+  hideFileContextMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'file-context-menu';
+  
+  menu.innerHTML = `
+    <button class="file-context-item" onclick="actionRenameFile('${escapeHtml(path)}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+      Rename
+    </button>
+    <button class="file-context-item" onclick="actionMoveFile('${escapeHtml(path)}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><polyline points="14 11 18 15 14 19"></polyline><line x1="8" y1="15" x2="18" y2="15"></line></svg>
+      Move
+    </button>
+    <div style="height:1px;background:var(--border);margin:2px 0;"></div>
+    <button class="file-context-item danger" onclick="actionDeleteFile('${escapeHtml(path)}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      Delete
+    </button>
+  `;
+
+  document.body.appendChild(menu);
+  _activeContextMenu = menu;
+
+  const rect = e.target.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 4}px`;
+  menu.style.left = `${Math.min(rect.left, window.innerWidth - 170)}px`;
+}
+
+async function actionRenameFile(oldPath) {
+  hideFileContextMenu();
+  const dir = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/') + 1) : '';
+  const currentName = oldPath.split('/').pop();
+  const newName = await showIdePrompt('Rename File', 'Enter the new name:', currentName);
+  if (!newName || newName === currentName) return;
+
+  const newPath = dir + newName.trim();
+  try {
+    const res = await apiFetch('/api/workspace/file/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_path: oldPath, new_path: newPath })
+    });
+    const d = await res.json();
+    if (!res.ok || !d.success) throw new Error(d.error || 'Failed to rename file');
+
+    showToast(`Renamed ${currentName} to ${newName}`, 'success');
+    await loadFileTree();
+    if (_active === oldPath) {
+      await openFile(newPath);
+    }
+  } catch (err) {
+    showIdeAlert('Rename Failed', err.message, 'error');
+  }
+}
+
+async function actionMoveFile(oldPath) {
+  hideFileContextMenu();
+  const currentPath = oldPath;
+  const newPath = await showIdePrompt('Move File', 'Enter destination path in workspace:', currentPath);
+  if (!newPath || newPath === currentPath) return;
+
+  try {
+    const res = await apiFetch('/api/workspace/file/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_path: oldPath, new_path: newPath.trim() })
+    });
+    const d = await res.json();
+    if (!res.ok || !d.success) throw new Error(d.error || 'Failed to move file');
+
+    showToast(`Moved file to ${newPath}`, 'success');
+    await loadFileTree();
+    if (_active === oldPath) {
+      await openFile(newPath.trim());
+    }
+  } catch (err) {
+    showIdeAlert('Move Failed', err.message, 'error');
+  }
+}
+
+async function actionDeleteFile(path) {
+  hideFileContextMenu();
+  const confirm = await showIdeConfirm('Delete File', `Are you sure you want to permanently delete "${path}"?`);
+  if (!confirm) return;
+
+  try {
+    const res = await apiFetch('/api/workspace/file/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path })
+    });
+    const d = await res.json();
+    if (!res.ok || !d.success) throw new Error(d.error || 'Failed to delete file');
+
+    showToast(`Deleted ${path}`, 'info');
+    await loadFileTree();
+    if (_active === path) {
+      const remaining = (window._workspaceFiles || []).filter(f => f.path !== path);
+      if (remaining.length > 0) {
+        await openFile(remaining[0].path);
+      }
+    }
+  } catch (err) {
+    showIdeAlert('Delete Failed', err.message, 'error');
+  }
 }
 
 // ── IDE Menu Bar Handlers ───────────────────────────────────────────────────
@@ -419,6 +570,7 @@ let _allExamples = [];
 const TEMPLATE_CATEGORIES = {
   internal_app: { title: "Web apps & AI" },
   data:         { title: "Data & ML" },
+  student:      { title: "Student & Mathematics" },
   flutter_app:  { title: "Mobile & IoT" },
   backend:      { title: "Backends & APIs" },
   repl:         { title: "Learn the language" },

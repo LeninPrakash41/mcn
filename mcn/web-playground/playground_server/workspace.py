@@ -127,6 +127,55 @@ def save_workspace_file():
         return jsonify({"error": str(e)}), 403
 
 
+@bp.route("/api/workspace/file/rename", methods=["POST"])
+def rename_workspace_file():
+    """Rename or move a workspace file."""
+    ws = _request_workspace()
+    data = request.get_json(silent=True) or {}
+    old_path = data.get("old_path", "").strip()
+    new_path = data.get("new_path", "").strip()
+    if not old_path or not new_path:
+        return jsonify({"error": "Both old_path and new_path required"}), 400
+    try:
+        src = _safe_path_for(old_path, ws)
+        dst = _safe_path_for(new_path, ws)
+        if not src.exists():
+            return jsonify({"error": f"File '{old_path}' not found"}), 404
+        if dst.exists() and src != dst:
+            return jsonify({"error": f"Destination '{new_path}' already exists"}), 409
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src.rename(dst)
+        return jsonify({"success": True, "old_path": old_path, "new_path": new_path})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/workspace/file/delete", methods=["POST"])
+def delete_workspace_file():
+    """Delete a workspace file or directory."""
+    import shutil
+    ws = _request_workspace()
+    data = request.get_json(silent=True) or {}
+    target = data.get("path", "").strip()
+    if not target:
+        return jsonify({"error": "Missing 'path'"}), 400
+    try:
+        p = _safe_path_for(target, ws)
+        if not p.exists():
+            return jsonify({"error": f"File '{target}' not found"}), 404
+        if p.is_dir():
+            shutil.rmtree(p, ignore_errors=True)
+        else:
+            p.unlink()
+        return jsonify({"success": True, "path": target})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @bp.route("/api/frontend/file")
 def get_frontend_file():
     rel = request.args.get("path", "")
