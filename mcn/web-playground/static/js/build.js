@@ -425,9 +425,25 @@ function refreshPreview() {
 }
 
 function openPreviewFullscreen() {
+  const activeSection = document.querySelector('.panel-section.active')
+  if (activeSection && activeSection.id === 'panel-flutter-preview') {
+    openMobilePreviewFullscreen()
+    return
+  }
   const iframe = document.getElementById('preview-iframe')
   if (iframe && iframe.src && iframe.src !== 'about:blank') {
     window.open(iframe.src, '_blank')
+  } else {
+    window.open('/preview/', '_blank')
+  }
+}
+
+function openMobilePreviewFullscreen() {
+  const frame = document.getElementById('mobile-preview-frame')
+  if (frame && frame.src && frame.src !== 'about:blank' && !frame.hidden) {
+    window.open(frame.src, '_blank')
+  } else {
+    window.open('/preview-mobile/', '_blank')
   }
 }
 

@@ -155,16 +155,47 @@ ThemeData mcnTheme(Brightness brightness) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       showCloseIcon: true,
     ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+    appBarTheme: AppBarTheme(
       elevation: 0,
-      indicatorColor: scheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+      scrolledUnderElevation: 1,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.inter(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        color: isDark ? Colors.white : const Color(0xFF0F172A),
+      ),
+      iconTheme: IconThemeData(
+        color: isDark ? Colors.white : const Color(0xFF0F172A),
+        size: 20,
+      ),
+      actionsIconTheme: IconThemeData(
+        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        size: 20,
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 60,
+      elevation: 0,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      surfaceTintColor: Colors.transparent,
+      indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      indicatorColor: scheme.primary.withValues(alpha: isDark ? 0.22 : 0.14),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
-          fontSize: 12,
+          fontSize: 10.5,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          letterSpacing: -0.2,
+          overflow: TextOverflow.ellipsis,
+          color: selected ? scheme.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(
+          size: 20,
           color: selected ? scheme.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
         );
       }),
@@ -443,11 +474,40 @@ class _MCNAppState extends State<MCNApp> {
             const VerticalDivider(width: 1),
             Expanded(child: pages),
           ]) : pages,
-          bottomNavigationBar: !rail && !drawer && sections.length > 1 ? NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: _select,
-            destinations: [for (final s in sections) NavigationDestination(icon: Icon(mcnIcon(s.icon)), label: s.label)],
-          ) : null,
+          bottomNavigationBar: !rail && !drawer && sections.length > 1
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF0F172A)
+                        : Colors.white,
+                    border: Border(
+                      top: BorderSide(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFE2E8F0),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: NavigationBar(
+                    height: 60,
+                    elevation: 0,
+                    selectedIndex: _index,
+                    onDestinationSelected: _select,
+                    backgroundColor: Colors.transparent,
+                    indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+                    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                    destinations: [
+                      for (final s in sections)
+                        NavigationDestination(
+                          icon: Icon(mcnIcon(s.icon), size: 20),
+                          selectedIcon: Icon(mcnIcon(s.icon), size: 20, color: Theme.of(context).colorScheme.primary),
+                          label: s.label,
+                        )
+                    ],
+                  ),
+                )
+              : null,
         ),
       );
     });
@@ -465,43 +525,87 @@ class _MCNAppState extends State<MCNApp> {
       );
 }
 
-/// A screen: a large title that collapses as you scroll, pull to refresh, and
-/// content padded to fit phones and centred on wide screens.
+/// A native mobile screen: a clean Material 3 app bar with left-aligned title,
+/// back navigation or drawer toggle, refresh action, and scrollable body.
 class MCNPage extends StatelessWidget {
   final List<Widget> children;
   final Future<dynamic> Function()? onRefresh;
   final String? title;
   const MCNPage({super.key, required this.children, this.onRefresh, this.title});
+
   @override
   Widget build(BuildContext context) {
     final scope = MCNScope.of(context);
     final canPop = Navigator.of(context).canPop();
+    final pageTitle = title ?? scope?.title ?? '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          pageTitle,
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        leading: canPop
+            ? IconButton(
+                icon: const Icon(LucideIcons.arrowLeft, size: 20),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : (scope?.openDrawer != null
+                ? IconButton(
+                    icon: const Icon(LucideIcons.menu, size: 20),
+                    tooltip: 'Menu',
+                    onPressed: scope!.openDrawer,
+                  )
+                : null),
+        actions: [
+          if (onRefresh != null)
+            IconButton(
+              icon: const Icon(LucideIcons.rotateCw, size: 18),
+              tooltip: 'Refresh',
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                await onRefresh!();
+              },
+            ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: borderColor,
+            height: 1,
+          ),
+        ),
+      ),
       body: LayoutBuilder(builder: (context, size) {
         final side = math.max(16.0, (size.maxWidth - 1100) / 2);
-        final scroll = CustomScrollView(
+        final list = ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverAppBar.large(
-              title: Text(title ?? scope?.title ?? ''),
-              leading: !canPop && scope?.openDrawer != null
-                  ? IconButton(icon: const Icon(LucideIcons.menu), tooltip: 'Menu', onPressed: scope!.openDrawer) : null,
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(side, 4, side, 24 + MediaQuery.paddingOf(context).bottom),
-              sliver: SliverList.separated(
-                itemCount: children.length,
-                itemBuilder: (_, i) => children[i],
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-              ),
-            ),
-          ],
+          padding: EdgeInsets.fromLTRB(side, 16, side, 28),
+          itemCount: children.length,
+          itemBuilder: (_, i) => children[i],
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
         );
-        return onRefresh == null ? scroll : RefreshIndicator.adaptive(
-          edgeOffset: 152,
-          onRefresh: () async { HapticFeedback.lightImpact(); await onRefresh!(); },
-          child: scroll,
-        );
+        return onRefresh == null
+            ? list
+            : RefreshIndicator.adaptive(
+                onRefresh: () async {
+                  HapticFeedback.lightImpact();
+                  await onRefresh!();
+                },
+                child: list,
+              );
       }),
     );
   }
@@ -510,7 +614,8 @@ class MCNPage extends StatelessWidget {
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 /// grid_cols=N: responsive Flutter grid adapting to phone, tablet and desktop.
-/// Charts and full-width content expand to 1 column on phones for clarity.
+/// On phones (<600px width), cards, charts and forms expand to 1 column, while
+/// stat cards arrange neatly into 2 columns.
 class MCNGrid extends StatelessWidget {
   final int columns;
   final List<Widget> children;
@@ -518,19 +623,18 @@ class MCNGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-    final hasChart = children.any((w) => w is MCNChart);
+    final allStats = children.every((w) => w is MCNStat);
     final int n;
     if (c.maxWidth > 900) {
       n = columns;
     } else if (c.maxWidth > 600) {
       n = math.min(2, columns);
     } else {
-      if (hasChart || columns <= 1) {
-        n = 1;
-      } else if (columns >= 2 && c.maxWidth >= 320) {
-        n = 2;
+      // Mobile screen (< 600px width)
+      if (allStats && columns >= 2 && c.maxWidth >= 260) {
+        n = 2; // 2x2 grid for stats
       } else {
-        n = 1;
+        n = 1; // Full width for cards, charts, forms, tables
       }
     }
     const gap = 12.0;
@@ -565,8 +669,9 @@ class MCNCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -614,25 +719,26 @@ class MCNStat extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: tone.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(mcnIcon(icon), color: tone, size: 20),
+                  child: Icon(mcnIcon(icon), color: tone, size: 18),
                 ),
                 if (hasChange)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: (isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(99),
@@ -642,14 +748,14 @@ class MCNStat extends StatelessWidget {
                       children: [
                         Icon(
                           isPos ? LucideIcons.trendingUp : LucideIcons.trendingDown,
-                          size: 13,
+                          size: 11,
                           color: isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Text(
                           '${isPos ? '+' : ''}${changeNum.toStringAsFixed(1)}%',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             color: isPos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                           ),
@@ -659,7 +765,7 @@ class MCNStat extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
@@ -668,6 +774,7 @@ class MCNStat extends StatelessWidget {
                 maxLines: 1,
                 style: t.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
+                  fontSize: 22,
                   letterSpacing: -0.5,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
@@ -681,6 +788,7 @@ class MCNStat extends StatelessWidget {
               style: t.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
+                fontSize: 12,
               ),
             ),
           ],
@@ -836,8 +944,9 @@ class MCNButton extends StatelessWidget {
     final i = icon == null ? null : Icon(mcnIcon(icon), size: 18);
     final tap = onPressed == null ? null : () { HapticFeedback.lightImpact(); onPressed!(); };
     final error = Theme.of(context).colorScheme.error;
+    final inCardOrForm = context.findAncestorWidgetOfExactType<MCNCard>() != null;
     final btnStyle = ButtonStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
       shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
     );
     final Widget button = switch (variant) {
@@ -859,7 +968,11 @@ class MCNButton extends StatelessWidget {
           ? FilledButton(onPressed: tap, style: btnStyle, child: child)
           : FilledButton.icon(onPressed: tap, style: btnStyle, icon: i, label: child),
     };
-    return Align(alignment: Alignment.centerLeft, child: button);
+    return SizedBox(
+      width: inCardOrForm ? double.infinity : null,
+      height: 44,
+      child: button,
+    );
   }
 }
 
@@ -961,6 +1074,8 @@ class _MCNDataListState extends State<MCNDataList> {
 
   @override
   Widget build(BuildContext context) {
+    final parentCard = context.findAncestorWidgetOfExactType<MCNCard>();
+    final inCard = parentCard != null;
     final scheme = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     final rows = mcnList(widget.data);
@@ -970,24 +1085,46 @@ class _MCNDataListState extends State<MCNDataList> {
     final filtered = rows.where((r) =>
         (q.isEmpty || cols.any((col) => mcnStr(mcnGet(r, col)).toLowerCase().contains(q))) &&
         _filter.entries.every((f) => f.value == null || mcnStr(mcnGet(r, f.key)) == f.value)).toList();
-    final limit = _shown == 0 ? widget.pageSize : _shown;
+    final limit = _shown == 0 ? (inCard ? 5 : widget.pageSize) : _shown;
     final shown = filtered.take(limit).toList();
     final badgeCols = cols.where((c) => c != titleKey && _badgeColumn.hasMatch(c)).toList();
     final otherCols = cols.where((c) => c != titleKey && !_badgeColumn.hasMatch(c)).toList();
 
     // A table titled like its screen ("Orders" on Orders) doesn't repeat the heading
-    final title = widget.title != null && widget.title != MCNScope.of(context)?.title ? widget.title : null;
+    final title = widget.title != null && widget.title != MCNScope.of(context)?.title && (!inCard || parentCard.title != widget.title) ? widget.title : null;
+    final showSearch = !inCard && (widget.filters.isNotEmpty || rows.length > 6);
+
+    final listContent = Column(children: [
+      if (shown.isEmpty)
+        MCNEmpty(title: rows.isEmpty ? (widget.empty ?? 'Nothing here yet') : 'No matches', icon: rows.isEmpty ? 'inbox' : 'search'),
+      for (var i = 0; i < shown.length; i++) ...[
+        if (i > 0) Divider(height: 1, indent: 72, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        _row(context, shown[i], titleKey, badgeCols, otherCols, cols),
+      ],
+      if (filtered.length > limit)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: TextButton(
+            onPressed: () => setState(() => _shown = limit + widget.pageSize),
+            child: Text('Show more (${filtered.length - limit} left)'),
+          ),
+        ),
+    ]);
+
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (title != null) Text(title, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
       if (widget.description != null) Text(widget.description!, style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
       if (title != null || widget.description != null) const SizedBox(height: 10),
-      SearchBar(
-        hintText: 'Search',
-        leading: const Padding(padding: EdgeInsets.only(left: 4), child: Icon(LucideIcons.search, size: 20)),
-        elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
-        onChanged: (v) => setState(() => _query = v),
-      ),
+      if (showSearch) ...[
+        SearchBar(
+          hintText: 'Search',
+          leading: const Padding(padding: EdgeInsets.only(left: 4), child: Icon(LucideIcons.search, size: 20)),
+          elevation: const WidgetStatePropertyAll(0),
+          backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+          onChanged: (v) => setState(() => _query = v),
+        ),
+        const SizedBox(height: 8),
+      ],
       for (final key in widget.filters.map(mcnStr))
         SizedBox(
           height: 48,
@@ -1000,23 +1137,16 @@ class _MCNDataListState extends State<MCNDataList> {
               )),
           ]),
         ),
-      const SizedBox(height: 8),
-      Card(
-        clipBehavior: Clip.antiAlias,
-        child: Column(children: [
-          if (shown.isEmpty)
-            MCNEmpty(title: rows.isEmpty ? (widget.empty ?? 'Nothing here yet') : 'No matches', icon: rows.isEmpty ? 'inbox' : 'search'),
-          for (var i = 0; i < shown.length; i++) ...[
-            if (i > 0) Divider(height: 1, indent: 72, color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            _row(context, shown[i], titleKey, badgeCols, otherCols, cols),
-          ],
-          if (filtered.length > limit)
-            TextButton(onPressed: () => setState(() => _shown = limit + widget.pageSize),
-                child: Text('Show more (${filtered.length - limit} left)')),
-        ]),
-      ),
-      Padding(padding: const EdgeInsets.only(top: 8, left: 4),
-          child: Text('${filtered.length} of ${rows.length}', style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
+      if (inCard)
+        listContent
+      else
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: listContent,
+        ),
+      if (!inCard && rows.length > 5)
+        Padding(padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text('${filtered.length} of ${rows.length}', style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant))),
     ]);
   }
 
@@ -1252,25 +1382,27 @@ class MCNChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parentCard = context.findAncestorWidgetOfExactType<MCNCard>();
+    final inCard = parentCard != null;
     final rows = mcnList(data);
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     if (rows.isEmpty) {
-      return Card(
-        child: SizedBox(
-          height: height,
-          child: const MCNEmpty(title: 'No chart data yet', icon: 'barchart3'),
-        ),
+      final empty = SizedBox(
+        height: height,
+        child: const MCNEmpty(title: 'No chart data yet', icon: 'barchart3'),
       );
+      return inCard ? empty : Card(child: empty);
     }
     final keys = y.map(mcnStr).toList();
     final round = kind == 'pie' || kind == 'donut';
     final legend = round ? [for (final r in rows) mcnStr(mcnGet(r, x))] : (keys.length > 1 ? keys.map(mcnHumanize).toList() : <String>[]);
+    final showTitle = title != null && title!.isNotEmpty && (!inCard || parentCard.title != title);
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (title != null && title!.isNotEmpty)
+        if (showTitle)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
@@ -1322,6 +1454,9 @@ class MCNChart extends StatelessWidget {
       ],
     );
 
+    if (inCard) {
+      return content;
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

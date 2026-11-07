@@ -18,12 +18,26 @@ function _mobileStatus(text, { spinner = false, button = false } = {}) {
 
 function _mobileShow(url, note) {
   const frame = document.getElementById('mobile-preview-frame')
-  frame.src = url
-  frame.hidden = false
-  document.getElementById('mobile-preview-status').style.display = 'none'
+  if (frame) {
+    frame.src = url
+    frame.hidden = false
+  }
+  const status = document.getElementById('mobile-preview-status')
+  if (status) status.style.display = 'none'
   const noteEl = document.getElementById('mobile-preview-note')
-  noteEl.hidden = !note
-  noteEl.textContent = note || ''
+  if (noteEl) {
+    noteEl.hidden = !note
+    noteEl.textContent = note || ''
+  }
+}
+
+function openMobilePreviewFullscreen() {
+  const frame = document.getElementById('mobile-preview-frame')
+  if (frame && frame.src && frame.src !== 'about:blank' && !frame.hidden) {
+    window.open(frame.src, '_blank')
+  } else {
+    window.open('/preview-mobile/', '_blank')
+  }
 }
 
 // Called when the App view opens (build = false: show what's there) or on App Preview / ↺ (build = true)
