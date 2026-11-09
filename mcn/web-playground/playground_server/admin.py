@@ -16,9 +16,12 @@ from .core import (
     auth_login,
     auth_revoke_role,
     auth_verify_token,
+    ensure_bootstrap_admin,
+    is_hosted,
     jsonify,
     request,
 )
+from . import device_store
 from .community import _COMMUNITY_REG_FILE, _OUTBOX_FILE
 
 bp = Blueprint("admin", __name__)
@@ -26,8 +29,15 @@ bp = Blueprint("admin", __name__)
 _BROADCAST_HISTORY_FILE = Path.home() / ".mcn" / "admin_broadcasts.jsonl"
 
 
+def _local_mode():
+    return (jsonify({"error": "This Studio runs on your own computer and has no users to manage. "
+                              "Admin is on hosted Studio (MCN_STUDIO_MODE=hosted).", "mode": "local"}), 404)
+
+
 def _require_admin():
     """Verify that the request comes from an authenticated user with 'admin' role."""
+    if not is_hosted():
+        return None, _local_mode()
     user = _current_user()
     if not user:
         return None, (jsonify({"error": "Authentication required"}), 401)
@@ -42,6 +52,8 @@ def _require_admin():
 @bp.route("/api/admin/login", methods=["POST"])
 def admin_login():
     """Authenticate an admin user and return a session token."""
+    if not is_hosted():
+        return _local_mode()
     if not _AUTH_AVAILABLE:
         return jsonify({"error": "Authentication system not available"}), 503
     data = request.get_json(silent=True) or {}
@@ -54,6 +66,9 @@ def admin_login():
     try:
         token = auth_login(email, password)
         payload = auth_verify_token(token) or {}
+        if payload.get("sub") and ensure_bootstrap_admin(payload["sub"], payload.get("email", email)):
+            token = auth_login(email, password)
+            payload = auth_verify_token(token) or {}
         roles = payload.get("roles", [])
         if isinstance(roles, str):
             roles = [roles]
@@ -167,9 +182,25 @@ def admin_users():
             "created_at": u.get("created_at"),
             "has_workspace": has_ws,
             "workspace_path": ws_path,
+            # Desktop installs signed in to this account (Studio or `mcn login`)
+            "devices": device_store.sessions_for(u_id) if u_id else [],
         })
 
     return jsonify({"success": True, "users": safe_users})
+
+
+@bp.route("/api/admin/devices/revoke", methods=["POST"])
+def admin_revoke_device():
+    """Sign a user's computer out. Its token stops working on the next request."""
+    user, err = _require_admin()
+    if err:
+        return err
+    sid = (request.get_json(silent=True) or {}).get("sid")
+    if not sid:
+        return jsonify({"error": "sid required"}), 400
+    if not device_store.revoke(sid):
+        return jsonify({"error": "No such session"}), 404
+    return jsonify({"success": True})
 
 
 @bp.route("/api/admin/users/role", methods=["POST"])

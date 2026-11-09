@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in to MCN</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0; --accent:#4f46e5; --danger:#dc2626; --ok:#059669; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b1020; --card:#131a2e; --text:#e2e8f0; --muted:#94a3b8; --border:#24304d; --accent:#818cf8; --danger:#f87171; --ok:#34d399; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+         background:var(--bg); color:var(--text); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .card { width:100%; max-width:400px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:28px; }
+  .logo { width:36px; height:36px; border-radius:9px; background:var(--accent); color:#fff; font-weight:700;
+          display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+  h1 { font-size:19px; margin:0 0 6px; }
+  p { margin:0 0 16px; color:var(--muted); font-size:14px; }
+  label { display:block; font-size:12.5px; font-weight:600; margin:0 0 4px; }
+  input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:transparent;
+          color:var(--text); font-size:14px; margin-bottom:12px; }
+  input.code { font-family:ui-monospace,Menlo,monospace; font-size:22px; letter-spacing:4px; text-align:center; text-transform:uppercase; }
+  button { width:100%; padding:11px; border-radius:8px; border:1px solid transparent; font-size:14px; font-weight:600; cursor:pointer; }
+  .primary { background:var(--accent); color:#fff; }
+  .secondary { background:transparent; color:var(--text); border-color:var(--border); margin-top:8px; }
+  button:disabled { opacity:.6; cursor:default; }
+  .msg { display:none; font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:12px; background:rgba(220,38,38,.1); color:var(--danger); }
+  .who { font-size:12.5px; color:var(--muted); margin-top:16px; text-align:center; }
+  .who a { color:var(--accent); cursor:pointer; }
+  .device { font-weight:700; color:var(--text); }
+  .done { color:var(--ok); }
+  .hidden { display:none; }
+  .tabs { display:flex; gap:4px; margin-bottom:14px; }
+  .tabs button { flex:1; padding:8px; background:transparent; color:var(--muted); border-color:var(--border); font-size:13px; }
+  .tabs button.on { color:var(--accent); border-color:var(--accent); }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="logo">M</div>
+
+  <section id="step-login" class="hidden">
+    <h1>Sign in to MCN</h1>
+    <p>Sign in to approve a computer that wants to use your MCN account.</p>
+    <div class="tabs">
+      <button id="tab-login" class="on" type="button">Sign in</button>
+      <button id="tab-register" type="button">Create account</button>
+    </div>
+    <div class="msg" id="login-msg" role="alert"></div>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" minlength="8" required>
+      <button class="primary" id="login-btn" type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <section id="step-code" class="hidden">
+    <h1>Approve sign-in</h1>
+    <p>Enter the code shown in MCN Studio or your terminal.</p>
+    <div class="msg" id="code-msg" role="alert"></div>
+    <form id="code-form">
+      <label for="code">Sign-in code</label>
+      <input id="code" class="code" autocomplete="off" placeholder="ABCD-EFGH" maxlength="9" required>
+      <button class="primary" type="submit">Continue</button>
+    </form>
+  </section>
+
+  <section id="step-confirm" class="hidden">
+    <h1>Allow this computer?</h1>
+    <p><span class="device" id="device-name"></span> wants to sign in to your MCN account. Only allow it if you started this sign-in yourself.</p>
+    <div class="msg" id="confirm-msg" role="alert"></div>
+    <button class="primary" id="approve-btn" type="button">Allow</button>
+    <button class="secondary" id="deny-btn" type="button">Don't allow</button>
+  </section>
+
+  <section id="step-done" class="hidden">
+    <h1 id="done-title" class="done">You're signed in</h1>
+    <p id="done-text">Go back to MCN Studio or your terminal. You can close this tab.</p>
+  </section>
+
+  <div class="who hidden" id="who">Signed in as <b id="who-email"></b> · <a id="switch">Use another account</a></div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id)
+  let token = localStorage.getItem('mcn_token') || ''
+  let user = null
+  let code = ''
+  let registering = false
+  try { user = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch (e) {}
+
+  function show(step) {
+    for (const s of ['login', 'code', 'confirm', 'done']) $('step-' + s).classList.toggle('hidden', s !== step)
+    $('who').classList.toggle('hidden', !token || step === 'login')
+    if (user) $('who-email').textContent = user.email || ''
+  }
+  function error(id, text) {
+    const el = $(id); el.textContent = text || ''; el.style.display = text ? 'block' : 'none'
+  }
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
+      body: JSON.stringify(body || {}),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 401 && data.needs_login) { signOut(); throw new Error('Please sign in again.') }
+    if (!res.ok) throw new Error(data.error || 'Something went wrong')
+    return data
+  }
+  function signOut() {
+    token = ''; user = null
+    localStorage.removeItem('mcn_token'); localStorage.removeItem('mcn_user')
+    show('login')
+  }
+
+  async function lookup() {
+    error('code-msg', '')
+    try {
+      const d = await api('/api/device/lookup', { user_code: code })
+      $('device-name').textContent = d.client_name
+      show('confirm')
+    } catch (e) {
+      if (!token) return
+      show('code'); $('code').value = code; error('code-msg', e.message)
+    }
+  }
+
+  async function decide(approve) {
+    error('confirm-msg', '')
+    $('approve-btn').disabled = $('deny-btn').disabled = true
+    try {
+      await api('/api/device/approve', { user_code: code, approve })
+      if (!approve) {
+        $('done-title').textContent = 'Sign-in declined'
+        $('done-title').classList.remove('done')
+        $('done-text').textContent = 'The computer was not signed in. You can close this tab.'
+      }
+      show('done')
+    } catch (e) {
+      error('confirm-msg', e.message)
+    } finally {
+      $('approve-btn').disabled = $('deny-btn').disabled = false
+    }
+  }
+
+  function setRegistering(on) {
+    registering = on
+    $('tab-login').classList.toggle('on', !on)
+    $('tab-register').classList.toggle('on', on)
+    $('login-btn').textContent = on ? 'Create account' : 'Sign in'
+    $('password').autocomplete = on ? 'new-password' : 'current-password'
+    error('login-msg', '')
+  }
+
+  $('tab-login').onclick = () => setRegistering(false)
+  $('tab-register').onclick = () => setRegistering(true)
+  $('login-form').onsubmit = async (e) => {
+    e.preventDefault()
+    error('login-msg', '')
+    $('login-btn').disabled = true
+    try {
+      const res = await fetch(registering ? '/api/auth/register' : '/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $('email').value.trim(), password: $('password').value }),
+      })
+      const d = await res.json()
+      if (!res.ok || !d.success) throw new Error(d.error || 'Sign-in failed')
+      token = d.token; user = d.user
+      localStorage.setItem('mcn_token', token); localStorage.setItem('mcn_user', JSON.stringify(user))
+      if (code) { show('code'); await lookup() } else show('code')
+    } catch (err) {
+      error('login-msg', err.message)
+    } finally {
+      $('login-btn').disabled = false
+    }
+  }
+  $('code-form').onsubmit = (e) => {
+    e.preventDefault()
+    code = $('code').value.trim().toUpperCase()
+    lookup()
+  }
+  $('approve-btn').onclick = () => decide(true)
+  $('deny-btn').onclick = () => decide(false)
+  $('switch').onclick = signOut
+
+  code = (new URLSearchParams(location.search).get('code') || '').toUpperCase()
+  $('code').value = code
+  if (!token) show('login')
+  else if (code) { show('code'); lookup() }
+  else show('code')
+})()
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn init <name>` | Create a full-stack project: backend with tests, UI, README, `mcn.json`. Refuses a non-empty folder |
 | `mcn validate [--path .]` | Check every `.mcn` file in a project (skips `frontend/`, `node_modules/`) and that `mcn.json`'s files exist |
 | `mcn studio [folder] [--port 5003] [--host 127.0.0.1]` | Open MCN Studio. With a folder, edits that project; without, Studio's own workspace. Aliases: `playground`, `ide` |
+| `mcn studio --hosted --host 0.0.0.0` | Run a shared, multi-user Studio: everyone signs in, admins manage users at `/admin`. See [accounts](#/guide/accounts) |
 | `mcn vscode` | Install the VS Code extension bundled with this version |
 
 ## Running code
@@ -64,6 +65,16 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn iot service <file> [--serve] [--port]` | Write a systemd unit that starts the app when a Raspberry Pi boots |
 
 See [IoT and hardware](#/guide/iot).
+
+## Account
+
+| Command | What it does |
+|---|---|
+| `mcn login [--url URL] [--no-browser]` | Sign this computer in to your MCN account: shows a code and opens the browser to approve it |
+| `mcn whoami` | Show the signed-in account |
+| `mcn logout` | Sign this computer out, on the account server too |
+
+See [accounts and hosted Studio](#/guide/accounts).
 
 ## Configuration and logs
 

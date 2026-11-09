@@ -1,10 +1,15 @@
 """Accounts, login and auth-guard validation."""
+import re
+
 from flask import Blueprint
 from .core import (
     _AUTH_AVAILABLE,
     _WORKSPACES_DIR,
     _current_user,
     auth_create_user,
+    ensure_bootstrap_admin,
+    is_hosted,
+    signup_allowed,
     auth_get_user,
     auth_login,
     auth_verify_token,
@@ -18,9 +23,34 @@ from .workspace_seed import (
 bp = Blueprint("auth", __name__)
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
+# Accounts only exist on hosted Studio. Installed (local) Studio signs in to the
+# person's MCN account server instead (see account_api.py).
+
+_EMAIL = re.compile(r"^[^@\s<>\"'`]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
+
+
+def _local_mode_error():
+    return jsonify({
+        "error": "This Studio runs on your own computer and has no accounts of its own. "
+                 "Use Sign in to connect your MCN account.",
+        "mode": "local",
+    }), 404
+
+
+def _issue(email: str, password: str):
+    """Sign in, granting admin first if this email is in MCN_ADMIN_EMAILS."""
+    token = auth_login(email, password)
+    payload = auth_verify_token(token) or {}
+    if payload.get("sub") and ensure_bootstrap_admin(payload["sub"], payload.get("email", email)):
+        token = auth_login(email, password)
+        payload = auth_verify_token(token) or {}
+    return token, payload
+
 
 @bp.route("/api/auth/register", methods=["POST"])
 def auth_register():
+    if not is_hosted():
+        return _local_mode_error()
     if not _AUTH_AVAILABLE:
         return jsonify({"error": "Auth not available"}), 503
     data     = request.get_json(silent=True) or {}
@@ -28,13 +58,16 @@ def auth_register():
     password = (data.get("password") or "").strip()
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
+    if not _EMAIL.match(email):
+        return jsonify({"error": "Enter a valid email address"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
+    if not signup_allowed(email):
+        return jsonify({"error": "Sign-up on this Studio is limited to approved email domains. "
+                                 "Ask your admin for access."}), 403
     try:
         user  = auth_create_user(email, password)
-        token = auth_login(email, password)
-        # Decode token to get user id for workspace dir
-        payload = auth_verify_token(token) or {}
+        token, payload = _issue(email, password)
         user_id = payload.get("sub") or user.get("id") or email
         ws = _WORKSPACES_DIR / str(user_id)
         ws.mkdir(parents=True, exist_ok=True)
@@ -47,6 +80,8 @@ def auth_register():
 
 @bp.route("/api/auth/login", methods=["POST"])
 def auth_login_endpoint():
+    if not is_hosted():
+        return _local_mode_error()
     if not _AUTH_AVAILABLE:
         return jsonify({"error": "Auth not available"}), 503
     data     = request.get_json(silent=True) or {}
@@ -55,8 +90,7 @@ def auth_login_endpoint():
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
     try:
-        token   = auth_login(email, password)
-        payload = auth_verify_token(token) or {}
+        token, payload = _issue(email, password)
         user_id = payload.get("sub") or email
         # Ensure workspace exists for returning users
         ws = _WORKSPACES_DIR / str(user_id)

@@ -5,6 +5,10 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Accounts across installs**: installed Studio has no accounts of its own; hosted Studio (`mcn studio --hosted`, `MCN_STUDIO_MODE=hosted`) requires sign-in, gives each person a workspace and is the account server for installed copies
+  - Installed Studio's **Sign In** and `mcn login` / `mcn whoami` / `mcn logout` sign in through the browser with a device code; the token stays in `~/.mcn/credentials.json`
+  - Admins see each user's signed-in computers at `/admin` and can sign them out; `MCN_ADMIN_EMAILS` makes the first admins, `MCN_STUDIO_SIGNUP_DOMAINS` limits sign-up
+  - Admin pages escape user-supplied text, and sign-up checks the email address
 - **MCN UI kit** (`mcn/ui-kit/react`): one component library for exported apps and Studio's preview
   - App frame: collapsible sidebar with groups, mobile drawer, breadcrumb, ⌘K search, notification bell, dark mode, footer
   - `data_table` (search, column filters, sorting, pagination, table/grid/list views, CSV export, row actions), `kanban`

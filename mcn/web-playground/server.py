@@ -71,6 +71,14 @@ def _origin_allowed(origin: str) -> bool:
 CORS(app, origins=[_LOOPBACK_ORIGIN_RE, *_EXTRA_ORIGINS])
 
 
+# Hosted Studio: every API call needs a signed-in user, except these.
+_PUBLIC_API = {
+    "/api/health", "/api/studio/mode",
+    "/api/auth/register", "/api/auth/login", "/api/admin/login",
+    "/api/device/code", "/api/device/token",
+}
+
+
 @app.before_request
 def _guard_request_source():
     # CORS only hides responses; a cross-site "simple" POST still reaches the
@@ -83,6 +91,9 @@ def _guard_request_source():
         host = request.host.rsplit(":", 1)[0] if not request.host.startswith("[") else request.host.split("]")[0] + "]"
         if host not in _LOOPBACK_HOSTS:
             return jsonify({"error": "Host not allowed"}), 403
+    if (core.is_hosted() and request.path.startswith("/api/") and request.method != "OPTIONS"
+            and request.path not in _PUBLIC_API and not core._current_user()):
+        return jsonify({"error": "Sign in to use MCN Studio", "needs_login": True}), 401
 
 @app.after_request
 def _add_no_cache_headers(response):
@@ -112,8 +123,13 @@ if __name__ == "__main__":
     port = args.port
     if args.host not in _LOOPBACK_HOSTS:
         _LOCAL_ONLY = False
-        print(f"WARNING: binding to {args.host} exposes unauthenticated code execution to the network. "
-              "Only do this inside an isolated container or sandbox.")
+        if core.is_hosted():
+            print(f"Hosted mode on {args.host}: everyone must sign in, but signed-in users run code on this "
+                  "machine. Run it inside a container and serve it over HTTPS.")
+        else:
+            print(f"WARNING: binding to {args.host} exposes unauthenticated code execution to the network. "
+                  "Use MCN_STUDIO_MODE=hosted for a shared server, and only inside an isolated container.")
+    print(f"Mode: {core.studio_mode()}")
     print(f"MCN Studio — http://localhost:{port}")
     print(f"Workspace: {app.config['WORKSPACE']}")
     app.run(debug=False, host=args.host, port=port, threaded=True)

@@ -877,8 +877,15 @@ document.getElementById('deploy-modal').addEventListener('click', function(e) {
   if (e.target === this) closeDeployModal()
 })
 
-// ── Auth & User Workspace Profile Management ────────────────────────────────
+// ── Accounts ────────────────────────────────────────────────────────────────
+// Installed Studio ("local") has no accounts of its own: Sign in connects the
+// person's MCN account server through the browser, and the server keeps the
+// token. Hosted Studio requires everyone to sign in here, and each person gets
+// their own workspace.
 
+let _studioMode = 'local'
+let _accountInfo = null          // local: {signed_in, user, account_url, configured}
+let _accountPoll = null          // local: the sign-in being waited on
 let _authToken = localStorage.getItem('mcn_token') || ''
 let _authUser  = null
 let _authMode  = 'login'
@@ -886,13 +893,52 @@ let _authMode  = 'login'
 try { _authUser = JSON.parse(localStorage.getItem('mcn_user') || 'null') } catch(e) {}
 
 function _getAuthHeaders() {
-  return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {}
+  return (_studioMode === 'hosted' && _authToken) ? { 'Authorization': 'Bearer ' + _authToken } : {}
 }
 
-// Thin wrapper — adds auth headers to every API call automatically
+function _isStudioApi(url) {
+  try {
+    const u = new URL(typeof url === 'string' ? url : url.url, location.href)
+    return u.origin === location.origin && u.pathname.startsWith('/api/')
+  } catch (e) { return false }
+}
+
+// Every same-origin API call carries the hosted sign-in, and a "sign in first"
+// answer opens the sign-in dialog.
+const _nativeFetch = window.fetch.bind(window)
+window.fetch = async function (url, opts = {}) {
+  const api = _isStudioApi(url)
+  if (api && _studioMode === 'hosted' && _authToken) {
+    opts = Object.assign({}, opts, { headers: Object.assign({}, opts.headers || {}, _getAuthHeaders()) })
+  }
+  const res = await _nativeFetch(url, opts)
+  if (api && res.status === 401 && _studioMode === 'hosted') {
+    res.clone().json().then(d => { if (d && d.needs_login) _requireHostedSignIn() }).catch(() => {})
+  }
+  return res
+}
+
+// Kept for existing callers; fetch itself now adds the headers
 async function apiFetch(url, opts = {}) {
-  opts.headers = Object.assign({}, opts.headers || {}, _getAuthHeaders())
   return fetch(url, opts)
+}
+
+function _setTokenCookie(token) {
+  // Previews (iframes) and downloads can't send headers; hosted Studio reads this on GET only
+  const secure = location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = token
+    ? `mcn_token=${encodeURIComponent(token)}; Path=/; SameSite=Strict${secure}`
+    : 'mcn_token=; Path=/; Max-Age=0; SameSite=Strict'
+}
+
+function _requireHostedSignIn() {
+  if (_authToken) {
+    // The token expired or was revoked
+    _authToken = ''; _authUser = null
+    localStorage.removeItem('mcn_token'); localStorage.removeItem('mcn_user')
+    _setTokenCookie('')
+  }
+  openAuthModal()
 }
 
 function openAuthModal() {
@@ -903,6 +949,7 @@ function openAuthModal() {
 }
 
 function closeAuthModal() {
+  if (_studioMode === 'hosted' && !_authToken) return;   // hosted Studio needs a sign-in
   const m = document.getElementById('auth-profile-modal');
   if (m) m.classList.add('hidden');
 }
@@ -914,87 +961,199 @@ function setAuthMode(mode) {
   const submitBtn = document.getElementById('btn-auth-submit');
   const msgEl = document.getElementById('auth-modal-msg');
   if (msgEl) msgEl.style.display = 'none';
+  const on = mode === 'login' ? loginTab : regTab
+  const off = mode === 'login' ? regTab : loginTab
+  if (on) { on.style.color = 'var(--accent)'; on.style.borderBottomColor = 'var(--accent)' }
+  if (off) { off.style.color = 'var(--muted)'; off.style.borderBottomColor = 'transparent' }
+  if (submitBtn) submitBtn.textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+}
 
-  if (mode === 'login') {
-    if (loginTab) {
-      loginTab.style.color = 'var(--accent)';
-      loginTab.style.borderBottomColor = 'var(--accent)';
-    }
-    if (regTab) {
-      regTab.style.color = 'var(--muted)';
-      regTab.style.borderBottomColor = 'transparent';
-    }
-    if (submitBtn) submitBtn.textContent = 'Sign In';
-  } else {
-    if (loginTab) {
-      loginTab.style.color = 'var(--muted)';
-      loginTab.style.borderBottomColor = 'transparent';
-    }
-    if (regTab) {
-      regTab.style.color = 'var(--accent)';
-      regTab.style.borderBottomColor = 'var(--accent)';
-    }
-    if (submitBtn) submitBtn.textContent = 'Create Account & Seed Workspace';
-  }
+function _show(id, on, display = 'block') {
+  const el = document.getElementById(id)
+  if (el) el.style.display = on ? display : 'none'
+}
+
+function _setText(id, text) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = text
+}
+
+function _setStatus(text, color) {
+  const el = document.getElementById('status-tenant')
+  if (el) { el.textContent = text; el.style.color = color || 'var(--muted)' }
 }
 
 async function renderAuthModalState() {
-  const profileView = document.getElementById('auth-profile-view');
-  const formView = document.getElementById('auth-form-view');
   const authLabel = document.getElementById('user-auth-label');
-  const statusTenant = document.getElementById('status-tenant');
+  const closeBtn = document.getElementById('auth-modal-close');
 
+  if (_studioMode === 'local') {
+    _show('auth-profile-view', false); _show('auth-form-view', false); _show('auth-device-view', true, 'flex')
+    if (closeBtn) closeBtn.style.display = ''
+    _setText('auth-modal-title', 'Your MCN account')
+    _setText('auth-modal-sub', 'Optional: Studio works fully without signing in')
+    const info = _accountInfo || {}
+    const waiting = !!_accountPoll
+    _show('acct-waiting', waiting)
+    _show('acct-signed-in', !waiting && info.signed_in)
+    _show('acct-signed-out', !waiting && !info.signed_in)
+    if (info.signed_in) {
+      const email = (info.user && info.user.email) || 'MCN account'
+      _setText('acct-email', email)
+      _setText('acct-server', (info.account_url || '').replace(/^https?:\/\//, '') + (info.offline ? ' · offline' : ''))
+      if (authLabel) authLabel.textContent = email.split('@')[0]
+      _setStatus(`Signed in (${email})`, '#10b981')
+    } else {
+      if (authLabel) authLabel.textContent = 'Sign In'
+      _setStatus('Local workspace', 'var(--muted)')
+      const btn = document.getElementById('btn-acct-login')
+      if (btn) btn.disabled = info.configured === false
+      _setText('acct-server-note', info.configured === false
+        ? 'No account server is set. Run: mcn config set account_url https://…'
+        : (info.account_url ? 'Account server: ' + info.account_url.replace(/^https?:\/\//, '') : ''))
+    }
+    return
+  }
+
+  // Hosted Studio
+  _show('auth-device-view', false)
+  _setText('auth-modal-title', 'Sign in to MCN Studio')
   if (_authToken && _authUser) {
-    if (profileView) profileView.style.display = 'block';
-    if (formView) formView.style.display = 'none';
-    const emailEl = document.getElementById('profile-display-email');
-    const wsEl = document.getElementById('profile-display-ws');
-    if (emailEl) emailEl.textContent = _authUser.email || 'Developer';
-    if (wsEl) wsEl.textContent = `~/.mcn/workspaces/${_authUser.id || ''}`;
+    _show('auth-profile-view', true); _show('auth-form-view', false)
+    if (closeBtn) closeBtn.style.display = ''
+    _setText('auth-modal-sub', 'Your workspace on this Studio')
+    _setText('profile-display-email', _authUser.email || 'Developer')
+    _setText('profile-display-ws', `~/.mcn/workspaces/${_authUser.id || ''}`)
     if (authLabel) authLabel.textContent = (_authUser.email || 'Account').split('@')[0];
-    if (statusTenant) {
-      statusTenant.textContent = `Tenant Workspace (${_authUser.email})`;
-      statusTenant.style.color = '#10b981';
-    }
+    _setStatus(`Workspace (${_authUser.email})`, '#10b981')
   } else {
-    if (profileView) profileView.style.display = 'none';
-    if (formView) formView.style.display = 'flex';
+    _show('auth-profile-view', false); _show('auth-form-view', true, 'flex')
+    if (closeBtn) closeBtn.style.display = 'none'
+    _setText('auth-modal-sub', 'Sign in or create an account to open your workspace')
     if (authLabel) authLabel.textContent = 'Sign In';
-    if (statusTenant) {
-      statusTenant.textContent = 'Guest Mode (Temporary Workspace)';
-      statusTenant.style.color = 'var(--muted)';
-    }
+    _setStatus('Not signed in', 'var(--muted)')
   }
 }
 
+// ── Installed Studio: browser sign-in ───────────────────────────────────────
+
+function _accountError(msg) {
+  const el = document.getElementById('acct-msg')
+  if (!el) return
+  el.style.display = msg ? 'block' : 'none'
+  el.textContent = msg || ''
+}
+
+async function refreshAccount(refresh = false) {
+  try {
+    const res = await fetch('/api/account' + (refresh ? '?refresh=1' : ''))
+    if (res.ok) _accountInfo = await res.json()
+    if (_accountInfo && _accountInfo.signed_out_remotely && typeof showToast === 'function') {
+      showToast('This computer was signed out of your MCN account.', 'info')
+    }
+  } catch (e) {}
+  renderAuthModalState()
+}
+
+async function accountStartLogin() {
+  _accountError('')
+  const btn = document.getElementById('btn-acct-login')
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…' }
+  try {
+    const res = await fetch('/api/account/login', { method: 'POST' })
+    const d = await res.json()
+    if (!res.ok) throw new Error(d.error || 'Could not start sign-in')
+    const link = d.verification_uri_complete || d.verification_uri
+    _setText('acct-user-code', d.user_code)
+    const a = document.getElementById('acct-verify-link'); if (a) a.href = link
+    window.open(link, '_blank', 'noopener')
+    _accountPoll = { device_code: d.device_code, until: Date.now() + (d.expires_in || 600) * 1000 }
+    renderAuthModalState()
+    _pollAccount(d.device_code, Math.max(2, d.interval || 3) * 1000)
+  } catch (e) {
+    _accountError(e.message)
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in with your browser' }
+  }
+}
+
+async function _pollAccount(deviceCode, interval) {
+  while (_accountPoll && _accountPoll.device_code === deviceCode) {
+    await new Promise(r => setTimeout(r, interval))
+    if (!_accountPoll || _accountPoll.device_code !== deviceCode) return
+    if (Date.now() > _accountPoll.until) {
+      _accountPoll = null; renderAuthModalState(); _accountError('The sign-in code expired. Try again.'); return
+    }
+    let d = {}
+    try {
+      const res = await fetch('/api/account/poll', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+      d = await res.json()
+    } catch (e) { continue }               // offline for a moment: keep waiting
+    if (d.status === 'pending') continue
+    _accountPoll = null
+    if (d.status === 'approved') {
+      _accountInfo = d
+      renderAuthModalState()
+      if (typeof showToast === 'function') showToast(`Signed in as ${(d.user && d.user.email) || 'your account'}`, 'success')
+    } else {
+      renderAuthModalState()
+      _accountError(d.error || 'Sign-in did not complete.')
+    }
+    return
+  }
+}
+
+function accountCancelLogin() {
+  _accountPoll = null
+  renderAuthModalState()
+}
+
+async function accountLogout() {
+  try { await fetch('/api/account/logout', { method: 'POST' }) } catch (e) {}
+  _accountInfo = Object.assign({}, _accountInfo || {}, { signed_in: false, user: null })
+  renderAuthModalState()
+  if (typeof showToast === 'function') showToast('Signed out of your MCN account on this computer.', 'info')
+}
+
+// ── Hosted Studio: email and password ───────────────────────────────────────
+
+async function _reloadWorkspace() {
+  // Each account has its own workspace: show its files, not the previous ones
+  if (typeof _models !== 'undefined') {
+    for (const model of _models.values()) model.dispose()
+    _models.clear(); _tabState.clear(); _openTabs = []; _active = null
+    if (typeof renderTabs === 'function') renderTabs()
+  }
+  if (typeof loadFileTree === 'function') await loadFileTree()
+  if (typeof openFile === 'function') await openFile('backend/main.mcn')
+  try {
+    const info = await (await fetch('/api/workspace/info')).json()
+    if (info.path) _setText('status-ws', info.path)
+  } catch (e) {}
+}
+
 async function submitUserAuth() {
-  const emailInp = document.getElementById('auth-inp-email');
-  const pwdInp = document.getElementById('auth-inp-pwd');
+  const email = (document.getElementById('auth-inp-email')?.value || '').trim();
+  const password = (document.getElementById('auth-inp-pwd')?.value || '').trim();
   const msgEl = document.getElementById('auth-modal-msg');
   const submitBtn = document.getElementById('btn-auth-submit');
-
-  const email = (emailInp?.value || '').trim();
-  const password = (pwdInp?.value || '').trim();
-
-  if (!email || !password) {
-    if (msgEl) {
-      msgEl.style.display = 'block';
-      msgEl.style.background = '#fef2f2';
-      msgEl.style.color = '#dc2626';
-      msgEl.textContent = 'Please enter both email and password.';
-    }
-    return;
+  const showError = (text) => {
+    if (!msgEl) return
+    msgEl.style.display = 'block'; msgEl.style.background = '#fef2f2'; msgEl.style.color = '#dc2626'
+    msgEl.textContent = text
   }
+
+  if (!email || !password) return showError('Please enter both email and password.');
 
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = _authMode === 'login' ? 'Signing in…' : 'Creating account…';
   }
-
-  const endpoint = _authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(_authMode === 'login' ? '/api/auth/login' : '/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -1006,32 +1165,18 @@ async function submitUserAuth() {
     _authUser = d.user;
     localStorage.setItem('mcn_token', d.token);
     localStorage.setItem('mcn_user', JSON.stringify(d.user));
+    _setTokenCookie(d.token)
 
     renderAuthModalState();
     closeAuthModal();
-
-    // Reload files from newly assigned persistent user workspace
-    if (typeof loadFiles === 'function') {
-      await loadFiles();
-    }
-    if (typeof refreshWorkspaceStatus === 'function') {
-      refreshWorkspaceStatus();
-    }
-
-    if (typeof showToast === 'function') {
-      showToast(`Welcome back, ${d.user.email}! Persistent workspace connected.`, 'success');
-    }
+    await _reloadWorkspace()
+    if (typeof showToast === 'function') showToast(`Signed in as ${d.user.email}`, 'success');
   } catch (err) {
-    if (msgEl) {
-      msgEl.style.display = 'block';
-      msgEl.style.background = '#fef2f2';
-      msgEl.style.color = '#dc2626';
-      msgEl.textContent = err.message;
-    }
+    showError(err.message)
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account & Seed Workspace';
+      submitBtn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account';
     }
   }
 }
@@ -1041,34 +1186,33 @@ async function userLogout() {
   _authUser = null;
   localStorage.removeItem('mcn_token');
   localStorage.removeItem('mcn_user');
-
+  _setTokenCookie('')
   renderAuthModalState();
-  closeAuthModal();
-
-  if (typeof loadFiles === 'function') {
-    await loadFiles();
-  }
-  if (typeof refreshWorkspaceStatus === 'function') {
-    refreshWorkspaceStatus();
-  }
-
-  if (typeof showToast === 'function') {
-    showToast('Signed out. Reverted to temporary guest workspace.', 'info');
-  }
+  openAuthModal();          // hosted Studio can't be used signed out
 }
 
-function switchUserToGuest() {
-  userLogout();
-}
-
-// Global modal dismiss on backdrop click
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const m = document.getElementById('auth-profile-modal');
   if (m) {
     m.addEventListener('click', (e) => {
       if (e.target === m) closeAuthModal();
     });
   }
-  renderAuthModalState();
-});
+  try {
+    const res = await _nativeFetch('/api/studio/mode')
+    if (res.ok) _studioMode = (await res.json()).mode || 'local'
+  } catch (e) {}
 
+  if (_studioMode === 'local') {
+    // Accounts made on an older local Studio aren't used any more
+    localStorage.removeItem('mcn_token'); localStorage.removeItem('mcn_user')
+    _authToken = ''; _authUser = null
+    _setTokenCookie('')
+    renderAuthModalState()
+    refreshAccount(false)
+    return
+  }
+  if (_authToken) _setTokenCookie(_authToken)
+  renderAuthModalState()
+  if (!_authToken) openAuthModal()
+});

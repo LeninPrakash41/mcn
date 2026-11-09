@@ -77,7 +77,7 @@ try:
     from mcn.core_engine.auth_primitives import (
         auth_create_user, auth_login, auth_verify_token,
         auth_get_user, auth_require, auth_list_users,
-        auth_assign_role, auth_revoke_role
+        auth_assign_role, auth_revoke_role, _make_token
     )
     _AUTH_AVAILABLE = True
 except ImportError:
@@ -85,7 +85,7 @@ except ImportError:
         from core_engine.auth_primitives import (  # type: ignore
             auth_create_user, auth_login, auth_verify_token,
             auth_get_user, auth_require, auth_list_users,
-            auth_assign_role, auth_revoke_role
+            auth_assign_role, auth_revoke_role, _make_token
         )
         _AUTH_AVAILABLE = True
     except ImportError:
@@ -100,17 +100,66 @@ def _bearer_token() -> str:
     hdr = request.headers.get("Authorization", "")
     if hdr.startswith("Bearer "):
         return hdr[7:].strip()
+    # Previews (iframes) and downloads can't send a header, so hosted Studio also
+    # sets a SameSite=Strict cookie. It's only read for GET, which changes nothing.
+    if request.method == "GET":
+        return (request.cookies.get("mcn_token") or "").strip()
     return ""
 
 
+# ── Studio mode ───────────────────────────────────────────────────────────────
+# local  (default): Studio installed on someone's own computer. One person, no
+#                   accounts here; they can sign in to their MCN account server.
+# hosted          : Studio on a shared server (MCN_STUDIO_MODE=hosted). Everyone
+#                   signs in, gets their own workspace, and admins manage users.
+#                   This server is also the account server desktop installs sign in to.
+
+def studio_mode() -> str:
+    return "hosted" if os.environ.get("MCN_STUDIO_MODE", "").strip().lower() == "hosted" else "local"
+
+
+def is_hosted() -> bool:
+    return studio_mode() == "hosted"
+
+
+def _env_list(name: str) -> list[str]:
+    return [v.strip().lower() for v in os.environ.get(name, "").split(",") if v.strip()]
+
+
+def signup_allowed(email: str) -> bool:
+    """MCN_STUDIO_SIGNUP_DOMAINS limits who can create an account (e.g. "college.edu,company.com")."""
+    domains = _env_list("MCN_STUDIO_SIGNUP_DOMAINS")
+    email = str(email).strip().lower()
+    return not domains or email.rsplit("@", 1)[-1] in domains or email in _env_list("MCN_ADMIN_EMAILS")
+
+
+def ensure_bootstrap_admin(user_id: str, email: str) -> bool:
+    """Emails listed in MCN_ADMIN_EMAILS get the admin role when they register or sign in.
+    Returns True if the role was just added (the caller should issue a fresh token)."""
+    if not _AUTH_AVAILABLE or str(email).strip().lower() not in _env_list("MCN_ADMIN_EMAILS"):
+        return False
+    user = auth_get_user(user_id) or {}
+    if "admin" in (user.get("roles") or []):
+        return False
+    auth_assign_role(user_id, "admin")
+    return True
+
+
 def _current_user() -> dict | None:
-    """Return decoded token payload for the current request, or None."""
-    if not _AUTH_AVAILABLE:
+    """Return the signed-in user's token payload, or None.
+    Local Studio has no accounts of its own, so it never has a current user."""
+    if not _AUTH_AVAILABLE or not is_hosted():
         return None
     tok = _bearer_token()
     if not tok:
         return None
-    return auth_verify_token(tok)
+    payload = auth_verify_token(tok)
+    if payload and payload.get("sid"):
+        # A desktop sign-in: valid only while its session hasn't been revoked
+        from . import device_store
+        if not device_store.session_active(payload["sid"]):
+            return None
+    return payload
 
 
 def _default_workspace() -> Path:

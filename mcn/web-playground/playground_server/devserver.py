@@ -192,6 +192,8 @@ def mobile_preview_status():
 @bp.route("/preview-mobile/", defaults={"path": "index.html"})
 @bp.route("/preview-mobile/<path:path>")
 def mobile_preview_files(path):
+    if core.is_hosted() and not core._current_user():
+        return jsonify({"error": "Sign in to use MCN Studio", "needs_login": True}), 401
     web = _request_workspace() / "mobile" / "build" / "web"
     if not (web / path).is_file():
         path = "index.html"

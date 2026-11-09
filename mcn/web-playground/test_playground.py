@@ -824,6 +824,7 @@ def test_telemetry_feedback(r):
         r.check(data.get("success") is True, "feedback success is True")
 
 
+@patch.dict(os.environ, {"MCN_STUDIO_MODE": "hosted"})
 def test_auth_registration_and_workspace_isolation(r):
     """Test full account registration and workspace isolation between users."""
     import uuid
@@ -869,6 +870,7 @@ def test_auth_registration_and_workspace_isolation(r):
         r.check(not any(f.get("path") == private_filename for f in list_anon.get("files", [])), "guest isolated from user1")
 
 
+@patch.dict(os.environ, {"MCN_STUDIO_MODE": "hosted"})
 def test_admin_console_flow_and_broadcast(r):
     """Test admin authentication, overview stats, feedback retrieval, and release broadcast."""
     import uuid

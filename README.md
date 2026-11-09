@@ -76,7 +76,7 @@ mcn studio .                      # open it in MCN Studio → http://localhost:5
 
 `mcn upgrade` updates MCN, `mcn add ml` (or `postgres`, `mongodb`, `scheduler`) adds optional features, and `mcn uninstall` removes it. Node.js is only needed to run the generated React app.
 
-**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** gallery (the button in the left bar) has 23 starter apps, searchable by category. Studio only accepts connections from your own machine.
+**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** gallery (the button in the left bar) has 23 starter apps, searchable by category. Studio only accepts connections from your own machine and needs no account; **Sign In** (or `mcn login`) optionally connects your MCN account. `mcn studio --hosted` runs a shared Studio where everyone signs in, each person gets their own workspace, and admins manage users and signed-in computers at `/admin` ([accounts guide](website/docs/pages/guide/accounts.md)).
 
 **Editor support.** `mcn vscode` installs the bundled VS Code extension: highlighting, completions, hover docs, errors underlined as you type, and commands to run, test, serve and open Studio.
 
@@ -849,6 +849,9 @@ mcn config show
 | `MCN_IOT_SIMULATE` | `1` simulate all devices, `0` require hardware, unset: simulate what isn't connected |
 | `MCN_MQTT_URL` | Broker for MQTT devices |
 | `VERCEL_TOKEN` | Lets Studio deploy to Vercel |
+| `MCN_STUDIO_MODE` | `hosted` runs a shared, multi-user Studio |
+| `MCN_ADMIN_EMAILS` | Hosted Studio: emails that become admins |
+| `MCN_ACCOUNT_URL` | The account server `mcn login` and Studio's Sign in use |
 
 ---
 
@@ -858,8 +861,8 @@ mcn config show
 |---|---|---|
 | v2.0–2.3 | Released | Pipelines, services, workflows, AI primitives, test runner, formatter, full-stack compiler, 100+ built-ins, packages |
 | v2.4 | Released | Friendly errors and `mcn check`, `mcn init` projects, `mcn studio <folder>`, VS Code extension with live errors, GET for every endpoint, parallel `task`/`await` |
-| **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel** |
-| v3.0 | Planned | Hosted Studio, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
+| **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel**; **hosted Studio with accounts**, admin and `mcn login` |
+| v3.0 | Planned | Per-user sandboxes for hosted Studio, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
 
 ---
 

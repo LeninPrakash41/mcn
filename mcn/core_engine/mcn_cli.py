@@ -937,6 +937,15 @@ def main():
     playground_parser.add_argument("dir", nargs="?", help="Project folder to open (default: Studio's own workspace in ~/.mcn/playground)")
     playground_parser.add_argument("--port", type=int, default=5003, help="Port to listen on (default: 5003)")
     playground_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1, this machine only)")
+    playground_parser.add_argument("--hosted", action="store_true",
+                                   help="Run as a shared, multi-user Studio: everyone signs in, admins manage users")
+
+    # Account (sign in to an MCN account server from this computer)
+    login_parser = subparsers.add_parser("login", help="Sign in to your MCN account from this computer")
+    login_parser.add_argument("--url", help="Account server (default: account_url from `mcn config`, or MCN_ACCOUNT_URL)")
+    login_parser.add_argument("--no-browser", action="store_true", help="Print the link instead of opening the browser")
+    subparsers.add_parser("logout", help="Sign this computer out of your MCN account")
+    subparsers.add_parser("whoami", help="Show which MCN account this computer is signed in to")
 
     subparsers.add_parser("vscode", help="Install the MCN extension into VS Code")
     add_parser = subparsers.add_parser("add", help="Add an optional feature (run `mcn add` to list them)")
@@ -1040,6 +1049,8 @@ def main():
         env = os.environ.copy()
         env["MCN_PLAYGROUND_PORT"] = str(args.port)
         env["MCN_PLAYGROUND_HOST"] = args.host
+        if args.hosted:
+            env["MCN_STUDIO_MODE"] = "hosted"
         if args.dir:
             project = Path(args.dir).resolve()
             if not project.is_dir():
@@ -1050,6 +1061,30 @@ def main():
             return subprocess.call([sys.executable, str(playground_server)], env=env)
         except KeyboardInterrupt:
             return 0
+
+    elif args.command in ("login", "logout", "whoami"):
+        from . import account
+        try:
+            if args.command == "login":
+                result = account.login_interactive(args.url, open_browser=not args.no_browser)
+                print(f"Signed in as {result['user'].get('email', '')} on {result['account_url']}")
+            elif args.command == "logout":
+                result = account.logout()
+                print("Signed out." if "revoked_on_server" in result else "This computer wasn't signed in.")
+            else:
+                info = account.status(refresh=True)
+                if not info["signed_in"]:
+                    print("Not signed in. Run `mcn login`.")
+                    return 1
+                note = " (offline: last known account)" if info.get("offline") else ""
+                print(f"{info['user'].get('email', '')} on {info['account_url']}{note}")
+        except account.AccountError as e:
+            print(f"error: {e}")
+            return 1
+        except KeyboardInterrupt:
+            print("\nCancelled.")
+            return 1
+        return 0
 
     elif args.command == "vscode":
         return install_vscode_extension()

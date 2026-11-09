@@ -305,12 +305,12 @@
 
       <div class="form-group">
         <label class="form-label">Email Address</label>
-        <input class="form-input" type="email" id="inp-email" placeholder="admin@mcn.dev" value="admin@mcn.dev" />
+        <input class="form-input" type="email" id="inp-email" placeholder="you@company.com" autocomplete="email" />
       </div>
 
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input class="form-input" type="password" id="inp-password" placeholder="••••••••" />
+        <input class="form-input" type="password" id="inp-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if (event.key === 'Enter') submitLogin()" />
       </div>
 
       <button class="btn btn-primary" id="btn-submit-login" onclick="submitLogin()" style="width: 100%; padding: 12px; margin-top: 6px;">
@@ -318,7 +318,7 @@
       </button>
 
       <div style="font-size: 12px; color: var(--muted); margin-top: 18px; text-align: center;">
-        Default system admin: <code>admin@mcn.dev</code> / <code>Admin123!</code>
+        Accounts listed in <code>MCN_ADMIN_EMAILS</code> become admins when they sign in. Other admins can promote users here.
       </div>
     </div>
   </div>
@@ -383,7 +383,7 @@
                 <th>Email</th>
                 <th>Role</th>
                 <th>Created At</th>
-                <th>Tenant Workspace Directory</th>
+                <th>Signed-in computers</th>
                 <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
@@ -572,6 +572,19 @@
       }
     }
 
+    function _esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function _ago(ts) {
+      if (!ts) return '—';
+      const s = Math.max(0, Date.now() / 1000 - ts);
+      if (s < 120) return 'just now';
+      if (s < 3600) return Math.round(s / 60) + ' min ago';
+      if (s < 86400) return Math.round(s / 3600) + ' h ago';
+      return Math.round(s / 86400) + ' d ago';
+    }
+
     async function loadUsers() {
       const tbody = document.getElementById('users-tbody');
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--muted);">Loading users…</td></tr>';
@@ -579,29 +592,42 @@
       try {
         const res = await fetch('/api/admin/users', { headers: _headers() });
         const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to fetch users');
         const users = d.users || [];
+        if (!users.length) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--muted);">No users yet.</td></tr>';
+          return;
+        }
 
         tbody.innerHTML = users.map(u => {
           const isAdmin = (u.roles || []).includes('admin');
-          const roleLabel = isAdmin ? 'admin' : 'user';
-          const actionText = isAdmin ? 'Revoke Admin' : 'Make Admin';
-          const actionType = isAdmin ? 'revoke' : 'assign';
+          const devices = (u.devices || []).map(dv => `
+            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:2px 0;">
+              <span style="font-size:12px;">${_esc(dv.client_name)} <span style="color:var(--muted);">· ${_ago(dv.last_seen)}</span></span>
+              <button class="btn btn-secondary" style="font-size:11px;padding:2px 8px;" data-sid="${_esc(dv.sid)}" onclick="revokeDevice(this.dataset.sid)">Sign out</button>
+            </div>`).join('') || '<span style="color:var(--muted);font-size:12px;">None</span>';
 
           return `
             <tr>
-              <td style="font-weight:600;">${u.email}</td>
-              <td><span class="badge-pill ${isAdmin ? 'badge-admin' : 'badge-user'}">${roleLabel}</span></td>
+              <td style="font-weight:600;">${_esc(u.email)}</td>
+              <td><span class="badge-pill ${isAdmin ? 'badge-admin' : 'badge-user'}">${isAdmin ? 'admin' : 'user'}</span></td>
               <td style="color:var(--muted);">${u.created_at ? new Date(u.created_at * 1000).toLocaleDateString() : '—'}</td>
-              <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">${u.workspace_path}</td>
+              <td>${devices}</td>
               <td style="text-align:right;">
-                <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px;" onclick="toggleRole('${u.id}', '${actionType}')">${actionText}</button>
+                <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px;" data-id="${_esc(u.id)}" data-action="${isAdmin ? 'revoke' : 'assign'}" onclick="toggleRole(this.dataset.id, this.dataset.action)">${isAdmin ? 'Revoke Admin' : 'Make Admin'}</button>
               </td>
             </tr>
           `;
         }).join('');
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger);padding:16px;">Failed to load users: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger);padding:16px;">Failed to load users: ${_esc(e.message)}</td></tr>`;
       }
+    }
+
+    async function revokeDevice(sid) {
+      if (!confirm('Sign this computer out? It will need to sign in again.')) return;
+      await fetch('/api/admin/devices/revoke', { method: 'POST', headers: _headers(), body: JSON.stringify({ sid }) });
+      loadUsers();
     }
 
     async function toggleRole(userId, action) {
@@ -635,18 +661,18 @@
         container.innerHTML = items.map(fb => `
           <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-              <span style="font-weight:700;font-size:14px;">${fb.subject || 'Submission'}</span>
-              <span class="badge-pill badge-user">${fb.feedback_type || 'feedback'}</span>
+              <span style="font-weight:700;font-size:14px;">${_esc(fb.subject || 'Submission')}</span>
+              <span class="badge-pill badge-user">${_esc(fb.feedback_type || 'feedback')}</span>
             </div>
-            <div style="font-size:13px;line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${fb.message}</div>
+            <div style="font-size:13px;line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${_esc(fb.message)}</div>
             <div style="font-size:11.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;">
-              <span>Submitted by: <b>${fb.email || 'Anonymous'}</b></span>
+              <span>Submitted by: <b>${_esc(fb.email || 'Anonymous')}</b></span>
               <span>${fb.created_at ? new Date(fb.created_at).toLocaleString() : ''}</span>
             </div>
           </div>
         `).join('');
       } catch (e) {
-        container.innerHTML = `<div style="color:var(--danger);padding:16px;">Error: ${e.message}</div>`;
+        container.innerHTML = `<div style="color:var(--danger);padding:16px;">Error: ${_esc(e.message)}</div>`;
       }
     }
 
@@ -665,11 +691,11 @@
         el.innerHTML = bcs.map(b => `
           <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;">
-              <span>${b.title}</span>
-              <span style="color:#10b981;font-size:11.5px;">Dispatched (${b.recipients_count} recipients)</span>
+              <span>${_esc(b.title)}</span>
+              <span style="color:#10b981;font-size:11.5px;">Dispatched (${_esc(b.recipients_count)} recipients)</span>
             </div>
-            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${b.content}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">${new Date(b.created_at).toLocaleString()} by ${b.sent_by}</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${_esc(b.content)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">${new Date(b.created_at).toLocaleString()} by ${_esc(b.sent_by)}</div>
           </div>
         `).join('');
       } catch (e) {}
