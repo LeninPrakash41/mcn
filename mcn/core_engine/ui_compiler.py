@@ -51,19 +51,19 @@ _KIT_TAGS = {"bar_chart", "line_chart", "area_chart", "pie_chart", "donut_chart"
 
 # Attributes that name an endpoint or handler: attr → (prop, TS parameters, endpoint payload)
 _KIT_ACTIONS: Dict[str, Dict[str, Tuple[str, str, str]]] = {
-    "chat":        {"endpoint": ("onSend", "message: string, history: any[]", "{ message, history }"),
-                    "on_send":  ("onSend", "message: string, history: any[]", "{ message, history }")},
-    "agent_builder": {"on_save":   ("onSave",   "agent: any", "{ agent }"),
-                      "on_test":   ("onTest",   "agent: any, message: string, history: any[]", "{ agent, message, history }"),
-                      "on_delete": ("onDelete", "agent: any", "{ id: agent.id, agent }")},
-    "workflow_builder": {"on_save": ("onSave", "workflow: any", "{ workflow }"),
-                         "on_run":  ("onRun",  "workflow: any", "{ workflow }")},
+    "chat":        {"endpoint": ("onSend", "message: string, history: { role: string; content: string }[]", "{ message, history }"),
+                    "on_send":  ("onSend", "message: string, history: { role: string; content: string }[]", "{ message, history }")},
+    "agent_builder": {"on_save":   ("onSave",   "agent: Row", "{ agent }"),
+                      "on_test":   ("onTest",   "agent: Row, message: string, history: { role: string; content: string }[]", "{ agent, message, history }"),
+                      "on_delete": ("onDelete", "agent: Row", "{ id: agent.id, agent }")},
+    "workflow_builder": {"on_save": ("onSave", "workflow: Row", "{ workflow }"),
+                         "on_run":  ("onRun",  "workflow: Row", "{ workflow }")},
     "data_table":  {"on_add":    ("onAdd",      "", "{}"),
-                    "on_edit":   ("onEdit",     "row: any", "{ id: row.id, row }"),
-                    "on_delete": ("onDelete",   "row: any", "{ id: row.id, row }"),
-                    "on_row":    ("onRowClick", "row: any", "{ id: row.id, row }")},
-    "kanban":      {"on_move":   ("onMove",      "item: any, to: string", "{ id: item.id, GROUP: to, item }"),
-                    "on_click":  ("onCardClick", "item: any", "{ id: item.id, item }")},
+                    "on_edit":   ("onEdit",     "row: Row", "{ id: row.id, row }"),
+                    "on_delete": ("onDelete",   "row: Row", "{ id: row.id, row }"),
+                    "on_row":    ("onRowClick", "row: Row", "{ id: row.id, row }")},
+    "kanban":      {"on_move":   ("onMove",      "item: Row, to: string", "{ id: item.id, GROUP: to, item }"),
+                    "on_click":  ("onCardClick", "item: Row", "{ id: item.id, item }")},
 }
 _KIT_ACTIONS["chat_widget"] = _KIT_ACTIONS["chat"]
 
@@ -124,8 +124,6 @@ _SHADCN: Dict[str, Tuple[List[str], str, str]] = {
     "chat_widget":  (["ChatWidget"],                   "chat",             "ChatWidget"),
     "agent_builder":    (["AgentBuilder"],             "agent-builder",    "AgentBuilder"),
     "workflow_builder": (["WorkflowBuilder"],          "workflow-builder", "WorkflowBuilder"),
-    # Stat card (plain div-based, no shadcn package)
-    "stat_card":   (["Card", "CardContent"],           "card",     "Card"),
     # New components
     "checkbox":      (["Checkbox"],                     "checkbox",      "Checkbox"),
     "switch":        (["Switch"],                       "switch",        "Switch"),
@@ -226,6 +224,345 @@ def _camel(name: str) -> str:
     return parts[0] + "".join(w.capitalize() for w in parts[1:])
 
 
+def prettier_json(data, indent: int = 0, width: int = 120) -> str:
+    """JSON laid out like Prettier: objects one key per line, short arrays on one line."""
+    pad = " " * indent
+    if isinstance(data, dict):
+        if not data:
+            return "{}"
+        items = [f'{pad}  {json.dumps(k)}: {prettier_json(v, indent + 2, width)}' for k, v in data.items()]
+        return "{\n" + ",\n".join(items) + f"\n{pad}}}"
+    if isinstance(data, list):
+        inline = "[" + ", ".join(prettier_json(v, indent, width) for v in data) + "]"
+        if "\n" not in inline and len(pad) + len(inline) + 20 <= width:
+            return inline
+        return "[\n" + ",\n".join(f"{pad}  {prettier_json(v, indent + 2, width)}" for v in data) + f"\n{pad}]"
+    return json.dumps(data)
+
+
+def _ts_object(pairs: List[str]) -> str:
+    """{ a, b: 1 }: a key with a same-named value uses the shorthand."""
+    tidy = [p.split(": ", 1)[0] if re.match(r"^(\w+): \1$", p) else p for p in pairs]
+    return "{ " + ", ".join(tidy) + " }" if tidy else "{}"
+
+
+def _unwrap_parens(ts: str) -> str:
+    """((a > 0)) → a > 0 when the parentheses wrap the whole expression."""
+    while ts.startswith("(") and _balanced_end(ts, 0) == len(ts):
+        ts = ts[1:-1]
+    return ts
+
+
+_JSX_TIDY = [
+    (re.compile(r"<(\w+(?:\.\w+)?) >"), r"<\1>"),                                   # <Card > → <Card>
+    (re.compile(r'(\s\w+)=\{"([^"\\{}<>]*)"\}'), r'\1="\2"'),                       # x={"a"} → x="a"
+    (re.compile(r'>\{"([^"\\{}<>]*[^"\\{}<>\s])"\}<'), r">\1<"),                    # >{"Text"}< → >Text<
+]
+
+
+def tidy_jsx(line: str) -> str:
+    for pattern, repl in _JSX_TIDY:
+        line = pattern.sub(repl, line)
+    return line
+
+
+def endpoint_tables_from_backend(path) -> Dict[str, str]:
+    """Endpoint name → table, for endpoints that return a table's rows unchanged
+    (SELECT * FROM table, no joins or JSON parsing), so their rows can be typed."""
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, TypeError):
+        return {}
+    found: Dict[str, str] = {}
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s*)endpoint\s+(\w+)\s*\(", line)
+        if not m:
+            continue
+        indent, body = len(m.group(1)), []
+        for nxt in lines[i + 1:]:
+            if nxt.strip() and len(nxt) - len(nxt.lstrip()) <= indent:
+                break
+            body.append(nxt)
+        code = "\n".join(body)
+        tables = set(re.findall(r"SELECT\s+\*\s+FROM\s+(\w+)", code, re.I))
+        if len(tables) == 1 and not re.search(r"\bJOIN\b|json_parse|\bmap\(|\bfor\b", code, re.I):
+            found[m.group(2)] = tables.pop()
+    return found
+
+
+def _split_props(text: str) -> List[str]:
+    """JSX props split at top-level spaces (not inside {}, (), [] or quotes)."""
+    props, cur, depth, quote = [], "", 0, ""
+    for ch in text:
+        if quote:
+            cur += ch
+            if ch == quote:
+                quote = ""
+            continue
+        if ch in "\"'`":
+            quote = ch
+        elif ch in "{([":
+            depth += 1
+        elif ch in "})]":
+            depth -= 1
+        if ch == " " and depth == 0:
+            if cur:
+                props.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur:
+        props.append(cur)
+    return props
+
+
+def wrap_jsx(line: str, width: int = 120) -> List[str]:
+    """A tag too long for one line, with one prop per line (as Prettier writes it)."""
+    if len(line) <= width:
+        return [line]
+    m = re.match(r"^(\s*)<([A-Za-z][\w.]*) (.+?)\s*(/?>)$", line)
+    if not m or "<" in m.group(3).replace("=>", ""):
+        return [line]
+    pad, tag, rest, close = m.groups()
+    props = _split_props(rest)
+    if len(props) < 2 or not all(re.match(r"^[\w-]+(=|$)", p) for p in props):
+        return [line]
+    out = [f"{pad}<{tag}"]
+    for prop in props:
+        line = f"{pad}  {prop}"
+        arrow = re.match(r"^([\w-]+=\{(?:async )?\([^()]*\) =>) (.+)\}$", prop)
+        if len(line) > width and arrow:
+            # A long callback breaks after the arrow, as Prettier writes it
+            out += [f"{pad}  {arrow.group(1)}", f"{pad}    {arrow.group(2)}", f"{pad}  }}"]
+        else:
+            out.append(line)
+    return out + [f"{pad}{close}"]
+
+
+def _reassigned(stmts, name: str) -> bool:
+    """Whether a later statement (in nested blocks too) assigns to name again."""
+    for st in stmts or []:
+        if isinstance(st, (ast.AssignStmt, getattr(ast, "CompoundAssignStmt", ast.AssignStmt))) and st.name == name:
+            return True
+        if any(_reassigned(getattr(st, a, None), name) for a in ("then_body", "else_body", "body")):
+            return True
+    return False
+
+
+def code_only(code: str, jsx: bool = False) -> str:
+    """Code with the text of string literals removed; ${...} parts of template literals are kept.
+    For JSX only double-quoted strings are removed: text between tags isn't quoted."""
+    out, i, n = [], 0, len(code)
+    quotes = '"' if jsx else "\"'`"
+    while i < n:
+        ch = code[i]
+        if ch not in quotes:
+            out.append(ch)
+            i += 1
+            continue
+        quote, i = ch, i + 1
+        out.append(quote)
+        while i < n and code[i] != quote:
+            if code[i] == "\\":
+                i += 2
+                continue
+            if quote == "`" and code.startswith("${", i):
+                # Keep the expression, up to its matching brace
+                depth, j = 1, i + 2
+                while j < n and depth:
+                    depth += (code[j] == "{") - (code[j] == "}")
+                    j += 1
+                out.append(" " + code_only(code[i + 2:j - 1]) + " ")
+                i = j
+                continue
+            if quote != "`" and code[i] == "\n":
+                break                   # unterminated: stop at the line end
+            i += 1
+        out.append(quote)
+        i += 1
+    return "".join(out)
+
+
+def _uses(code: str, name: str, stripped: bool = False) -> bool:
+    """Whether code reads name (outside string text). stripped: code_only() was already applied."""
+    # Not an object key (`name: 1`) or a JSX prop name (`name={...}`)
+    pattern = rf"(?<![\w$.]){re.escape(name)}(?![\w$]|:|=[{{\"])"
+    return re.search(pattern, code if stripped else code_only(code)) is not None
+
+
+def _prune_component(imports: List[str], icon_binding: List[str], hooks: List[str],
+                     handlers: List[str], jsx_lines: List[str], type_defs: List[str]):
+    """Drop what the component never uses (lint-clean output): unused state, setters,
+    hook dependencies, imports and icons."""
+    # Hook dependencies the callback doesn't read
+    def prune_deps(handler: str) -> str:
+        m = re.search(r"\}, \[([^\]]*)\]\)\s*$", handler)
+        if not m:
+            return handler
+        body = handler[:m.start()]
+        deps = [d.strip() for d in m.group(1).split(",") if d.strip() and _uses(body, d.strip())]
+        return handler[:m.start()] + "}, [" + ", ".join(deps) + "])" + handler[m.end():]
+    handlers = [prune_deps(h) for h in handlers]
+
+    # State whose value or setter is never used
+    jsx_code = code_only("\n".join(jsx_lines), jsx=True)
+    handlers_code = code_only("\n".join(handlers))
+    kept = []
+    for i, line in enumerate(hooks):
+        m = re.match(r"^(\s*)const \[(\w+), (\w+)\] = (useState.*)$", line)
+        if not m:
+            kept.append(line)
+            continue
+        others = "\n".join([code_only("\n".join(hooks[:i] + hooks[i + 1:])), handlers_code, jsx_code])
+        pad, name, setter, rest = m.groups()
+        used_value, used_setter = _uses(others, name, True), _uses(others, setter, True)
+        if not used_value and not used_setter:
+            continue
+        if not used_setter:
+            kept.append(f"{pad}const [{name}] = {rest}")
+        elif not used_value:
+            kept.append(f"{pad}const [, {setter}] = {rest}")
+        else:
+            kept.append(line)
+    hooks = kept
+
+    body = "\n".join([code_only("\n".join(hooks + handlers + type_defs)), jsx_code])
+    # Icons the render never shows
+    if icon_binding:
+        m = re.match(r"const \{ (.*) \} = icons", icon_binding[0])
+        names = [n for n in m.group(1).split(", ") if _uses(body, n, True)] if m else []
+        icon_binding = [f"const {{ {', '.join(names)} }} = icons", ""] if names else []
+    body_with_icons = body + "\n".join(icon_binding)
+    # Imports nothing uses
+    out = []
+    for line in imports:
+        m = re.match(r'^import (type )?\{\s*([^}]+)\s*\} from (.+)$', line)
+        if not m or line.startswith('import React'):
+            out.append(line)
+            continue
+        names = [n.strip() for n in m.group(2).split(",") if n.strip()]
+        keep = [n for n in names if _uses(body_with_icons, n.split(" as ")[-1].replace("type ", "").strip(), True)]
+        if keep:
+            out.append(f"import {m.group(1) or ''}{{ {', '.join(keep)} }} from {m.group(3)}")
+    react = re.match(r'^import (React, )?\{ ([^}]+) \} from "react"$', out[0]) if out else None
+    if react:
+        hooks_used = [h for h in react.group(2).split(", ") if _uses(body, h, True)]
+        default = "React, " if react.group(1) else ""
+        out[0] = f'import {default}{{ {", ".join(hooks_used)} }} from "react"' if hooks_used else \
+            ('import React from "react"' if default else "")
+        out = [ln for ln in out if ln]
+    return out, icon_binding, hooks, handlers
+
+
+def _jsx_prop(name: str, ts: str) -> str:
+    """name="text" for a plain string literal, name={expr} otherwise."""
+    if len(ts) >= 2 and ts[0] == ts[-1] == '"' and "\\" not in ts and '"' not in ts[1:-1] \
+            and "{" not in ts and "<" not in ts:
+        return f"{name}={ts}"
+    return f"{name}={{{ts}}}"
+
+
+def _singular(word: str) -> str:
+    if word.endswith("ies") and len(word) > 3:
+        return word[:-3] + "y"
+    if word.endswith("sses"):
+        return word[:-2]
+    if word.endswith("s") and not word.endswith("ss") and len(word) > 1:
+        return word[:-1]
+    return word
+
+
+def _balanced_end(text: str, open_idx: int) -> int:
+    """Index just past the ")" matching the "(" at open_idx (quotes respected); -1 if unbalanced."""
+    depth, quote, i = 0, "", open_idx
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'`":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return -1
+
+
+def split_await(text: str, marker: str) -> Optional[Tuple[str, str, str]]:
+    """For text holding exactly one "(await <marker>...)", return (before, call, after).
+    Used to run independent backend calls together."""
+    if text.count("await ") != 1:
+        return None
+    start = text.find("(await " + marker)
+    if start < 0:
+        return None
+    end = _balanced_end(text, start)
+    if end < 0:
+        return None
+    return text[:start], text[start + len("(await "):end - 1], text[end:]
+
+
+def names_in(node) -> Set[str]:
+    """Every variable name an expression reads."""
+    found: Set[str] = set()
+    stack = [node]
+    while stack:
+        n = stack.pop()
+        if isinstance(n, ast.Variable):
+            found.add(n.name)
+        if isinstance(n, (list, tuple)):
+            stack.extend(n)
+        elif hasattr(n, "__dict__"):
+            stack.extend(v for v in vars(n).values() if isinstance(v, (list, tuple)) or hasattr(v, "__dict__"))
+    return found
+
+
+_SQL_NUMBER = ("INT", "REAL", "FLOA", "DOUB", "NUMERIC", "DECIMAL")
+
+
+def tables_from_backend(path) -> Dict[str, Dict[str, str]]:
+    """Table name → {column: TypeScript type}, read from CREATE TABLE statements in a backend file."""
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, TypeError):
+        return {}
+    tables: Dict[str, Dict[str, str]] = {}
+    for m in re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[\"`]?(\w+)[\"`]?\s*\(", text, re.I):
+        end = _balanced_end(text, m.end() - 1)
+        if end < 0:
+            continue
+        body, depth, parts, cur = text[m.end():end - 1], 0, [], ""
+        for ch in body:
+            depth += (ch == "(") - (ch == ")")
+            if ch == "," and depth == 0:
+                parts.append(cur); cur = ""
+            else:
+                cur += ch
+        parts.append(cur)
+        cols: Dict[str, str] = {}
+        for part in parts:
+            words = part.strip().split()
+            if len(words) < 1 or words[0].upper() in ("PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "CONSTRAINT"):
+                continue
+            name = words[0].strip('"`')
+            sql_type = words[1].upper() if len(words) > 1 else ""
+            if not re.match(r"^[A-Za-z_]\w*$", name):
+                continue
+            cols[name] = ("number" if any(t in sql_type for t in _SQL_NUMBER)
+                          else "boolean" if "BOOL" in sql_type else "string")
+        if cols:
+            tables[m.group(1)] = cols
+    return tables
+
+
 # MCN built-ins that run in the browser instead of becoming backend API calls
 _TS_BUILTINS = {
     "str":   lambda a: f"String({a[0] if a else ''})",
@@ -292,6 +629,8 @@ def _expr_to_ts(expr: Optional[ast.Expr],
             # Strip surrounding quotes from string literals so they merge cleanly
             def _unwrap(ts: str) -> str:
                 if ts.startswith('"') and ts.endswith('"'):
+                    return ts[1:-1].replace("`", "\\`").replace("${", "\\${")
+                if ts.startswith("`") and ts.endswith("`") and ts.count("`") == 2:
                     return ts[1:-1]
                 return f"${{{ts}}}"
             return f"`{_unwrap(left)}{_unwrap(right)}`"
@@ -325,7 +664,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
             if params is not None:
                 for name, a in zip(params, expr.arguments):
                     pairs.append(f"{name}: {_expr_to_ts(a, lv)}")
-                return f"(await api.post('/{fn}', {{{', '.join(pairs)}}}))"
+                return f"(await api.post(\"/{fn}\", {_ts_object(pairs)}))"
             for i, a in enumerate(expr.arguments):
                 if isinstance(a, ast.Variable):
                     key = a.name[5:] if a.name.startswith("edit_") else a.name
@@ -336,8 +675,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
                 else:
                     # Fallback: if it's a literal or complex expr, use a generic key
                     pairs.append(f"arg{i}: {_expr_to_ts(a, lv)}")
-            body = "{" + ", ".join(pairs) + "}"
-            return f"(await api.post('/{fn}', {body}))"
+            return f"(await api.post(\"/{fn}\", {_ts_object(pairs)}))"
         return '""'
     if isinstance(expr, ast.Array):
         return "[" + ", ".join(_expr_to_ts(e, lv) for e in expr.elements) + "]"
@@ -351,7 +689,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
             else:
                 key_str = f"[{_expr_to_ts(k, lv)}]"
             props.append(f"{key_str}: {_expr_to_ts(v, lv)}")
-        return f"{{{', '.join(props)}}}"
+        return _ts_object(props)
     return '""'
 
 
@@ -400,9 +738,14 @@ class UICompiler:
         compiler.compile(evaluator)   # evaluator has .components and .app_decl
     """
 
-    def __init__(self, output_dir: Path, endpoints: Optional[Dict[str, List[str]]] = None):
-        """endpoints: backend endpoint name → parameter names, if known."""
+    def __init__(self, output_dir: Path, endpoints: Optional[Dict[str, List[str]]] = None,
+                 tables: Optional[Dict[str, Dict[str, str]]] = None):
+        """endpoints: backend endpoint name → parameter names, if known.
+        tables: table name → column types (default: read from ../backend/main.mcn)."""
         self.out              = Path(output_dir)
+        backend = self.out.parent / "backend" / "main.mcn"
+        self.tables = tables if tables is not None else tables_from_backend(backend)
+        self.endpoint_tables = endpoint_tables_from_backend(backend) if tables is None else {}
         _ENDPOINT_PARAMS.clear()
         _ENDPOINT_PARAMS.update(endpoints or {})
         self._shadcn_needed: Set[str] = set()   # shadcn package slugs to install
@@ -440,6 +783,25 @@ class UICompiler:
             path.write_text(self._compile_component(comp))
             written.append(path)
             print(f"  write  {path.relative_to(self.out.parent)}")
+
+        # Types, lint, format and test setup
+        (src / "test").mkdir(parents=True, exist_ok=True)
+        support = {
+            src / "types.ts": self._gen_types_ts(),
+            src / "vite-env.d.ts": self._gen_vite_env(),
+            src / "test" / "setup.ts": self._TEST_SETUP,
+            self.out / "eslint.config.js": self._ESLINT_CONFIG,
+            self.out / ".prettierrc": self._PRETTIER_CONFIG,
+            # Machine-generated files are left as they are
+            self.out / ".prettierignore": "dist\nnode_modules\nsrc/preview.css\nsrc/components/ui/icons-data.ts\n",
+        }
+        for path, text in support.items():
+            path.write_text(text)
+            written.append(path)
+        if components:
+            test_path = src / "test" / "screens.test.tsx"
+            test_path.write_text(self._gen_screens_test(components))
+            written.append(test_path)
 
         # 2. Generate API service layer
         api_path = src / "services" / "api.ts"
@@ -503,7 +865,7 @@ class UICompiler:
 
         # 11. tsconfig.node.json
         tsconfig_node = self.out / "tsconfig.node.json"
-        tsconfig_node.write_text(json.dumps({
+        tsconfig_node.write_text(prettier_json({
             "compilerOptions": {
                 "composite":        True,
                 "skipLibCheck":     True,
@@ -512,7 +874,7 @@ class UICompiler:
                 "allowSyntheticDefaultImports": True,
             },
             "include": ["vite.config.ts", "tailwind.config.ts"],
-        }, indent=2))
+        }) + "\n")
         written.append(tsconfig_node)
         print(f"  write  {tsconfig_node.relative_to(self.out.parent)}")
 
@@ -523,14 +885,143 @@ class UICompiler:
         written.append(index_html)
         print(f"  write  {index_html.relative_to(self.out.parent)}")
 
+        # Once the project's dependencies are installed, Prettier formats the output exactly
+        prettier = self.out / "node_modules" / ".bin" / "prettier"
+        if prettier.exists():
+            import subprocess
+            try:
+                subprocess.run([str(prettier), "--write", "--log-level", "warn", "src", "index.html", "*.json", "*.ts"],
+                               cwd=self.out, capture_output=True, timeout=120)
+            except (OSError, subprocess.SubprocessError):
+                pass
+
         return written
 
     # ── Component compiler ─────────────────────────────────────────────────────
+
+    # ── Types ──────────────────────────────────────────────────────────────────
+
+    def _assigned_from(self, stmts, state_name: str) -> Set[str]:
+        """Names read by every assignment to state_name in these statements (nested blocks too)."""
+        found: Set[str] = set()
+        for st in stmts or []:
+            if isinstance(st, ast.AssignStmt) and st.name == state_name:
+                found |= names_in(st.value)
+            for attr in ("then_body", "else_body", "body"):
+                found |= self._assigned_from(getattr(st, attr, None), state_name)
+        return found
+
+    def _table_type(self, state_name: str) -> Optional[str]:
+        """The row interface for a list state that's only ever filled from endpoints
+        returning one table's rows unchanged (list_orders → SELECT * FROM orders → Order)."""
+        comp = self._current_comp
+        sources: Set[str] = set()
+        for h in (comp.handlers if comp else []):
+            sources |= self._assigned_from(h.body, state_name)
+        tables = {self.endpoint_tables[src] for src in sources if src in self.endpoint_tables}
+        called = {src for src in sources if src in _ENDPOINT_PARAMS}
+        if len(tables) == 1 and called <= set(self.endpoint_tables):
+            table = tables.pop()
+            if table in self.tables:
+                return _pascal(_singular(table))
+        return None
+
+    def _row_states(self, elements) -> Set[str]:
+        """States the render tree uses as rows (data tables, charts, kanban, lists)."""
+        found: Set[str] = set()
+        for el in elements or []:
+            if el.tag in ("data_table", "kanban", "table") and not any(
+                    a.key in ("data", "rows", "items", "cards") for a in el.attrs):
+                comp = self._current_comp
+                first = next((st.name for st in (comp.states if comp else []) if isinstance(st.value, ast.Array)), None)
+                if first:
+                    found.add(first)
+            for a in el.attrs:
+                if a.key in ("data", "rows", "items", "cards", "agents", "workflows", "messages") \
+                        and isinstance(a.value, ast.Variable):
+                    found.add(a.value.name)
+            found |= self._row_states(el.children)
+        return found
+
+    def _literal_ts_type(self, value) -> str:
+        if isinstance(value, ast.Variable) and value.name in ("true", "false"):
+            return "boolean"
+        if isinstance(value, ast.Literal):
+            v = value.value
+            if isinstance(v, bool):
+                return "boolean"
+            if isinstance(v, (int, float)):
+                return "number"
+            if isinstance(v, str):
+                return "string"
+            return "BackendValue"
+        if isinstance(value, ast.MCNObject):
+            return "Row"
+        if isinstance(value, ast.Array):
+            return self._array_type(value, None)
+        return "BackendValue"
+
+    def _array_type(self, value: ast.Array, state_name: Optional[str], rows: bool = False) -> str:
+        kinds = {self._literal_ts_type(e) for e in value.elements}
+        if len(kinds) == 1 and kinds != {"BackendValue"}:
+            return f"{kinds.pop()}[]"
+        if not value.elements and state_name:
+            table = self._table_type(state_name)
+            if table:
+                self._type_imports.add(table)
+                return f"{table}[]"
+            if rows:
+                return "Row[]"
+        return "BackendValue[]"
+
+    def _state_generic(self, comp: ast.ComponentDecl, st, rows: Set[str]) -> str:
+        """The useState type parameter for a state, from its starting value."""
+        v = st.value
+        if isinstance(v, ast.Array):
+            return f"<{self._array_type(v, st.name, st.name in rows)}>"
+        if isinstance(v, ast.MCNObject):
+            name = _pascal(comp.name) + _pascal(st.name)
+            fields = []
+            for k, val in v.properties:
+                key = k.name if isinstance(k, ast.Variable) else (k.value if isinstance(k, ast.Literal) else None)
+                if isinstance(key, str):
+                    prop = key if re.match(r"^[A-Za-z_$][\w$]*$", key) else json.dumps(key)
+                    fields.append(f"  {prop}: {self._literal_ts_type(val)}")
+            self._type_defs.append(f"interface {name} extends Row {{\n" + "\n".join(fields) + "\n}" if fields
+                                   else f"type {name} = Row")
+            return f"<{name}>"
+        if (isinstance(v, ast.Literal) and v.value is None) or (isinstance(v, ast.Variable) and v.name == "null"):
+            return "<Row | null>" if st.name.endswith(("_item", "selected", "current")) or st.name == "selected" else "<BackendValue>"
+        return ""
+
+    def _gen_types_ts(self) -> str:
+        lines = [
+            "/**",
+            " * Types for data from the backend.",
+            " *",
+            " * Tables come from the CREATE TABLE statements in backend/main.mcn. MCN code is",
+            " * dynamically typed, so values MCN can't know the type of are BackendValue.",
+            " */",
+            "",
+            "// eslint-disable-next-line @typescript-eslint/no-explicit-any",
+            "export type BackendValue = any",
+            "",
+            "/** A record from the backend: known fields are typed, others are BackendValue. */",
+            "export type Row = Record<string, BackendValue>",
+        ]
+        for table, cols in self.tables.items():
+            lines += ["", f"/** A row of the `{table}` table. */",
+                      f"export interface {_pascal(_singular(table))} extends Row {{",
+                      *[f"  {c}: {t}" for c, t in cols.items()], "}"]
+        return "\n".join(lines) + "\n"
 
     def _compile_component(self, comp: ast.ComponentDecl) -> str:
         """Compile a single ComponentDecl → .tsx file content."""
         self._current_comp = comp
         self._extra_imports = set()
+        self._type_defs: List[str] = []
+        self._type_imports: Set[str] = set()
+        self._tmp_count = 0
 
         shadcn_imports: Dict[str, List[str]] = {}
 
@@ -562,13 +1053,14 @@ class UICompiler:
         react_hooks: List[str] = ["useState"]
         if has_load_handler:
             react_hooks.append("useEffect")
-        if has_other_handlers or has_crud:
+        if has_other_handlers or has_crud or has_load_handler:
             react_hooks.append("useCallback")
 
         imports: List[str] = [
             f'import React, {{ {", ".join(react_hooks)} }} from "react"',
             'import { api } from "../services/api"',
         ]
+        row_states = self._row_states(comp.render.elements if comp.render else [])
         for pkg_path, names in sorted(shadcn_imports.items()):
             imports.append(f'import {{ {", ".join(sorted(set(names)))} }} from "{pkg_path}"')
 
@@ -580,10 +1072,7 @@ class UICompiler:
             defined_states.add(var_name)
             setter     = "set" + _pascal(var_name)
             default_ts = _expr_to_ts(s.value)
-            # [] and null need explicit types under strict mode (never[] / null otherwise)
-            generic = "<any[]>" if isinstance(s.value, ast.Array) else (
-                      "<any>" if isinstance(s.value, ast.MCNObject) or
-                      (isinstance(s.value, ast.Literal) and s.value.value is None) else "")
+            generic = self._state_generic(comp, s, row_states)
             hooks.append(f"  const [{var_name}, {setter}] = useState{generic}({default_ts})")
 
         # Automatically inject CRUD states if they aren't explicitly defined
@@ -591,7 +1080,7 @@ class UICompiler:
         synthetic_create_fields = []
         if has_crud:
             if "edit_item" not in defined_states:
-                hooks.append(f"  const [edit_item, setEditItem] = useState<any>(null)")
+                hooks.append(f"  const [edit_item, setEditItem] = useState<Row | null>(null)")
             for col in table_columns:
                 edit_var = f"edit_{col}"
                 if edit_var not in defined_states:
@@ -607,7 +1096,7 @@ class UICompiler:
             hooks.append(f"  const [currentPage, setCurrentPage] = useState(1)")
             hooks.append(f"  const [pageSize, setPageSize] = useState(10)")
             arr_state = next((s.name for s in comp.states if isinstance(s.value, ast.Array)), "items")
-            hooks.append(f"  const filteredItems = React.useMemo(() => {{\n    if (!searchQuery) return {arr_state};\n    return {arr_state}.filter((item: any) => \n      Object.values(item).some(v => \n        String(v).toLowerCase().includes(searchQuery.toLowerCase())\n      )\n    )\n  }}, [{arr_state}, searchQuery])")
+            hooks.append(f"  const filteredItems = React.useMemo(() => {{\n    const rows = Array.isArray({arr_state}) ? {arr_state} : []\n    if (!searchQuery) return rows\n    const q = searchQuery.toLowerCase()\n    return rows.filter((item: Row) => Object.values(item).some((v) => String(v).toLowerCase().includes(q)))\n  }}, [{arr_state}, searchQuery])")
 
         if has_crud:
             entity_singular, entity_plural = _get_entity_names(comp.name)
@@ -618,7 +1107,7 @@ class UICompiler:
             edit_fields_names.extend(synthetic_edit_fields)
             
             field_setters = "\n    ".join(
-                f"set{_pascal(name)}((row as any).{name[5:]} ?? '')"
+                f"set{_pascal(name)}(row.{name[5:]} ?? '')"
                 for name in edit_fields_names
             )
             save_payload_fields = ", ".join(
@@ -632,30 +1121,54 @@ class UICompiler:
 
         # Event handlers from on blocks
         handlers: List[str] = []
+        if has_load_handler:
+            hooks.append("  const [loadState, setLoadState] = useState<LoadState>({ loading: true, error: null })")
         for h in comp.handlers:
             fn_name = _handler_name(h.event)
-            body_ts = self._stmts_to_ts(h.body, indent=6 if h.event == "load" else 4)
+            body_ts = self._stmts_to_ts(h.body, indent=6)
             if h.event == "load":
-                # useEffect with async IIFE
+                load_deps = ", ".join(st.name for st in comp.states if _uses(body_ts, st.name))
+                # Loads the screen's data; failures show with a Retry button
                 handlers.append(
-                    f"  useEffect(() => {{\n"
-                    f"    ;(async () => {{\n"
+                    f"  const loadScreen = useCallback(async () => {{\n"
+                    f"    setLoadState({{ loading: true, error: null }})\n"
+                    f"    let failure: string | null = null\n"
+                    f"    try {{\n"
                     f"{body_ts}"
-                    f"    }})()\n"
-                    f"  }}, [])"
+                    f"    }} catch (err) {{\n"
+                    f"      failure = errorMessage(err)\n"
+                    f"    }} finally {{\n"
+                    f"      setLoadState({{ loading: false, error: failure }})\n"
+                    f"    }}\n"
+                    f"  }}, [{load_deps}])\n"
+                    f"\n"
+                    + (f"  useEffect(() => {{\n"
+                       f"    void loadScreen()\n"
+                       f"  }}, [loadScreen])" if not load_deps else
+                       f"  // Runs once when the screen opens, like MCN's `on load`; Retry uses the latest values\n"
+                       f"  useEffect(() => {{\n"
+                       f"    void loadScreen()\n"
+                       f"    // eslint-disable-next-line react-hooks/exhaustive-deps\n"
+                       f"  }}, [])")
                 )
             else:
-                dep_names = ", ".join(s.name for s in comp.states)
+                dep_names = ", ".join(s.name for s in comp.states if _uses(body_ts, s.name))
                 # A handler wired to a kit component receives the row, item,
                 # agent, workflow or message as its argument
+                # ...unless the component has state of that name, which the handler means instead
+                state_names = {st.name for st in comp.states}
                 implicit = [n for n in ("row", "item", "agent", "workflow", "message")
-                            if re.search(rf"\b{n}\b", body_ts)]
-                bind_args = "".join(f"    const {n}: any = e\n" for n in implicit)
+                            if n not in state_names and _uses(body_ts, n)]
+                bind_args = "".join(f"    const {n} = e as Row\n" for n in implicit)
                 handlers.append(
-                    f"  const {fn_name} = useCallback(async (e?: any) => {{\n"
-                    f"    if (e && typeof e.preventDefault === 'function') e.preventDefault()\n"
+                    f"  const {fn_name} = useCallback(async (e?: unknown) => {{\n"
+                    f"    preventDefault(e)\n"
                     f"{bind_args}"
+                    f"    try {{\n"
                     f"{body_ts}"
+                    f"    }} catch (err) {{\n"
+                    f"      notify(errorMessage(err), \"error\")\n"
+                    f"    }}\n"
                     f"  }}, [{dep_names}])"
                 )
 
@@ -663,7 +1176,7 @@ class UICompiler:
         if has_crud:
             entity_singular, entity_plural = _get_entity_names(comp.name)
             handlers.append(
-                f"  const handleEdit = useCallback((row: any) => {{\n"
+                f"  const handleEdit = useCallback((row: Row) => {{\n"
                 f"    set_mcnEditItemId(row.id)\n"
                 f"    {field_setters}\n"
                 f"    setEditItem(row)\n"
@@ -673,16 +1186,16 @@ class UICompiler:
             handlers.append(
                 f"  const handleDelete = useCallback(async (id: number) => {{\n"
                 f'    if (!window.confirm("Delete this {entity_singular}?")) return\n'
-                f"    await api.post('/delete_{entity_singular}', {{ id }})\n"
-                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
+                f"    await api.post(\"/delete_{entity_singular}\", {{ id }})\n"
+                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
                 f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
                 f"  }}, [])\n"
             )
             handlers.append(
                 f"  const handleSave = useCallback(async () => {{\n"
-                f"    await api.post('/update_{entity_singular}', {{ id: _mcnEditItemId, {save_payload_fields} }})\n"
+                f"    await api.post(\"/update_{entity_singular}\", {{ id: _mcnEditItemId, {save_payload_fields} }})\n"
                 f"    set_mcnShowEditModal(false)\n"
-                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
+                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
                 f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
                 f"  }}, [_mcnEditItemId, {', '.join(name for name in edit_fields_names)}])\n"
             )
@@ -695,10 +1208,10 @@ class UICompiler:
             create_reset_fields = "\n    ".join(f"set{_pascal(name)}('')" for name in synthetic_create_fields)
             handlers.append(
                 f"  const handleCreate = useCallback(async () => {{\n"
-                f"    await api.post('/create_{entity_singular}', {{ {create_payload_fields} }})\n"
+                f"    await api.post(\"/create_{entity_singular}\", {{ {create_payload_fields} }})\n"
                 f"    set_mcnShowCreateModal(false)\n"
                 f"    {create_reset_fields}\n"
-                f"    const _resp = await api.post('/list_{entity_plural}', {{}})\n"
+                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
                 f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
                 f"  }}, [{', '.join(synthetic_create_fields)}])\n"
             )
@@ -706,12 +1219,12 @@ class UICompiler:
             # Filtering and Pagination
             handlers.append(
                 f"  const paginatedItems = React.useMemo(() => {{\n"
-                f"    const start = (currentPage - 1) * pageSize;\n"
-                f"    return filteredItems.slice(start, start + pageSize);\n"
+                f"    const start = (currentPage - 1) * pageSize\n"
+                f"    return filteredItems.slice(start, start + pageSize)\n"
                 f"  }}, [filteredItems, currentPage, pageSize])\n"
             )
             handlers.append(
-                f"  const totalPages = Math.ceil(filteredItems.length / pageSize);\n"
+                f"  const totalPages = Math.ceil(filteredItems.length / pageSize)\n"
             )
 
         # Render JSX (must happen before final import assembly so _extra_imports is populated)
@@ -798,8 +1311,13 @@ class UICompiler:
             ]
             jsx_lines.extend(modal_jsx)
 
+        jsx_lines = [wrapped for ln in jsx_lines for wrapped in wrap_jsx(tidy_jsx(ln))]
+        if has_load_handler:
+            jsx_lines.insert(0, "    <LoadStatus loading={loadState.loading} error={loadState.error} onRetry={loadScreen} />")
+            self._extra_imports.add('import { LoadStatus, type LoadState } from "@/components/ui/load-status"')
+
         # Wrap in Fragment when multiple root elements (e.g. main card + edit modal)
-        needs_fragment = len(comp.render.elements if comp.render else []) > 1 or has_crud
+        needs_fragment = len(comp.render.elements if comp.render else []) > 1 or has_crud or has_load_handler
         if needs_fragment:
             jsx_lines = ['    <div className="space-y-6">', *["  " + ln for ln in jsx_lines], "    </div>"]
 
@@ -809,6 +1327,13 @@ class UICompiler:
             self._extra_imports.add('import { toast } from "@/components/ui/toast"')
         if "notify(" in all_compiled_code:
             self._extra_imports.add('import { notify } from "@/components/ui/toast"')
+        helpers = [h for h in ("errorMessage", "preventDefault") if h + "(" in all_compiled_code]
+        if helpers:
+            self._extra_imports.add(f'import {{ {", ".join(helpers)} }} from "@/lib/utils"')
+        hook_code = "\n".join(hooks) + all_compiled_code
+        type_names = sorted(self._type_imports | {t for t in ("BackendValue", "Row") if re.search(rf"\b{t}\b", hook_code + "\n".join(self._type_defs))})
+        if type_names:
+            self._extra_imports.add(f'import type {{ {", ".join(type_names)} }} from "../types"')
 
         # Icons come from the kit: `const { Users, Plus } = icons`
         icon_names: list = []
@@ -836,16 +1361,22 @@ class UICompiler:
                 imported.update(n.split(" as ")[-1].strip() for n in m.group(1).split(","))
         local = f"{comp.name}Screen" if comp.name in imported else comp.name
 
+        body_code = "\n".join(hooks + handlers + jsx_lines)
+        if "React." not in body_code:
+            imports[0] = imports[0].replace("import React, { ", "import { ")
+        imports, icon_binding, hooks, handlers = _prune_component(
+            imports, icon_binding, hooks, handlers, jsx_lines, self._type_defs)
+
         # Assemble
         lines = [
             *imports,
             "",
             *icon_binding,
+            *[d + "\n" for d in self._type_defs],
             f"export function {local}() {{" if local == comp.name else f"function {local}() {{",
             *hooks,
             *([""] if hooks else []),
-            *handlers,
-            *([""] if handlers else []),
+            *[ln for h in handlers for ln in (h.rstrip("\n"), "")],
             "  return (",
             *jsx_lines,
             "  )",
@@ -892,7 +1423,7 @@ class UICompiler:
             child_lines: List[str] = []
             for child in el.children:
                 child_lines.extend(self._element_to_jsx(child, indent + 4))
-            lines.append(f"{pad}{{{iterable_ts}.map(({var_name}: any, _i: number) => (")
+            lines.append(f"{pad}{{{iterable_ts}.map(({var_name}: BackendValue, _i: number) => (")
             lines.append(f"{pad}  <React.Fragment key={{_i}}>")
             lines.extend(child_lines)
             lines.append(f"{pad}  </React.Fragment>")
@@ -1203,7 +1734,7 @@ class UICompiler:
                 lines.append(f'{pad}  <Select value={{{var_name}}} onValueChange={{{setter}}}>')
                 lines.append(f'{pad}    <SelectTrigger><SelectValue placeholder={{{ph_text}}} /></SelectTrigger>')
                 lines.append(f'{pad}    <SelectContent>')
-                lines.append(f'{pad}      {{{opts_expr}.map((o: any) => <SelectItem key={{String(o)}} value={{String(o)}}>{{String(o)}}</SelectItem>)}}')
+                lines.append(f'{pad}      {{{opts_expr}.map((o: unknown) => <SelectItem key={{String(o)}} value={{String(o)}}>{{String(o)}}</SelectItem>)}}')
                 lines.append(f'{pad}    </SelectContent>')
                 lines.append(f'{pad}  </Select>')
                 lines.append(f'{pad}</div>')
@@ -1211,7 +1742,7 @@ class UICompiler:
                 lines.append(f'{pad}<Select value={{{var_name}}} onValueChange={{{setter}}}>')
                 lines.append(f'{pad}  <SelectTrigger><SelectValue placeholder={{{ph_text}}} /></SelectTrigger>')
                 lines.append(f'{pad}  <SelectContent>')
-                lines.append(f'{pad}    {{{opts_expr}.map((o: any) => <SelectItem key={{String(o)}} value={{String(o)}}>{{String(o)}}</SelectItem>)}}')
+                lines.append(f'{pad}    {{{opts_expr}.map((o: unknown) => <SelectItem key={{String(o)}} value={{String(o)}}>{{String(o)}}</SelectItem>)}}')
                 lines.append(f'{pad}  </SelectContent>')
                 lines.append(f'{pad}</Select>')
             return lines
@@ -1223,7 +1754,7 @@ class UICompiler:
             lines += [
                 f'{pad}<div className="overflow-x-auto w-full">',
                 f'{pad}  <div className="min-w-[500px] flex flex-col gap-3 py-2">',
-                f'{pad}    {{{data_expr}.map((task: any, i: number) => (',
+                f'{pad}    {{{data_expr}.map((task: Row, i: number) => (',
                 f'{pad}      <div key={{i}} className="flex items-center gap-4 text-sm">',
                 f'{pad}        <div className="w-32 font-medium truncate" title={{task.name || task.title}}>{{task.name || task.title || `Task ${{i+1}}`}}</div>',
                 f'{pad}        <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-8 relative overflow-hidden group">',
@@ -1253,37 +1784,18 @@ class UICompiler:
             trend = _expr_to_ts(trend_attr.value) if trend_attr else None
             tlbl  = _expr_to_ts(trend_lbl.value) if trend_lbl else '"vs last month"'
             color = color_attr.value.value if color_attr and isinstance(color_attr.value, ast.Literal) else "primary"
-            icon_cls = {
-                "green": "text-green-600 bg-green-100",
-                "red":   "text-red-600 bg-red-100",
-                "blue":  "text-blue-600 bg-blue-100",
-                "amber": "text-amber-600 bg-amber-100",
-                "purple":"text-purple-600 bg-purple-100",
-            }.get(color, "text-primary bg-primary/10")
             self._extra_imports.add(f'import {{ {icon} }} from "lucide-react"')
-            trend_jsx = ""
+            self._extra_imports.add('import { Stat } from "@/components/ui/stat"')
+            props = [_jsx_prop("label", lbl), f"value={{{val}}}", f"icon={{{icon}}}"]
+            if color != "primary":
+                props.append(f'tone="{color}"')
+            if unit_attr:
+                props.append(_jsx_prop("unit", unit))
             if trend:
-                trend_jsx = (
-                    f'\n{pad}    <p className="text-xs text-muted-foreground mt-1">'
-                    f'<span className={{({trend}) >= 0 ? "text-green-600" : "text-red-600"}}>'
-                    f'{{({trend}) >= 0 ? "↑" : "↓"}} {{{trend}}}%</span> {{{tlbl}}}</p>'
-                )
-            lines += [
-                f'{pad}<Card>',
-                f'{pad}  <CardContent className="p-5">',
-                f'{pad}    <div className="flex items-center justify-between">',
-                f'{pad}      <div>',
-                f'{pad}        <p className="text-sm font-medium text-muted-foreground">{{{lbl}}}</p>',
-                f'{pad}        <p className="text-2xl font-bold mt-1 tabular-nums">{{typeof ({val}) === "number" ? Number({val}).toLocaleString() : {val}}}<span className="text-sm font-normal ml-1 text-muted-foreground">{{{unit}}}</span></p>',
-                f'{pad}        {trend_jsx}',
-                f'{pad}      </div>',
-                f'{pad}      <div className="p-2 rounded-lg {icon_cls}">',
-                f'{pad}        <{icon} className="w-5 h-5" />',
-                f'{pad}      </div>',
-                f'{pad}    </div>',
-                f'{pad}  </CardContent>',
-                f'{pad}</Card>',
-            ]
+                props.append(f"change={{{trend}}}")
+                if trend_lbl:
+                    props.append(_jsx_prop("trendLabel", tlbl))
+            lines.append(f"{pad}<Stat {' '.join(props)} />")
             return lines
 
         # pagination — prev/next button row
@@ -1374,7 +1886,7 @@ class UICompiler:
                 inner_pad = pad
             wrap_lines += [
                 f'{inner_pad}<RadioGroup value={{{var_name}}} onValueChange={{{setter}}} className="space-y-2">',
-                f'{inner_pad}  {{{opts_expr}.map((o: any) => (',
+                f'{inner_pad}  {{{opts_expr}.map((o: unknown) => (',
                 f'{inner_pad}    <div key={{String(o)}} className="flex items-center space-x-2">',
                 f'{inner_pad}      <RadioGroupItem value={{String(o)}} id={{`rg-${{String(o)}}`}} />',
                 f'{inner_pad}      <label htmlFor={{`rg-${{String(o)}}`}} className="text-sm">{{String(o)}}</label>',
@@ -1437,7 +1949,7 @@ class UICompiler:
                 f'{pad}    <Button variant="outline">{{{trigger_text}}}</Button>',
                 f'{pad}  </DropdownMenuTrigger>',
                 f'{pad}  <DropdownMenuContent>',
-                f'{pad}    {{{items_expr}.map((item: any, i: number) => (',
+                f'{pad}    {{{items_expr}.map((item: Row, i: number) => (',
                 f'{pad}      <DropdownMenuItem key={{i}}>{{String(item)}}</DropdownMenuItem>',
                 f'{pad}    ))}}',
                 f'{pad}  </DropdownMenuContent>',
@@ -1533,7 +2045,7 @@ class UICompiler:
             # No column info — use Object.entries as fallback
             return [
                 f"{pad}<TableBody>",
-                f"{p2}{{{state_name}.map((row: any, i: number) => (",
+                f"{p2}{{{state_name}.map((row: Row, i: number) => (",
                 f"{p4}<TableRow key={{i}}>",
                 f"{p6}{{Object.entries(row).map(([k, v]) => (",
                 f"{p6}  <TableCell key={{k}}>{{String(v)}}</TableCell>",
@@ -1547,7 +2059,7 @@ class UICompiler:
         cells = "\n".join(f"{p4}<TableCell>{{row.{c}}}</TableCell>" for c in cols)
         return [
             f"{pad}<TableBody>",
-            f"{p2}{{{state_name}.map((row: any, i: number) => (",
+            f"{p2}{{{state_name}.map((row: Row, i: number) => (",
             f"{p4}<TableRow key={{i}}>",
             cells,
             *(([actions_cell] if actions_cell else [])),
@@ -1574,7 +2086,7 @@ class UICompiler:
                 if val.name in handlers:      # a component `on` handler
                     props.append(f"{prop}={{({params}) => {_handler_name(val.name)}({first})}}")
                 else:                         # a backend endpoint
-                    props.append(f"{prop}={{async ({params}) => api.post('/{val.name}', {payload.replace('GROUP', group)})}}")
+                    props.append(f"{prop}={{async ({params}) => api.post(\"/{val.name}\", {payload.replace('GROUP', group)})}}")
                 continue
             if val is None:
                 props.append(key)
@@ -1626,10 +2138,10 @@ class UICompiler:
                 value_ts = "Number(e.target.value)" if numeric else "e.target.value"
                 if tag == "textarea":
                     props.append(f'value={{{var_name}}} '
-                                 f'onChange={{(e: any) => {setter}(e.target.value)}}')
+                                 f'onChange={{(e: {{ target: {{ value: string }} }}) => {setter}(e.target.value)}}')
                 elif tag == "input":
                     props.append(f'value={{{var_name}}} '
-                                 f'onChange={{(e: any) => {setter}({value_ts})}}')
+                                 f'onChange={{(e: {{ target: {{ value: string }} }}) => {setter}({value_ts})}}')
                 else:
                     props.append(f'value={{{var_name}}} '
                                  f'onChange={{(v) => {setter}(v)}}')
@@ -1669,24 +2181,65 @@ class UICompiler:
         def block(body, extra_locals=()):
             return self._stmts_to_ts(body, indent + 2, lv, locals_ | set(extra_locals)).rstrip("\n")
 
-        for stmt in stmts:
+        def parallel_call(stmt, taken: Set[str]):
+            """(setter, before, call, after) for `state = endpoint(...)` that can run alongside others."""
+            if not isinstance(stmt, ast.AssignStmt) or stmt.name in locals_ or stmt.name in taken \
+                    or isinstance(stmt.value, ast.Literal) or names_in(stmt.value) & taken:
+                return None
+            parts = split_await(_expr_to_ts(stmt.value, lv), "api.post(")
+            return parts
+
+        skip = 0
+        for i, stmt in enumerate(stmts):
+            if skip:
+                skip -= 1
+                continue
+            # Independent backend calls in a row run together
+            group, taken = [], set()
+            for nxt in stmts[i:]:
+                parts = parallel_call(nxt, taken)
+                if not parts:
+                    break
+                group.append((nxt, parts))
+                taken.add(nxt.name)
+            if len(group) > 1:
+                self._tmp_count = getattr(self, "_tmp_count", 0) + 1
+                results = f"_results{self._tmp_count}"
+                lines.append(f"{pad}const {results} = await Promise.all([")
+                lines.extend(f"{pad}  {call}," for _, (_, call, _) in group)
+                lines.append(f"{pad}])")
+                for k, (st, (before, _, after)) in enumerate(group):
+                    self._tmp_count += 1
+                    temp = f"_{st.name}{self._tmp_count}"
+                    lines.append(f"{pad}const {temp} = {before}{results}[{k}]{after}")
+                    lines.append(f"{pad}set{_pascal(st.name)}({temp})")
+                    lv[st.name] = temp
+                skip = len(group) - 1
+                continue
+
             if isinstance(stmt, ast.VarDecl):
                 val = _expr_to_ts(stmt.value, lv)
                 # Explicit types keep strict TypeScript from inferring never[] / null
-                ann = ": any[]" if isinstance(stmt.value, ast.Array) else (
-                      ": any" if isinstance(stmt.value, ast.MCNObject) or
+                ann = ": BackendValue[]" if isinstance(stmt.value, ast.Array) else (
+                      ": BackendValue" if isinstance(stmt.value, ast.MCNObject) or
                       (isinstance(stmt.value, ast.Literal) and stmt.value.value is None) else "")
-                if isinstance(stmt.value, ast.Call):
-                    lines.append(f"{pad}let {stmt.name}{ann} = await {val}")
+                kw = "let" if _reassigned(stmts[i + 1:], stmt.name) else "const"
+                if val.startswith("(await ") and _balanced_end(val, 0) == len(val):
+                    lines.append(f"{pad}{kw} {stmt.name}{ann} = {val[1:-1]}")
+                elif isinstance(stmt.value, ast.Call):
+                    lines.append(f"{pad}{kw} {stmt.name}{ann} = await {val}")
                 else:
-                    lines.append(f"{pad}let {stmt.name}{ann} = {val}")
+                    lines.append(f"{pad}{kw} {stmt.name}{ann} = {val}")
                 # Named vars are usable directly, no setter needed
                 lv[stmt.name] = stmt.name
                 locals_.add(stmt.name)
 
             elif isinstance(stmt, ast.AssignStmt) and stmt.name in locals_:
                 val = _expr_to_ts(stmt.value, lv)
-                await_ = "await " if isinstance(stmt.value, ast.Call) else ""
+                if val.startswith("(await ") and _balanced_end(val, 0) == len(val):
+                    val, await_ = val[1:-1], ""
+                else:
+                    await_ = "await " if isinstance(stmt.value, ast.Call) else ""
                 lines.append(f"{pad}{stmt.name} = {await_}{val}")
 
             elif isinstance(stmt, ast.ForStmt):
@@ -1704,7 +2257,7 @@ class UICompiler:
                 lines.append(f"{pad}}}")
 
             elif isinstance(stmt, ast.WhileStmt):
-                lines.append(f"{pad}while ({_expr_to_ts(stmt.condition, lv)}) {{")
+                lines.append(f"{pad}while ({_unwrap_parens(_expr_to_ts(stmt.condition, lv))}) {{")
                 body = block(stmt.body)
                 if body.strip():
                     lines.append(body)
@@ -1748,12 +2301,14 @@ class UICompiler:
                 if isinstance(stmt.expression, ast.Call):
                     # "(await api.post(...))" → "await api.post(...)": a statement must not
                     # start with "(" or JavaScript joins it to the line above
-                    lines.append(f"{pad}{val[1:-1]}" if val.startswith("(await ") and val.endswith(")") else f"{pad}await {val}")
+                    sync = val.startswith(("notify(", "toast(", "console.log(", "window.", "String(", "Math."))
+                    lines.append(f"{pad}{val[1:-1]}" if val.startswith("(await ") and val.endswith(")")
+                                 else f"{pad}{val}" if sync else f"{pad}await {val}")
                 else:
                     lines.append(f"{pad}{val}")
 
             elif isinstance(stmt, ast.IfStmt):
-                cond      = _expr_to_ts(stmt.condition, lv)
+                cond      = _unwrap_parens(_expr_to_ts(stmt.condition, lv))
                 then_body = block(stmt.then_body)
                 lines.append(f"{pad}if ({cond}) {{")
                 if then_body.strip():
@@ -1865,44 +2420,74 @@ export default function App() {{
  * It comes from window.MCN_API_TOKEN, then localStorage "mcn_token" (set it
  * after login), then VITE_API_TOKEN.
  */
+import type { BackendValue } from "../types"
 
-const BASE: string =
-  (typeof window !== "undefined" && (window as any).MCN_API_URL) ||
-  (import.meta as any).env?.VITE_API_URL ||
-  "http://localhost:8080"
-
-function token(): string {
-  try {
-    return (window as any).MCN_API_TOKEN || localStorage.getItem("mcn_token") || (import.meta as any).env?.VITE_API_TOKEN || ""
-  } catch {
-    return (import.meta as any).env?.VITE_API_TOKEN || ""
+declare global {
+  interface Window {
+    MCN_API_URL?: string
+    MCN_API_TOKEN?: string
   }
 }
 
-export function setToken(value: string | null) {
-  try { value ? localStorage.setItem("mcn_token", value) : localStorage.removeItem("mcn_token") } catch {}
+const env = import.meta.env ?? {}
+
+const BASE: string =
+  (typeof window !== "undefined" && window.MCN_API_URL) || env.VITE_API_URL || "http://localhost:8080"
+
+function token(): string {
+  try {
+    return window.MCN_API_TOKEN || localStorage.getItem("mcn_token") || env.VITE_API_TOKEN || ""
+  } catch {
+    return env.VITE_API_TOKEN || ""
+  }
 }
+
+export function setToken(value: string | null): void {
+  try {
+    if (value) localStorage.setItem("mcn_token", value)
+    else localStorage.removeItem("mcn_token")
+  } catch {
+    // Storage is unavailable (private mode); the token lasts for this page only
+  }
+}
+
+type ErrorBody = { error?: string; detail?: string } | null
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   let res: Response
+  const auth = token()
   try {
     res = await fetch(`${BASE}${path}`, {
-      method:  body === undefined ? "GET" : "POST",
-      headers: { "Content-Type": "application/json", ...(token() ? { Authorization: `Bearer ${token()}` } : {}) },
-      body:    body === undefined ? undefined : JSON.stringify(body),
+      method: body === undefined ? "GET" : "POST",
+      headers: { "Content-Type": "application/json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
     window.dispatchEvent(new CustomEvent("mcn:backend-offline", { detail: BASE }))
     throw new Error(`Can't reach the backend at ${BASE}. Is it running?`)
   }
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error((data && (data.error || data.detail)) || `${path} failed (${res.status})`)
+  const data: unknown = await res.json().catch(() => null)
+  if (!res.ok) {
+    const err = data as ErrorBody
+    // The app's own errors read as they are; anything else names the call that failed
+    throw new Error(err?.error || `${path}: ${err?.detail || res.statusText || "request failed"} (${res.status})`)
+  }
   return data as T
 }
 
 export const api = {
-  get:  <T = any>(path: string)                 => request<T>(path),
-  post: <T = any>(path: string, body: unknown = {}) => request<T>(path, body),
+  get: <T = BackendValue>(path: string) => request<T>(path),
+  post: <T = BackendValue>(path: string, body: unknown = {}) => request<T>(path, body),
+}
+'''
+
+    def _gen_vite_env(self) -> str:
+        return '''\
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_API_URL?: string
+  readonly VITE_API_TOKEN?: string
 }
 '''
 
@@ -1916,7 +2501,7 @@ import "./globals.css"
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
 )
 '''
 
@@ -1987,7 +2572,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   }}
   body {{
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }}
 }}
 
@@ -2008,18 +2595,22 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     background: radial-gradient(circle at top left, var(--accent) 0%, var(--background) 70%);
   }}
   .hover-scale {{
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+      transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }}
   .hover-scale:hover {{
     transform: translateY(-2px) scale(1.01);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.05),
+      0 8px 10px -6px rgba(0, 0, 0, 0.05);
   }}
 }}
 '''
 
     def _gen_package_json(self, app: Optional[ast.AppDecl]) -> str:
         name = app.name.lower().replace(" ", "-") if app else "mcn-app"
-        return json.dumps({
+        return prettier_json({
             "name":        name,
             "version":     "0.1.0",
             "private":     True,
@@ -2028,6 +2619,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 "dev":     "vite",
                 "build":   "tsc && vite build",
                 "preview": "vite preview",
+                "typecheck": "tsc --noEmit",
+                "lint":    "eslint .",
+                "format":  "prettier --write .",
+                "test":    "vitest run",
             },
             # Everything else (components, charts, icons, toasts, routing) is the
             # MCN UI kit, copied into src/ — so React is the only dependency
@@ -2036,16 +2631,26 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 "react-dom":       "^18.3.1",
             },
             "devDependencies": {
+                "@eslint/js":          "^9.13.0",
+                "@testing-library/jest-dom": "^6.6.2",
+                "@testing-library/react": "^16.0.1",
                 "@types/react":        "^18.3.0",
                 "@types/react-dom":    "^18.3.0",
                 "@vitejs/plugin-react": "^4.3.1",
                 "autoprefixer":        "^10.4.20",
+                "eslint":              "^9.13.0",
+                "eslint-plugin-react-hooks": "^5.0.0",
+                "globals":             "^15.11.0",
+                "jsdom":               "^25.0.1",
                 "postcss":             "^8.4.47",
+                "prettier":            "^3.3.3",
                 "tailwindcss":         "^3.4.13",
                 "typescript":          "^5.5.3",
+                "typescript-eslint":   "^8.11.0",
                 "vite":                "^5.4.8",
+                "vitest":              "^2.1.3",
             },
-        }, indent=2)
+        }) + "\n"
 
     def _gen_tailwind_config(self) -> str:
         return '''\
@@ -2053,44 +2658,41 @@ import type { Config } from "tailwindcss"
 
 const config: Config = {
   darkMode: ["class"],
-  content: [
-    "./index.html",
-    "./src/**/*.{ts,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        border:      "hsl(var(--border))",
-        input:       "hsl(var(--input))",
-        ring:        "hsl(var(--ring))",
-        background:  "hsl(var(--background))",
-        foreground:  "hsl(var(--foreground))",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT:    "hsl(var(--primary))",
+          DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT:    "hsl(var(--secondary))",
+          DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
-          DEFAULT:    "hsl(var(--destructive))",
+          DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT:    "hsl(var(--muted))",
+          DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT:    "hsl(var(--accent))",
+          DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
-          DEFAULT:    "hsl(var(--popover))",
+          DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
         card: {
-          DEFAULT:    "hsl(var(--card))",
+          DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
       },
@@ -2109,6 +2711,7 @@ export default config
 
     def _gen_vite_config(self) -> str:
         return '''\
+/// <reference types="vitest" />
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import path from "path"
@@ -2120,7 +2723,80 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+  },
 })
+'''
+
+    # ── Lint, format and test setup ────────────────────────────────────────────
+
+    _ESLINT_CONFIG = '''\
+import js from "@eslint/js"
+import globals from "globals"
+import reactHooks from "eslint-plugin-react-hooks"
+import tseslint from "typescript-eslint"
+
+export default tseslint.config(
+  { ignores: ["dist"] },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: { ecmaVersion: 2020, globals: globals.browser },
+    plugins: { "react-hooks": reactHooks },
+    rules: { ...reactHooks.configs.recommended.rules },
+  },
+)
+'''
+
+    _PRETTIER_CONFIG = json.dumps({"semi": False, "printWidth": 120, "tabWidth": 2}, indent=2) + "\n"
+
+    _TEST_SETUP = '''\
+import "@testing-library/jest-dom/vitest"
+
+// Browser APIs jsdom doesn't have, used by charts and layout components
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver
+window.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => {},
+  removeListener: () => {},
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  dispatchEvent: () => false,
+})) as typeof window.matchMedia
+Element.prototype.scrollIntoView ??= () => {}
+'''
+
+    def _gen_screens_test(self, components) -> str:
+        names = sorted(components)
+        imports = "\n".join(f'import {{ {n} }} from "../components/{n}"' for n in names)
+        cases = "\n".join(
+            f'  it("{n} renders", () => {{\n'
+            f"    const {{ container }} = render(<{n} />)\n"
+            f"    expect(container.firstChild).not.toBeNull()\n"
+            f"  }})\n" for n in names)
+        return f'''\
+// Generated by MCN on every build: a smoke test for each screen. Add your own tests in other files.
+import {{ render }} from "@testing-library/react"
+import {{ describe, expect, it, vi }} from "vitest"
+{imports}
+
+// The backend answers every call with an empty list
+vi.mock("../services/api", () => ({{
+  api: {{ get: vi.fn(async () => ({{ data: [] }})), post: vi.fn(async () => ({{ data: [] }})) }},
+  setToken: vi.fn(),
+}}))
+
+describe("screens", () => {{
+{cases}}})
 '''
 
     def _gen_postcss_config(self) -> str:
@@ -2134,7 +2810,7 @@ export default {
 '''
 
     def _gen_shadcn_config(self) -> str:
-        return json.dumps({
+        return prettier_json({
             "$schema":   "https://ui.shadcn.com/schema.json",
             "style":     "default",
             "rsc":       False,
@@ -2149,10 +2825,10 @@ export default {
                 "components": "@/components",
                 "utils":      "@/lib/utils",
             },
-        }, indent=2)
+        }) + "\n"
 
     def _gen_tsconfig(self) -> str:
-        return json.dumps({
+        return prettier_json({
             "compilerOptions": {
                 "target":            "ES2020",
                 "useDefineForClassFields": True,
@@ -2176,11 +2852,11 @@ export default {
             },
             "include": ["src"],
             "references": [{"path": "./tsconfig.node.json"}],
-        }, indent=2)
+        }) + "\n"
 
     def _gen_index_html(self, title: str) -> str:
         return f'''\
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />

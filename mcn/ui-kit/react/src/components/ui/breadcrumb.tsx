@@ -16,10 +16,22 @@ export function Breadcrumb({ items = [], className }: { items?: Crumb[]; classNa
             <li key={i} className="flex min-w-0 items-center gap-1.5">
               {i > 0 && <Icon name="ChevronRight" size={14} className="text-muted-foreground/60" />}
               {last ? (
-                <span aria-current="page" className="truncate font-medium text-foreground">{c.label}</span>
+                <span aria-current="page" className="truncate font-medium text-foreground">
+                  {c.label}
+                </span>
               ) : c.href || c.onClick ? (
-                <a href={c.href || "#"} onClick={(e) => { if (c.onClick) { e.preventDefault(); c.onClick() } }}
-                  className="truncate text-muted-foreground hover:text-foreground">{c.label}</a>
+                <a
+                  href={c.href || "#"}
+                  onClick={(e) => {
+                    if (c.onClick) {
+                      e.preventDefault()
+                      c.onClick()
+                    }
+                  }}
+                  className="truncate text-muted-foreground hover:text-foreground"
+                >
+                  {c.label}
+                </a>
               ) : (
                 <span className="truncate text-muted-foreground">{c.label}</span>
               )}

@@ -154,6 +154,25 @@ npm run dev
 
 The project uses Vite, React and Tailwind; the UI kit's source is in `src/components/ui`, so React is its only dependency. It calls the API at `http://localhost:8080` (set `VITE_API_URL` to change it).
 
+### What the generated code looks like
+
+The output is code you'd be comfortable committing and extending, not a black box:
+
+- **Typed data.** State is typed from its starting value (`state stats = {revenue: 0}` becomes an `interface` with `revenue: number`). A list filled from an endpoint that returns a table's rows unchanged (`SELECT * FROM orders`) is typed from that table's columns, so `items` is an `Order[]`. Values MCN can't know the type of are `BackendValue`, defined once in `src/types.ts`.
+- **Loading and errors.** Each screen with `on load` shows a loading bar, and if loading fails, the error with a **Retry** button. When an action such as a save or delete fails, the user sees an error notification.
+- **Parallel calls.** Backend calls in a row that don't depend on each other run at the same time (`Promise.all`).
+- **Kit components.** KPIs are `<Stat … />`, tables are `<DataTable … />`, and so on, so the screens stay short.
+- **Tooling.** ESLint, Prettier and Vitest are set up, with a generated smoke test for every screen in `src/test/screens.test.tsx`:
+
+```bash
+npm run typecheck    # TypeScript
+npm run lint         # ESLint (TypeScript and React hooks rules)
+npm run format       # Prettier
+npm test             # Vitest
+```
+
+Edit `ui/app.mcn`, not the generated screens: `mcn build` rewrites them, formatted with the project's Prettier once `npm install` has run. Your own tests go in other files, and MCN leaves them alone.
+
 If the backend uses `auth` (see [security](#/guide/security)), the app sends a bearer token from `localStorage` key `mcn_token`, or `VITE_API_TOKEN`. After a login endpoint returns a token, store it with the generated helper:
 
 ```ts
@@ -184,4 +203,4 @@ flutter pub get
 flutter run --dart-define=MCN_API_URL=http://10.0.2.2:8080   # Android emulator; iOS and web use localhost
 ```
 
-Screens live in `lib/screens/` (one file per component), shared widgets in `lib/mcn/mcn_runtime.dart`, and the API client in `lib/services/mcn_client.dart`. For a service with `auth`, add `--dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login. [Web and mobile](#/reference/ui-elements#web-and-mobile) lists how each element appears on a phone.
+Screens live in `lib/screens/` (one file per component), shared widgets in `lib/mcn/mcn_runtime.dart`, and the API client in `lib/services/mcn_client.dart`. As on the web, state is typed from its starting value (`List<dynamic>`, `Map<String, dynamic>`, `String`, `num`, `bool`), each screen shows a loading bar and load errors with **Retry**, independent backend calls run together (`Future.wait`), and failed actions show an error snackbar. The project uses the standard [flutter_lints](https://pub.dev/packages/flutter_lints) rules, the generated code is formatted with `dart format`, and `test/screens_test.dart` has a smoke test for every screen (`flutter analyze`, `flutter test`). For a service with `auth`, add `--dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login. [Web and mobile](#/reference/ui-elements#web-and-mobile) lists how each element appears on a phone.

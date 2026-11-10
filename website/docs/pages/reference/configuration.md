@@ -56,6 +56,7 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_PLAYGROUND_PORT` | `5003` | Port (set by `mcn studio --port`) |
 | `MCN_PLAYGROUND_HOST` | `127.0.0.1` | Interface to bind. Anything other than localhost exposes code execution to the network |
 | `MCN_PLAYGROUND_ALLOWED_ORIGINS` | — | Extra comma-separated origins allowed to call Studio's API |
+| `MCN_BACKEND_PORT` | `8080` | Port for the backend Studio runs for **Preview**, when 8080 is taken by something else |
 | `MCN_FEEDBACK_ENDPOINT` | — | Where Studio's feedback reports are delivered |
 
 ## Generated apps

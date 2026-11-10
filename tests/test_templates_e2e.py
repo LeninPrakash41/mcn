@@ -7,8 +7,8 @@ Always run (fast, Python only):
   * every project template builds for React and for Flutter
 
 Opt-in (need Node.js / Flutter; enabled in CI jobs):
-  MCN_E2E_REACT=1    type-check each generated React app with `tsc --noEmit`
-  MCN_E2E_FLUTTER=1  run `flutter analyze` on each generated Flutter app
+  MCN_E2E_REACT=1    type-check, lint, format-check and test each generated React app
+  MCN_E2E_FLUTTER=1  analyze, format-check and test each generated Flutter app
 """
 import os
 import re
@@ -78,9 +78,14 @@ def test_react_app_typechecks(project, shared_node_modules):
     assert _build(project, "react").get("success") is True
     frontend = Path(pg.app.config["WORKSPACE"]) / "frontend"
     (frontend / "node_modules").symlink_to(shared_node_modules, target_is_directory=True)
-    proc = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=frontend,
-                          capture_output=True, text=True)
-    assert proc.returncode == 0, proc.stdout[-3000:]
+    # With dependencies installed, a build is formatted by the project's Prettier
+    assert quiet(client.post, "/api/build", json={"platform": "react"}).get_json().get("success") is True
+    for cmd in (["npx", "tsc", "--noEmit", "-p", "."],
+                ["npx", "eslint", ".", "--max-warnings=0"],
+                ["npx", "prettier", "--check", "."],
+                ["npx", "vitest", "run"]):
+        proc = subprocess.run(cmd, cwd=frontend, capture_output=True, text=True)
+        assert proc.returncode == 0, f"{' '.join(cmd[1:])}:\n{(proc.stdout + proc.stderr)[-3000:]}"
 
 
 @pytest.mark.skipif(not os.getenv("MCN_E2E_FLUTTER"), reason="set MCN_E2E_FLUTTER=1 (needs Flutter)")
@@ -91,9 +96,11 @@ def test_flutter_app_analyzes(project):
     assert _build(project, "flutter").get("success") is True
     app_dir = next(p for p in (Path(pg.app.config["WORKSPACE"]) / "mobile", Path(pg.app.config["WORKSPACE"]) / "flutter") if (p / "pubspec.yaml").exists())
     subprocess.run(["flutter", "pub", "get"], cwd=app_dir, check=True, capture_output=True, text=True)
-    proc = subprocess.run(["flutter", "analyze", "--no-fatal-infos", "--no-fatal-warnings", "lib"],
-                          cwd=app_dir, capture_output=True, text=True)
-    assert proc.returncode == 0, proc.stdout[-3000:]
+    for cmd in (["flutter", "analyze"], ["dart", "format", "--line-length", "100", "--set-exit-if-changed",
+                                          "--output=none", "lib/screens", "lib/main.dart", "test"],
+                ["flutter", "test"]):
+        proc = subprocess.run(cmd, cwd=app_dir, capture_output=True, text=True)
+        assert proc.returncode == 0, f"{' '.join(cmd)}:\n{(proc.stdout + proc.stderr)[-3000:]}"
 
 
 # ── IDE page: every stylesheet and script it references is served ────────────

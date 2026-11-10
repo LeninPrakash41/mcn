@@ -88,6 +88,22 @@ String mcnHumanize(String key) {
 
 List<dynamic> mcnList(dynamic v) => v is List ? v : const [];
 
+/// A list to keep in a screen's state: the value if it's a list, else a new empty one.
+List<dynamic> mcnListOf(dynamic v) => v is List ? v : <dynamic>[];
+
+/// A map to keep in a screen's state: the value if it's an object, else a new empty one.
+Map<String, dynamic> mcnMapOf(dynamic v) {
+  if (v is Map<String, dynamic>) return v;
+  if (v is Map) return v.map((k, value) => MapEntry('$k', value));
+  return <String, dynamic>{};
+}
+
+/// A readable message from anything thrown while calling the backend.
+String mcnErrorText(Object err) {
+  final text = '$err';
+  return text.startsWith('Exception: ') ? text.substring(11) : text;
+}
+
 // ── Theme, icons and colors ──────────────────────────────────────────────────
 
 const Color _seed = Color(0xFF2563EB); // Vibrant modern primary blue
@@ -531,7 +547,22 @@ class MCNPage extends StatelessWidget {
   final List<Widget> children;
   final Future<dynamic> Function()? onRefresh;
   final String? title;
-  const MCNPage({super.key, required this.children, this.onRefresh, this.title});
+
+  /// True while the screen's data loads: shows a progress bar under the app bar.
+  final bool loading;
+
+  /// Why loading failed: shown above the content with a Retry button.
+  final String? error;
+  final VoidCallback? onRetry;
+  const MCNPage({
+    super.key,
+    required this.children,
+    this.onRefresh,
+    this.title,
+    this.loading = false,
+    this.error,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -582,19 +613,22 @@ class MCNPage extends StatelessWidget {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: borderColor,
-            height: 1,
-          ),
+          child: loading
+              ? const LinearProgressIndicator(minHeight: 1)
+              : Container(color: borderColor, height: 1),
         ),
       ),
       body: LayoutBuilder(builder: (context, size) {
         final side = math.max(16.0, (size.maxWidth - 1100) / 2);
+        final items = [
+          if (error != null) _MCNLoadError(message: error!, onRetry: onRetry),
+          ...children,
+        ];
         final list = ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(side, 16, side, 28),
-          itemCount: children.length,
-          itemBuilder: (_, i) => children[i],
+          itemCount: items.length,
+          itemBuilder: (_, i) => items[i],
           separatorBuilder: (_, __) => const SizedBox(height: 16),
         );
         return onRefresh == null
@@ -607,6 +641,38 @@ class MCNPage extends StatelessWidget {
                 child: list,
               );
       }),
+    );
+  }
+}
+
+class _MCNLoadError extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+  const _MCNLoadError({required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: Material(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Row(children: [
+            Icon(LucideIcons.alertCircle, size: 20, color: scheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: TextStyle(color: scheme.onErrorContainer))),
+            if (onRetry != null)
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(foregroundColor: scheme.onErrorContainer),
+                child: const Text('Retry'),
+              ),
+          ]),
+        ),
+      ),
     );
   }
 }

@@ -2,7 +2,12 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export function Avatar({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
-  return <span className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted", className)} {...props} />
+  return (
+    <span
+      className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted", className)}
+      {...props}
+    />
+  )
 }
 
 export function AvatarImage({ className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {

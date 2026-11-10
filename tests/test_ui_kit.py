@@ -82,25 +82,30 @@ def test_kit_elements_compile_to_kit_components(compiled):
 
 def test_actions_call_endpoints_or_handlers(compiled):
     deals = (compiled / "components" / "Deals.tsx").read_text()
-    assert "onSend={async (message: string, history: any[]) => api.post('/ask', { message, history })}" in deals
-    assert "onMove={async (item: any, to: string) => api.post('/move_deal', { id: item.id, stage: to, item })}" in deals
+    # Long callbacks break after the arrow, as Prettier writes them
+    assert 'onSend={async (message: string, history: { role: string; content: string }[]) =>\n' \
+           '          api.post("/ask", { message, history })\n        }' in deals
+    assert 'onMove={async (item: Row, to: string) => api.post("/move_deal", { id: item.id, stage: to, item })}' in deals
     # `on delete` is a handler (delete is reserved in JavaScript) that receives the row
-    assert "onDelete={(row: any) => onDelete(row)}" in deals
-    assert "const onDelete = useCallback(async (e?: any)" in deals and "const row: any = e" in deals
+    assert "onDelete={(row: Row) => onDelete(row)}" in deals
+    assert "const onDelete = useCallback(async (e?: unknown)" in deals and "const row = e as Row" in deals
+    # A failing action tells the user instead of failing silently
+    assert 'notify(errorMessage(err), "error")' in deals
 
 
 def test_endpoint_calls_use_backend_parameter_names_and_await():
     from mcn.core_engine.ui_compiler import _expr_to_ts
     UICompiler(output_dir=Path("."), endpoints=ENDPOINTS)
     expr = Parser(Lexer('var x = add_note(7, "hello").data').tokenize()).parse().body[0].value
-    assert _expr_to_ts(expr) == "(await api.post('/add_note', {deal_id: 7, text: \"hello\"})).data"
+    assert _expr_to_ts(expr) == '(await api.post("/add_note", { deal_id: 7, text: "hello" })).data'
 
 
 def test_state_reads_after_assignment_see_the_new_value(compiled):
     deals = (compiled / "components" / "Deals.tsx").read_text()
-    m = re.search(r"const (_stats\d+) = \(await api.post\('/deal_stats', \{\}\)\).data", deals)
-    assert m, deals
-    assert f"if (({m.group(1)}.open > 0))" in deals
+    # deal_stats runs alongside the other independent calls; later lines read its result
+    m = re.search(r"const (_stats\d+) = _results\d+\[(\d+)\]\.data", deals)
+    assert m and 'api.post("/deal_stats", {})' in deals, deals
+    assert f"if ({m.group(1)}.open > 0)" in deals
 
 
 def test_app_uses_app_shell(compiled):

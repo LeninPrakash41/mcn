@@ -10,7 +10,8 @@ function currentPath(): string {
 }
 
 const RouterContext = React.createContext<{ path: string; navigate: (to: string) => void }>({
-  path: "/", navigate: () => {},
+  path: "/",
+  navigate: () => {},
 })
 
 export function Router({ children }: { children?: React.ReactNode }) {
@@ -20,7 +21,9 @@ export function Router({ children }: { children?: React.ReactNode }) {
     window.addEventListener("hashchange", onChange)
     return () => window.removeEventListener("hashchange", onChange)
   }, [])
-  const navigate = React.useCallback((to: string) => { window.location.hash = to }, [])
+  const navigate = React.useCallback((to: string) => {
+    window.location.hash = to
+  }, [])
   return <RouterContext.Provider value={{ path, navigate }}>{children}</RouterContext.Provider>
 }
 
@@ -28,16 +31,25 @@ export function Router({ children }: { children?: React.ReactNode }) {
 export const BrowserRouter = Router
 export const HashRouter = Router
 
-export function useLocation() { return { pathname: React.useContext(RouterContext).path } }
-export function useNavigate() { return React.useContext(RouterContext).navigate }
+export function useLocation() {
+  return { pathname: React.useContext(RouterContext).path }
+}
+export function useNavigate() {
+  return React.useContext(RouterContext).navigate
+}
 
 function matches(pattern: string, path: string): boolean {
-  if (pattern === "*" ) return true
-  const a = pattern.replace(/\/$/, "").split("/"), b = path.replace(/\/$/, "").split("/")
+  if (pattern === "*") return true
+  const a = pattern.replace(/\/$/, "").split("/"),
+    b = path.replace(/\/$/, "").split("/")
   return a.length === b.length && a.every((seg, i) => seg.startsWith(":") || seg === b[i])
 }
 
-export function Route(_: { path: string; element: React.ReactNode }) { return null }
+/** Declares a route; <Routes> reads its props and renders the element. */
+export function Route(props: { path: string; element: React.ReactNode }): null {
+  void props
+  return null
+}
 
 /** Renders the first <Route> whose path matches; "*" matches anything. */
 export function Routes({ children }: { children?: React.ReactNode }) {
@@ -60,7 +72,11 @@ export function NavLink({ to, className, children, ...props }: NavLinkProps) {
   const { path } = React.useContext(RouterContext)
   const isActive = path === to || (to !== "/" && path.startsWith(to + "/"))
   const cls = typeof className === "function" ? className({ isActive }) : cn(className, isActive && "active")
-  return <a href={"#" + to} className={cls} aria-current={isActive ? "page" : undefined} {...props}>{children}</a>
+  return (
+    <a href={"#" + to} className={cls} aria-current={isActive ? "page" : undefined} {...props}>
+      {children}
+    </a>
+  )
 }
 
 export const Link = NavLink

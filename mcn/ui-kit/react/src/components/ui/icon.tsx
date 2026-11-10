@@ -22,9 +22,18 @@ export function Icon({ name, size = 16, className, strokeWidth = 2, ...props }: 
   const nodes = ICONS[iconName(name)]
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true" className={cn("shrink-0", className)} {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+      {...props}
     >
       {nodes.map(([tag, attrs], i) => React.createElement(tag, { key: i, ...attrs }))}
     </svg>

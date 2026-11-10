@@ -82,7 +82,8 @@ def preview_source():
     files = {}
     for p in sorted(src.rglob("*")):
         rel = p.relative_to(src).as_posix()
-        if p.is_file() and p.suffix in (".ts", ".tsx", ".css") and not rel.startswith(("components/ui/", "lib/")):
+        if p.is_file() and p.suffix in (".ts", ".tsx", ".css") and not rel.startswith(("components/ui/", "lib/", "test/")) \
+                and not p.name.endswith((".test.tsx", ".test.ts", ".d.ts")):
             files[rel] = p.read_text(encoding="utf-8")
     return jsonify({"success": True, "files": files, "api_url": f"http://localhost:{_BACKEND_PORT}",
                     "api_token": _DEV_TOKEN,

@@ -573,6 +573,8 @@ cd frontend && npm install && npm run dev
 
 The same file compiles to Flutter in Studio's **App** view, with native screens, navigation and charts.
 
+The generated projects are meant to be committed and extended: data is typed (from state and from backend tables), every screen handles loading and errors with a Retry button, independent calls run in parallel, and both projects come lint-clean and formatted, with a smoke test per screen (`npm run lint`, `npm test`; `flutter analyze`, `flutter test`).
+
 **UI elements** (all from the built-in MCN UI kit, with React as the only dependency):
 
 | Category | Elements |

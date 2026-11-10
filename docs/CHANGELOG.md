@@ -5,6 +5,13 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Generated code you'd commit**: `mcn build` and Studio's App view produce typed, lint-clean, formatted and tested projects
+  - React: state typed from its starting value and from backend tables (`Order[]` from `SELECT * FROM orders`), `BackendValue` instead of `any`, a typed API client, and screens using kit components such as `<Stat>`
+  - Each screen shows a loading bar and load errors with Retry; failed actions show an error notification; independent backend calls run in parallel (`Promise.all` / `Future.wait`)
+  - React projects include ESLint, Prettier and Vitest with a smoke test per screen (`npm run lint`, `format`, `test`, `typecheck`); output is Prettier-formatted once dependencies are installed
+  - Flutter: typed state fields, `flutter_lints` with no blanket ignore list, `dart format`, and a widget smoke test per screen
+  - UI kit: no `any`, lint-clean and Prettier-formatted; new `LoadStatus`, richer `Stat` (icon, tone, change), `Badge` variants
+- `MCN_BACKEND_PORT` moves Studio's preview backend off 8080
 - **Accounts across installs**: installed Studio has no accounts of its own; hosted Studio (`mcn studio --hosted`, `MCN_STUDIO_MODE=hosted`) requires sign-in, gives each person a workspace and is the account server for installed copies
   - Installed Studio's **Sign In** and `mcn login` / `mcn whoami` / `mcn logout` sign in through the browser with a device code; the token stays in `~/.mcn/credentials.json`
   - Admins see each user's signed-in computers at `/admin` and can sign them out; `MCN_ADMIN_EMAILS` makes the first admins, `MCN_STUDIO_SIGNUP_DOMAINS` limits sign-up

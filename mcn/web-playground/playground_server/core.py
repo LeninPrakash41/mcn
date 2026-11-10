@@ -196,7 +196,8 @@ _EXEC_TIMEOUT_S = 10
 _dev_server: subprocess.Popen | None = None
 _mcn_backend: subprocess.Popen | None = None
 _DEV_PORT     = 5174
-_BACKEND_PORT = 8080
+# MCN_BACKEND_PORT moves the preview backend when 8080 is taken by something else
+_BACKEND_PORT = int(os.environ.get("MCN_BACKEND_PORT") or 8080)
 
 # Demo devices seeded into the shared IoT registry (see simulators._iot)
 # Demo devices so the IoT panel has something to show before a script registers its own

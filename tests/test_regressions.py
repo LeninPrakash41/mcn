@@ -146,7 +146,7 @@ def test_handler_for_loop_and_local_reassignment():
         "    total = 2\n"
     )
     ts = UICompiler(output_dir=Path("."))._stmts_to_ts(program.body)
-    assert "let names: any[] = []" in ts
+    assert "let names: BackendValue[] = []" in ts
     assert "for (const c of (contacts ?? []))" in ts
     assert "names = [...(names), ...([c.name])]" in ts   # local var: no setter
     assert "} else {" in ts and "setTotal(2)" in ts
@@ -205,3 +205,37 @@ def test_flutter_runtime_has_every_kit_icon_and_ui_packages(tmp_path):
     FlutterCompiler({}).compile(interp._evaluator, tmp_path, "a")
     pubspec = (tmp_path / "pubspec.yaml").read_text()
     assert "lucide_icons_flutter:" in pubspec and "fl_chart:" in pubspec
+
+
+def _compile_component(src: str, name: str) -> str:
+    import contextlib
+    import io
+    import tempfile
+    from mcn.core_engine.mcn_interpreter import MCNInterpreter
+    from mcn.core_engine.ui_compiler import UICompiler
+    out = Path(tempfile.mkdtemp()) / "frontend"
+    interp = MCNInterpreter()
+    with contextlib.redirect_stdout(io.StringIO()):
+        interp.execute(src, quiet=True)
+        UICompiler(output_dir=out, endpoints={"save_item": ["id"]}, tables={}).compile(interp._evaluator)
+    return (out / "src" / "components" / f"{name}.tsx").read_text()
+
+
+def test_handler_reads_state_named_like_the_event_value():
+    """A state called `item` was shadowed by `const item = e` in the handler, so it read the event."""
+    tsx = _compile_component(
+        "component Editor\n    state item = {id: 0}\n\n    on save\n        save_item(item.id)\n\n"
+        "    render\n        button \"Save\" on_click=save\n", "Editor")
+    assert "const item = e as Row" not in tsx
+    assert "}, [item])" in tsx
+
+
+def test_unused_state_and_imports_are_pruned_but_strings_dont_count():
+    """Words inside strings ("items") mustn't count as uses; names after a template literal must."""
+    tsx = _compile_component(
+        "component Things\n    state items = []\n    state unused = 0\n\n    on save\n"
+        "        notify(\"Saved \" + str(len(items)) + \" items\", \"success\")\n\n"
+        "    render\n        button \"Save\" on_click=save\n", "Things")
+    assert "unused" not in tsx
+    assert 'import { notify } from "@/components/ui/toast"' in tsx
+    assert "}, [items])" in tsx
