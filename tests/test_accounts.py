@@ -25,7 +25,8 @@ PWD = "SecurePassword123!"
 def client(tmp_path, monkeypatch):
     _, c = load()
     from mcn.core_engine import auth_primitives
-    from playground_server import device_store
+    from playground_server import device_store, rate_limit
+    rate_limit.reset_all()
     monkeypatch.setattr(auth_primitives, "_DB_PATH", tmp_path / "auth.db")
     monkeypatch.setattr(device_store, "_DB_PATH", tmp_path / "device_sessions.db")
     monkeypatch.setenv("MCN_HOME", str(tmp_path / "home"))
@@ -256,3 +257,49 @@ def test_local_studio_sign_in_endpoints(client, account_server):
     assert client.post("/api/account/logout").get_json()["signed_in"] is False
     with hosted():
         assert client.get("/api/account").status_code == 401                 # hosted Studio doesn't use these
+
+
+# ── Attempt limits ────────────────────────────────────────────────────────────
+
+def test_failed_sign_ins_are_limited_per_account(client):
+    register(client, "guess@example.com")
+    with hosted():
+        for _ in range(10):
+            res = client.post("/api/auth/login", json={"email": "guess@example.com", "password": "wrong-pass"})
+            assert res.status_code == 401
+        res = client.post("/api/auth/login", json={"email": "guess@example.com", "password": PWD})
+        assert res.status_code == 429 and int(res.headers["Retry-After"]) > 0
+        assert "Too many failed sign-in attempts" in res.get_json()["error"]
+        # The admin sign-in shares the same limit
+        assert client.post("/api/admin/login", json={"email": "guess@example.com", "password": PWD}).status_code == 429
+        # Another account isn't affected
+        assert client.post("/api/auth/login", json={"email": "other@example.com", "password": "x" * 8}).status_code == 401
+
+
+def test_successful_sign_in_resets_the_count(client):
+    register(client, "typo@example.com")
+    with hosted():
+        for _ in range(9):
+            client.post("/api/auth/login", json={"email": "typo@example.com", "password": "wrong-pass"})
+        assert client.post("/api/auth/login", json={"email": "typo@example.com", "password": PWD}).status_code == 200
+        for _ in range(9):
+            assert client.post("/api/auth/login", json={"email": "typo@example.com", "password": "wrong-pass"}).status_code == 401
+
+
+def test_wrong_device_codes_are_limited(client):
+    user = register(client, "codes@example.com")
+    with hosted():
+        for _ in range(10):
+            assert client.post("/api/device/lookup", headers=bearer(user), json={"user_code": "AAAA-AAAA"}).status_code == 404
+        started = client.post("/api/device/code", json={}).get_json()
+        res = client.post("/api/device/approve", headers=bearer(user), json={"user_code": started["user_code"]})
+        assert res.status_code == 429
+
+
+def test_admin_shows_the_real_version(client, monkeypatch):
+    from mcn.version import __version__
+    monkeypatch.setenv("MCN_ADMIN_EMAILS", "ver@example.com")
+    token = register(client, "ver@example.com")
+    with hosted():
+        overview = client.get("/api/admin/overview", headers=bearer(token)).get_json()
+    assert overview["system"]["app_version"] == __version__

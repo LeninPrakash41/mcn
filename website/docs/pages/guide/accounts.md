@@ -60,12 +60,26 @@ mcn studio --hosted --host 0.0.0.0 --port 5003
 
 Installed Studio has no `/admin`. It shows a page pointing to your account server instead.
 
+### Sign-in limits
+
+Hosted Studio limits attempts so passwords and sign-in codes can't be guessed. When a limit is reached, the request is refused with status 429 and a `Retry-After` header saying when to try again.
+
+| What | Limit |
+|---|---|
+| Failed sign-ins to one account (Studio, `/admin` and `/device` together) | 10 per 15 minutes, reset by a successful sign-in |
+| Failed sign-ins from one network address | 100 per 15 minutes |
+| New accounts from one network address | 50 per hour |
+| Sign-in codes requested from one address (`mcn login`, Studio's Sign in) | 60 per 10 minutes |
+| Wrong sign-in codes entered by one user at `/device` | 10 per 10 minutes |
+
+The address limits are generous so a class signing in from one school network isn't blocked. Behind a reverse proxy, set `MCN_TRUST_PROXY=1` so the limits see each person's address (from `X-Forwarded-For`) rather than the proxy's. The counts are kept in memory by each server process, so run hosted Studio as a single process, or add limits in the proxy as well.
+
 ### Running it safely
 
 Hosted Studio runs the code people write on your server. Before you open it to others:
 
 - **Run it in a container** (or a VM), with limits on CPU, memory and disk. Signed-in users can read files and environment variables the Studio process can read, so don't put secrets there that users shouldn't see.
-- **Serve it over HTTPS**, behind a reverse proxy such as Caddy or nginx, and set `MCN_PUBLIC_URL` to that address.
+- **Serve it over HTTPS**, behind a reverse proxy such as Caddy or nginx, and set `MCN_PUBLIC_URL` to that address and `MCN_TRUST_PROXY=1`.
 - **Keep `~/.mcn` on a persistent volume.** It holds the account database (`auth.db`), the sign-in sessions and everyone's workspaces.
 - **Back up `auth.db`** and keep `MCN_AUTH_SECRET` the same, or everyone is signed out.
 
@@ -80,4 +94,5 @@ Today one hosted Studio shares one dev server, backend preview and Flutter build
 | `MCN_ADMIN_EMAILS` | Server | Comma-separated emails that become admins |
 | `MCN_STUDIO_SIGNUP_DOMAINS` | Server | Comma-separated email domains allowed to sign up (default: anyone) |
 | `MCN_PUBLIC_URL` | Server | The public address, used in sign-in links behind a proxy |
+| `MCN_TRUST_PROXY` | Server | `1` behind a reverse proxy, so sign-in limits use each person's address from `X-Forwarded-For` |
 | `MCN_ACCOUNT_URL` | Computer | The account server for `mcn login` and Studio's Sign in (also `mcn config set account_url`) |

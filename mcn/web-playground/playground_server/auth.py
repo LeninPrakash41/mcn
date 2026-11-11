@@ -16,6 +16,7 @@ from .core import (
     jsonify,
     request,
 )
+from . import rate_limit
 from .workspace_seed import (
     _seed_workspace,
 )
@@ -35,6 +36,21 @@ def _local_mode_error():
                  "Use Sign in to connect your MCN account.",
         "mode": "local",
     }), 404
+
+
+def login_limited(email: str):
+    """A 429 response once an account or address has had too many failed sign-ins."""
+    return rate_limit.check(("login_email", email), ("login_ip", rate_limit.client_ip()),
+                            what="failed sign-in attempts")
+
+
+def login_failed(email: str) -> None:
+    rate_limit.record("login_email", email)
+    rate_limit.record("login_ip", rate_limit.client_ip())
+
+
+def login_succeeded(email: str) -> None:
+    rate_limit.clear("login_email", email)
 
 
 def _issue(email: str, password: str):
@@ -65,6 +81,11 @@ def auth_register():
     if not signup_allowed(email):
         return jsonify({"error": "Sign-up on this Studio is limited to approved email domains. "
                                  "Ask your admin for access."}), 403
+    ip = rate_limit.client_ip()
+    limited = rate_limit.check(("register_ip", ip), what="new accounts from this network")
+    if limited:
+        return limited
+    rate_limit.record("register_ip", ip)
     try:
         user  = auth_create_user(email, password)
         token, payload = _issue(email, password)
@@ -89,8 +110,12 @@ def auth_login_endpoint():
     password = (data.get("password") or "").strip()
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
+    limited = login_limited(email)
+    if limited:
+        return limited
     try:
         token, payload = _issue(email, password)
+        login_succeeded(email)
         user_id = payload.get("sub") or email
         # Ensure workspace exists for returning users
         ws = _WORKSPACES_DIR / str(user_id)
@@ -104,6 +129,7 @@ def auth_login_endpoint():
                         "roles": payload.get("roles", [])},
         })
     except ValueError as e:
+        login_failed(email)
         return jsonify({"error": str(e)}), 401
 
 

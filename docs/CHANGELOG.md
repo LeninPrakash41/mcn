@@ -5,6 +5,8 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Hosted Studio limits sign-in attempts (per account and per network address), sign-ups, sign-in code requests and wrong codes, answering 429 with `Retry-After`; `MCN_TRUST_PROXY=1` behind a reverse proxy
+- The admin panel shows the installed MCN version instead of a fixed "3.0.0"; removed the unused `static/js/admin.js`
 - **Generated code you'd commit**: `mcn build` and Studio's App view produce typed, lint-clean, formatted and tested projects
   - React: state typed from its starting value and from backend tables (`Order[]` from `SELECT * FROM orders`), `BackendValue` instead of `any`, a typed API client, and screens using kit components such as `<Stat>`
   - Each screen shows a loading bar and load errors with Retry; failed actions show an error notification; independent backend calls run in parallel (`Promise.all` / `Future.wait`)

@@ -9,7 +9,7 @@ import os
 
 from flask import Blueprint
 
-from . import device_store
+from . import device_store, rate_limit
 from .core import (
     _THIS_DIR,
     _current_user,
@@ -42,6 +42,11 @@ def device_code():
     err = _hosted_only()
     if err:
         return err
+    ip = rate_limit.client_ip()
+    limited = rate_limit.check(("device_code_ip", ip), what="sign-in codes requested")
+    if limited:
+        return limited
+    rate_limit.record("device_code_ip", ip)
     data = request.get_json(silent=True) or {}
     code = device_store.create_code(data.get("client_name", ""))
     # Behind a proxy, MCN_PUBLIC_URL gives the address people actually open
@@ -57,10 +62,15 @@ def device_lookup():
     err = _hosted_only()
     if err:
         return err
-    if not _current_user():
+    user = _current_user()
+    if not user:
         return jsonify({"error": "Sign in first", "needs_login": True}), 401
+    limited = rate_limit.check(("device_guess", user["sub"]), what="wrong sign-in codes")
+    if limited:
+        return limited
     info = device_store.lookup_user_code((request.get_json(silent=True) or {}).get("user_code", ""))
     if not info:
+        rate_limit.record("device_guess", user["sub"])
         return jsonify({"error": "That code is wrong or has expired. Start sign-in again on your computer."}), 404
     return jsonify({"success": True, **info})
 
@@ -73,9 +83,13 @@ def device_approve():
     user = _current_user()
     if not user or not user.get("sub"):
         return jsonify({"error": "Sign in first", "needs_login": True}), 401
+    limited = rate_limit.check(("device_guess", user["sub"]), what="wrong sign-in codes")
+    if limited:
+        return limited
     data = request.get_json(silent=True) or {}
     result = device_store.decide(data.get("user_code", ""), user["sub"], approve=data.get("approve", True) is not False)
     if not result:
+        rate_limit.record("device_guess", user["sub"])
         return jsonify({"error": "That code is wrong or has expired. Start sign-in again on your computer."}), 404
     return jsonify({"success": True, "status": result["status"], "client_name": result["client_name"]})
 

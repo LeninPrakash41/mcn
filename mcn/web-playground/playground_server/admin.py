@@ -22,6 +22,8 @@ from .core import (
     request,
 )
 from . import device_store
+from .site import _version
+from .auth import login_failed, login_limited, login_succeeded
 from .community import _COMMUNITY_REG_FILE, _OUTBOX_FILE
 
 bp = Blueprint("admin", __name__)
@@ -62,9 +64,13 @@ def admin_login():
 
     if not email or not password:
         return jsonify({"error": "Email and password required"}), 400
+    limited = login_limited(email)
+    if limited:
+        return limited
 
     try:
         token = auth_login(email, password)
+        login_succeeded(email)
         payload = auth_verify_token(token) or {}
         if payload.get("sub") and ensure_bootstrap_admin(payload["sub"], payload.get("email", email)):
             token = auth_login(email, password)
@@ -86,6 +92,7 @@ def admin_login():
             },
         })
     except ValueError as e:
+        login_failed(email)
         return jsonify({"error": str(e)}), 401
 
 
@@ -157,7 +164,7 @@ def admin_overview():
         "system": {
             "platform": sys.platform,
             "python_version": sys.version.split()[0],
-            "app_version": "3.0.0",
+            "app_version": _version(),
         }
     })
 
