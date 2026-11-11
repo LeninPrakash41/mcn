@@ -603,7 +603,13 @@ mcn generate "A CRM with contacts, notes, and pipeline dashboard"
 
 mcn generate "..." --out ./my-app --build
 # Also compiles the React frontend
+
+mcn generate --team "An HR portal with leave approvals, company SSO and an audit trail"
+# The agent team: a researcher, architect, designer, builder and QA lead
+# plan the app, build it, test it, and fix what QA finds
 ```
+
+In Studio, tick **Use the agent team** in the Generate dialog; there the QA lead also opens every screen in a real browser (`mcn add browser-qa`).
 
 ### Options
 
@@ -611,7 +617,8 @@ mcn generate "..." --out ./my-app --build
 |---|---|---|
 | `--out <dir>` | `.` | Output directory |
 | `--build` | off | Also compile React frontend |
-| `--model <id>` | `claude-opus-4-6` | Claude model |
+| `--model <id>` | `claude-opus-5-5` | Claude model |
+| `--team` | off | Use the agent team (`--no-research` skips web search) |
 | `--api-key <key>` | config / env | Override for this run |
 | `--quiet` | off | Suppress streaming |
 
@@ -736,7 +743,8 @@ mcn iot service backend/main.mcn  # start the app when the Pi boots
 
 ```mcn
 service orders_api
-    auth "token"                  // or "jwt"
+    auth "token"                  // or "jwt", or "sso" for company sign-in
+    audit                         // log every call to a tamper-evident audit log
     public health                 // endpoints anyone may call
 
     endpoint health()
@@ -752,6 +760,8 @@ service orders_api
 - Only declared endpoints are reachable over HTTP; every response gets security headers; requests are rate-limited and body size is capped.
 - Built-in checks: `validate`, `sanitize_html`, `escape_html`, `is_email`, `password_strength`, `rate_limit`, `require`, `secure_token`, `safe_equals`, `mask`, and a tamper-evident `audit_log`.
 - `mcn audit .` finds SQL injection, hard-coded secrets, open services, unsafe file paths and weak password hashing before you ship (`--json` for CI).
+- **Single sign-on:** `auth "sso"` signs people in with Okta, Microsoft Entra ID, Google Workspace or any OpenID Connect provider (`mcn add sso`); `current_user()` has their email, name and roles.
+- **Audit logs:** `audit` records every call with secrets masked; `mcn audit-log verify` checks it and `mcn audit-log export --format ocsf` feeds a SIEM (or stream with `MCN_AUDIT_WEBHOOK`).
 
 See the [security guide](website/docs/pages/guide/security.md).
 
@@ -760,8 +770,12 @@ See the [security guide](website/docs/pages/guide/security.md).
 ```bash
 mcn deploy --target vercel          # React app + API (at /api) on Vercel, one URL
 mcn deploy --target vercel --prod   # production
+mcn deploy --target aws --region eu-west-1   # one container on AWS App Runner, auto-scaling
+mcn deploy --target cloudflare      # web app on Cloudflare's edge, API in a Cloudflare container
 mcn deploy --target docker          # zip with Dockerfile and docker-compose for any host
 ```
+
+Every target runs in your own account. AWS needs the AWS CLI and Docker; Cloudflare needs Node.js, Docker and a Cloudflare account.
 
 The first Vercel deploy asks you to log in (Studio uses a `VERCEL_TOKEN` from **Secrets**). Keys like `ANTHROPIC_API_KEY` come from the project's `.env`. On Vercel, SQLite data is temporary, so use PostgreSQL (`connect_postgresql(env("DATABASE_URL"))`) for data that must last; `watch`, schedules and hardware need an always-on host or a Pi. See the [deploying guide](website/docs/pages/guide/deploy.md).
 
@@ -854,6 +868,8 @@ mcn config show
 | `MCN_STUDIO_MODE` | `hosted` runs a shared, multi-user Studio |
 | `MCN_ADMIN_EMAILS` | Hosted Studio: emails that become admins |
 | `MCN_ACCOUNT_URL` | The account server `mcn login` and Studio's Sign in use |
+| `MCN_SSO_ISSUER`, `MCN_SSO_CLIENT_ID`, `MCN_SSO_CLIENT_SECRET` | Single sign-on for `auth "sso"` services |
+| `MCN_AUDIT_WEBHOOK` | Also send audit entries (as OCSF) to a SIEM or log collector |
 
 ---
 
@@ -863,8 +879,8 @@ mcn config show
 |---|---|---|
 | v2.0–2.3 | Released | Pipelines, services, workflows, AI primitives, test runner, formatter, full-stack compiler, 100+ built-ins, packages |
 | v2.4 | Released | Friendly errors and `mcn check`, `mcn init` projects, `mcn studio <folder>`, VS Code extension with live errors, GET for every endpoint, parallel `task`/`await` |
-| **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel**; **hosted Studio with accounts**, admin and `mcn login` |
-| v3.0 | Planned | Per-user sandboxes for hosted Studio, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
+| **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel, AWS and Cloudflare**; **hosted Studio with accounts**, admin and `mcn login`; **SSO and audit logs** for services; **the agent team** |
+| v3.0 | Planned | Per-user sandboxes for hosted Studio, SSO in the Flutter app, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
 
 ---
 

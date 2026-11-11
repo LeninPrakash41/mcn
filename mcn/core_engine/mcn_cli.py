@@ -407,6 +407,40 @@ def _cmd_config(args) -> int:
     return 1
 
 
+def _cmd_generate_team(args, api_key: str) -> int:
+    """mcn generate --team: plan, design, build and check the app with the agent team."""
+    from mcn.ai.agent_team import AgentTeam
+    names = {"researcher": "Researcher", "architect": "Architect", "designer": "Designer",
+             "builder": "Builder", "qa": "QA lead"}
+
+    def emit(ev):
+        if ev.get("type") == "agent":
+            mark = {"working": "…", "done": "✓", "failed": "✗"}.get(ev["status"], "·")
+            line = f"{mark} {names.get(ev['role'], ev['role'])}"
+            if ev.get("summary"):
+                line += f": {ev['summary']}"
+            print(line)
+            for fix in ev.get("fixes") or []:
+                print(f"    - {fix}")
+        elif ev.get("type") == "token" and not args.quiet:
+            pass                                # the builder's code is long; the files are the result
+
+    team = AgentTeam(api_key=api_key, emit=emit, web_research=args.research,
+                     **({"model": args.model} if args.model else {}))
+    try:
+        result = team.run(args.description, args.out)
+    except Exception as exc:
+        print(f"Error: {exc}")
+        return 1
+    out = Path(args.out)
+    print(f"\nWrote {out / 'backend' / 'main.mcn'} and {out / 'ui' / 'app.mcn'}")
+    if result["verdict"] != "pass":
+        print("QA still had notes after two rounds of fixes; review them above.")
+    if getattr(args, "build", False):
+        return _cmd_build(str(out / "ui" / "app.mcn"), str(out / "frontend"))
+    return 0
+
+
 def _cmd_generate(args) -> int:
     """
     mcn generate "<description>" [--out <dir>] [--port N] [--build] [--model M] [--api-key K] [--quiet]
@@ -445,6 +479,9 @@ def _cmd_generate(args) -> int:
         print(f"Error: app generation isn't available in this installation ({exc}).")
         print("       Run: mcn upgrade")
         return 1
+
+    if getattr(args, "team", False):
+        return _cmd_generate_team(args, api_key)
 
     agent = MCNAgent(api_key=api_key, **({"model": args.model} if args.model else {}))
     verbose = not args.quiet
@@ -572,6 +609,30 @@ def _cmd_deploy(args) -> int:
             print(f"Deploy failed: {exc}")
             return 1
         print(f"\n✓ Live at {result['url']}\n  Web app: {result['url']}\n  API:     {result['url']}/api/<endpoint>")
+        return 0
+
+    if args.target in ("aws", "cloudflare"):
+        from . import container_deploy
+        from .vercel_deploy import DeployError
+        try:
+            if args.stage_only:
+                out = container_deploy.stage(workspace, args.name, args.target)
+                print(f"✓ Project written to {out}")
+                return 0
+            if args.target == "aws":
+                result = container_deploy.deploy_aws(workspace, args.name, region=args.region)
+            else:
+                result = container_deploy.deploy_cloudflare(workspace, args.name)
+        except DeployError as exc:
+            print(f"Deploy failed: {exc}")
+            return 1
+        where = f" in {result['region']}" if result.get("region") else ""
+        if result.get("url"):
+            print(f"\n✓ Deployed{where}: {result['url']}\n  Web app: {result['url']}\n  API:     {result['url']}/api/<endpoint>")
+        else:
+            print(f"\n✓ Deployed{where}. Wrangler printed the address above.")
+        if args.target == "aws":
+            print("  App Runner takes a few minutes to start the first version.")
         return 0
 
     print(f"Packaging '{args.name}' from {workspace} (target: {args.target})...")
@@ -865,6 +926,14 @@ def main():
         "--quiet", "-q", action="store_true",
         help="Suppress streaming output"
     )
+    gen_parser.add_argument(
+        "--team", action="store_true",
+        help="Use the agent team: a researcher, architect, designer, builder and QA lead plan, build and test the app"
+    )
+    gen_parser.add_argument(
+        "--no-research", dest="research", action="store_false",
+        help="With --team: skip the researcher's web search"
+    )
 
     # Config command — store Claude API key and other settings
     config_parser = subparsers.add_parser(
@@ -908,12 +977,13 @@ def main():
         help="Workspace path (default: current directory)"
     )
     deploy_parser.add_argument(
-        "--target", choices=["zip", "docker", "vercel", "cloud"], default="zip",
-        help="zip (default), docker, vercel (web app + API on Vercel), or cloud (needs MCN_DEPLOY_URL)"
+        "--target", choices=["zip", "docker", "vercel", "aws", "cloudflare", "cloud"], default="zip",
+        help="zip (default), docker, vercel, aws (App Runner), cloudflare (Containers), or cloud (needs MCN_DEPLOY_URL)"
     )
+    deploy_parser.add_argument("--region", help="aws: the region to run in, e.g. eu-west-1 (default: AWS_REGION, else us-east-1)")
     deploy_parser.add_argument("--prod", action="store_true", help="vercel: deploy to production, not a preview URL")
     deploy_parser.add_argument("--stage-only", action="store_true",
-                               help="vercel: write the Vercel project to .mcn/deploy/<name>/ without uploading")
+                               help="vercel, aws, cloudflare: write the project to .mcn/deploy/ without uploading")
     deploy_parser.add_argument(
         "--name", default="mcn-app",
         help="Application name used for the package and Docker image (default: mcn-app)"
@@ -946,6 +1016,14 @@ def main():
     login_parser.add_argument("--no-browser", action="store_true", help="Print the link instead of opening the browser")
     subparsers.add_parser("logout", help="Sign this computer out of your MCN account")
     subparsers.add_parser("whoami", help="Show which MCN account this computer is signed in to")
+
+    audit_log_parser = subparsers.add_parser("audit-log", help="Check or export the audit log of `audit` services")
+    audit_log_sub = audit_log_parser.add_subparsers(dest="audit_action")
+    audit_log_sub.add_parser("verify", help="Check that no entry was changed, removed or reordered")
+    export_p = audit_log_sub.add_parser("export", help="Write the log for a SIEM or spreadsheet")
+    export_p.add_argument("--format", choices=["ocsf", "jsonl", "csv"], default="ocsf", help="ocsf (default), jsonl or csv")
+    export_p.add_argument("--out", help="File to write (default: print)")
+    audit_log_parser.add_argument("--file", help="The log file (default: MCN_APP_AUDIT_LOG or ~/.mcn/audit/app_audit.jsonl)")
 
     subparsers.add_parser("vscode", help="Install the MCN extension into VS Code")
     add_parser = subparsers.add_parser("add", help="Add an optional feature (run `mcn add` to list them)")
@@ -1061,6 +1139,42 @@ def main():
             return subprocess.call([sys.executable, str(playground_server)], env=env)
         except KeyboardInterrupt:
             return 0
+
+    elif args.command == "audit-log":
+        from . import security
+        if args.file:
+            os.environ["MCN_APP_AUDIT_LOG"] = args.file
+        path = security._audit_path()
+        if args.audit_action == "export":
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] \
+                if path.exists() else []
+            if args.format == "ocsf":
+                text = "\n".join(json.dumps(security.to_ocsf(e), default=str) for e in entries)
+            elif args.format == "jsonl":
+                text = "\n".join(json.dumps(e, default=str) for e in entries)
+            else:
+                import csv
+                import io as _io
+                buf = _io.StringIO()
+                w = csv.writer(buf)
+                w.writerow(["time", "action", "actor", "endpoint", "status", "ms", "ip", "error", "hash"])
+                for e in entries:
+                    d = e.get("details") if isinstance(e.get("details"), dict) else {}
+                    w.writerow([e.get("time"), e.get("action"), e.get("actor"), d.get("endpoint"), d.get("status"),
+                                d.get("ms"), d.get("ip"), d.get("error"), e.get("hash")])
+                text = buf.getvalue().rstrip("\n")
+            if args.out:
+                Path(args.out).write_text(text + ("\n" if text else ""), encoding="utf-8")
+                print(f"Wrote {len(entries)} entries to {args.out}")
+            else:
+                print(text)
+            return 0
+        result = security.verify_audit_log()
+        if result["valid"]:
+            print(f"Audit log is intact: {result['entries']} entries ({path})")
+            return 0
+        print(f"Audit log was changed: entry {result['broken_at']} of {result['entries']} doesn't match ({path})")
+        return 1
 
     elif args.command in ("login", "logout", "whoami"):
         from . import account

@@ -810,6 +810,16 @@
         <input class="form-input" type="password" id="gen-key" placeholder="sk-ant-..." autocomplete="off" />
       </div>
 
+      <!-- Agent team -->
+      <label class="team-toggle" for="gen-team">
+        <input type="checkbox" id="gen-team" onchange="renderTeamPanel()" />
+        <span>
+          <strong>Use the agent team</strong>
+          <span class="team-toggle-sub">A researcher, architect, designer, builder and QA lead plan the app, build it, then open every screen in a browser and fix what they find. Takes longer and uses more tokens.</span>
+        </span>
+      </label>
+      <ol class="team-panel hidden" id="team-panel" aria-live="polite"></ol>
+
       <!-- Status & Streaming -->
       <div class="gen-status hidden" id="gen-status">
         <div class="spinner"></div>

@@ -40,6 +40,9 @@ def check_auth(mode: str, authorization: Optional[str]) -> Tuple[bool, Any, str]
     """(allowed, user, error) for an Authorization header under the endpoint's auth mode."""
     if not mode:
         return True, None, ""
+    if mode == "sso":
+        from . import sso
+        return sso.check(authorization)
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
         return False, None, "This endpoint needs an Authorization: Bearer <token> header"
@@ -285,17 +288,121 @@ def audit_log(action: Any, details: Any = None, actor: Any = None) -> Dict[str, 
     who = actor if actor is not None else (user.get("user") or user.get("email") or user.get("sub")) if isinstance(user, dict) else actor
     path = _audit_path()
     with _audit_lock:
-        prev = "0" * 64
-        if path.exists():
-            lines = path.read_text(encoding="utf-8").strip().splitlines()
-            if lines:
-                prev = json.loads(lines[-1]).get("hash", prev)
+        prev = _last_hash(path)
         entry = {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "action": str(action),
                  "actor": who, "details": details, "prev": prev}
         entry["hash"] = _entry_hash(entry)
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, default=str) + "\n")
+        _tail_cache[str(path)] = (path.stat().st_size, entry["hash"])
+    _send_to_webhook(entry)
     return {"logged": True, "hash": entry["hash"], "file": str(path)}
+
+
+_tail_cache: Dict[str, Tuple[int, str]] = {}
+
+
+def _last_hash(path) -> str:
+    """The hash of the log's last entry, reading only the end of the file."""
+    if not path.exists():
+        return "0" * 64
+    size = path.stat().st_size
+    cached = _tail_cache.get(str(path))
+    if cached and cached[0] == size:
+        return cached[1]
+    with open(path, "rb") as f:
+        f.seek(max(0, size - 65536))
+        lines = f.read().decode("utf-8", errors="replace").strip().splitlines()
+    try:
+        return json.loads(lines[-1]).get("hash", "0" * 64) if lines else "0" * 64
+    except json.JSONDecodeError:
+        return "0" * 64
+
+
+_SENSITIVE = re.compile(r"pass|secret|token|key|auth|credential|card|ssn|cvv|pin\b", re.I)
+
+
+def _mask_args(params: List[str], args: List[Any]) -> Dict[str, Any]:
+    """Endpoint arguments for the log: secret-looking fields masked, long values shortened."""
+    out: Dict[str, Any] = {}
+    for name, value in zip(params, args):
+        if _SENSITIVE.search(name):
+            out[name] = "***"
+        elif isinstance(value, str) and len(value) > 200:
+            out[name] = value[:200] + "…"
+        elif isinstance(value, (dict, list)):
+            text = json.dumps(value, default=str)
+            out[name] = value if len(text) <= 500 else text[:500] + "…"
+        else:
+            out[name] = value
+    return out
+
+
+def audit_call(endpoint: str, params: List[str], args: List[Any], status: int, ms: float,
+               client: str = "", error: Optional[str] = None) -> None:
+    """One endpoint call in the audit log (services declared with `audit`)."""
+    details = {"endpoint": endpoint, "args": _mask_args(params, args), "status": status,
+               "ms": round(ms, 1), "ip": client}
+    if error:
+        details["error"] = str(error)[:500]
+    try:
+        audit_log("api.call" if status < 400 else "api.denied" if status in (401, 403, 429) else "api.error", details)
+    except OSError:
+        pass                            # a full or read-only disk must not take the API down
+
+
+def to_ocsf(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """An audit entry as an OCSF API Activity event (class 6003), for SIEMs such as
+    Splunk, Microsoft Sentinel, Datadog or Elastic."""
+    details = entry.get("details") if isinstance(entry.get("details"), dict) else {}
+    status = details.get("status")
+    failed = isinstance(status, int) and status >= 400
+    try:
+        from datetime import datetime, timezone
+        ms = int(datetime.strptime(entry["time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+    except (KeyError, ValueError):
+        ms = int(time.time() * 1000)
+    try:
+        from mcn.version import __version__ as version
+    except ImportError:
+        version = "dev"
+    event = {
+        "class_uid": 6003, "class_name": "API Activity", "category_uid": 6, "category_name": "Application Activity",
+        "activity_id": 99, "activity_name": entry.get("action"), "type_uid": 600399,
+        "time": ms, "severity_id": 3 if failed else 1, "status_id": 2 if failed else 1,
+        "status": "Failure" if failed else "Success",
+        "actor": {"user": {"name": entry.get("actor"), "uid": entry.get("actor")}},
+        "api": {"operation": details.get("endpoint") or entry.get("action"),
+                "response": {"code": status} if status is not None else {}},
+        "src_endpoint": {"ip": details.get("ip")} if details.get("ip") else {},
+        "metadata": {"product": {"name": "MCN", "vendor_name": "MCN"}, "version": "1.1.0",
+                     "uid": entry.get("hash"), "original_time": entry.get("time"),
+                     "extension": {"mcn_version": version}},
+        "unmapped": {"details": details, "prev_hash": entry.get("prev")},
+    }
+    if details.get("ms") is not None:
+        event["duration"] = details["ms"]
+    return event
+
+
+def _send_to_webhook(entry: Dict[str, Any]) -> None:
+    """MCN_AUDIT_WEBHOOK: also POST each entry (as OCSF) to a SIEM or log collector, in the background."""
+    url = os.getenv("MCN_AUDIT_WEBHOOK", "").strip()
+    if not url:
+        return
+
+    def send():
+        try:
+            import requests
+            headers = {"Content-Type": "application/json"}
+            if os.getenv("MCN_AUDIT_WEBHOOK_TOKEN"):
+                headers["Authorization"] = f"Bearer {os.environ['MCN_AUDIT_WEBHOOK_TOKEN']}"
+            requests.post(url, data=json.dumps(to_ocsf(entry), default=str), headers=headers, timeout=5)
+        except Exception:
+            pass                        # best effort: the local log is the record of truth
+
+    threading.Thread(target=send, daemon=True).start()
 
 
 def verify_audit_log() -> Dict[str, Any]:

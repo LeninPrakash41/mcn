@@ -905,6 +905,7 @@ class Parser:
         port: Optional[int] = None
         endpoints: List[ast.EndpointDecl] = []
         auth = ""
+        audit = False
         public: List[str] = []
 
         self._skip_newlines()
@@ -923,10 +924,15 @@ class Parser:
                     endpoints.append(self._endpoint_decl())
                 elif self._current().value == "auth":
                     self._advance()
-                    mode_tok = self._consume(TT.STRING, 'Expected "token" or "jwt" after auth')
-                    if mode_tok.value not in ("token", "jwt"):
-                        raise ParseError('auth must be "token" or "jwt"', mode_tok)
+                    mode_tok = self._consume(TT.STRING, 'Expected "token", "jwt" or "sso" after auth')
+                    if mode_tok.value not in ("token", "jwt", "sso"):
+                        raise ParseError('auth must be "token", "jwt" or "sso"', mode_tok)
                     auth = mode_tok.value
+                    self._consume_end()
+                elif self._current().value == "audit":
+                    # Every call to the service's endpoints goes in the audit log
+                    self._advance()
+                    audit = True
                     self._consume_end()
                 elif self._current().value == "public":
                     self._advance()
@@ -940,7 +946,7 @@ class Parser:
                 self._advance()      # consume DEDENT
 
         return ast.ServiceDecl(name=name_tok.value, port=port, endpoints=endpoints,
-                               auth=auth, public=public, line=tok.line, col=tok.col)
+                               auth=auth, public=public, audit=audit, line=tok.line, col=tok.col)
 
     def _endpoint_decl(self) -> ast.EndpointDecl:
         tok      = self._advance()   # consume ENDPOINT

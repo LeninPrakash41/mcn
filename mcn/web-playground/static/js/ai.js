@@ -491,6 +491,52 @@ function closeGenerateModal() {
   renderGenAttachments()
 }
 
+// ── Agent team progress ─────────────────────────────────────────────────────
+
+const TEAM_ROLES = [
+  ['researcher', 'Researcher', 'Works out what this kind of app needs'],
+  ['architect', 'Architect', 'Plans the data, endpoints and screens'],
+  ['designer', 'Designer', 'Designs each screen'],
+  ['builder', 'Builder', 'Writes backend/main.mcn and ui/app.mcn'],
+  ['qa', 'QA lead', 'Tests every endpoint and screen in a browser'],
+]
+let _teamState = {}
+
+function renderTeamPanel() {
+  const panel = document.getElementById('team-panel')
+  const on = document.getElementById('gen-team')?.checked
+  if (!panel) return
+  panel.classList.toggle('hidden', !on)
+  const btn = document.getElementById('gen-submit')
+  if (btn) btn.textContent = on ? 'Build with the Agent Team' : 'Generate Full-Stack App'
+  panel.innerHTML = ''
+  TEAM_ROLES.forEach(([role, name, about], i) => {
+    const st = _teamState[role] || {}
+    const li = document.createElement('li')
+    li.className = 'team-step'
+    li.dataset.status = st.status || 'waiting'
+    const dot = document.createElement('span')
+    dot.className = 'dot'
+    dot.textContent = st.status === 'done' ? '✓' : st.status === 'failed' ? '!' : String(i + 1)
+    const body = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'team-step-role'
+    title.textContent = name
+    const summary = document.createElement('div')
+    summary.className = 'team-step-summary'
+    summary.textContent = st.summary || (st.status === 'working' ? 'Working…' : about)
+    body.append(title, summary)
+    if (st.fixes && st.fixes.length) {
+      const ol = document.createElement('ol')
+      ol.className = 'team-step-fixes'
+      st.fixes.slice(0, 6).forEach(f => { const item = document.createElement('li'); item.textContent = f; ol.appendChild(item) })
+      body.appendChild(ol)
+    }
+    li.append(dot, body)
+    panel.appendChild(li)
+  })
+}
+
 async function submitGenerate() {
   const desc   = document.getElementById('gen-desc').value.trim()
   const apiKey = document.getElementById('gen-key').value.trim()
@@ -520,8 +566,12 @@ async function submitGenerate() {
     ? `Analyzing ${_genAttachments.length} design attachment(s) & generating…`
     : 'Connecting…'
 
+  const useTeam = !!document.getElementById('gen-team')?.checked
+  _teamState = {}
+  if (useTeam) renderTeamPanel()
+
   try {
-    const r = await apiFetch('/api/generate', {
+    const r = await apiFetch(useTeam ? '/api/agent/team' : '/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
@@ -551,12 +601,22 @@ async function submitGenerate() {
           const s = document.getElementById('gen-stream')
           s.textContent += ev.text
           s.scrollTop = s.scrollHeight
+        } else if (ev.type === 'agent') {
+          _teamState[ev.role] = { status: ev.status, summary: ev.summary, fixes: ev.fixes }
+          const label = (TEAM_ROLES.find(r => r[0] === ev.role) || [])[1] || ev.role
+          document.getElementById('gen-status-text').textContent =
+            ev.status === 'working' ? `${label}: ${ev.summary || 'working…'}` : `${label}: ${ev.summary || ev.status}`
+          renderTeamPanel()
+        } else if (ev.type === 'qa') {
+          appendLog('info', `QA round ${ev.round}: ` + JSON.stringify(ev.report).slice(0, 400))
         } else if (ev.type === 'status') {
           document.getElementById('gen-status-text').textContent = ev.text
         } else if (ev.type === 'done') {
           document.getElementById('gen-status').classList.add('hidden')
           document.getElementById('gen-submit').disabled = false
-          showToast('AI Application generated successfully from requirements & designs!', 'success')
+          showToast(ev.verdict === 'fix'
+            ? 'The team built the app; QA still had notes (see the log)'
+            : 'AI Application generated successfully from requirements & designs!', ev.verdict === 'fix' ? 'warning' : 'success')
           if (ev.backend) {
             await apiFetch('/api/workspace/file', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },

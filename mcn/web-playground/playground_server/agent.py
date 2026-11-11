@@ -243,3 +243,64 @@ def generate_mcn():
     resp.headers["Cache-Control"]     = "no-cache"
     resp.headers["X-Accel-Buffering"] = "no"
     return resp
+
+
+# ── AI Agent Team (SSE) ───────────────────────────────────────────────────────
+
+@bp.route("/api/agent/team", methods=["POST"])
+def agent_team():
+    """Research, plan, design, build and test an app with a team of Claude agents, streaming progress."""
+    data        = request.get_json(silent=True) or {}
+    description = (data.get("description") or "").strip()
+    attachments = data.get("attachments") or []
+    api_key     = (data.get("api_key") or "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
+    if not description and not attachments:
+        return jsonify({"error": "Describe the app the team should build"}), 400
+    if not description:
+        description = "Build a complete full-stack application according to the attached documents and designs."
+    if not api_key:
+        return jsonify({"error": "No API key found. Enter your Claude API key or run: mcn config set api_key sk-ant-..."}), 400
+
+    ws = _request_workspace()
+    preview_url = request.host_url.rstrip("/") + "/preview/"
+    events: queue.Queue = queue.Queue()
+    result_box = [None]
+
+    def run():
+        try:
+            from mcn.ai.agent_team import AgentTeam
+            from . import browser_qa
+            from .devserver import _start_backend
+            check = browser_qa.make_check(preview_url, _start_backend) if data.get("browser", True) else None
+            team = AgentTeam(api_key=api_key, emit=events.put, web_research=bool(data.get("research", True)),
+                             browser_check=check)
+            result_box[0] = team.run(description, str(ws), attachments=attachments)
+        except Exception as exc:
+            result_box[0] = {"error": str(exc)}
+        finally:
+            events.put(None)
+
+    threading.Thread(target=run, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                item = events.get(timeout=300)
+            except queue.Empty:
+                yield _sse({"type": "error", "message": "The agent team stopped responding for 5 minutes"})
+                return
+            if item is None:
+                result = result_box[0] or {}
+                if "error" in result:
+                    yield _sse({"type": "error", "message": result["error"]})
+                else:
+                    yield _sse({"type": "done", "backend": result["backend_mcn"], "ui": result["ui_mcn"],
+                                "verdict": result["verdict"], "qa_report": result["qa_report"],
+                                "plan": result["plan"], "design": result["design"]})
+                return
+            yield _sse(item)
+
+    resp = Response(stream_with_context(stream()), mimetype="text/event-stream")
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["X-Accel-Buffering"] = "no"
+    return resp

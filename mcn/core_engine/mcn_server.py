@@ -46,25 +46,57 @@ except ImportError:
 
 
 def _guard(evaluator: Evaluator, fn_name: str, authorization: Optional[str], client: str,
-           body_length: int = 0) -> Optional[Tuple[int, str]]:
-    """Checks before an endpoint runs. Returns (status, error) to refuse, or None to allow.
+           body_length: int = 0) -> Optional[Tuple[int, Dict[str, Any]]]:
+    """Checks before an endpoint runs. Returns (status, body) to refuse, or None to allow.
 
     Only declared endpoints are reachable — never built-ins like query() or
-    write_file(). Endpoints of an `auth` service need a valid bearer token.
+    write_file(). Endpoints of an `auth` service need a valid bearer token, and
+    refusals of an `audit` service are logged.
     """
     from . import security
     if fn_name not in evaluator.function_params:
-        return 404, f"Unknown endpoint: '{fn_name}'"
+        return 404, {"error": f"Unknown endpoint: '{fn_name}'"}
+    problem: Optional[Tuple[int, Dict[str, Any]]] = None
     limit = security.server_rate_limit()
+    mode = evaluator.endpoint_auth.get(fn_name, "")
     if limit and not security.SERVER_LIMITER.allow(client, limit, 60):
-        return 429, "Too many requests. Try again in a minute."
-    if body_length > security.max_body_bytes():
-        return 413, "Request body is too large"
-    ok, user, error = security.check_auth(evaluator.endpoint_auth.get(fn_name, ""), authorization)
-    if not ok:
-        return 401, error
-    security.set_current_user(user)
-    return None
+        problem = 429, {"error": "Too many requests. Try again in a minute."}
+    elif body_length > security.max_body_bytes():
+        problem = 413, {"error": "Request body is too large"}
+    else:
+        ok, user, error = security.check_auth(mode, authorization)
+        if ok:
+            security.set_current_user(user)
+            return None
+        problem = 401, {"error": error, **({"sso_login": "/_auth/login"} if mode == "sso" else {})}
+    if fn_name in getattr(evaluator, "audited_endpoints", ()):
+        security.set_current_user(None)
+        security.audit_call(fn_name, evaluator.function_params.get(fn_name, []), [], problem[0], 0, client,
+                            problem[1]["error"])
+    return problem
+
+
+def _run_endpoint(evaluator: Evaluator, fn_name: str, args: list, client: str) -> Tuple[int, Any]:
+    """Run an endpoint: (status, JSON body). Calls to `audit` services are logged with their outcome."""
+    import time as _time
+    from . import security
+    started = _time.perf_counter()
+    try:
+        result = evaluator.functions[fn_name](*args)
+        status, body, error = 200, (result if result is not None else {}), None
+    except Exception as exc:
+        status, body, error = 500, {"error": str(exc)}, str(exc)
+    if fn_name in getattr(evaluator, "audited_endpoints", ()):
+        security.audit_call(fn_name, evaluator.function_params.get(fn_name, []), args, status,
+                            (_time.perf_counter() - started) * 1000, client, error)
+    return status, body
+
+
+def _auth_route(method: str, raw_path: str, base_url: str, query: Dict[str, str], cookies: Dict[str, str],
+                authorization: Optional[str]):
+    """The single sign-on routes (/_auth/*), or None for other paths."""
+    from . import sso
+    return sso.handle(method, raw_path, base_url, query, cookies, authorization)
 
 
 def _dev_iot(method: str, path: str, body: Dict[str, Any], authorization: Optional[str]) -> Optional[Tuple[int, Any]]:
@@ -151,6 +183,19 @@ class MCNServer:
                     response.headers.setdefault(key, value)
                 return response
 
+            @self.app.api_route("/_auth/{action}", methods=["GET", "POST"], include_in_schema=False)
+            async def sso_route(action: str, request: Request):
+                from fastapi.responses import HTMLResponse, Response
+                reply = _auth_route(request.method, f"/_auth/{action}", str(request.base_url),
+                                    dict(request.query_params), dict(request.cookies),
+                                    request.headers.get("authorization"))
+                status, headers, body = reply
+                if body is None:
+                    return Response(status_code=status, headers=headers)
+                if "__html__" in body:
+                    return HTMLResponse(body["__html__"], status_code=status)
+                return JSONResponse(body, status_code=status, headers=headers)
+
             @self.app.api_route("/_mcn/iot/{action}", methods=["GET", "POST"], include_in_schema=False)
             async def dev_iot(action: str, request: Request):
                 body = {}
@@ -213,17 +258,12 @@ class MCNServer:
         return None
 
     def _register_fastapi_endpoint(self, fn_name: str, params: List[str], evaluator: Evaluator):
-        def run(args):
-            try:
-                result = evaluator.functions[fn_name](*args)
-                return JSONResponse(result if result is not None else {})
-            except Exception as e:
-                return JSONResponse({"error": str(e)}, status_code=500)
+        def client_of(request: Request) -> str:
+            return request.client.host if request.client else "?"
 
         def refused(request: Request, length: int = 0):
-            client = request.client.host if request.client else "?"
-            problem = _guard(evaluator, fn_name, request.headers.get("authorization"), client, length)
-            return JSONResponse({"error": problem[1]}, status_code=problem[0]) if problem else None
+            problem = _guard(evaluator, fn_name, request.headers.get("authorization"), client_of(request), length)
+            return JSONResponse(problem[1], status_code=problem[0]) if problem else None
 
         async def post_endpoint(request: Request):
             blocked = refused(request, int(request.headers.get("content-length") or 0))
@@ -240,13 +280,16 @@ class MCNServer:
                 if p not in body:
                     break
                 args.append(body[p])
-            return run(args)
+            status, result = _run_endpoint(evaluator, fn_name, args, client_of(request))
+            return JSONResponse(result, status_code=status)
 
         async def get_endpoint(request: Request, path_arg: str = None):
             blocked = refused(request)
             if blocked:
                 return blocked
-            return run(_get_args(params, path_arg, dict(request.query_params)))
+            status, result = _run_endpoint(evaluator, fn_name, _get_args(params, path_arg, dict(request.query_params)),
+                                           client_of(request))
+            return JSONResponse(result, status_code=status)
 
         self.app.add_api_route(f"/{fn_name}", post_endpoint, methods=["POST"])
         self.app.add_api_route(f"/{fn_name}", get_endpoint, methods=["GET"])
@@ -347,8 +390,33 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
         def _refused(self, fn_name: str, length: int = 0) -> bool:
             problem = _guard(evaluator, fn_name, self.headers.get("Authorization"), self.client_address[0], length)
             if problem:
-                self._send_json(problem[0], {"error": problem[1]})
+                self._send_json(problem[0], problem[1])
             return bool(problem)
+
+        def _sso(self, method: str) -> bool:
+            parsed = urllib.parse.urlparse(self.path)
+            if not parsed.path.startswith("/_auth/"):
+                return False
+            from http.cookies import SimpleCookie
+            jar = SimpleCookie(self.headers.get("Cookie", ""))
+            host = self.headers.get("Host", f"localhost:{self.server.server_port}")
+            reply = _auth_route(method, parsed.path, f"http://{host}/",
+                                {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()},
+                                {k: m.value for k, m in jar.items()}, self.headers.get("Authorization"))
+            status, headers, body = reply
+            if body is not None and "__html__" not in body:
+                self._send_json(status, body)
+                return True
+            data = (body or {}).get("__html__", "").encode()
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            if data:
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return True
 
         def _resolve_endpoint(self, raw_path: str):
             """
@@ -376,7 +444,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             return bool(handled)
 
         def do_GET(self):
-            if self._dev("GET", {}):
+            if self._dev("GET", {}) or self._sso("GET"):
                 return
             fn_name, path_arg, query_params = self._resolve_endpoint(self.path)
 
@@ -393,14 +461,11 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 return
 
             args = _get_args(evaluator.function_params.get(fn_name, []), path_arg, query_params)
-
-            try:
-                result = evaluator.functions[fn_name](*args)
-                self._send_json(200, result if result is not None else {})
-            except Exception as exc:
-                self._send_json(500, {"error": str(exc)})
+            self._send_json(*_run_endpoint(evaluator, fn_name, args, self.client_address[0]))
 
         def do_POST(self):
+            if self._sso("POST"):
+                return
             fn_name, path_arg, _ = self._resolve_endpoint(self.path)
             length = int(self.headers.get("Content-Length", 0) or 0)
             if self.path.startswith("/_mcn/iot/"):
@@ -432,12 +497,7 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 if p not in body:
                     break   # remaining use MCN defaults
                 args.append(body[p])
-
-            try:
-                result = evaluator.functions[fn_name](*args)
-                self._send_json(200, result if result is not None else {})
-            except Exception as exc:
-                self._send_json(500, {"error": str(exc)})
+            self._send_json(*_run_endpoint(evaluator, fn_name, args, self.client_address[0]))
 
     return MCNHandler
 
@@ -491,6 +551,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
     all_fns:     Dict[str, Any]        = {}
     all_params:  Dict[str, List[str]]  = {}
     all_auth:    Dict[str, str]        = {}
+    all_audited: set                   = set()
 
     for fname in sorted(os.listdir(directory)):
         if not fname.endswith(".mcn"):
@@ -501,6 +562,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
             all_fns.update(ev.functions)
             all_params.update(ev.function_params)
             all_auth.update(ev.endpoint_auth)
+            all_audited.update(ev.audited_endpoints)
             print(f"  loaded  {fname}  ({len(ev.function_params)} endpoints)")
         except Exception as exc:
             print(f"  error   {fname}: {exc}")
@@ -510,6 +572,7 @@ def serve_directory(directory: str, host: str = "127.0.0.1", port: int = 8080, p
         functions      = all_fns
         function_params = all_params
         endpoint_auth   = all_auth
+        audited_endpoints = all_audited
 
     handler = _make_handler(_Stub())  # type: ignore[arg-type]
     server  = HTTPServer((host, port), handler)

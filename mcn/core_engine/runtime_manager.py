@@ -20,6 +20,8 @@ FEATURES = {
     "ml":        "train(), predict() and the other machine-learning built-ins",
     "scheduler": "schedule blocks that run on a cron timetable",
     "iot":       "real hardware for device(): Raspberry Pi pins, Arduino/ESP32 over USB, MQTT",
+    "browser-qa": "the agent team's browser check: Studio opens every screen of a generated app in headless Chrome",
+    "sso":       "single sign-on for services (auth \"sso\"): Okta, Microsoft Entra ID, Google Workspace and other OIDC providers",
 }
 
 _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source checkouts
@@ -28,6 +30,8 @@ _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source chec
     "ml": ["scikit-learn>=1.3.0", "pandas>=2.0.0", "numpy>=1.24.0"],
     "scheduler": ["apscheduler>=3.10.0"],
     "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
+    "sso": ["cryptography>=42.0"],
+    "browser-qa": ["playwright>=1.45"],
 }
 
 

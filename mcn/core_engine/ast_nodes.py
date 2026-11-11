@@ -316,8 +316,9 @@ class ServiceDecl(Node):
     name:      str                = ""
     port:      Optional[int]      = None
     endpoints: List[EndpointDecl] = field(default_factory=list)
-    auth:      str                = ""      # "" (open) | "token" | "jwt"
+    auth:      str                = ""      # "" (open) | "token" | "jwt" | "sso"
     public:    List[str]          = field(default_factory=list)   # endpoints that skip auth
+    audit:     bool               = False   # log every endpoint call to the audit log
 
 
 @dataclass

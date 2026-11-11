@@ -37,6 +37,8 @@ EXTRAS_REQUIRE = {
     "ml": ["scikit-learn>=1.3.0", "pandas>=2.0.0", "numpy>=1.24.0"],
     "scheduler": ["apscheduler>=3.10.0"],
     "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
+    "sso": ["cryptography>=42.0"],
+    "browser-qa": ["playwright>=1.45"],
     "dev": ["pytest>=7.0", "pytest-cov>=4.0"],
 }
 

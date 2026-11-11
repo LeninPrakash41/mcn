@@ -31,7 +31,18 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `MCN_CORS_ORIGINS` | `*` | Comma-separated sites allowed to call your API from a browser |
 | `MCN_RATE_LIMIT` | `600` | Requests per minute per client. `0` turns it off |
 | `MCN_MAX_BODY_BYTES` | `1048576` | Largest request body accepted |
-| `MCN_APP_AUDIT_LOG` | `~/.mcn/audit/app_audit.jsonl` | File used by `audit_log()` |
+| `MCN_APP_AUDIT_LOG` | `~/.mcn/audit/app_audit.jsonl` | File used by `audit_log()` and `audit` services |
+| `MCN_AUDIT_WEBHOOK` | — | Also post each audit entry, as an OCSF event, to this URL (a SIEM or log collector) |
+| `MCN_AUDIT_WEBHOOK_TOKEN` | — | Bearer token for `MCN_AUDIT_WEBHOOK` |
+| `MCN_SSO_ISSUER` | — | The identity provider's issuer URL, for `auth "sso"` |
+| `MCN_SSO_CLIENT_ID` | — | The app's client ID at the identity provider |
+| `MCN_SSO_CLIENT_SECRET` | — | The client secret (omit for public clients) |
+| `MCN_SSO_REDIRECT_URL` | `<server>/_auth/callback` | The callback URL registered with the provider (set it behind a proxy) |
+| `MCN_SSO_SCOPES` | `openid email profile` | Scopes to ask for |
+| `MCN_SSO_ALLOWED_DOMAINS` | — | Comma-separated email domains allowed to sign in |
+| `MCN_SSO_ROLES_CLAIM` | `roles`, then `groups` | ID token claim that becomes `current_user().roles` |
+| `MCN_SSO_SESSION_HOURS` | `8` | How long a sign-in lasts |
+| `MCN_SSO_RETURN_ORIGINS` | — | Extra origins sign-in may send people back to |
 
 ## IoT
 
@@ -46,7 +57,9 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | Variable | Default | Effect |
 |---|---|---|
 | `VERCEL_TOKEN` | — | Lets Studio (and `mcn deploy --target vercel` without logging in) deploy to Vercel. Create one at vercel.com/account/tokens |
-| `MCN_DEPLOY_SOURCE` | MCN on GitHub | Where a Vercel deployment installs MCN from |
+| `MCN_DEPLOY_SOURCE` | MCN on GitHub | Where deployments install MCN from (a URL, or a local checkout for testing unreleased changes) |
+| `AWS_REGION` | `us-east-1` | Region for `mcn deploy --target aws` when `--region` isn't given |
+| `CLOUDFLARE_API_TOKEN` | — | Lets `mcn deploy --target cloudflare` deploy without logging in |
 
 ## Studio
 

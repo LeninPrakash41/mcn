@@ -5,6 +5,11 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Single sign-on for services**: `auth "sso"` signs people in with Okta, Microsoft Entra ID, Google Workspace, Auth0, Keycloak or any OpenID Connect provider (PKCE, nonce, signature, issuer and audience checks; no server-side state, so it works on serverless hosts). `current_user()` has `sub`, `email`, `name` and `roles`; the generated web app redirects to sign-in and keeps the session token. `mcn add sso`
+- **Automatic audit logs**: `audit` in a service logs every call (actor, endpoint, masked arguments, status, duration, IP) to the tamper-evident log; `mcn audit-log verify` and `mcn audit-log export --format ocsf|jsonl|csv`; `MCN_AUDIT_WEBHOOK` streams OCSF events to a SIEM. The audit log now reads only its last entry per write
+- **Deploy to AWS and Cloudflare**: `mcn deploy --target aws [--region]` runs one container (web app at `/`, API at `/api`) on AWS App Runner in your account; `--target cloudflare` serves the web app from Cloudflare and runs the API in a Cloudflare container. `MCN_DEPLOY_SOURCE` can point at a local checkout
+- **The agent team**: `mcn generate --team` and Studio's Generate dialog run a researcher (with web search), architect, designer, builder and QA lead. QA type-checks, calls every endpoint, builds the web app and, in Studio, opens every screen in headless Chrome (`mcn add browser-qa`), then sends fixes back to the builder up to twice
+- Landing page: an "own your software" section with a tool-stack cost estimator, what every MCN app comes with, and FAQ entries on AI app builders, SSO and audit logs, and AWS/Cloudflare deploys
 - Hosted Studio limits sign-in attempts (per account and per network address), sign-ups, sign-in code requests and wrong codes, answering 429 with `Retry-After`; `MCN_TRUST_PROXY=1` behind a reverse proxy
 - The admin panel shows the installed MCN version instead of a fixed "3.0.0"; removed the unused `static/js/admin.js`
 - **Generated code you'd commit**: `mcn build` and Studio's App view produce typed, lint-clean, formatted and tested projects

@@ -35,6 +35,10 @@ contract ModelName
 query("CREATE TABLE IF NOT EXISTS tablename (id INTEGER PRIMARY KEY AUTOINCREMENT, field1 TEXT, field2 INTEGER, created_at TEXT DEFAULT (datetime(\'now\')))")
 
 ## Service with endpoints
+# Optional lines after `service`: auth "token" | "jwt" | "sso" (sign-in with the
+# company's identity provider; current_user() has email, name, roles), `public a, b`
+# (endpoints that skip auth) and `audit` (log every call to a tamper-evident audit log).
+# Use auth "sso" and audit when the request mentions SSO, company login, compliance or audit trails.
 service my_api
     port 8080
 

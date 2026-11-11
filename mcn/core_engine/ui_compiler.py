@@ -2451,6 +2451,25 @@ export function setToken(value: string | null): void {
   }
 }
 
+// Single sign-on (`auth "sso"`): after signing in, the backend sends people back with
+// #mcn_token=... in the address. Keep the token and tidy the address.
+if (typeof window !== "undefined" && window.location.hash.includes("mcn_token=")) {
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  const signedIn = params.get("mcn_token")
+  if (signedIn) {
+    setToken(signedIn)
+    params.delete("mcn_token")
+    const rest = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""))
+  }
+}
+
+/** Sign out of single sign-on: forget the token and return to the sign-in page. */
+export function signOut(): void {
+  setToken(null)
+  window.location.reload()
+}
+
 type ErrorBody = { error?: string; detail?: string } | null
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
@@ -2467,6 +2486,12 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
     throw new Error(`Can't reach the backend at ${BASE}. Is it running?`)
   }
   const data: unknown = await res.json().catch(() => null)
+  const signIn = (data as { sso_login?: string } | null)?.sso_login
+  if (res.status === 401 && signIn) {
+    // An SSO service: go to the organization's sign-in page and come back here
+    setToken(null)
+    window.location.assign(`${BASE}${signIn}?return_to=${encodeURIComponent(window.location.href)}`)
+  }
   if (!res.ok) {
     const err = data as ErrorBody
     // The app's own errors read as they are; anything else names the call that failed

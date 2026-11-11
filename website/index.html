@@ -133,8 +133,46 @@
       .lede { font-size: 16.5px; }
       .window pre { height: 320px; font-size: 12px; padding: 14px; }
     }
+
+    /* Own instead of rent */
+    .own-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 28px; align-items: start; }
+    .estimator, .own-compare { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 22px; }
+    .estimator h3 { margin: 0 0 14px; font-size: 17px; }
+    .est-size { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--text-soft); }
+    .est-size output { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+    #est-team { width: 100%; margin: 8px 0 16px; accent-color: var(--accent); }
+    .est-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .est-table th, .est-table td { padding: 7px 0; text-align: left; border-bottom: 1px solid var(--border); }
+    .est-table td:nth-child(2), .est-table td:nth-child(3), .est-table thead th:nth-child(2), .est-table thead th:nth-child(3) { text-align: right; }
+    .est-table thead th { color: var(--text-muted); font-weight: 600; font-size: 12.5px; }
+    .est-table tfoot th { font-weight: 600; }
+    .est-table tfoot td:last-child { font-weight: 700; }
+    .est-table .est-year td:last-child { font-size: 22px; color: var(--accent-text); }
+    .est-note { color: var(--text-muted); font-size: 12.5px; margin: 12px 0 0; }
+    .own-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .own-row:first-child { padding-top: 0; }
+    .own-row h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+    .own-row h4:last-child { color: var(--accent-text); }
+    .own-row p { margin: 0; font-size: 14.5px; color: var(--text-soft); }
+    .own-row p b { color: var(--text); display: block; margin-bottom: 2px; }
+    .own-honest { margin: 14px 0 0; font-size: 13.5px; color: var(--text-muted); }
+    .own-sub { margin: 48px 0 18px; font-size: 20px; }
+    .own-features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .own-feat { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface); }
+    .own-feat h4 { margin: 0 0 6px; font-size: 15px; }
+    .own-feat p { margin: 0; font-size: 14px; color: var(--text-soft); }
+    @media (max-width: 900px) {
+      .own-grid { grid-template-columns: 1fr; }
+      .own-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .own-features { grid-template-columns: 1fr; }
+      .own-row { grid-template-columns: 1fr; gap: 6px; }
+      .own-row h4 { display: none; }
+      .own-row p:first-child { opacity: .8; }
+    }
   </style>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What kind of language is MCN?", "acceptedAnswer": {"@type": "Answer", "text": "A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain .mcn files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first."}}, {"@type": "Question", "name": "Is MCN a good fit for forward deployed engineers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with fetch(), query() and domain packages, and put it online with mcn deploy --target vercel or a Docker zip. agent_run() turns the customer's own functions into tools for an AI agent, and mcn audit plus service auth cover the security review. Everything stays as readable code the customer's team can keep."}}, {"@type": "Question", "name": "Can data annotation teams use MCN?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a data_table or kanban, forms for labels, classify() and extract() to pre-label items with AI, and people confirming or correcting each one. audit_log() records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code."}}, {"@type": "Question", "name": "Do I need to know another programming language first?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away."}}, {"@type": "Question", "name": "Is MCN ready for production?", "acceptedAnswer": {"@type": "Answer", "text": "It's designed for internal tools, client pilots and coursework, and has what those need: token and JWT auth, rate limits, security headers, tests next to the code, a security scanner, and Docker and Vercel deploys. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last."}}, {"@type": "Question", "name": "Which AI models does it use, and where does my data go?", "acceptedAnswer": {"@type": "Answer", "text": "ai() uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI."}}, {"@type": "Question", "name": "Am I locked in?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi."}}, {"@type": "Question", "name": "Can it run on a Raspberry Pi or with an Arduino?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The same device() code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. mcn iot firmware writes the board sketch."}}, {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan."}}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How is MCN different from AI app builders?", "acceptedAnswer": {"@type": "Answer", "text": "AI app builders write an app for you and usually run it on their own platform. MCN is a language: the app is two short files you can read, change and review, and the same files become a web app, a phone app and an API. You can still have AI write it, with mcn generate or the agent team, and you deploy it to your own Vercel, AWS or Cloudflare account, or any server."}}, {"@type": "Question", "name": "Does MCN support single sign-on and audit logs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. A service with auth \"sso\" signs people in with Okta, Microsoft Entra ID, Google Workspace or another OpenID Connect provider, and current_user() tells endpoints who they are and which roles they have. Adding audit to a service records every call in a tamper-evident log with secrets masked; mcn audit-log verify checks it and mcn audit-log export writes OCSF events for a SIEM. MCN itself isn't a SOC 2 or HIPAA certified service: those certifications belong to whoever runs the app."}}, {"@type": "Question", "name": "Can I deploy to AWS or Cloudflare?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. mcn deploy --target aws builds a container and runs it on AWS App Runner in the region you choose, with HTTPS and automatic scaling. mcn deploy --target cloudflare serves the web app from Cloudflare's edge and runs the API in a Cloudflare container. Both run in your own account. Keep data in PostgreSQL by setting DATABASE_URL."}}, {"@type": "Question", "name": "What kind of language is MCN?", "acceptedAnswer": {"@type": "Answer", "text": "A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain .mcn files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first."}}, {"@type": "Question", "name": "Is MCN a good fit for forward deployed engineers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with fetch(), query() and domain packages, and put it online with mcn deploy --target vercel or a Docker zip. agent_run() turns the customer's own functions into tools for an AI agent, and mcn audit plus service auth cover the security review. Everything stays as readable code the customer's team can keep."}}, {"@type": "Question", "name": "Can data annotation teams use MCN?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a data_table or kanban, forms for labels, classify() and extract() to pre-label items with AI, and people confirming or correcting each one. audit_log() records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code."}}, {"@type": "Question", "name": "Do I need to know another programming language first?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away."}}, {"@type": "Question", "name": "Is MCN ready for production?", "acceptedAnswer": {"@type": "Answer", "text": "It's designed for internal tools, client pilots and coursework, and has what those need: token, JWT and SSO sign-in, audit logs, rate limits, security headers, tests next to the code, a security scanner, and deploys to Docker, Vercel, AWS and Cloudflare. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last."}}, {"@type": "Question", "name": "Which AI models does it use, and where does my data go?", "acceptedAnswer": {"@type": "Answer", "text": "ai() uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI."}}, {"@type": "Question", "name": "Am I locked in?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi."}}, {"@type": "Question", "name": "Can it run on a Raspberry Pi or with an Arduino?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The same device() code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. mcn iot firmware writes the board sketch."}}, {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan."}}]}</script>
 </head>
 <body>
 
@@ -146,6 +184,7 @@
       <a href="docs/#/guide/language-basics">Language</a>
       <a href="docs/#/reference/cli">CLI</a>
       <a href="docs/#/guide/ai">AI</a>
+      <a href="#own">Why own</a>
       <a href="#faq">FAQ</a>
     </nav>
     <div class="nav-right">
@@ -332,7 +371,7 @@ MCN Studio — http://localhost:5003</pre>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.5-2 8-6 8-11V5l-8-3-8 3v6c0 5 2.5 9 8 11Z"/></svg></div>
           <h3>Secure by default</h3>
-          <p>Token or JWT auth in one line, security headers, rate limits and input checks built in. <code>mcn audit</code> finds SQL injection and leaked secrets before you ship.</p>
+          <p>Token, JWT or company SSO sign-in in one line, an audit log of every call, security headers, rate limits and input checks built in. <code>mcn audit</code> finds SQL injection and leaked secrets before you ship.</p>
         </div>
         <div class="feature">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></div>
@@ -398,15 +437,69 @@ Hint: Did you mean 'total'?</code></pre>
       </div>
       <div class="targets">
         <div class="target"><small>mcn serve</small><h3>HTTP API</h3><p>Each endpoint answers GET and POST, with interactive docs at <code>/docs</code>.</p></div>
-        <div class="target"><small>mcn deploy --target vercel</small><h3>React web app</h3><p>Built from your components and put on Vercel with the API at <code>/api</code>: one command, one URL.</p></div>
+        <div class="target"><small>mcn deploy</small><h3>React web app</h3><p>Built from your components and put online with the API at <code>/api</code>, on Vercel, AWS App Runner or Cloudflare: one command, one URL.</p></div>
         <div class="target"><small>Studio → App</small><h3>Flutter mobile app</h3><p>Compiled from the same components: native screens, navigation and charts, calling your API.</p></div>
         <div class="target"><small>mcn add iot</small><h3>Raspberry Pi &amp; Arduino</h3><p>Run on a Pi with real pins, or drive Arduino and ESP32 boards. <code>mcn iot firmware</code> writes the sketch.</p></div>
       </div>
     </div>
   </section>
 
+
+  <!-- Own instead of rent -->
+  <section class="alt" id="own">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Build instead of renting</p>
+        <h2>Own the software your team runs on.</h2>
+        <p>Every seat of every tool renews every month. With MCN your team builds the tools it needs once, as code it keeps, and runs them in its own cloud account.</p>
+      </div>
+
+      <div class="own-grid">
+        <div class="estimator" aria-labelledby="est-title">
+          <h3 id="est-title">What a typical tool stack costs</h3>
+          <label class="est-size" for="est-team">
+            <span>Team size</span>
+            <output id="est-team-out" for="est-team">200 people</output>
+          </label>
+          <input type="range" id="est-team" min="10" max="1000" step="10" value="200" aria-describedby="est-note">
+          <table class="est-table">
+            <thead><tr><th scope="col">Tool</th><th scope="col">Seats</th><th scope="col">Per month</th></tr></thead>
+            <tbody id="est-rows"></tbody>
+            <tfoot>
+              <tr><th scope="row">Per month</th><td></td><td id="est-month">$0</td></tr>
+              <tr class="est-year"><th scope="row">Per year</th><td></td><td id="est-year">$0</td></tr>
+              <tr><th scope="row">Over 5 years</th><td></td><td id="est-five">$0</td></tr>
+            </tfoot>
+          </table>
+          <p class="est-note" id="est-note">Example list prices per seat, with a typical share of the team on each tool. Your tools and prices will differ.</p>
+        </div>
+
+        <div class="own-compare">
+          <div class="own-row"><h4>Renting</h4><h4>Owning, with MCN</h4></div>
+          <div class="own-row"><p><b>The bill grows with every hire.</b> Seats, tiers and yearly price rises.</p><p><b>You pay for hosting, not seats.</b> A container and a database in your cloud, typically tens to a few hundred dollars a month.</p></div>
+          <div class="own-row"><p><b>It fits the average customer.</b> Your process bends to the tool.</p><p><b>It fits how you work.</b> The tool is written around your process, and changes when it does.</p></div>
+          <div class="own-row"><p><b>You wait on their roadmap.</b> File a request and hope.</p><p><b>The roadmap is yours.</b> Edit the code, or ask the agent team to.</p></div>
+          <div class="own-row"><p><b>Stop paying and it's gone.</b> Your data lives in their system.</p><p><b>It's yours to keep.</b> Readable MCN code, standard React and Flutter apps, and your own database.</p></div>
+          <p class="own-honest">Owning isn't free: someone builds and looks after the tools. MCN keeps that small, because each app is a couple of short files.</p>
+        </div>
+      </div>
+
+      <h3 class="own-sub">What every MCN app comes with</h3>
+      <div class="own-features">
+        <div class="own-feat"><h4>Database</h4><p>SQLite to start, PostgreSQL in production, with typed tables in the generated apps.</p></div>
+        <div class="own-feat"><h4>API with docs</h4><p>Every endpoint answers GET and POST, with interactive docs, rate limits and security headers.</p></div>
+        <div class="own-feat"><h4>Sign-in and SSO</h4><p>Tokens, JWT, or <code>auth "sso"</code> with Okta, Microsoft Entra ID, Google Workspace and other OpenID Connect providers.</p></div>
+        <div class="own-feat"><h4>Audit log</h4><p>One <code>audit</code> line logs every call, tamper-evident, with secrets masked. Export as OCSF to your SIEM.</p></div>
+        <div class="own-feat"><h4>AI built in</h4><p><code>ai()</code>, extraction, retrieval and agents that call your own functions as tools.</p></div>
+        <div class="own-feat"><h4>Web and mobile</h4><p>One UI file becomes a React web app and a native Flutter app, both typed, linted and tested.</p></div>
+        <div class="own-feat"><h4>Deploy to your cloud</h4><p><code>mcn deploy</code> to Vercel, AWS App Runner in the region you choose, or Cloudflare.</p></div>
+        <div class="own-feat"><h4>An agent team</h4><p>A researcher, architect, designer, builder and QA lead plan the app, build it, and test every screen in a browser.</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- Templates -->
-  <section class="alt" id="templates">
+  <section id="templates">
     <div class="container">
       <div class="section-head">
         <p class="kicker">23 starter templates</p>
@@ -450,7 +543,7 @@ Hint: Did you mean 'total'?</code></pre>
   </section>
 
   <!-- Audience -->
-  <section id="who">
+  <section class="alt" id="who">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Who it's for</p>
@@ -475,7 +568,8 @@ Hint: Did you mean 'total'?</code></pre>
             <li>Domain packages: payments, auth, healthcare, finance, Slack</li>
             <li>Downloads include Dockerfile, docker-compose and CI</li>
             <li><code>mcn generate</code> drafts an app from a description</li>
-            <li>Service auth, rate limits and <code>mcn audit</code> for security reviews</li>
+            <li>Company sign-in with SSO, audit logs and <code>mcn audit</code> for security reviews</li>
+            <li>An agent team that plans, builds and tests apps from a description</li>
           </ul>
           <a class="btn btn-secondary btn-sm" href="docs/#/guide/services">Build an API</a>
         </div>
@@ -484,7 +578,7 @@ Hint: Did you mean 'total'?</code></pre>
   </section>
 
   <!-- FAQ -->
-  <section class="alt" id="faq">
+  <section id="faq">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Questions</p>
@@ -494,6 +588,18 @@ Hint: Did you mean 'total'?</code></pre>
         <details class="faq-item">
           <summary>What kind of language is MCN?</summary>
           <p>A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain <code>.mcn</code> files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How is MCN different from AI app builders?</summary>
+          <p>AI app builders write an app for you and usually run it on their own platform. MCN is a language: the app is two short files you can read, change and review, and the same files become a web app, a phone app and an API. You can still have AI write it, with <code>mcn generate</code> or the agent team, and you deploy it to your own Vercel, AWS or Cloudflare account, or any server.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does MCN support single sign-on and audit logs?</summary>
+          <p>Yes. A service with <code>auth "sso"</code> signs people in with Okta, Microsoft Entra ID, Google Workspace or another OpenID Connect provider, and <code>current_user()</code> tells endpoints who they are and which roles they have. Adding <code>audit</code> to a service records every call in a tamper-evident log with secrets masked; <code>mcn audit-log verify</code> checks it and <code>mcn audit-log export</code> writes OCSF events for a SIEM. MCN itself isn't a SOC 2 or HIPAA certified service: those certifications belong to whoever runs the app.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can I deploy to AWS or Cloudflare?</summary>
+          <p>Yes. <code>mcn deploy --target aws</code> builds a container and runs it on AWS App Runner in the region you choose, with HTTPS and automatic scaling. <code>mcn deploy --target cloudflare</code> serves the web app from Cloudflare's edge and runs the API in a Cloudflare container. Both run in your own account. Keep data in PostgreSQL by setting <code>DATABASE_URL</code>.</p>
         </details>
         <details class="faq-item">
           <summary>Is MCN a good fit for forward deployed engineers?</summary>
@@ -509,7 +615,7 @@ Hint: Did you mean 'total'?</code></pre>
         </details>
         <details class="faq-item">
           <summary>Is MCN ready for production?</summary>
-          <p>It's designed for internal tools, client pilots and coursework, and has what those need: token and JWT auth, rate limits, security headers, tests next to the code, a security scanner, and Docker and Vercel deploys. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last.</p>
+          <p>It's designed for internal tools, client pilots and coursework, and has what those need: token, JWT and SSO sign-in, audit logs, rate limits, security headers, tests next to the code, a security scanner, and deploys to Docker, Vercel, AWS and Cloudflare. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last.</p>
         </details>
         <details class="faq-item">
           <summary>Which AI models does it use, and where does my data go?</summary>
@@ -557,6 +663,38 @@ Hint: Did you mean 'total'?</code></pre>
 
 <script src="assets/site.js"></script>
 <script>
+// Tool-stack estimator: example list prices per seat and a typical share of the team on each tool
+(function () {
+  const TOOLS = [
+    ["CRM", 0.30, 80], ["Support desk", 0.15, 60], ["Project management", 1, 12],
+    ["Dashboards & BI", 0.25, 35], ["Internal tool builder", 0.20, 45],
+    ["Forms & approvals", 1, 6], ["Applicant tracking", 0.05, 100],
+  ]
+  const slider = document.getElementById("est-team")
+  if (!slider) return
+  const money = (n) => "$" + Math.round(n).toLocaleString("en-US")
+  function render() {
+    const team = Number(slider.value)
+    document.getElementById("est-team-out").textContent = team.toLocaleString("en-US") + " people"
+    const body = document.getElementById("est-rows")
+    body.textContent = ""
+    let month = 0
+    for (const [name, share, price] of TOOLS) {
+      const seats = Math.max(1, Math.ceil(team * share))
+      month += seats * price
+      const row = body.insertRow()
+      row.insertCell().textContent = name
+      row.insertCell().textContent = seats.toLocaleString("en-US") + " × $" + price
+      row.insertCell().textContent = money(seats * price)
+    }
+    document.getElementById("est-month").textContent = money(month)
+    document.getElementById("est-year").textContent = money(month * 12)
+    document.getElementById("est-five").textContent = money(month * 60)
+  }
+  slider.addEventListener("input", render)
+  render()
+})()
+
   // Highlight the example window and wire its tabs
   document.querySelectorAll(".window pre").forEach(function (pre) {
     var lang = pre.getAttribute("data-lang");

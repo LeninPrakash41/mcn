@@ -37,6 +37,7 @@ service orders_api
 |---|---|---|
 | `"token"` | `Authorization: Bearer <token>` | That the token equals `MCN_API_TOKEN`. If `MCN_API_TOKEN` isn't set, protected endpoints are closed |
 | `"jwt"` | `Authorization: Bearer <jwt>` | The signature and expiry, using the install's secret. Make tokens with `jwt_sign` or `auth_create_token` |
+| `"sso"` | `Authorization: Bearer <session token>` | A sign-in from your company's identity provider. See [single sign-on](#single-sign-on) |
 
 Requests without a valid token get status 401. Inside an endpoint, `current_user()` returns who called: the token's payload for `"jwt"`, `{token: true}` for `"token"`, and `null` on public endpoints.
 
@@ -61,6 +62,88 @@ The apps MCN builds send the token for you:
 - **React** (`mcn build`): from `localStorage` key `mcn_token` (store it after login), or `VITE_API_TOKEN`.
 - **Flutter**: `flutter run --dart-define=MCN_API_TOKEN=...`, or set `MCNClient().token` after login.
 - **Studio's preview** starts your backend with a development token and passes it to the preview, so protected services work while you build.
+
+## Single sign-on
+
+`auth "sso"` signs people in with your organization's identity provider over OpenID Connect: Okta, Microsoft Entra ID (Azure AD), Google Workspace, Auth0, Keycloak, OneLogin, Ping and others.
+
+```mcn
+service hr_api
+    auth "sso"
+    audit
+    public health
+
+    endpoint health()
+        return {ok: true}
+
+    endpoint my_profile()
+        var me = current_user()
+        return {email: me.email, name: me.name, roles: me.roles}
+
+    endpoint approve_leave(request_id)
+        require(contains(current_user().roles, "managers"), "Only managers can approve leave")
+        query("UPDATE leave SET status = 'approved' WHERE id = ?", (request_id,))
+        return {success: true}
+```
+
+**Set it up once.**
+
+1. Install the extra package: `mcn add sso`.
+2. In your identity provider, register a web app with the redirect URL `https://<your api>/_auth/callback` (for local testing, `http://localhost:8080/_auth/callback`). Ask for the `openid email profile` scopes, and include groups or roles in the ID token if you want them in `current_user().roles`.
+3. Put its details in `.env`:
+
+   ```bash
+   MCN_SSO_ISSUER=https://your-company.okta.com            # see the table below
+   MCN_SSO_CLIENT_ID=0oa1b2c3d4
+   MCN_SSO_CLIENT_SECRET=...                                # omit for a public client
+   MCN_SSO_ALLOWED_DOMAINS=your-company.com                 # optional
+   MCN_AUTH_SECRET=<openssl rand -hex 32>                   # the same on every server
+   ```
+
+| Provider | `MCN_SSO_ISSUER` |
+|---|---|
+| Okta | `https://<your-org>.okta.com` (or a custom authorization server's URL) |
+| Microsoft Entra ID | `https://login.microsoftonline.com/<tenant id>/v2.0` |
+| Google Workspace | `https://accounts.google.com` (limit sign-in with `MCN_SSO_ALLOWED_DOMAINS`) |
+| Auth0 | `https://<tenant>.auth0.com/` |
+| Keycloak | `https://<host>/realms/<realm>` |
+
+**How it works.** People who aren't signed in get status 401 with `"sso_login": "/_auth/login"`. The web app MCN builds sends them to that page; the provider signs them in and sends them back to `/_auth/callback`, which checks the sign-in (signature, issuer, audience, expiry, a one-time nonce and PKCE) and returns them to the app with a session token. The app keeps it and sends it with every call, and `current_user()` has `sub`, `email`, `name` and `roles`. Sessions last 8 hours (`MCN_SSO_SESSION_HOURS`).
+
+| Route | What it does |
+|---|---|
+| `GET /_auth/login?return_to=<url>` | Starts sign-in. `return_to` must be this server, an origin in `MCN_CORS_ORIGINS`, or one in `MCN_SSO_RETURN_ORIGINS` |
+| `GET /_auth/callback` | Where the provider sends people back |
+| `GET /_auth/me` | Who is signed in |
+| `POST /_auth/logout` | Signing out; the app forgets its token (`signOut()` in the generated API client) |
+
+Nothing is stored between the login and callback requests, so it works on Vercel and other serverless hosts. Studio's preview stands in for a signed-in person, so you can build SSO apps without signing in each time. The Flutter app doesn't handle the browser sign-in yet: pass a session token with `--dart-define=MCN_API_TOKEN=...`.
+
+SAML providers can be used through any broker that speaks OpenID Connect to MCN (Okta, Entra ID, Auth0 and Keycloak all can).
+
+## Audit logs
+
+Add `audit` to a service and every call to its endpoints is written to a tamper-evident audit log:
+
+```mcn fragment
+service billing_api
+    auth "sso"
+    audit
+```
+
+Each entry records the time, who called (from `current_user()`), the endpoint, its arguments, the status, how long it took and the caller's IP. Arguments whose names look secret (`password`, `token`, `secret`, `key`, `card`…) are written as `***`, and long values are shortened. Refused calls (no sign-in, rate limited) are logged too, as `api.denied`; failures as `api.error`. You can still add your own entries with `audit_log()`.
+
+```bash
+mcn audit-log verify                              # was any entry changed, removed or reordered?
+mcn audit-log export --format ocsf --out events.jsonl
+mcn audit-log export --format csv --out audit.csv
+```
+
+`ocsf` writes [OCSF](https://ocsf.io) API Activity events, which Splunk, Microsoft Sentinel, Datadog, Elastic and other SIEMs read. To stream entries as they happen, set `MCN_AUDIT_WEBHOOK` to your collector's URL (and `MCN_AUDIT_WEBHOOK_TOKEN` if it needs a bearer token): each entry is also posted there as an OCSF event. The local log stays the record of truth.
+
+Keep the log on lasting storage: set `MCN_APP_AUDIT_LOG` to a path on a volume, or use the webhook on hosts whose disk is temporary (Vercel, App Runner, Cloudflare).
+
+**Compliance.** Sign-in, audit logs, encryption in transit and access rules are the controls auditors ask about, and MCN gives you them in code. Certifications such as SOC 2 or HIPAA apply to the organization and the infrastructure that runs the app, not to a language.
 
 ## Check functions
 
@@ -132,9 +215,10 @@ The command exits with code 1 when there's a finding at or above `--fail-on` (de
 ## Before you go live
 
 1. Set `MCN_AUTH_SECRET` to a long random value (`openssl rand -hex 32`) so tokens stay valid across servers and restarts.
-2. Add `auth` to every service that changes data, and set `MCN_API_TOKEN` if you use `"token"`.
-3. Set `MCN_CORS_ORIGINS` to your web app's address instead of allowing every origin.
-4. Run `mcn audit .` and fix what it finds.
-5. Serve over HTTPS. The zip from Studio's **Build & download** includes an nginx config to put in front of the API.
+2. Add `auth` to every service that changes data (`"sso"` for company apps), and set `MCN_API_TOKEN` if you use `"token"`.
+3. Add `audit` to services that touch sensitive data, and keep the log on lasting storage or send it to your SIEM.
+4. Set `MCN_CORS_ORIGINS` to your web app's address instead of allowing every origin.
+5. Run `mcn audit .` and fix what it finds.
+6. Serve over HTTPS. The zip from Studio's **Build & download** includes an nginx config to put in front of the API.
 
 See [configuration](#/reference/configuration) for every setting.

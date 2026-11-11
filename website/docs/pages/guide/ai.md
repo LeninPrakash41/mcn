@@ -107,6 +107,29 @@ It returns `{reply, tool_calls, steps}`. Each entry in `tool_calls` has `name`, 
 
 `checkpoint(message, data)` pauses a script and asks a person to approve, reject or edit `data` before it continues — for example before sending an AI-written email.
 
+## Build an app with the agent team
+
+The agent team writes a whole MCN app from a description, the way a small product team would:
+
+| Agent | Does |
+|---|---|
+| **Researcher** | Works out what this kind of app needs: users and roles, records and fields, workflows, rules. Searches the web when the domain is specialised |
+| **Architect** | Plans the tables, endpoints, screens and navigation, and whether to use SSO and audit logs |
+| **Designer** | Lays out each screen: which components, in what order, labels and empty states |
+| **Builder** | Writes `backend/main.mcn` and `ui/app.mcn`, checked by MCN's parser |
+| **QA lead** | Runs the checks, then approves the app or sends a numbered list of fixes back to the builder (at most twice) |
+
+The QA lead's checks: the type checker on both files, a call to every endpoint that needs no inputs (in a scratch copy, so your data isn't touched), and a build of the web app. In Studio it also opens the app's live preview in a real browser, visits every screen, and looks at the screenshots, console errors, failed requests and on-screen errors.
+
+```bash
+mcn generate --team "An HR portal: leave requests with manager approval, company SSO, and an audit trail"
+mcn generate --team --no-research "A simple inventory tracker" --out ./inventory --build
+```
+
+In Studio, open **Generate**, tick **Use the agent team**, and watch each agent's progress. The browser check needs Playwright: `mcn add browser-qa` (it uses your installed Google Chrome, or `python -m playwright install chromium`).
+
+The team uses Claude (your `ANTHROPIC_API_KEY`) and makes several calls per app, so it takes a few minutes and costs more than `mcn generate` on its own.
+
 ## Seeing what happened
 
 Studio's **AI & RAG Inspector** lists every AI call with its prompt, response, model and duration. That's the quickest way to debug a prompt.

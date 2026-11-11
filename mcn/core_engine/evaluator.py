@@ -191,6 +191,7 @@ class Evaluator:
         self._tl = _threading.local()
         self.functions       = functions         # shared with MCNInterpreter
         self.function_params: Dict[str, List[str]] = {}
+        self.audited_endpoints: set = set()          # endpoints of `audit` services
         self.endpoint_auth: Dict[str, str] = {}      # endpoint → "" | "token" | "jwt"   # param names per endpoint
         self.globals    = Environment()
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
@@ -836,6 +837,8 @@ class Evaluator:
             self.function_params[ep.name] = params
             # How the HTTP server protects this endpoint: "", "token" or "jwt"
             self.endpoint_auth[ep.name] = "" if ep.name in stmt.public else stmt.auth
+            if getattr(stmt, "audit", False):
+                self.audited_endpoints.add(ep.name)
 
         env.define(stmt.name, service)
         env.define(stmt.name, service)

@@ -40,8 +40,13 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 |---|---|
 | `mcn build <ui-file> [--out frontend]` | Compile MCN components to a React + Vite + Tailwind + shadcn/ui project |
 | `mcn generate "<description>"` | Write a backend and UI with Claude, then validate them. Options: `--out DIR`, `--port`, `--build`, `--model` |
+| `mcn generate --team "<description>"` | Have the agent team research, plan, design, build and test the app. `--no-research` skips web search. See [the agent team](#/guide/ai) |
 | `mcn deploy --target vercel [--name] [--prod]` | Put the React app and its backend (at `/api`) on Vercel. `--stage-only` writes the Vercel project without uploading. See [deploying](#/guide/deploy) |
+| `mcn deploy --target aws [--region R] [--name]` | Run the app on AWS App Runner in your account, in the region you choose |
+| `mcn deploy --target cloudflare [--name]` | Serve the web app from Cloudflare and run the API in a Cloudflare container |
 | `mcn deploy [folder] [--target zip\|docker] [--name] [--out]` | Package a project as a zip with Docker files |
+| `mcn audit-log verify` | Check that the audit log of `audit` services hasn't been changed |
+| `mcn audit-log export [--format ocsf\|jsonl\|csv] [--out FILE]` | Export the audit log, e.g. OCSF events for a SIEM |
 
 ## Packages
 

@@ -1987,3 +1987,22 @@ header .logo {
 .tg-new { font-size: 10px; font-weight: 700; color: #fff; background: #16a34a; border-radius: 4px; padding: 1px 6px; }
 .tg-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0; font-size: 13px; }
 @media (max-width: 640px) { .tg-card { height: 92vh; } .tg-grid, .tg-toolbar { padding-left: 16px; padding-right: 16px; } }
+
+/* ── Agent team (generate dialog) ───────────────────────────────────────── */
+.team-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin: 4px 0 8px;
+  border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 12.5px; color: var(--text); }
+.team-toggle input { margin-top: 3px; accent-color: var(--accent); }
+.team-toggle-sub { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; line-height: 1.45; }
+.team-panel { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.team-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 12px; background: var(--bg-card, transparent); }
+.team-step .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px;
+  font-weight: 700; border: 1.5px solid var(--border); color: var(--muted); }
+.team-step[data-status="working"] .dot { border-color: var(--accent); color: var(--accent); animation: team-pulse 1.2s ease-in-out infinite; }
+.team-step[data-status="done"] .dot { background: #10b981; border-color: #10b981; color: #fff; }
+.team-step[data-status="failed"] .dot { background: #ef4444; border-color: #ef4444; color: #fff; }
+.team-step-role { font-weight: 600; color: var(--text); }
+.team-step-summary { color: var(--muted); margin-top: 2px; line-height: 1.4; word-break: break-word; }
+.team-step-fixes { margin: 4px 0 0 16px; padding: 0; color: var(--muted); }
+@keyframes team-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .team-step[data-status="working"] .dot { animation: none; } }
