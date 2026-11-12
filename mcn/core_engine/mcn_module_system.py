@@ -114,7 +114,7 @@ class MCNModuleSystem:
         except:
             pass
         
-        # Fallback to local registry simulation
+        # Registry unreachable: use the built-in packages' details
         return self._get_builtin_package_info(package_name)
     
     def _get_builtin_package_info(self, package_name: str) -> Optional[Dict]:
@@ -223,7 +223,7 @@ class MCNModuleSystem:
             return create_v3_agent_package(interpreter.agent_system)
         elif package_name == "natural" and interpreter:
             from .mcn_v3_extensions import create_v3_nl_package
-            return create_v3_nl_package(interpreter.nl_system)
+            return create_v3_nl_package(interpreter.nl_system, interpreter)
         elif package_name == "pipeline" and interpreter:
             from .mcn_v3_extensions import create_v3_pipeline_package
             return create_v3_pipeline_package(interpreter.pipeline_system)

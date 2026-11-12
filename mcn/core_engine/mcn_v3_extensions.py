@@ -51,58 +51,40 @@ class MCNAgent:
 
 
 class MCNModelRegistry:
-    """AI Model Registry and Management"""
-    
+    """Named model settings for `use "ai_v3"`. Any provider model name works
+    (claude-*, gpt-*, an Ollama model, or a name given to fine_tune())."""
+
     def __init__(self):
         self.models = {}
         self.active_model = None
-        self._init_default_models()
-    
-    def _init_default_models(self):
-        """Initialize default AI models"""
-        self.models.update({
-            "gpt-4": MCNModel("gpt-4", "openai"),
-            "gpt-3.5-turbo": MCNModel("gpt-3.5-turbo", "openai"),
-            "claude-3": MCNModel("claude-3", "anthropic"),
-            "gemini-pro": MCNModel("gemini-pro", "google"),
-            "llama-2": MCNModel("llama-2", "local")
-        })
-    
+
     def register_model(self, name: str, provider: str, **config):
-        """Register a new AI model"""
+        """Remember settings (provider, temperature…) under a name"""
         self.models[name] = MCNModel(name, provider, config=config)
         return f"Model '{name}' registered with {provider}"
-    
+
     def set_active_model(self, name: str):
-        """Set the active model for AI operations"""
-        if name in self.models:
-            self.active_model = name
-            return f"Active model set to '{name}'"
-        raise Exception(f"Model '{name}' not found")
-    
-    def get_model(self, name: str = None) -> MCNModel:
-        """Get model by name or active model"""
-        model_name = name or self.active_model or "gpt-3.5-turbo"
-        return self.models.get(model_name)
-    
-    def fine_tune_model(self, base_model: str, dataset_path: str, new_name: str):
-        """Fine-tune a model with custom data"""
-        if base_model not in self.models:
-            raise Exception(f"Base model '{base_model}' not found")
-        
-        # Simulate fine-tuning process
-        base = self.models[base_model]
-        fine_tuned = MCNModel(
-            name=new_name,
-            provider=base.provider,
-            api_key=base.api_key,
-            endpoint=base.endpoint,
-            config=base.config.copy() if base.config else {},
-            fine_tuned=True
-        )
-        
-        self.models[new_name] = fine_tuned
-        return f"Model '{new_name}' fine-tuned from '{base_model}' with dataset '{dataset_path}'"
+        """Use this model for ai_v3's run() when no model is named"""
+        self.active_model = name
+        return f"Active model set to '{name}'"
+
+    def get_model(self, name: str = None) -> Optional[MCNModel]:
+        return self.models.get(name or self.active_model or "")
+
+    def options_for(self, name: Optional[str]) -> Dict[str, Any]:
+        """ai() options for a model name: its registered settings, if any."""
+        model = self.models.get(name or "")
+        opts: Dict[str, Any] = dict(model.config or {}) if model else {}
+        if name:
+            opts["model"] = name
+        if model and model.provider in ("anthropic", "openai", "ollama"):
+            opts.setdefault("provider", model.provider)
+        return opts
+
+    def fine_tune_model(self, base_model: str, dataset_path: str, new_name: str, params: dict = None):
+        """Fine-tune for real (see fine_tuning.py)"""
+        from .fine_tuning import fine_tune
+        return fine_tune(base_model, dataset_path, new_name, params)
 
 
 class MCNEventSystem:
@@ -165,322 +147,405 @@ from .iot import DeviceRegistry as MCNIoTConnector, shared_registry as get_share
 
 
 class MCNAgentSystem:
-    """Autonomous agent creation and management"""
-    
+    """Named agents: a role prompt, a model, conversation memory, and optional tools.
+
+    agent("create", "analyst", {prompt: "You analyse sales data", tools: ["revenue_by_month"]})
+    agent("think", "analyst", "Which month was best?")
+    """
+
+    HISTORY = 12                    # exchanges each agent remembers
+
     def __init__(self, model_registry: MCNModelRegistry):
         self.agents = {}
         self.model_registry = model_registry
-    
+        # Set by the interpreter: runs agent_run() so tools can call the program's functions
+        self.tool_runner: Optional[Callable[[str, dict], Any]] = None
+
     def create_agent(self, name: str, prompt: str, model: str = None, tools: List[str] = None):
-        """Create an autonomous agent"""
-        agent_model = model or self.model_registry.active_model or "gpt-3.5-turbo"
-        
-        agent = MCNAgent(
-            name=name,
-            prompt=prompt,
-            model=agent_model,
-            memory={},
-            tools=tools or [],
-            active=False
-        )
-        
-        self.agents[name] = agent
-        return f"Agent '{name}' created with model '{agent_model}'"
-    
+        agent_model = model or self.model_registry.active_model
+        self.agents[name] = MCNAgent(name=name, prompt=prompt, model=agent_model,
+                                     memory={"history": []}, tools=list(tools or []), active=True)
+        return f"Agent '{name}' created" + (f" with model '{agent_model}'" if agent_model else "")
+
     def create_multi_agent(self, name: str, sub_agents: List[str], coordinator_prompt: str, model: str = None):
-        """Create a multi-agent coordinator"""
-        agent_model = model or self.model_registry.active_model or "gpt-3.5-turbo"
-        
-        agent = MCNAgent(
-            name=name,
-            prompt=coordinator_prompt,
-            model=agent_model,
-            memory={"sub_agents": sub_agents, "is_coordinator": True},
-            tools=[],
-            active=False
-        )
-        
-        self.agents[name] = agent
-        return f"Multi-Agent coordinator '{name}' created with {len(sub_agents)} sub-agents"
-    
+        missing = [a for a in sub_agents if a not in self.agents]
+        if missing:
+            raise Exception(f"Create these agents first: {', '.join(missing)}")
+        self.agents[name] = MCNAgent(name=name, prompt=coordinator_prompt, model=model or self.model_registry.active_model,
+                                     memory={"history": [], "sub_agents": list(sub_agents), "is_coordinator": True},
+                                     tools=[], active=True)
+        return f"Multi-agent coordinator '{name}' created with {len(sub_agents)} sub-agents"
+
     def activate_agent(self, name: str):
-        """Activate an agent"""
-        if name not in self.agents:
-            raise Exception(f"Agent '{name}' not found")
-        
-        self.agents[name].active = True
+        self._get(name).active = True
         return f"Agent '{name}' activated"
-    
-    def agent_think(self, name: str, input_data: str):
-        """Make agent process input and respond"""
+
+    def reset_agent(self, name: str):
+        self._get(name).memory["history"] = []
+        return f"Agent '{name}' forgot its conversation"
+
+    def list_agents(self):
+        return [{"name": a.name, "model": a.model, "tools": a.tools, "remembers": len(a.memory.get("history", [])),
+                 "coordinator": bool(a.memory.get("is_coordinator"))} for a in self.agents.values()]
+
+    def _get(self, name: str) -> MCNAgent:
         if name not in self.agents:
-            raise Exception(f"Agent '{name}' not found")
-        
-        agent = self.agents[name]
+            raise Exception(f"Agent '{name}' not found. Create it with agent(\"create\", \"{name}\", {{prompt: ...}})")
+        return self.agents[name]
+
+    def agent_think(self, name: str, input_data: Any):
+        """The agent answers, using its role, its recent conversation and its tools."""
+        from .ai_builtins import mcn_ai
+        agent = self._get(name)
         if not agent.active:
             raise Exception(f"Agent '{name}' is not active")
-        
-        # Combine agent prompt with input and memory context
-        context = f"Agent: {agent.prompt}\nMemory: {json.dumps(agent.memory)}\nInput: {input_data}"
-        
-        # Store in memory
-        agent.memory[f"input_{len(agent.memory)}"] = input_data
-        
+        message = input_data if isinstance(input_data, str) else json.dumps(input_data, default=str)
+        history = agent.memory.setdefault("history", [])
+        transcript = "\n".join(f"{h['role']}: {h['content']}" for h in history[-2 * self.HISTORY:])
+        prompt = (f"Conversation so far:\n{transcript}\n\nNew message: {message}" if transcript else message)
+
         if agent.memory.get("is_coordinator"):
-            sub_agents = agent.memory.get("sub_agents", [])
-            responses = []
-            for sub in sub_agents:
+            answers = []
+            for sub in agent.memory.get("sub_agents", []):
                 if sub in self.agents and self.agents[sub].active:
-                    responses.append(f"[{sub}]: " + self.agent_think(sub, input_data))
-            coordinator_response = f"Coordinator '{name}' synthesized responses from {len(responses)} sub-agents:\n" + "\n".join(responses)
-            agent.memory[f"response_{len(agent.memory)}"] = coordinator_response
-            return coordinator_response
-        
-        # Dynamic AI processing with context awareness
-        context_keywords = ["analyze", "calculate", "predict", "recommend", "classify"]
-        input_lower = input_data.lower()
-        
-        if any(keyword in input_lower for keyword in context_keywords):
-            if "analyze" in input_lower:
-                response = f"Agent {name} analysis: Based on the data provided, I observe patterns that suggest {input_data[:30]}... requires detailed examination."
-            elif "calculate" in input_lower:
-                numbers = re.findall(r'\d+\.?\d*', input_data)
-                if numbers:
-                    result = sum(float(n) for n in numbers[:2]) if len(numbers) >= 2 else float(numbers[0]) * 1.1
-                    response = f"Agent {name} calculation result: {result}"
-                else:
-                    response = f"Agent {name}: No numerical data found for calculation in '{input_data[:30]}...'"
-            elif "predict" in input_lower:
-                response = f"Agent {name} prediction: Based on current trends, the outcome for '{input_data[:30]}...' shows positive indicators."
-            else:
-                response = f"Agent {name} processed: {input_data[:50]}... with contextual understanding."
+                    answers.append(f"{sub}: {self.agent_think(sub, message)}")
+            prompt = (f"{prompt}\n\nYour team's answers:\n" + "\n\n".join(answers) +
+                      "\n\nCombine them into one answer, resolving any disagreement.")
+            reply = mcn_ai(prompt, {**self.model_registry.options_for(agent.model), "system": agent.prompt})
+        elif agent.tools and self.tool_runner:
+            result = self.tool_runner(prompt, {"system": agent.prompt, "tools": agent.tools,
+                                               **({"model": agent.model} if agent.model else {})})
+            reply = result.get("reply", "") if isinstance(result, dict) else str(result)
         else:
-            response = f"Agent {name}: I understand you're asking about '{input_data[:40]}...'. Let me help with that."
-        
-        # Store response in memory for context
-        agent.memory[f"response_{len(agent.memory)}"] = response
-        return response
+            reply = mcn_ai(prompt, {**self.model_registry.options_for(agent.model), "system": agent.prompt})
+
+        history += [{"role": "user", "content": message}, {"role": "assistant", "content": str(reply)}]
+        del history[:-2 * self.HISTORY]
+        return reply
 
 
 class MCNDataPipeline:
-    """AI-powered data processing pipelines"""
-    
+    """Data pipelines: named steps run in order. Lists are processed item by item.
+
+    Steps: clean, transform, ai_classify (params.categories), ai_extract (params.fields), and
+    any MCN function name (set by the interpreter), which gets the data and returns the new data.
+    """
+
+    STEPS = ("clean", "transform", "ai_classify", "ai_extract")
+
     def __init__(self, model_registry: MCNModelRegistry):
         self.model_registry = model_registry
         self.pipelines = {}
-    
+        self.function_lookup: Optional[Callable[[str], Any]] = None    # set by the interpreter
+
     def create_pipeline(self, name: str, steps: List[Dict]):
-        """Create a data processing pipeline"""
-        self.pipelines[name] = {
-            "steps": steps,
-            "created": time.time(),
-            "runs": 0
-        }
+        for step in steps:
+            kind = step.get("type")
+            if kind not in self.STEPS and not (self.function_lookup and self.function_lookup(kind)):
+                raise Exception(f"Unknown pipeline step '{kind}'. Use {', '.join(self.STEPS)} or a function name")
+        self.pipelines[name] = {"steps": steps, "created": time.time(), "runs": 0}
         return f"Pipeline '{name}' created with {len(steps)} steps"
-    
+
+    def list_pipelines(self):
+        return [{"name": n, "steps": [s.get("type") for s in p["steps"]], "runs": p["runs"]}
+                for n, p in self.pipelines.items()]
+
     def run_pipeline(self, name: str, data: Any):
-        """Execute a data pipeline"""
         if name not in self.pipelines:
             raise Exception(f"Pipeline '{name}' not found")
-        
         pipeline = self.pipelines[name]
         result = data
-        
         for step in pipeline["steps"]:
-            step_type = step.get("type")
-            
-            if step_type == "clean":
-                result = self._clean_data(result, step.get("params", {}))
-            elif step_type == "transform":
-                result = self._transform_data(result, step.get("params", {}))
-            elif step_type == "ai_classify":
-                result = self._ai_classify(result, step.get("params", {}))
-            elif step_type == "ai_extract":
-                result = self._ai_extract(result, step.get("params", {}))
-        
+            kind, params = step.get("type"), step.get("params", {}) or {}
+            if kind in self.STEPS:
+                handler = getattr(self, f"_{kind.replace('ai_', 'ai_')}" if kind.startswith("ai_") else f"_{kind}_data")
+                result = [handler(item, params) for item in result] if isinstance(result, list) else handler(result, params)
+            else:
+                fn = self.function_lookup(kind) if self.function_lookup else None
+                if not fn:
+                    raise Exception(f"Unknown pipeline step '{kind}'")
+                result = fn(result)
         pipeline["runs"] += 1
         return result
-    
+
     def _clean_data(self, data: Any, params: Dict):
-        """Clean data step"""
         if isinstance(data, str):
-            # Basic text cleaning
             cleaned = re.sub(r'\s+', ' ', data.strip())
             if params.get("remove_special_chars"):
                 cleaned = re.sub(r'[^\w\s]', '', cleaned)
             return cleaned
+        if isinstance(data, dict):
+            return {k: (re.sub(r'\s+', ' ', v.strip()) if isinstance(v, str) else v) for k, v in data.items()}
         return data
-    
+
     def _transform_data(self, data: Any, params: Dict):
-        """Transform data step"""
-        transform_type = params.get("type", "normalize")
-        
-        if transform_type == "normalize" and isinstance(data, str):
+        kind = params.get("type", "normalize")
+        if kind == "normalize" and isinstance(data, str):
             return data.lower()
-        elif transform_type == "extract_numbers" and isinstance(data, str):
-            return re.findall(r'\d+\.?\d*', data)
-        
+        if kind == "extract_numbers" and isinstance(data, str):
+            return [float(n) for n in re.findall(r'-?\d+\.?\d*', data)]
         return data
-    
+
+    @staticmethod
+    def _text(data: Any, params: Dict) -> str:
+        if isinstance(data, dict):
+            field = params.get("field")
+            return str(data.get(field, "")) if field else json.dumps(data, default=str)
+        return str(data)
+
     def _ai_classify(self, data: Any, params: Dict):
-        """AI classification step with real text analysis"""
-        categories = params.get("categories", ["positive", "negative", "neutral"])
-        
-        if isinstance(data, str):
-            text_lower = data.lower()
-            
-            # Keyword-based classification with scoring
-            positive_words = ['good', 'great', 'excellent', 'amazing', 'love', 'like', 'happy', 'wonderful', 'fantastic', 'awesome']
-            negative_words = ['bad', 'terrible', 'awful', 'hate', 'dislike', 'sad', 'angry', 'horrible', 'worst', 'disappointing']
-            
-            positive_score = sum(1 for word in positive_words if word in text_lower)
-            negative_score = sum(1 for word in negative_words if word in text_lower)
-            
-            # Determine classification and confidence
-            if positive_score > negative_score:
-                classification = "positive" if "positive" in categories else categories[0]
-                confidence = min(0.95, 0.7 + (positive_score - negative_score) * 0.1)
-            elif negative_score > positive_score:
-                classification = "negative" if "negative" in categories else categories[-1]
-                confidence = min(0.95, 0.7 + (negative_score - positive_score) * 0.1)
-            else:
-                classification = "neutral" if "neutral" in categories else categories[len(categories)//2]
-                confidence = 0.6
-            
-            return {
-                "data": data,
-                "classification": classification,
-                "confidence": round(confidence, 2),
-                "scores": {"positive": positive_score, "negative": negative_score}
-            }
-        
-        # Fallback for non-text data
-        return {
-            "data": data,
-            "classification": categories[0],
-            "confidence": 0.5
-        }
-    
+        """Label each item with classify()."""
+        from .ai_builtins import mcn_classify
+        categories = params.get("categories") or ["positive", "negative", "neutral"]
+        label = mcn_classify(self._text(data, params), list(categories))
+        if isinstance(data, dict):
+            return {**data, params.get("as", "classification"): label}
+        return {"data": data, "classification": label}
+
     def _ai_extract(self, data: Any, params: Dict):
-        """AI extraction step"""
-        extract_type = params.get("type", "entities")
-        
-        if extract_type == "entities" and isinstance(data, str):
-            # Simulate entity extraction
-            entities = []
-            words = data.split()
-            for word in words:
-                if word.istitle() and len(word) > 2:
-                    entities.append({"text": word, "type": "PERSON"})
-            return {"data": data, "entities": entities}
-        
-        return {"data": data, "extracted": []}
+        """Pull out fields with extract(): params.fields is a list of names or {name: type}."""
+        from .ai_builtins import mcn_extract
+        fields = params.get("fields") or {"people": "list", "organizations": "list", "places": "list", "dates": "list"}
+        if isinstance(fields, list):
+            fields = {f: "str" for f in fields}
+        contract = type("Fields", (), {"fields": list(fields.items())})()
+        extracted = mcn_extract(self._text(data, params), contract)
+        if isinstance(data, dict):
+            return {**data, **(extracted if isinstance(extracted, dict) else {})}
+        return {"data": data, **(extracted if isinstance(extracted, dict) else {"extracted": extracted})}
 
 
 class MCNDataSourceSystem:
-    """Knowledge Sources and Enterprise Search (RAG)"""
-    
+    """Knowledge sources for questions answered from your documents.
+
+    datasource("create", "handbook", "file", "docs/handbook.md")
+    datasource("create", "faq", "text", faq_text)
+    datasource("create", "site", "url", "https://example.com/help")
+    rag("query_datasource", "How many days off do I get?", "handbook")
+    """
+
+    CHUNK = 1200
+    TOP_K = 5
+
     def __init__(self):
         self.datasources = {}
-    
+
+    @classmethod
+    def _chunks(cls, text: str, source: str) -> List[Dict[str, str]]:
+        parts, current = [], ""
+        for para in re.split(r"\n\s*\n", text):
+            para = para.strip()
+            if not para:
+                continue
+            if current and len(current) + len(para) > cls.CHUNK:
+                parts.append(current)
+                current = ""
+            current = (current + "\n\n" + para).strip()
+            while len(current) > cls.CHUNK * 2:
+                parts.append(current[:cls.CHUNK])
+                current = current[cls.CHUNK:]
+        if current:
+            parts.append(current)
+        return [{"text": p, "source": source} for p in parts]
+
+    @staticmethod
+    def _read_file(path: str) -> str:
+        from pathlib import Path
+        file = Path(str(path))
+        if not file.exists():
+            raise Exception(f"File not found: {path}")
+        if file.suffix.lower() == ".pdf":
+            try:
+                from pypdf import PdfReader
+            except ImportError:
+                raise Exception("Reading PDFs needs the pypdf package: pip install pypdf")
+            return "\n\n".join(page.extract_text() or "" for page in PdfReader(str(file)).pages)
+        return file.read_text(encoding="utf-8", errors="replace")
+
+    @staticmethod
+    def _read_url(url: str) -> str:
+        import html as _html
+        import requests
+        res = requests.get(url, timeout=20, headers={"User-Agent": "mcn-datasource"})
+        res.raise_for_status()
+        text = res.text
+        if "html" in res.headers.get("content-type", ""):
+            text = re.sub(r"(?is)<(script|style|nav|footer)[^>]*>.*?</\1>", " ", text)
+            text = re.sub(r"(?i)<(br|/p|/div|/h[1-6]|/li)[^>]*>", "\n\n", text)
+            text = _html.unescape(re.sub(r"<[^>]+>", " ", text))
+            text = re.sub(r"[ \t]+", " ", text)
+        return text
+
     def create_datasource(self, name: str, source_type: str, payload: Any):
-        """Ingest documents or connect to an external source"""
-        documents = []
         if source_type == "text":
-            documents = [{"content": chunk, "source": "text_payload"} for chunk in str(payload).split("\n\n")]
+            documents = self._chunks(str(payload), "text")
         elif source_type == "file":
-            documents = [{"content": f"Mock content from {payload}", "source": payload}]
+            paths = payload if isinstance(payload, list) else [payload]
+            documents = [c for path in paths for c in self._chunks(self._read_file(path), str(path))]
+        elif source_type == "url":
+            urls = payload if isinstance(payload, list) else [payload]
+            documents = [c for url in urls for c in self._chunks(self._read_url(url), str(url))]
+        elif source_type == "documents" and isinstance(payload, list):
+            documents = [{"text": d.get("text", "") if isinstance(d, dict) else str(d), "source": "documents"}
+                         for d in payload]
         else:
-            documents = [{"content": str(payload), "source": "unknown"}]
-            
-        self.datasources[name] = {
-            "type": source_type,
-            "documents": documents,
-            "vector_index_mock": f"vector_index_{len(documents)}_items",
-            "created": time.time()
-        }
-        return f"DataSource '{name}' created with {len(documents)} chunks ingested."
-        
-    def query_rag(self, name: str, query: str):
-        """Retrieve and generate based on datasource"""
+            raise Exception(f"Unknown source type '{source_type}'. Use text, file, url or documents")
+        self.datasources[name] = {"type": source_type, "documents": documents, "created": time.time()}
+        return f"DataSource '{name}' created with {len(documents)} chunks"
+
+    def list_datasources(self):
+        return [{"name": n, "type": d["type"], "chunks": len(d["documents"])} for n, d in self.datasources.items()]
+
+    def search(self, name: str, query: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
+        """The chunks most relevant to the question (word overlap, weighted by rarity)."""
         if name not in self.datasources:
             raise Exception(f"DataSource '{name}' not found")
-            
-        ds = self.datasources[name]
-        top_docs = ds["documents"][:2]
-        context = "\n".join([doc["content"] for doc in top_docs])
-        
-        return f"RAG Response from '{name}' for query '{query}': Based on knowledge base context ({context[:50]}...), the answer is highly relevant."
+        docs = self.datasources[name]["documents"]
+        words = [w for w in re.findall(r"\w+", query.lower()) if len(w) > 2]
+        if not words:
+            return docs[:top_k]
+        counts = {w: sum(1 for d in docs if w in d["text"].lower()) for w in words}
+        import math
+        scored = []
+        for d in docs:
+            low = d["text"].lower()
+            score = sum(math.log(1 + len(docs) / (1 + counts[w])) for w in words if w in low)
+            scored.append((score, d))
+        scored.sort(key=lambda x: -x[0])
+        return [d for score, d in scored[:top_k] if score > 0] or docs[:top_k]
+
+    def query_rag(self, name: str, query: str):
+        """Answer a question from the source's most relevant chunks."""
+        from .stdlib_builtins import mcn_rag
+        hits = self.search(name, str(query))
+        return mcn_rag(str(query), [h["text"] for h in hits])
 
 
 class MCNNaturalLanguage:
-    """Natural Language to Code Translation"""
-    
+    """Turn plain-English instructions into MCN code.
+
+    With an AI key, Claude (or your chosen provider) writes the code and MCN's parser checks
+    it. Without one, a few simple sentence patterns still work offline.
+    """
+
+    _GUIDE = """Write MCN code for the instruction. MCN rules: statements one per line; blocks are
+indented 4 spaces with no braces or colons (`if x > 1`, `for item in items`, `function name(a, b)`);
+`var name = value` declares; `log(value)` prints; strings use double quotes; lists [1, 2]; objects
+{name: "Ana"}; built-ins include query(sql, params), fetch(url), read_file, write_file, ai(prompt),
+classify(text, labels), extract(text, Contract), send_email(to, subject, body), len, sum, map, filter.
+Reply with only the code, no explanation and no code fences."""
+
     def __init__(self, model_registry: MCNModelRegistry):
         self.model_registry = model_registry
         self.patterns = self._init_patterns()
-    
-    def _init_patterns(self):
-        """Initialize natural language patterns"""
-        return {
-            r"create (?:a )?variable (\w+) (?:with value |equal to |= )(.+)": "var {0} = {1}",
-            r"set (\w+) to (.+)": "var {0} = {1}",
-            r"if (.+) then (.+)": "if {0} {{ {1} }}",
-            r"for each (\w+) in (.+) do (.+)": "for {0} in {1} {{ {2} }}",
-            r"call function (\w+) with (.+)": "{0}({1})",
-            r"print (.+)": "echo({0})",
-            r"log (.+)": "log({0})",
-            r"read file (.+)": "read_file({0})",
-            r"write (.+) to file (.+)": "write_file({1}, {0})",
-            r"connect to database (.+)": "query(\"USE {0}\")",
-            r"select (.+) from (.+)": "query(\"SELECT {0} FROM {1}\")",
-            r"create agent (\w+) with prompt (.+)": "agent.create(\"{0}\", \"{1}\")",
-            r"trigger event (\w+)": "trigger(\"{0}\")",
-            r"read sensor (\w+)": "device.read(\"{0}\")",
-        }
-    
+
+    @staticmethod
+    def _init_patterns():
+        """Offline sentence patterns, in today's MCN syntax: (regex, function of the groups → code)."""
+        v = MCNNaturalLanguage._value
+        c = MCNNaturalLanguage._condition
+        return [
+            (r"create (?:a )?variable (\w+) (?:with value |equal to |= )(.+)",
+             lambda n, x: f"var {n} = {MCNNaturalLanguage._literal(x)}"),
+            (r"set (\w+) to (.+)", lambda n, x: f"var {n} = {v(x)}"),
+            (r"if (.+?) then (?:print|log|show) (.+)", lambda cond, x: f"if {c(cond)}\n    log({v(x)})"),
+            (r"for each (\w+) in (\w+)(?: do)? (?:print|log|show) (.+)",
+             lambda item, items, x: f"for {item} in {items}\n    log({v(x)})"),
+            (r"call (?:function )?(\w+) with (.+)", lambda fn, x: f"{fn}({v(x)})"),
+            (r"(?:print|log|show) (.+)", lambda x: f"log({v(x)})"),
+            (r"read (?:the )?file (.+)", lambda x: f"read_file({MCNNaturalLanguage._quote(x)})"),
+            (r"write (.+) to (?:the )?file (.+)",
+             lambda x, f: f"write_file({MCNNaturalLanguage._quote(f)}, {MCNNaturalLanguage._quote(x)})"),
+            (r"select (.+) from (\w+)(?: where (.+))?",
+             lambda cols, table, where=None: f'query("SELECT {cols} FROM {table}' + (f" WHERE {where}" if where else "") + '")'),
+            (r"trigger (?:event )?(\w+)", lambda e: f'trigger("{e}")'),
+            (r"send (?:an )?email to (\S+) (?:saying|with) (.+)",
+             lambda to, x: f'send_email({MCNNaturalLanguage._quote(to)}, "Message", {MCNNaturalLanguage._quote(x)})'),
+        ]
+
+    @staticmethod
+    def _condition(text: str) -> str:
+        words = [(r"\s+is greater than or equal to\s+", " >= "), (r"\s+is less than or equal to\s+", " <= "),
+                 (r"\s+is greater than\s+", " > "), (r"\s+is less than\s+", " < "),
+                 (r"\s+is not equal to\s+", " != "), (r"\s+(?:is equal to|equals|is)\s+", " == ")]
+        out = text.strip()
+        for pattern, op in words:
+            out = re.sub(pattern, op, out, flags=re.I)
+        return out
+
+    @staticmethod
+    def _parses(code: str) -> Optional[str]:
+        """A problem with the code, or None. Blocks must be indented, not braced (old MCN syntax)."""
+        if re.search(r"\{\s*$", code, re.M) and re.search(r"^\s*\}\s*$", code, re.M):
+            return "blocks use braces; indent them by 4 spaces instead"
+        try:
+            from .lexer import Lexer
+            from .parser import Parser
+            parser = Parser(Lexer(code).tokenize())
+            parser.parse()
+            return str(parser.errors[0]) if getattr(parser, "errors", None) else None
+        except Exception as exc:
+            return str(exc)
+
+    def _pattern(self, natural_text: str) -> Optional[str]:
+        lines = []
+        for line in [l.strip().rstrip(".") for l in natural_text.strip().splitlines() if l.strip()]:
+            for pattern, build in self.patterns:
+                match = re.fullmatch(pattern, line, re.I)
+                if match:
+                    lines.append(build(*[g for g in match.groups() if g is not None]))
+                    break
+            else:
+                return None
+        return "\n".join(lines) if lines else None
+
+    @staticmethod
+    def _literal(text: str) -> str:
+        """A number, true/false/null or quoted text, never a variable name."""
+        text = text.strip().strip(".")
+        if re.fullmatch(r"-?\d+(\.\d+)?|true|false|null", text):
+            return text
+        return MCNNaturalLanguage._quote(text)
+
+    @staticmethod
+    def _quote(text: str) -> str:
+        """Always a string literal."""
+        text = text.strip().strip(".")
+        if len(text) >= 2 and text[0] == text[-1] == '"':
+            return text
+        return '"' + text.replace('"', '\\"') + '"'
+
+    @staticmethod
+    def _value(text: str) -> str:
+        """A number, true/false/null, a variable name or quoted text; anything else becomes text."""
+        text = text.strip().strip(".")
+        if re.fullmatch(r"-?\d+(\.\d+)?|true|false|null|\".*\"", text):
+            return text
+        if re.fullmatch(r"[a-z_]\w*(\.\w+)*", text):         # lowercase: a variable; Capitalised: text
+            return text
+        return MCNNaturalLanguage._quote(text)
+
     def translate(self, natural_text: str) -> str:
-        """Translate natural language to MCN code"""
-        lines = natural_text.strip().split('\n')
-        mcn_code = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            translated = self._translate_line(line)
-            mcn_code.append(translated)
-        
-        return '\n'.join(mcn_code)
-    
-    def _translate_line(self, line: str) -> str:
-        """Translate a single line of natural language"""
-        line_lower = line.lower()
-        
-        # Try pattern matching
-        for pattern, template in self.patterns.items():
-            match = re.match(pattern, line_lower)
-            if match:
-                try:
-                    return template.format(*match.groups())
-                except:
-                    continue
-        
-        # If no pattern matches, try AI translation
-        return self._ai_translate(line)
-    
-    def _ai_translate(self, text: str) -> str:
-        """Use AI to translate complex natural language"""
-        # Simulate AI translation
-        if "calculate" in text.lower():
-            return f"// AI Translation: {text}"
-        elif "analyze" in text.lower():
-            return f"ai(\"{text}\")"
-        elif "send" in text.lower() and "email" in text.lower():
-            return f"send_email(\"{text}\")"
-        
-        return f"// TODO: Translate '{text}'"
+        from .ai_builtins import _get_provider, mcn_ai
+        import os
+        has_ai = bool(os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OLLAMA_URL"))
+        if has_ai:
+            prompt = natural_text
+            for _ in range(2):
+                code = mcn_ai(prompt, {**self.model_registry.options_for(self.model_registry.active_model),
+                                       "system": self._GUIDE, "temperature": 0, "max_tokens": 2048})
+                code = re.sub(r"^```\w*\n|\n```$", "", code.strip())
+                problem = self._parses(code)
+                if not problem:
+                    return code
+                prompt = f"{natural_text}\n\nYour last answer didn't parse ({problem}):\n{code}"
+            raise Exception(f"Couldn't turn that into valid MCN: {problem}")
+        code = self._pattern(natural_text)
+        if code and not self._parses(code):
+            return code
+        # Mock mode: like ai(), keep running without a key, and say what's missing
+        safe = natural_text.strip().replace("\n", " ")[:200]
+        return f"// translate() needs an AI key (ANTHROPIC_API_KEY or OPENAI_API_KEY) for: {safe}"
 
 
 # Integration functions for MCN core
@@ -488,21 +553,18 @@ def create_v3_ai_package(model_registry: MCNModelRegistry):
     """Enhanced AI package with v3.0 features"""
     
     def run_model(model_name: str, prompt: str = None, **kwargs):
-        """Run specific AI model, falling back to active model if only prompt is provided"""
+        """Run a model by name (a provider model, or one made with fine_tune()); with only a prompt, the active model"""
+        from .ai_builtins import mcn_llm, mcn_ai
         if prompt is None:
-            prompt = model_name
-            model_name = model_registry.active_model or "gpt-3.5-turbo"
-            
-        model = model_registry.get_model(model_name)
-        if not model:
-            raise Exception(f"Model '{model_name}' not found")
-        
-        # Simulate model execution
-        return f"Model {model_name} response to: {prompt[:50]}..."
-    
-    def train_model(base_model: str, dataset: str, new_name: str):
-        """Fine-tune a model"""
-        return model_registry.fine_tune_model(base_model, dataset, new_name)
+            prompt, model_name = model_name, model_registry.active_model
+        if not model_name:
+            return mcn_ai(str(prompt))
+        return mcn_llm(str(model_name), str(prompt), kwargs or None)
+
+    def train_model(base_model: str, dataset: str, new_name: str, params: dict = None):
+        """Fine-tune a model on your examples (the same as fine_tune())"""
+        from .fine_tuning import fine_tune
+        return fine_tune(base_model, dataset, new_name, params)
     
     def set_model(model_name: str):
         """Set active model"""
@@ -627,20 +689,24 @@ def create_v3_pipeline_package(pipeline_system: MCNDataPipeline):
     }
 
 
-def create_v3_nl_package(nl_system: MCNNaturalLanguage):
+def create_v3_nl_package(nl_system: MCNNaturalLanguage, interpreter=None):
     """Natural language programming package"""
-    
-    def translate_code(natural_text: str, execute_if_safe: bool = False):
-        """Translate natural language to MCN code"""
+
+    def run(code: str):
+        # In the program's own scope, so variables it creates are visible afterwards
+        if interpreter is not None:
+            return interpreter.execute(code, quiet=True)
+        from .mcn_interpreter import MCNInterpreter
+        return MCNInterpreter().execute(code, quiet=True)
+
+    def translate_code(natural_text: str, execute: bool = False):
+        """Translate natural language to MCN code; with execute=true, also run it"""
         code = nl_system.translate(natural_text)
-        if execute_if_safe:
-            return f"Simulated execution of: {code}"
-        return code
-    
-    def execute_natural(natural_text: str, interpreter):
-        """Execute natural language directly"""
-        mcn_code = nl_system.translate(natural_text)
-        return interpreter.execute(mcn_code)
+        return run(code) if execute else code
+
+    def execute_natural(natural_text: str, *_):
+        """Translate natural language to MCN code and run it"""
+        return run(nl_system.translate(natural_text))
     
     return {
         "translate": translate_code,

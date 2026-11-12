@@ -196,13 +196,8 @@ def main():
     }
     
     if len(sys.argv) > 1 and sys.argv[1] in enhanced_commands:
-        # Use enhanced CLI
-        try:
-            from mcn.core_engine.mcn_cli_enhanced import main as enhanced_main
-            return enhanced_main()
-        except ImportError:
-            print("Enhanced CLI features not available")
-            return 1
+        print(f"`{sys.argv[1]}` is handled by the installed `mcn` command: run `mcn --help`.")
+        return 1
     
     # Original CLI for script execution
     parser = argparse.ArgumentParser(description="MCN CLI - Full-Stack AI-Native Development")

@@ -42,7 +42,7 @@ CATEGORIES = [
                  "secure_token safe_equals mask audit_log verify_audit_log current_user auth_hash_password auth_verify_password auth_create_token auth_verify_token jwt_sign jwt_verify "
                  "sha256 md5 uuid base64_encode base64_decode hash_data"),
     ("Machine learning", "load_dataset preprocess train predict batch_predict compare_models export_model "
-                         "deploy_model fine_tune get_training_status"),
+                         "deploy_model fine_tune get_training_status cancel_fine_tune fine_tuned_models"),
     ("Packages", "use generate_postman"),
 ]
 

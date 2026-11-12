@@ -264,38 +264,39 @@ log(len(result.tool_calls))    // every tool call, with its input and output
 
 Return `tool_calls` from an endpoint and the `chat` element shows "Used N tools" under the reply. Without an API key it runs in mock mode, so the wiring can be tested in class or CI.
 
-### AI Model Management (v3.0)
+### Fine-tuning
+
+Teach a model your own examples, then use it from `ai()` by the name you gave it:
 
 ```mcn
-use "ai_v3"
+// support_replies.csv has prompt and completion columns (at least 10 rows)
+var job = fine_tune("gpt-4.1-mini", "support_replies.csv", "support-bot", {n_epochs: 3})
+log(get_training_status("support-bot").status)    // validating_files → queued → running → succeeded
 
-// Register and manage multiple AI models
-register("my-gpt4", "openai", {"temperature": 0.7})
-set_model("my-gpt4")
-
-// Fine-tune models on your data
-train("gpt-3.5-turbo", "sales_data.csv", "sales-predictor")
-
-// Use different models for different tasks
-var summary = run("my-gpt4", "Summarize quarterly report")
-var prediction = run("sales-predictor", "Predict next quarter")
+var reply = ai("My order hasn't arrived", {model: "support-bot"})
 ```
+
+Training runs on OpenAI's fine-tuning service (Anthropic doesn't offer public fine-tuning for Claude), so it needs `OPENAI_API_KEY`. Without a key, `fine_tune()` still checks every example and writes the training file, so you can fix the data before paying for a run.
 
 ### Natural Language Programming (v3.0)
 
 ```mcn
 use "natural"
 
-// Write code in plain English
+// Write code in plain English: AI writes MCN, and the parser checks it
 var code1 = translate("create a variable name with value John")
-// Result: var name = "John"
+// var name = "John"
 
-var code2 = translate("if age greater than 18 then print adult")
-// Result: if age > 18 { echo("adult") }
+var code2 = translate("if age is greater than 18 then print adult")
+// if age > 18
+//     log(adult)
 
-// Execute natural language directly
-translate("send welcome email to new users", true)
+// Translate and run it, in this program's scope
+translate("set total to 25", true)
+log(total)
 ```
+
+With an AI key, any instruction works. Without one, simple sentences (set, print, if, for each, read and write files, select) still translate, and anything else becomes a comment saying a key is needed.
 
 ---
 
@@ -485,14 +486,17 @@ use "pipeline"
 // Create intelligent pipeline
 pipeline("create", "feedback_processor", [
     {"type": "clean", "params": {"remove_special_chars": true}},
-    {"type": "ai_classify", "params": {"categories": ["positive", "negative"]}},
-    {"type": "ai_extract", "params": {"type": "entities"}}
+    {"type": "ai_classify", "params": {"categories": ["praise", "complaint", "question"]}},
+    {"type": "ai_extract", "params": {"fields": ["product", "order_id"]}}
 ])
 
-// Process data
-var result = pipeline("run", "feedback_processor", "Great product! Love it!")
-log("Pipeline processed: {result.status}")
+// One item, or a list processed item by item
+var result = pipeline("run", "feedback_processor", ["Great product! Love it!", "Order A17 arrived broken"])
+log(result[1].classification)    // complaint
+log(result[1].order_id)          // A17
 ```
+
+`ai_classify` and `ai_extract` use `classify()` and `extract()`; a step can also name one of your own functions.
 
 ---
 

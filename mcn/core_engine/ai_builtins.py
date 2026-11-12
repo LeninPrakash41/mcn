@@ -52,10 +52,38 @@ def _get_provider(opts: dict) -> str:
     return "anthropic"          # mock mode
 
 
+def _use_fine_tuned(opts: dict) -> Optional[str]:
+    """A model named like a fine_tune() job runs as that fine-tuned OpenAI model.
+    Returns a message instead when the job hasn't produced a model yet."""
+    model = str(opts.get("model") or "")
+    if not model:
+        return None
+    if model.startswith("ft:"):
+        opts.setdefault("provider", "openai")
+        return None
+    from .fine_tuning import _load_registry
+    entry = _load_registry().get(model)
+    if not entry:
+        return None
+    if entry.get("model"):
+        opts["model"], opts["provider"] = entry["model"], "openai"
+        return None
+    from .fine_tuning import get_training_status
+    status = get_training_status(model)          # it may have finished since we last looked
+    if status.get("model"):
+        opts["model"], opts["provider"] = status["model"], "openai"
+        return None
+    return (f"[The fine-tuned model '{model}' isn't ready yet (status: {status.get('status') or entry.get('status')}). "
+            f"Check with get_training_status(\"{model}\").]")
+
+
 def _provider_complete(prompt: str, opts: dict) -> str:
     """Dispatch a completion call to the right provider, recording it in the AI trace."""
     import time
     from . import ai_trace
+    not_ready = _use_fine_tuned(opts)
+    if not_ready:
+        return not_ready
     started = time.time()
     kind = opts.pop("_trace_kind", "ai")
     result = _dispatch_complete(prompt, opts)
@@ -118,7 +146,7 @@ def mcn_llm(model: str, prompt: str, options: Any = None) -> str:
     # Route by model prefix
     if model.startswith("claude"):
         opts.setdefault("provider", "anthropic")
-    elif model.startswith(("gpt", "o1", "o3", "o4")):
+    elif model.startswith(("gpt", "o1", "o3", "o4", "ft:")):
         opts.setdefault("provider", "openai")
     elif model.startswith(("llama", "mistral", "gemma", "phi", "qwen",
                             "deepseek", "codellama", "vicuna", "orca",

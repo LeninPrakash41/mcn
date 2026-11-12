@@ -103,9 +103,79 @@ It returns `{reply, tool_calls, steps}`. Each entry in `tool_calls` has `name`, 
 
 > **Warning** A tool can do anything its function does. Give agents functions that are safe to call with any arguments, check inputs inside them, and keep actions that send or delete things behind a person (`checkpoint`) or a draft table.
 
+## Named agents, pipelines and knowledge sources
+
+For longer-lived AI pieces, three helpers keep state between calls:
+
+```mcn
+// An agent with a role, memory of the conversation, and optional tools
+agent("create", "analyst", {prompt: "You analyse our sales data", tools: ["revenue_by_month"]})
+log(agent("think", "analyst", "Which month was best?"))
+log(agent("think", "analyst", "Why?"))            // remembers the last answer
+agent("reset", "analyst")
+
+// A pipeline of steps, run on one item or a list
+pipeline("create", "tickets", [
+    {type: "clean"},
+    {type: "ai_classify", params: {categories: ["bug", "billing", "question"]}},
+    {type: "ai_extract", params: {fields: ["order_id", "product"]}},
+    {type: "save_ticket"}                           // one of your functions
+])
+var inbox = ["The app crashes on login", "I was charged twice for order A17"]
+var tickets = pipeline("run", "tickets", inbox)
+
+// A knowledge source answered from its most relevant passages
+datasource("create", "handbook", "file", "docs/handbook.md")   // also "text", "url" or "documents"
+log(datasource("query", "handbook", "How many days of leave do I get?"))
+```
+
+| Call | Does |
+|---|---|
+| `agent("create", name, {prompt, model?, tools?})` | An agent with a role. With `tools`, it answers through `agent_run` and can call those functions |
+| `agent("create_multi", name, {sub_agents, coordinator_prompt})` | A coordinator that asks each agent, then combines their answers |
+| `agent("think", name, message)` | The agent's reply, using its role and the last 12 exchanges |
+| `agent("reset", name)`, `agent("list")` | Forget the conversation; list the agents |
+| `pipeline("create", name, steps)`, `pipeline("run", name, data)` | Steps: `clean`, `transform`, `ai_classify` (`categories`, `field`), `ai_extract` (`fields`), or a function name |
+| `datasource("create", name, type, source)` | `text`, `file` (text, Markdown, CSV, JSON; PDF with `pypdf`), `url` or `documents` |
+| `datasource("query", name, question)`, `datasource("search", name, question)` | An answer from the most relevant passages via `rag()`; or just those passages |
+
+Like the other AI functions, these use mock answers when there's no API key.
+
 ## Human approval: `checkpoint`
 
 `checkpoint(message, data)` pauses a script and asks a person to approve, reject or edit `data` before it continues — for example before sending an AI-written email.
+
+## Teach a model your examples: `fine_tune`
+
+When prompts alone don't get the tone, format or domain right, fine-tune a model on examples of the answers you want, then use it like any other model:
+
+```mcn
+var job = fine_tune("gpt-4.1-mini", "support_replies.csv", "support-bot", {n_epochs: 3})
+log(job.status)                                   // validating_files
+
+var status = get_training_status("support-bot")   // by the name you gave it, or the job id
+log(status.status)                                // queued, running, then succeeded
+log(status.message)                               // e.g. "Step 40/60: training loss=0.12"
+
+var reply = ai("My order hasn't arrived", {model: "support-bot"})
+```
+
+**Training data.** A CSV, JSON or JSONL file, or an MCN list, with at least 10 examples. Each example is `{prompt, completion}`, `{input, output}`, `{question, answer}` or a ready-made `{messages: [...]}` conversation, with an optional `system` field. MCN checks every example first and lists problems by row number (`Example 12 has an empty completion`). Pass `{strict: false}` to skip bad rows instead.
+
+**Where it trains.** On OpenAI's fine-tuning service, because Anthropic doesn't offer public fine-tuning for Claude. It needs `OPENAI_API_KEY`, and OpenAI charges for training. The base model must be one OpenAI can fine-tune; their [fine-tuning guide](https://platform.openai.com/docs/guides/fine-tuning) lists them. Without a key, or with `{dry_run: true}`, `fine_tune()` checks the examples and writes the training file to `~/.mcn/fine_tune/` without uploading anything.
+
+| Option | Effect |
+|---|---|
+| `n_epochs`, `batch_size`, `learning_rate_multiplier` | Training settings (OpenAI picks them when you leave them out) |
+| `validation_split` | Hold back a share of the examples, e.g. `0.1`, to measure the model on data it didn't train on |
+| `system` | A system message added to every example |
+| `seed` | Repeatable training |
+| `strict` | `false` skips bad examples instead of stopping |
+| `dry_run` | Check and write the file only |
+
+**Using the model.** `ai(prompt, {model: "support-bot"})` and `llm("support-bot", prompt)` use the fine-tuned model once training has succeeded; before that they answer that it isn't ready yet. OpenAI's own model ids (`ft:gpt-4.1-mini:…`) work too. `fine_tuned_models()` lists the jobs started from this computer and `cancel_fine_tune(name)` stops one.
+
+For predictions from your own numbers and tables (prices, churn, demand) rather than text, use `train()` and `predict()`, which run scikit-learn models locally ([machine learning](#/reference/builtins)).
 
 ## Build an app with the agent team
 

@@ -302,6 +302,8 @@ class MCNInterpreter:
             "export_model":        self._export_ml_model,
             "fine_tune":           self._fine_tune_model,
             "get_training_status": self._get_training_status,
+            "cancel_fine_tune":    self._cancel_fine_tune,
+            "fine_tuned_models":   self._fine_tuned_models,
             "generate_postman":    self._generate_postman_collection,
             "device":              self._device_operation,
             "on":                  self._on_event,
@@ -427,6 +429,10 @@ class MCNInterpreter:
             self.nl_system = MCNNaturalLanguage(self.model_registry)
             self.module_system = MCNModuleSystem()
             self.datasource_system = MCNDataSourceSystem()
+            # Agents with tools run through agent_run(); pipeline steps may name the program's functions
+            self.agent_system.tool_runner = self._agent_run
+            self.pipeline_system.function_lookup = lambda name: (
+                self._evaluator.functions.get(name) if isinstance(name, str) else None)
 
     def _use_package(self, package_name: str) -> str:
         from .mcn_packages import get_registry, PackageNotFoundError
@@ -435,6 +441,10 @@ class MCNInterpreter:
             """Bind package functions both flat and as a namespaced dict."""
             self._functions.update(pkg_fns)
             self._evaluator.functions.update(pkg_fns)
+            if pkg_name == "workflows":
+                # Workflow steps name the program's functions
+                from .mcn_business_packages import workflow_engine
+                workflow_engine.resolver = lambda name: self._evaluator.functions.get(name)
             for fn_name, fn_val in pkg_fns.items():
                 self._evaluator.globals.define(fn_name, fn_val)
             # Also expose as package_name.fn() namespace object
@@ -571,24 +581,26 @@ class MCNInterpreter:
         except Exception as e:
             return {"error": f"Model export failed: {str(e)}"}
     
-    def _fine_tune_model(self, base_model: str, training_data: str, new_model_name: str,
-                         params: dict = None, **kwargs):
-        kwargs = {**(params or {}), **kwargs}
-        try:
-            from .mcn_ml_system import get_ml_system
-            ml_system = get_ml_system()
-            return ml_system.fine_tune_model(base_model, training_data, new_model_name, **kwargs)
-        except Exception as e:
-            return {"error": f"Fine-tuning failed: {str(e)}"}
-    
-    def _get_training_status(self, job_id: str):
-        try:
-            from .mcn_ml_system import get_ml_system
-            ml_system = get_ml_system()
-            return ml_system.get_training_status(job_id)
-        except Exception as e:
-            return {"error": f"Status check failed: {str(e)}"}
-    
+    def _fine_tune_model(self, base_model: str, training_data: Any, new_model_name: str, params: Any = None):
+        """Fine-tune a model on your examples (OpenAI): fine_tune("gpt-4.1-mini", "data.csv", "support-bot"). Use it with ai(prompt, {model: "support-bot"})."""
+        from .fine_tuning import fine_tune
+        return fine_tune(base_model, training_data, new_model_name, params)
+
+    def _get_training_status(self, job_or_name: str):
+        """Where a fine-tuning job is, by job id or the name given to fine_tune(): status, model id, latest message."""
+        from .fine_tuning import get_training_status
+        return get_training_status(job_or_name)
+
+    def _cancel_fine_tune(self, job_or_name: str):
+        """Stop a fine-tuning job that hasn't finished."""
+        from .fine_tuning import cancel_fine_tune
+        return cancel_fine_tune(job_or_name)
+
+    def _fine_tuned_models(self):
+        """The fine-tuning jobs started from this computer, with their status and model ids."""
+        from .fine_tuning import fine_tuned_models
+        return fine_tuned_models()
+
     def _generate_postman_collection(self, output_dir: str = "postman_exports"):
         try:
             from .mcn_postman_generator import generate_postman_collection
@@ -640,7 +652,11 @@ class MCNInterpreter:
                 self.agent_system.activate_agent(name)
                 input_data = opts.get("input", args[0] if args and isinstance(args[0], str) else "")
                 return self.agent_system.agent_think(name, input_data)
-            return f"Agent {operation} on {name} simulated"
+            elif operation == "reset":
+                return self.agent_system.reset_agent(name)
+            elif operation == "list":
+                return self.agent_system.list_agents()
+            return {"error": f"Unknown agent operation '{operation}'. Use create, create_multi, think, activate, reset or list"}
         except Exception as e:
             return {"error": str(e)}
 
@@ -651,7 +667,13 @@ class MCNInterpreter:
                 source_type = args[0] if len(args) > 0 else kwargs.get("type", "text")
                 payload = args[1] if len(args) > 1 else kwargs.get("payload", "")
                 return self.datasource_system.create_datasource(name, source_type, payload)
-            return f"Datasource {operation} simulated"
+            if operation == "query":
+                return self.datasource_system.query_rag(name, args[0] if args else kwargs.get("question", ""))
+            if operation == "search":
+                return self.datasource_system.search(name, args[0] if args else kwargs.get("question", ""))
+            if operation == "list":
+                return self.datasource_system.list_datasources()
+            return {"error": f"Unknown datasource operation '{operation}'. Use create, query, search or list"}
         except Exception as e:
             return {"error": str(e)}
 
@@ -681,7 +703,9 @@ class MCNInterpreter:
                 return self.pipeline_system.create_pipeline(name, step_list)
             elif operation == "run":
                 return self.pipeline_system.run_pipeline(name, steps_or_data)
-            return f"Pipeline {operation} simulated"
+            elif operation == "list":
+                return self.pipeline_system.list_pipelines()
+            return {"error": f"Unknown pipeline operation '{operation}'. Use create, run or list"}
         except Exception as e:
             return {"error": str(e)}
 
@@ -706,7 +730,7 @@ class MCNInterpreter:
             method_name = f"_ui_{operation}"
             if hasattr(self.ui_integration, method_name):
                 return getattr(self.ui_integration, method_name)(*args, **kwargs)
-            return f"UI operation {operation} simulated"
+            return {"error": f"Unknown ui operation '{operation}'"}
         except Exception as e:
             return {"error": str(e)}
 
