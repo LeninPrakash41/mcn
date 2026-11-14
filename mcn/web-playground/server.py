@@ -79,6 +79,15 @@ _PUBLIC_API = {
 }
 
 
+def _public_api(path: str, method: str) -> bool:
+    """Endpoints anyone may call on hosted Studio: sign-in, and the Developer Club's public pages
+    (marketplace, approved projects, certificate verification), read-only."""
+    if path in _PUBLIC_API:
+        return True
+    return method == "GET" and (path in ("/api/club/info", "/api/club/marketplace")
+                                or path.startswith(("/api/club/projects/", "/api/club/certificates/")))
+
+
 @app.before_request
 def _guard_request_source():
     # CORS only hides responses; a cross-site "simple" POST still reaches the
@@ -92,7 +101,7 @@ def _guard_request_source():
         if host not in _LOOPBACK_HOSTS:
             return jsonify({"error": "Host not allowed"}), 403
     if (core.is_hosted() and request.path.startswith("/api/") and request.method != "OPTIONS"
-            and request.path not in _PUBLIC_API and not core._current_user()):
+            and not _public_api(request.path, request.method) and not core._current_user()):
         return jsonify({"error": "Sign in to use MCN Studio", "needs_login": True}), 401
 
 @app.after_request

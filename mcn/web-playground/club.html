@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCN Developer Club</title>
+<style>
+:root { --bg:#f7f6f3; --card:#ffffff; --text:#1d1d1b; --muted:#6b6a65; --line:#e6e4de; --accent:#c4664a; --accent-bg:#f6e7e1;
+  --gold:#a5780b; --gold-bg:#fbf1d9; --green:#2f7d4f; --green-bg:#e3f2e8; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161616; --card:#1f1f1f; --text:#ececec; --muted:#9b9b96; --line:#2e2e2e;
+  --accent:#e08a6c; --accent-bg:#3a2a24; --gold:#e3b54a; --gold-bg:#3a3020; --green:#6cc290; --green-bg:#1f3328; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--card); }
+.brand { font-weight: 650; display: flex; align-items: center; gap: 10px; color: var(--text); }
+.brand b { background: var(--accent); color: #fff; border-radius: 7px; width: 26px; height: 26px; display: grid; place-items: center; font-size: 13px; }
+nav { display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; }
+main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; } h2 { font-size: 18px; margin: 28px 0 10px; }
+.lead { color: var(--muted); margin: 0 0 22px; max-width: 720px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.search { width: 100%; max-width: 360px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; margin: 6px 0 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; color: var(--text); }
+a.card:hover { text-decoration: none; border-color: var(--accent); }
+.card h3 { margin: 0; font-size: 16px; } .muted { color: var(--muted); font-size: 13px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); }
+.badge.award { background: var(--gold-bg); color: var(--gold); } .badge.spot { background: var(--green-bg); color: var(--green); }
+.stats { display: flex; gap: 12px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; font: 12.5px/1.5 ui-monospace, Menlo, monospace; max-height: 420px; }
+.btn { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font: inherit; font-weight: 550; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.award-note { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; }
+.verify { display: flex; gap: 8px; flex-wrap: wrap; } .verify input { flex: 1; min-width: 220px; }
+/* certificate */
+.cert { background: #fffdf8; color: #1d1d1b; border: 10px double #c4664a; border-radius: 6px; padding: 48px 56px; text-align: center; max-width: 860px; margin: 10px auto 18px; }
+.cert .club { letter-spacing: .25em; text-transform: uppercase; font-size: 13px; color: #8a4b37; }
+.cert h1 { font-family: Georgia, "Times New Roman", serif; font-size: 34px; margin: 18px 0 6px; }
+.cert .name { font-family: Georgia, serif; font-size: 30px; margin: 18px 0 2px; border-bottom: 1px solid #d9c9bd; display: inline-block; padding: 0 24px 6px; }
+.cert .for { margin: 18px auto 0; max-width: 560px; color: #55524c; }
+.cert .meta { display: flex; justify-content: space-between; margin-top: 40px; font-size: 13px; color: #55524c; text-align: left; gap: 20px; }
+.no-print { } @media print { header, .no-print { display: none !important; } body { background: #fff; } main { padding: 0; } .cert { margin: 0 auto; } }
+@media (max-width: 600px) { .cert { padding: 28px 18px; } .cert h1 { font-size: 26px; } .cert .name { font-size: 24px; } .cert .meta { flex-direction: column; } }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/club"><b>M</b> MCN Developer Club</a>
+  <nav><a href="/club">Marketplace</a><a href="/club#verify">Verify a certificate</a><a href="/">Build in Studio</a></nav>
+</header>
+<main id="view"><div class="empty">Loading…</div></main>
+<script>
+const $view = document.getElementById('view')
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const date = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+let INFO = { awards: {}, spotlights: {}, kinds: {} }
+const filters = { award: '', spotlight: '', kind: '', q: '' }
+// Server JSON objects come back with sorted keys; the order list keeps the intended order
+const ordered = group => ((INFO.order || {})[group] || Object.keys(INFO[group] || {})).map(k => [k, INFO[group][k]])
+
+async function api(path) {
+  const r = await fetch(path, { credentials: 'same-origin' })
+  return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }
+}
+
+function badges(p) {
+  const out = (p.awards || []).map(a => `<span class="badge award">🏆 ${esc(a.label)}</span>`)
+  if (p.spotlight_label) out.push(`<span class="badge spot">${esc(p.spotlight_label)}</span>`)
+  return out.join('')
+}
+function stats(s = {}) {
+  return [`${s.screens || 0} screens`, `${s.endpoints || 0} endpoints`, `${s.tests || 0} tests`]
+    .concat(s.uses_ai ? ['uses AI'] : []).map(x => `<span>${esc(x)}</span>`).join('')
+}
+function who(p) { return `${esc(p.author)} · ${esc(p.author_org)} <span class="badge">${esc(INFO.kinds[p.author_kind] || p.author_kind || '')}</span>` }
+
+async function marketplace() {
+  const chip = (group, key, label) => `<button class="chip ${filters[group] === key ? 'on' : ''}" data-g="${group}" data-k="${esc(key)}">${esc(label)}</button>`
+  $view.innerHTML = `
+    <h1>Marketplace</h1>
+    <p class="lead">Apps built in MCN by students and professionals in the MCN Developer Club, reviewed and approved.
+      The best are recognised in five award categories, and promising ones are picked out for funding, recognition or showcasing.</p>
+    <div class="filters">${chip('award', '', 'All')}${ordered('awards').map(([k, v]) => chip('award', k, v)).join('')}</div>
+    <div class="filters">${ordered('spotlights').map(([k, v]) => chip('spotlight', k, v)).join('')}
+      ${ordered('kinds').map(([k, v]) => chip('kind', k, v + 's')).join('')}</div>
+    <input class="search" id="q" placeholder="Search apps, people, colleges or companies" value="${esc(filters.q)}">
+    <div id="results" class="grid"></div>
+    <h2 id="verify">Verify a certificate</h2>
+    <form class="verify" onsubmit="event.preventDefault(); location.href='/club/certificate/' + encodeURIComponent(this.code.value.trim().toUpperCase())">
+      <input class="search" name="code" placeholder="Certificate code, e.g. MCN-7KX2Q9PDRT" required style="margin:0">
+      <button class="btn">Verify</button></form>`
+  $view.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+    filters[b.dataset.g] = filters[b.dataset.g] === b.dataset.k && b.dataset.k ? '' : b.dataset.k
+    marketplace()
+  })
+  let t
+  document.getElementById('q').oninput = e => { clearTimeout(t); t = setTimeout(() => { filters.q = e.target.value; results() }, 250) }
+  results()
+}
+
+async function results() {
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString()
+  const { body } = await api('/api/club/marketplace' + (qs ? '?' + qs : ''))
+  const list = body.projects || []
+  document.getElementById('results').innerHTML = list.length ? list.map(p => `
+    <a class="card" href="/club/project/${esc(p.id)}">
+      <h3>${esc(p.title)}</h3>
+      <div class="muted">${esc(p.tagline || '')}</div>
+      <div class="badges">${badges(p)}</div>
+      <div class="muted">${who(p)}</div>
+      <div class="stats">${stats(p.stats)}</div>
+    </a>`).join('') : `<div class="empty" style="grid-column:1/-1">${body.error ? esc(body.error) : 'No approved apps match yet.'}</div>`
+}
+
+async function projectPage(id) {
+  const { ok, body } = await api('/api/club/projects/' + encodeURIComponent(id))
+  if (!ok) { $view.innerHTML = `<div class="empty">${esc(body.error || 'Not found')}</div>`; return }
+  const p = body.project
+  document.title = `${p.title} · MCN Developer Club`
+  $view.innerHTML = `
+    <p><a href="/club">← Marketplace</a></p>
+    <h1>${esc(p.title)}</h1>
+    <p class="lead">${esc(p.tagline || '')}</p>
+    <div class="badges" style="margin-bottom:10px">${badges(p)}</div>
+    <p class="muted">${who(p)} · approved ${esc(date(p.listed_at))}</p>
+    <div class="stats" style="margin:8px 0 18px">${stats(p.stats)}</div>
+    <p class="no-print"><a class="btn" href="/?club_open=${esc(p.id)}">Open in Studio</a></p>
+    ${p.description ? `<h2>About</h2><p style="white-space:pre-wrap">${esc(p.description)}</p>` : ''}
+    ${(p.awards || []).length ? `<h2>Awards</h2>${p.awards.map(a => `<div class="award-note"><b>🏆 ${esc(a.label)}</b>${a.note ? `<div class="muted">${esc(a.note)}</div>` : ''}</div>`).join('')}` : ''}
+    <h2>The app</h2>
+    <details><summary>backend/main.mcn</summary><pre>${esc(p.backend || '')}</pre></details>
+    <details><summary>ui/app.mcn</summary><pre>${esc(p.ui || '')}</pre></details>`
+}
+
+async function certificatePage(code) {
+  const { ok, body } = await api('/api/club/certificates/' + encodeURIComponent(code))
+  if (!ok) {
+    $view.innerHTML = `<div class="empty"><b>Not a valid certificate.</b><br>No MCN Developer Club certificate has the code ${esc(code)}.</div>`
+    return
+  }
+  const c = body.certificate
+  const what = c.kind === 'award'
+    ? `for winning <b>${esc(c.award_label)}</b> with <b>${esc(c.project_title || '')}</b>`
+    : c.kind === 'certified'
+      ? `for building <b>${esc(c.project_title || '')}</b> in MCN, reviewed and approved by the MCN Developer Club`
+      : 'for building an application in MCN and launching it for review in the MCN Developer Club'
+  document.title = `${c.kind_label} · ${c.holder}`
+  $view.innerHTML = `
+    <div class="cert">
+      <div class="club">MCN Developer Club</div>
+      <h1>${esc(c.kind === 'award' ? c.award_label : c.kind_label)}</h1>
+      <div>This certifies that</div>
+      <div class="name">${esc(c.holder)}</div>
+      <div class="muted" style="color:#55524c">${esc(c.organization)}${c.holder_kind ? ' · ' + esc(INFO.kinds[c.holder_kind] || c.holder_kind) : ''}</div>
+      <p class="for">${what}.</p>
+      <div class="meta"><div>Issued ${esc(date(c.issued_at))}</div>
+        <div>Certificate ${esc(c.code)}<br>Verify at ${esc(location.origin)}/club/certificate/${esc(c.code)}</div></div>
+    </div>
+    <p class="no-print" style="text-align:center"><button class="btn" onclick="print()">Print or save as PDF</button>
+      <a class="btn ghost" href="/club">Marketplace</a></p>
+    <p class="no-print muted" style="text-align:center">✓ This certificate is valid: it was issued by the MCN Developer Club on this server.</p>`
+}
+
+async function route() {
+  const info = await api('/api/club/info')
+  if (info.ok) INFO = info.body
+  const parts = location.pathname.split('/').filter(Boolean)
+  if (parts[1] === 'project' && parts[2]) return projectPage(decodeURIComponent(parts[2]))
+  if (parts[1] === 'certificate' && parts[2]) return certificatePage(decodeURIComponent(parts[2]))
+  return marketplace()
+}
+route()
+</script>
+</body>
+</html>

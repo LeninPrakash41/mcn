@@ -84,7 +84,7 @@ setup(
             "studio/vscode-mcn/syntaxes/*.json",
             "studio/vscode-mcn/package.json",
             "studio/vscode-mcn/*.vsix",
-            "web-playground/index.html",
+            "web-playground/*.html",          # Studio, admin, device sign-in, Developer Club
             "web-playground/server.py",
             "web-playground/requirements.txt",
             "web-playground/static/css/*.css",

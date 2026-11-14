@@ -19,7 +19,7 @@ Then open **http://localhost:5003** (or the port you chose).
 | **Activity bar** (far left) | Switch between the web project and the mobile **App** view, or open the **Templates** gallery. In the App view, **App Preview** builds the Flutter app from `ui/app.mcn` and runs it in a phone frame |
 | **Explorer** | Your files: `backend/main.mcn`, `ui/app.mcn`, `mobile/`, `scripts/` |
 | **Editor** | Monaco (the VS Code editor) with MCN highlighting. Errors from the last run are underlined in red |
-| **Right panel** | **Agent** (a chat, see below), **Preview** (the web app built from `ui/app.mcn`, talking to your running backend), **Mobile**, **REPL**, **Database**, **IoT**, **AI calls**, **Terminal** and **Build**. Cmd/Ctrl+B hides it |
+| **Right panel** | **Agent** (a chat, see below), **Club** (the [MCN Developer Club](#/guide/developer-club)), **Preview** (the web app built from `ui/app.mcn`, talking to your running backend), **Mobile**, **REPL**, **Database**, **IoT**, **AI calls**, **Terminal** and **Build**. Cmd/Ctrl+B hides it |
 | **Bottom panel** | Run output, the terminal and error details |
 
 ## Run, preview, build

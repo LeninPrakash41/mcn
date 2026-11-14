@@ -336,6 +336,7 @@
   <div class="preview-panel">
     <div class="panel-tabs">
       <div class="panel-tab active" data-panel="agent" id="tab-agent" onclick="switchPanel('agent', this)" title="Agent (Cmd+L)">Agent</div>
+      <div class="panel-tab" data-panel="club" id="tab-club" onclick="switchPanel('club', this)" title="MCN Developer Club">Club</div>
       <div class="panel-tab" data-panel="preview" id="tab-web-preview" onclick="switchPanel('preview', this)">Preview</div>
       <div class="panel-tab" data-panel="flutter-preview" id="tab-mobile-preview" onclick="switchPanel('flutter-preview', this)">Mobile</div>
       <div class="panel-tab" data-panel="repl-console" id="tab-repl-console" onclick="switchPanel('repl-console', this)">REPL</div>
@@ -386,6 +387,12 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- MCN Developer Club -->
+      <div class="panel-section pane pane-flush" id="panel-club">
+        <div class="pane-head"><div class="pane-head-text"><div class="pane-title">MCN Developer Club</div><div class="pane-sub">Launch apps for review, get certificates, and get listed in the marketplace.</div></div><div class="pane-actions"><button class="btn btn-sm" onclick="refreshClub()">Refresh</button></div></div>
+        <div class="club" id="club-body"></div>
       </div>
 
       <!-- Web Preview -->
@@ -919,6 +926,7 @@
 <script src="/static/js/mobile-preview.js"></script>
 <script src="/static/js/ai.js"></script>
 <script src="/static/js/agent-panel.js"></script>
+<script src="/static/js/club.js"></script>
 <script src="/static/js/community.js"></script>
 </body>
 </html>
