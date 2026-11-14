@@ -716,6 +716,12 @@ async function submitAgentEnhance() {
   }
   _agentSuccessTarget = targetPath
 
+  if (mode === 'mcn') {
+    // MCN changes go through the agent interface: a checked patch you approve
+    _agentSuccessTarget = 'ui/app.mcn'
+    return runChangeAgent('agent', prompt, apiKey, 'ui')
+  }
+
   document.getElementById('agent-submit').disabled = true
   const successCard = document.getElementById('agent-success-card')
   if (successCard) successCard.classList.add('hidden')
@@ -763,6 +769,174 @@ document.getElementById('agent-studio-modal').addEventListener('click', function
   if (e.target === this) closeAgentStudioModal()
 })
 
+// ── Changes through the agent interface ─────────────────────────────────────
+// The agent inspects, finds and explains, then builds a patch of create / modify /
+// remove operations and validates and tests it. Nothing is written until Apply.
+
+const OP_LABELS = {
+  inspect: 'Reading the app', find: 'Finding', explain: 'Looking at', create: 'Adding', modify: 'Changing',
+  remove: 'Removing', validate: 'Checking the patch', test: 'Running the tests',
+}
+
+function _changeEl(prefix) {
+  let box = document.getElementById(`${prefix}-review`)
+  if (!box) {
+    box = document.createElement('div')
+    box.id = `${prefix}-review`
+    box.className = 'change-review hidden'
+    const card = document.getElementById(`${prefix}-success-card`)
+    card.parentNode.insertBefore(box, card)
+  }
+  return box
+}
+
+function _el(tag, cls, text) {
+  const e = document.createElement(tag)
+  if (cls) e.className = cls
+  if (text !== undefined) e.textContent = text
+  return e
+}
+
+function _renderDiff(diff) {
+  const pre = _el('pre', 'change-diff')
+  diff.split('\n').forEach(line => {
+    if (!line) return
+    const cls = line.startsWith('+++') || line.startsWith('---') ? 'file'
+      : line.startsWith('@@') ? 'hunk' : line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : ''
+    pre.appendChild(_el('span', cls, line + '\n'))
+  })
+  return pre
+}
+
+function _renderReview(prefix, ev, box) {
+  box.replaceChildren()
+  if (ev.summary) box.appendChild(_el('p', 'change-summary', ev.summary))
+  if (!ev.patch) {
+    box.appendChild(_el('p', 'change-line bad', 'No change was made.'))
+    return
+  }
+  const v = ev.validation, t = ev.tests
+  box.appendChild(_el('div', 'change-line ' + (v.ok ? 'ok' : 'bad'),
+    (v.ok ? '✓ Valid' : '✗ Not valid') + ': changes ' + (v.changed.join(', ') || 'nothing')))
+  const problems = [].concat(v.parse_errors || [], v.type_errors || [], v.map_errors || [], v.new_issues || [],
+    (v.outside_module || []).map(x => 'Outside the module: ' + x))
+  if (problems.length) {
+    const ul = _el('ul', 'change-problems')
+    problems.slice(0, 8).forEach(p => ul.appendChild(_el('li', '', p)))
+    box.appendChild(ul)
+  }
+  Object.entries(v.affects || {}).forEach(([kind, ids]) =>
+    box.appendChild(_el('div', 'change-line', `Affects ${kind}: ${ids.join(', ')}`)))
+  box.appendChild(_el('div', 'change-line ' + (t.ok ? 'ok' : 'bad'),
+    `${t.ok ? '✓' : '✗'} ${t.passed} of ${t.total} test(s) passed`))
+  ;(t.failed || []).slice(0, 5).forEach(f => box.appendChild(_el('div', 'change-line bad', `  ✗ ${f.test}: ${f.error}`)))
+  box.appendChild(_renderDiff(ev.diff || ''))
+  const actions = _el('div', 'change-actions')
+  const discard = _el('button', 'btn btn-sm', 'Discard')
+  discard.onclick = () => { box.classList.add('hidden'); showToast('Change discarded; nothing was written', 'info') }
+  const apply = _el('button', 'btn btn-primary btn-sm', ev.ok ? 'Apply change' : 'Can’t apply: fix the problems first')
+  apply.disabled = !ev.ok
+  apply.onclick = () => applyChange(prefix, ev, box, apply)
+  actions.append(discard, apply)
+  box.appendChild(actions)
+}
+
+async function applyChange(prefix, ev, box, button) {
+  button.disabled = true
+  try {
+    const r = await apiFetch('/api/agent/change/apply', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: ev.patch })
+    })
+    const data = await r.json()
+    if (!data.success) {
+      button.disabled = false
+      await showIdeAlert('Not Applied', data.error || 'The change could not be applied', 'error')
+      return
+    }
+    Object.entries(data.contents || {}).forEach(([path, content]) => {
+      if (_models.has(path)) {
+        _models.get(path).setValue(content)
+        if (_tabState.has(path)) _tabState.get(path).dirty = false
+      }
+    })
+    await loadFileTree()
+    box.classList.add('hidden')
+    const badge = document.getElementById(`${prefix}-success-badge`)
+    if (badge) badge.textContent = '✓ ' + data.files.join(', ')
+    const summary = document.getElementById(`${prefix}-success-summary`)
+    if (summary) summary.textContent = ev.summary || 'Applied the reviewed change.'
+    document.getElementById(`${prefix}-success-card`).classList.remove('hidden')
+    showToast('Change applied to ' + data.files.join(', '), 'success')
+  } catch (e) {
+    button.disabled = false
+    await showIdeAlert('Not Applied', 'Error: ' + e.message, 'error')
+  }
+}
+
+async function runChangeAgent(prefix, prompt, apiKey, area) {
+  const submit = document.getElementById(`${prefix}-submit`)
+  const status = document.getElementById(`${prefix}-status`)
+  const statusText = document.getElementById(`${prefix}-status-text`)
+  const box = _changeEl(prefix)
+  submit.disabled = true
+  document.getElementById(`${prefix}-success-card`).classList.add('hidden')
+  box.replaceChildren()
+  box.classList.remove('hidden')
+  const ops = _el('ol', 'change-ops')
+  box.appendChild(ops)
+  status.classList.remove('hidden')
+  statusText.textContent = 'Saving open files…'
+  const finish = () => { status.classList.add('hidden'); submit.disabled = false }
+  try {
+    await saveAllTabs()                 // the agent reads the files on disk
+    statusText.textContent = 'The agent is reading the app…'
+    const r = await apiFetch('/api/agent/change', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, api_key: apiKey, area })
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      finish(); box.classList.add('hidden')
+      await showIdeAlert('Agent Failed', err.error || 'The agent could not start', 'error')
+      return
+    }
+    const reader = r.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split('\n\n')
+      buf = parts.pop()
+      for (const part of parts) {
+        if (!part.startsWith('data:')) continue
+        const ev = JSON.parse(part.slice(5).trim())
+        if (ev.type === 'operation') {
+          const detail = ev.input.target || ev.input.query || ev.input.kind || ''
+          const text = `${OP_LABELS[ev.name] || ev.name} ${detail}`.trim()
+          statusText.textContent = text + '…'
+          ops.appendChild(_el('li', '', text))
+        } else if (ev.type === 'result' && ev.error) {
+          const last = ops.lastElementChild
+          if (last) last.appendChild(_el('div', 'change-op-error', ev.error))
+        } else if (ev.type === 'done') {
+          finish()
+          _renderReview(prefix, ev, box)
+        } else if (ev.type === 'error') {
+          finish()
+          box.replaceChildren(_el('p', 'change-line bad', '✗ ' + ev.message))
+        }
+      }
+    }
+  } catch (e) {
+    finish()
+    box.replaceChildren(_el('p', 'change-line bad', '✗ ' + e.message))
+  } finally {
+    submit.disabled = false
+  }
+}
+
 // ── Backend Agent ────────────────────────────────────────────────────────────
 
 function openBackendAgentModal() {
@@ -793,6 +967,7 @@ async function submitBackendAgent() {
 
   // Target file: always backend/main.mcn
   const targetPath = 'backend/main.mcn'
+  if (mode === 'backend') return runChangeAgent('backend', prompt, apiKey, 'backend')
 
   document.getElementById('backend-submit').disabled = true
   const successCard = document.getElementById('backend-success-card')

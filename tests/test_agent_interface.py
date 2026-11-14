@@ -321,3 +321,55 @@ def test_mcn_change_asks_before_applying(app, capsys, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda prompt: "y")
     assert main() == 0
     assert "Unknown customer" in text(app)
+
+
+# ── Studio: the AI Copilot and Backend Agent use the interface ───────────────
+
+def test_studio_changes_go_through_a_reviewed_patch(monkeypatch):
+    import shutil
+    from mcn.ai import change_agent
+    from playground_app import load, quiet
+    module, client = load()
+    ws = Path(module.app.config["WORKSPACE"])
+    saved = {p: p.read_text() for p in ws.rglob("*.mcn")} if ws.exists() else {}
+    shutil.rmtree(ws, ignore_errors=True)
+    (ws / "backend").mkdir(parents=True)
+    (ws / "ui").mkdir()
+    (ws / "backend" / "main.mcn").write_text(BACKEND)
+    (ws / "ui" / "app.mcn").write_text(UI)
+    seen = []
+
+    def claude(**kw):
+        scripted = ScriptedClaude([
+            [("explain", {"target": "create_order"})],
+            [("modify", {"target": "create_order", "source": VERIFIED_ORDER})],
+            lambda k: f"Orders check the customer.\nPATCH {_last_patch(k)}",
+        ])
+        seen.append(scripted)
+        return scripted
+    monkeypatch.setattr(change_agent.anthropic, "Anthropic", claude)
+    try:
+        res = quiet(client.post, "/api/agent/change", json={"prompt": "verify customers", "api_key": "k", "area": "backend"})
+        events = [json.loads(l[5:]) for l in res.get_data(as_text=True).split("\n\n") if l.startswith("data:")]
+        assert [e["name"] for e in events if e["type"] == "operation"] == ["explain", "modify"]
+        done = events[-1]
+        assert done["type"] == "done" and done["ok"] and done["files"] == ["backend/main.mcn"]
+        assert done["validation"]["changed"] == ["endpoint:create_order"] and done["tests"]["passed"] == 1
+        assert "+            if len(found) == 0" in done["diff"]
+        assert "Focus on the backend" in seen[0].requests[0]["messages"][0]["content"]
+        assert "Unknown customer" not in (ws / "backend" / "main.mcn").read_text()      # not written yet
+
+        applied = client.post("/api/agent/change/apply", json={"patch": done["patch"]}).get_json()
+        assert applied["success"] and "Unknown customer" in applied["contents"]["backend/main.mcn"]
+        assert "Unknown customer" in (ws / "backend" / "main.mcn").read_text()
+        again = client.post("/api/agent/change/apply", json={"patch": done["patch"]})
+        assert again.status_code == 409 and "already applied" in again.get_json()["error"]
+
+        old = client.post("/api/agent/enhance", json={"path": "ui/app.mcn", "prompt": "x", "mode": "mcn", "api_key": "k"})
+        assert old.status_code == 400 and "/api/agent/change" in old.get_json()["error"]
+        assert client.post("/api/agent/change", json={"api_key": "k"}).status_code == 400
+    finally:
+        shutil.rmtree(ws, ignore_errors=True)
+        for path, content in saved.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)

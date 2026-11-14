@@ -135,6 +135,29 @@ mcn change "Add a customer verification step before creating an order"
 
 Claude gets the operations as tools, never your files. It inspects the app, finds and explains what the request touches, builds one patch, adds a test, then validates and tests until both pass. It can't apply anything. You see the diff, what it affects and the test results, and answer **Apply this change? [y/N]**. `--yes` applies it without asking, but only when validation and tests passed.
 
+In Studio, **AI Copilot Studio** (for MCN) and the **AI Backend Agent** (for an existing backend) work the same way. They save your open files, show each operation as the agent works, then show a review card: the summary, whether the patch is valid, what it affects, the test results and the diff. Nothing is written until you click **Apply change**, and Apply is only offered when validation and tests passed. (Editing the compiled React code, and generating a new backend from scratch, still write files directly, since they don't change existing MCN.)
+
+### Any agent: the MCP server
+
+`mcn mcp` serves the same operations over the [Model Context Protocol](https://modelcontextprotocol.io), so agents you already use (Claude Code, Claude Desktop, Cursor, VS Code, or your own) can change an MCN app through checked patches.
+
+```bash
+claude mcp add mcn -- mcn mcp --dir /path/to/my-app     # Claude Code
+mcn mcp --dir /path/to/my-app --print-config            # the JSON for other clients' settings
+```
+
+```json
+{
+  "mcpServers": {
+    "mcn": { "command": "mcn", "args": ["mcp", "--dir", "/path/to/my-app"] }
+  }
+}
+```
+
+The tools are `inspect`, `find`, `explain`, `create`, `modify`, `remove`, `validate`, `test`, `show` (a patch's diff and results), `patches`, and `language_guide` (MCN's syntax, for an agent that hasn't seen MCN before). The read-only ones are marked as such, so a client can allow them without asking.
+
+By default the agent can't apply anything: it hands you a patch id, and you apply it with `mcn op execute <id> --yes` after reading `mcn op show <id>`. Start the server with `--allow-execute` to also offer `execute` (your client still asks before each call). Even then, `execute` only applies a patch that passed `validate` and `test` and whose files haven't changed since. The server needs nothing beyond MCN itself.
+
 The operations are also a Python API (`mcn.core_engine.agent_interface.Workspace`) with tool definitions for Claude (`AGENT_TOOLS`), so your own agents can use them the same way.
 
 ## A loop for agents

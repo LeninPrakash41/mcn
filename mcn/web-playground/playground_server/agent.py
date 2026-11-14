@@ -30,6 +30,11 @@ def agent_enhance_ui():
                
     if not rel_path or not prompt:
         return jsonify({"success": False, "error": "Missing 'path' or 'prompt'"}), 400
+    if mode in ("mcn", "backend"):
+        # Existing MCN code is changed through the agent interface (a checked patch someone approves),
+        # never by rewriting the whole file
+        return jsonify({"success": False, "error": "MCN files are changed through /api/agent/change, which "
+                        "builds a checked patch to review and apply"}), 400
     if not api_key:
         return jsonify({"success": False, "error": "No API key found. Enter your Claude API key to proceed."}), 400
         
@@ -62,12 +67,7 @@ def agent_enhance_ui():
 
         file_content = p.read_text(encoding="utf-8")
 
-        if mode == "backend":
-            enhanced_code = agent.enhance_backend_code(file_content, prompt)
-        elif mode == "mcn":
-            enhanced_code = agent.enhance_mcn_code(file_content, prompt)
-        else:
-            enhanced_code = agent.enhance_compiled_code(file_content, str(p), prompt)
+        enhanced_code = agent.enhance_compiled_code(file_content, str(p), prompt)
 
         # Write back the enhanced code
         p.write_text(enhanced_code, encoding="utf-8")
@@ -304,3 +304,87 @@ def agent_team():
     resp.headers["Cache-Control"] = "no-cache"
     resp.headers["X-Accel-Buffering"] = "no"
     return resp
+
+
+# ── Change the app through the agent interface (SSE) ─────────────────────────
+
+_AREAS = {
+    "ui": "Focus on the screens in ui/app.mcn; change the backend only if the screens need it.",
+    "backend": "Focus on the backend (services, endpoints, tables); change screens only if they need it.",
+}
+
+
+def _patch_review(ws_obj, patch_id: str) -> dict:
+    """What a person needs to approve a patch: diff, validation and test results."""
+    validation = ws_obj.validate(patch_id)
+    tests = ws_obj.test(patch_id)
+    shown = ws_obj.show(patch_id)
+    return {"patch": patch_id, "diff": shown["diff"], "files": sorted({l[6:] for l in shown["diff"].splitlines()
+                                                                       if l.startswith("+++ b/")}),
+            "validation": validation, "tests": tests, "ok": bool(validation["ok"] and tests["ok"])}
+
+
+@bp.route("/api/agent/change", methods=["POST"])
+def agent_change():
+    """An AI agent changes the workspace app through the agent interface; streams its operations and ends
+    with a patch to review. Nothing is written until /api/agent/change/apply."""
+    data    = request.get_json(silent=True) or {}
+    prompt  = (data.get("prompt") or "").strip()
+    area    = data.get("area") if data.get("area") in _AREAS else None
+    api_key = (data.get("api_key") or "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
+    if not prompt:
+        return jsonify({"error": "Describe the change"}), 400
+    if not api_key:
+        return jsonify({"error": "No API key found. Enter your Claude API key or run: mcn config set api_key sk-ant-..."}), 400
+    ws = _request_workspace()
+    if not any(ws.rglob("*.mcn")):
+        return jsonify({"error": "There's no app in this workspace yet. Generate one first."}), 400
+
+    events: queue.Queue = queue.Queue()
+    request_text = prompt + (f"\n\n{_AREAS[area]}" if area else "")
+
+    def run():
+        try:
+            from mcn.ai.change_agent import ChangeAgent
+            from mcn.core_engine.agent_interface import Workspace
+            result = ChangeAgent(api_key=api_key, emit=events.put).run(request_text, str(ws))
+            done = {"type": "done", "summary": result["summary"], "patch": result["patch"]}
+            if result["patch"]:
+                done.update(_patch_review(Workspace(ws), result["patch"]))
+            events.put(done)
+        except Exception as exc:
+            events.put({"type": "error", "message": str(exc)})
+        finally:
+            events.put(None)
+
+    threading.Thread(target=run, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                item = events.get(timeout=300)
+            except queue.Empty:
+                yield _sse({"type": "error", "message": "The agent stopped responding for 5 minutes"})
+                return
+            if item is None:
+                return
+            yield _sse(item)
+
+    resp = Response(stream_with_context(stream()), mimetype="text/event-stream")
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["X-Accel-Buffering"] = "no"
+    return resp
+
+
+@bp.route("/api/agent/change/apply", methods=["POST"])
+def agent_change_apply():
+    """Write a reviewed patch to the workspace (it must have passed validation and tests)."""
+    from mcn.core_engine.agent_interface import InterfaceError, Workspace
+    data = request.get_json(silent=True) or {}
+    ws = _request_workspace()
+    try:
+        result = Workspace(ws).execute(str(data.get("patch") or ""), approved=True)
+    except InterfaceError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 409
+    result["contents"] = {rel: (ws / rel).read_text(encoding="utf-8") for rel in result["files"]}
+    return jsonify({"success": True, **result})

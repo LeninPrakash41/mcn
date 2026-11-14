@@ -1217,6 +1217,15 @@ def main():
     op_parser.add_argument("--skip-tests", action="store_true", help="execute: allow a patch whose tests weren't run")
     op_parser.add_argument("--json", action="store_true", help="Output JSON")
 
+    mcp_parser = subparsers.add_parser(
+        "mcp", help="Serve the agent interface over MCP, for Claude Code, Claude Desktop, Cursor and other agents")
+    mcp_parser.add_argument("--dir", default=".", help="Project folder (default: .)")
+    mcp_parser.add_argument("--allow-execute", action="store_true",
+                            help="Also offer `execute`, so the agent can apply a validated, tested patch "
+                                 "(your MCP client still asks before each call)")
+    mcp_parser.add_argument("--print-config", action="store_true",
+                            help="Print the JSON to add this server to an MCP client, instead of serving")
+
     change_parser = subparsers.add_parser(
         "change", help="Change the app from a request: an AI agent builds a checked patch, you approve it")
     change_parser.add_argument("request", help='What to change, e.g. "Add a customer check before creating an order"')
@@ -1395,6 +1404,15 @@ def main():
 
     elif args.command == "change":
         return _cmd_change(args)
+
+    elif args.command == "mcp":
+        from . import mcp_server
+        if args.print_config:
+            print(json.dumps(mcp_server.client_config(args.dir, args.allow_execute), indent=2))
+            print(f"\nClaude Code: claude mcp add mcn -- mcn mcp --dir {Path(args.dir).resolve()}"
+                  + (" --allow-execute" if args.allow_execute else ""), file=sys.stderr)
+            return 0
+        return mcp_server.run(args.dir, allow_execute=args.allow_execute)
 
     elif args.command == "audit-log":
         from . import security

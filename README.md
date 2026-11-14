@@ -274,6 +274,7 @@ mcn impact --changed --module billing   # fail if a change went outside the bill
 mcn check --strict backend/main.mcn     # every endpoint parameter has a type
 mcn op explain create_order             # what it does, what uses it, which tests cover it
 mcn change "Verify the customer before creating an order"   # AI builds a checked patch; you approve it
+claude mcp add mcn -- mcn mcp --dir .   # the same operations for Claude Code, Cursor or any MCP client
 ```
 
 Endpoint parameters can be typed (`amount: float`, `who: Customer`) and are checked on every call. `module` blocks own their tables, so several agents can each work on one module of the same app; the agent team builds an app's modules in parallel.
