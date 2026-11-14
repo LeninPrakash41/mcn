@@ -53,6 +53,19 @@ def _reviewer():
     return user, None
 
 
+def _is_admin(user) -> bool:
+    return "admin" in _roles(user)
+
+
+def _public(p):
+    """A project as anyone may see it: rubric scores are for reviewers and the developer only."""
+    if isinstance(p, list):
+        return [_public(x) for x in p]
+    if isinstance(p, dict):
+        return {k: v for k, v in p.items() if k not in ("scores",)}
+    return p
+
+
 def _bad(exc: Exception, status: int = 400):
     return jsonify({"error": str(exc)}), status
 
@@ -127,7 +140,9 @@ def _check(files: dict) -> dict:
 @bp.route("/club/leaderboard")
 @bp.route("/club/awards")
 @bp.route("/club/verify")
-def club_page(project_id: str = "", code: str = "", user_id: str = ""):
+@bp.route("/club/seasons")
+@bp.route("/club/season/<season_id>")
+def club_page(project_id: str = "", code: str = "", user_id: str = "", season_id: str = ""):
     if not is_hosted():
         url = _account().account_url().rstrip("/")
         if url:
@@ -143,10 +158,14 @@ def club_info():
         return _forward("GET", "/api/club/info")
     user = _current_user()
     return jsonify({"awards": store.AWARDS, "spotlights": store.SPOTLIGHTS, "kinds": store.KINDS,
-                    "order": {"awards": list(store.AWARDS), "spotlights": list(store.SPOTLIGHTS), "kinds": list(store.KINDS)},
+                    "order": {"awards": list(store.AWARDS), "spotlights": list(store.SPOTLIGHTS), "kinds": list(store.KINDS),
+                              "rubric": list(store.RUBRIC)},
+                    "rubric_short": store.RUBRIC_SHORT,
                     "sorts": {"newest": "Newest", "most_used": "Most used", "most_liked": "Most liked", "trending": "Trending"},
                     "signatory": _signatory(), "user_id": user["sub"] if user else None,
                     "counts": store.public_counts(),
+                    "rubric": store.RUBRIC, "rubric_help": store.RUBRIC_HELP, "open_seasons": store.open_seasons(),
+                    "is_admin": _is_admin(user),
                     "signed_in": bool(user), "member": store.member(user["sub"]) if user else None,
                     "is_reviewer": _is_reviewer(user), "club_url": request.host_url.rstrip("/") + "/club"})
 
@@ -173,7 +192,11 @@ def _visitor() -> str:
 def club_leaderboard():
     if not is_hosted():
         return _forward("GET", "/api/club/leaderboard")
-    return jsonify(store.leaderboard())
+    board = store.leaderboard()
+    for key in ("most_used", "most_liked", "trending"):
+        board[key] = _public(board[key])
+    board["winners"] = {k: _public(v) for k, v in board["winners"].items()}
+    return jsonify(board)
 
 
 @bp.route("/api/club/members/<user_id>")
@@ -183,6 +206,7 @@ def club_member(user_id):
     found = store.profile(user_id)
     if not found:
         return jsonify({"error": "No such member"}), 404
+    found["apps"] = _public(found["apps"])
     return jsonify({"member": found})
 
 
@@ -191,8 +215,9 @@ def club_marketplace():
     if not is_hosted():
         return _forward("GET", "/api/club/marketplace")
     a = request.args
-    return jsonify({"projects": store.marketplace(a.get("award", ""), a.get("spotlight", ""), a.get("kind", ""),
-                                                  a.get("q", "")[:80], a.get("sort", "newest"))})
+    return jsonify({"projects": _public(store.marketplace(a.get("award", ""), a.get("spotlight", ""), a.get("kind", ""),
+                                                          a.get("q", "")[:80], a.get("sort", "newest"),
+                                                          season=a.get("season", "")))})
 
 
 @bp.route("/api/club/projects/<project_id>")
@@ -209,7 +234,7 @@ def club_project(project_id):
         found["usage"] = store.project(project_id)["usage"]
     found["liked"] = bool(user and store.liked_by(project_id, user["sub"]))
     found["mine"] = mine
-    return jsonify({"project": found})
+    return jsonify({"project": found if (mine or _is_reviewer(user)) else _public(found)})
 
 
 @bp.route("/api/club/projects/<project_id>/like", methods=["POST"])
@@ -352,6 +377,60 @@ def club_open(project_id):
     return jsonify({"success": True, "files": ["backend/main.mcn", "ui/app.mcn"], "title": found["title"]})
 
 
+# ── Seasons ──────────────────────────────────────────────────────────────────
+
+@bp.route("/api/club/seasons", methods=["GET", "POST"])
+def club_seasons():
+    if not is_hosted():
+        return _forward(request.method, "/api/club/seasons", request.get_json(silent=True))
+    if request.method == "GET":
+        return jsonify({"seasons": store.seasons()})
+    user, err = _signed_in()
+    if err:
+        return err
+    if not _is_admin(user):
+        return jsonify({"error": "Only admins can create seasons"}), 403
+    try:
+        return jsonify({"season": store.create_season(request.get_json(silent=True) or {}, user.get("email", ""))})
+    except store.ClubError as exc:
+        return _bad(exc)
+
+
+@bp.route("/api/club/seasons/<season_id>", methods=["GET", "POST"])
+def club_season(season_id):
+    if not is_hosted():
+        return _forward(request.method, f"/api/club/seasons/{season_id}", request.get_json(silent=True))
+    if request.method == "GET":
+        found = store.season(season_id)
+        if not found:
+            return jsonify({"error": "No such season"}), 404
+        found["entries"] = _public(found["entries"])
+        found["winners"] = {k: _public(v) for k, v in found["winners"].items()} if found["status"] == "closed" else {}
+        return jsonify({"season": found})
+    user, err = _signed_in()
+    if err:
+        return err
+    if not _is_admin(user):
+        return jsonify({"error": "Only admins can change seasons"}), 403
+    try:
+        return jsonify({"season": store.update_season(season_id, request.get_json(silent=True) or {}, user.get("email", ""))})
+    except store.ClubError as exc:
+        return _bad(exc)
+
+
+@bp.route("/api/club/seasons/<season_id>/standings")
+def club_standings(season_id):
+    if not is_hosted():
+        return _forward("GET", f"/api/club/seasons/{season_id}/standings")
+    user, err = _reviewer()
+    if err:
+        return err
+    try:
+        return jsonify(store.standings(season_id))
+    except store.ClubError as exc:
+        return _bad(exc, 404)
+
+
 # ── Reviewers ────────────────────────────────────────────────────────────────
 
 @bp.route("/api/club/review")
@@ -375,12 +454,27 @@ def club_review(project_id):
         found = store.project(project_id, include_source=True)
         if not found:
             return jsonify({"error": "No such project"}), 404
-        return jsonify({"project": found, "checks": _check({"backend": found.get("backend") or "",
-                                                             "ui": found.get("ui") or ""})})
+        return jsonify({"project": found, "mine": store.scores_by(project_id, user.get("email", "")),
+                        "checks": _check({"backend": found.get("backend") or "", "ui": found.get("ui") or ""})})
     data = request.get_json(silent=True) or {}
     try:
         return jsonify({"project": store.decide(project_id, user.get("email", ""), data.get("decision", ""),
                                                 data.get("notes", ""))})
+    except store.ClubError as exc:
+        return _bad(exc)
+
+
+@bp.route("/api/club/review/<project_id>/score", methods=["POST"])
+def club_score(project_id):
+    data = request.get_json(silent=True) or {}
+    if not is_hosted():
+        return _forward("POST", f"/api/club/review/{project_id}/score", data)
+    user, err = _reviewer()
+    if err:
+        return err
+    try:
+        found = store.score(project_id, user.get("email", ""), data.get("scores") or {}, data.get("note", ""))
+        return jsonify({"project": found, "mine": store.scores_by(project_id, user.get("email", ""))})
     except store.ClubError as exc:
         return _bad(exc)
 

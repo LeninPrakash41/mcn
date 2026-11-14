@@ -742,3 +742,18 @@ header .btn-hero-preview { padding: 0 10px; }
 .club-item.tip { color: var(--muted); } .club-item code { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
 .club-usage { display: flex; gap: 12px; font-size: 11.5px; color: var(--muted); } .club-usage b { color: var(--text); }
 .panel-tab.has-news::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 5px; vertical-align: middle; }
+
+.club-scores { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--muted); } .club-scores b { color: var(--text); }
+.club-rubric { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+.club-crit { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--text); }
+.club-dots { display: flex; gap: 3px; flex-shrink: 0; }
+.club-dots label { cursor: pointer; } .club-dots input { display: none; }
+.club-dots span { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 6px; border: 1px solid var(--border-ctrl); color: var(--muted); font-size: 11.5px; }
+.club-dots input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+#club-score-note { background: var(--bg-alt); color: var(--text); border: 1px solid var(--border-ctrl); border-radius: 7px; padding: 6px 8px; font: inherit; }
+.club-table { overflow-x: auto; } .club-table table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.club-table th, .club-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.club-table th { color: var(--muted); font-weight: 500; }
+.club-sug { padding: 4px 0; flex-wrap: wrap; }
+
+.club-table a, .club a { color: var(--accent); }

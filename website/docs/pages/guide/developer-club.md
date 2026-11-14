@@ -22,6 +22,33 @@ A project is **In review** until a reviewer decides:
 
 You can withdraw a project at any time.
 
+## Seasons
+
+A season is a round of the club with a name, a theme and a deadline, for example **Spring 2027: AI for healthcare**. It is:
+
+| Status | |
+|---|---|
+| Starting soon | before it opens |
+| Open for entries | members can enter apps: the launch form offers the open season (or no season, year-round) |
+| Judging | after the deadline: reviewers score the entries and give awards |
+| Results out | an admin published the results: the season's page lists the winners of each award |
+
+Awards given to a season's entries carry its name, on the app and on the certificate ("Best Innovation · Spring 2027"). The club site's **Seasons** page lists every season; each has its own page with its theme, dates, how long is left, the entries and, once results are out, the winners. The marketplace can be filtered by season. Admins create seasons, and publish their results, in the Club tab's **Review** section.
+
+## Scoring
+
+Reviewers score each app from 1 to 5 on a rubric that matches the awards:
+
+| Criterion | What it asks |
+|---|---|
+| Overall quality | Useful, complete and polished: would people use it? |
+| Innovation | A new idea, or a fresh take on a real problem |
+| Technical implementation | Clean structure, typed endpoints, tests, a sensible data model |
+| Use of MCN | Uses MCN well: services, screens, modules, the app map, agents |
+| Use of AI | AI that genuinely helps (*N/A* when the app has no AI) |
+
+Every reviewer scores separately; the app's score on each criterion is the average, and its overall score the average of those. A season's **standings** rank its approved entries by score and suggest a winner for each award (the best average on its criterion), with **Give award** next to each, and a **People's Choice**: the app the most other members use, which a reviewer can spotlight. Scores aren't public: developers see the average on each criterion for their own apps as feedback (not who gave which score), and reviewers see everyone's.
+
 ## The marketplace
 
 `/club` on the account server lists approved apps for anyone, signed in or not. Filter by award, by spotlight, by students or professionals, search by app, person, college or company, and sort by **newest**, **most used**, **most liked** or **trending** (the last 30 days).

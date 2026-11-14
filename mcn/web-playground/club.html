@@ -131,6 +131,7 @@ pre { background: var(--card); border: 1px solid var(--line); border-radius: 10p
   <a class="brand" href="/club"><b>M</b> MCN Developer Club</a>
   <nav id="nav">
     <a href="/club" data-v="market">Marketplace</a>
+    <a href="/club/seasons" data-v="seasons">Seasons</a>
     <a href="/club/leaderboard" data-v="leaderboard">Leaderboard</a>
     <a href="/club/awards" data-v="awards">Awards</a>
     <a href="/club/verify" data-v="verify">Verify a certificate</a>
@@ -172,7 +173,8 @@ const $view = document.getElementById('view')
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const day = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 let INFO = { awards: {}, spotlights: {}, kinds: {}, sorts: {}, counts: {} }
-const state = { award: '', spotlight: '', kind: '', q: '', sort: 'newest' }
+const state = { award: '', spotlight: '', kind: '', q: '', sort: 'newest', season: '' }
+let SEASONS = []
 const ordered = g => ((INFO.order || {})[g] || Object.keys(INFO[g] || {})).map(k => [k, INFO[g][k]])
 const AWARD_ABOUT = {
   best_overall: 'The app that is best all round: useful, polished, well built.',
@@ -195,7 +197,7 @@ function toast(text) { const t = document.createElement('div'); t.className = 't
 function setNav(v) { document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v)) }
 
 function badges(p) {
-  const out = (p.awards || []).map(a => `<span class="badge award">🏆 ${esc(a.label)}</span>`)
+  const out = (p.awards || []).map(a => `<span class="badge award">🏆 ${esc(a.label)}${a.season ? ' · ' + esc(a.season) : ''}</span>`)
   if (p.spotlight_label) out.push(`<span class="badge spot">${esc(p.spotlight_label)}</span>`)
   return out.join('')
 }
@@ -209,6 +211,7 @@ function author(p) {
 }
 function card(p) {
   return `<div class="card"><a href="/club/project/${esc(p.id)}" style="color:inherit"><h3>${esc(p.title)}</h3></a>
+    ${p.season ? `<a class="badge kind" style="align-self:flex-start" href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}
     <div class="muted">${esc(p.tagline || '')}</div><div class="badges">${badges(p)}</div>
     <div class="muted">${author(p)}</div>${meter(p)}</div>`
 }
@@ -228,6 +231,7 @@ async function marketplace() {
       <div class="nums"><div><b>${n.apps || 0}</b><span>approved apps</span></div><div><b>${n.members || 0}</b><span>members</span></div>
         <div><b>${n.organizations || 0}</b><span>colleges & companies</span></div><div><b>${n.certificates || 0}</b><span>certificates issued</span></div></div>
     </div></section>
+    ${openBanner()}
     <div class="steps">
       <div class="step"><i>1</i><b>Join</b><span>Open the Club tab in Studio; add your college or company.</span></div>
       <div class="step"><i>2</i><b>Build</b><span>Build your app in Studio, from scratch, a template or with the Agent.</span></div>
@@ -236,6 +240,7 @@ async function marketplace() {
     </div>
     <div class="toolbar">
       <input class="search" id="q" placeholder="Search apps, people, colleges or companies" value="${esc(state.q)}">
+      ${SEASONS.length ? `<select class="sort" id="season"><option value="">All seasons</option>${SEASONS.map(se => `<option value="${esc(se.id)}" ${state.season === se.id ? 'selected' : ''}>${esc(se.name)}</option>`).join('')}</select>` : ''}
       <select class="sort" id="sort">${Object.entries(INFO.sorts || {}).map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
     </div>
     <div class="filters">${chip('award', '', 'All apps')}${ordered('awards').map(([k, v]) => chip('award', k, v)).join('')}</div>
@@ -245,6 +250,8 @@ async function marketplace() {
   let t
   document.getElementById('q').oninput = e => { clearTimeout(t); t = setTimeout(() => { state.q = e.target.value; results() }, 250) }
   document.getElementById('sort').onchange = e => { state.sort = e.target.value; results() }
+  const se = document.getElementById('season')
+  if (se) se.onchange = e => { state.season = e.target.value; results() }
   results()
 }
 
@@ -254,6 +261,62 @@ async function results() {
   const list = body.projects || []
   document.getElementById('results').innerHTML = list.length ? list.map(card).join('')
     : `<div class="empty">${body.error ? esc(body.error) : 'No approved apps match yet. <a href="/?club=launch">Publish yours</a>.'}</div>`
+}
+
+// ── Seasons ──────────────────────────────────────────────────────────────
+
+function left(t) {
+  const d = Math.ceil((t * 1000 - Date.now()) / 86400000)
+  return d > 1 ? `${d} days left` : d === 1 ? 'Last day' : 'Closing today'
+}
+
+function openBanner() {
+  const open = SEASONS.filter(se => se.status === 'open')
+  if (!open.length) return ''
+  const se = open[0]
+  return `<a class="card" href="/club/season/${esc(se.id)}" style="margin-bottom:16px;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <span><b>🏁 ${esc(se.name)} is open${se.theme ? ': ' + esc(se.theme) : ''}</b><br><span class="muted">Entries close ${esc(day(se.ends_at))} · ${esc(left(se.ends_at))} · ${se.entries} entries so far</span></span>
+    <span class="btn">See the season</span></a>`
+}
+
+function seasonCard(se) {
+  return `<a class="card" href="/club/season/${esc(se.id)}"><div style="display:flex;justify-content:space-between;gap:10px"><h3>🏁 ${esc(se.name)}</h3>
+      <span class="badge ${se.status === 'open' ? 'spot' : se.status === 'closed' ? 'award' : ''}">${esc(se.status_label)}</span></div>
+    ${se.theme ? `<div>${esc(se.theme)}</div>` : ''}
+    <div class="muted">${esc(day(se.starts_at))} to ${esc(day(se.ends_at))}${se.status === 'open' ? ' · ' + esc(left(se.ends_at)) : ''}</div>
+    <div class="meter"><span><b>${se.entries}</b> entries</span><span><b>${se.approved}</b> approved</span></div></a>`
+}
+
+async function seasonsPage() {
+  setNav('seasons')
+  $view.innerHTML = `<h1 class="page">Seasons</h1>
+    <p class="lead">Seasons are rounds of the club with a theme and a deadline. Enter an app while a season is open; after it closes,
+      reviewers score every entry on the same rubric (overall quality, innovation, technical implementation, use of MCN, use of AI)
+      and announce the winners of each award.</p>
+    <div class="grid">${SEASONS.length ? SEASONS.map(seasonCard).join('') : '<div class="empty">No seasons yet.</div>'}</div>`
+}
+
+async function seasonPage(id) {
+  setNav('seasons')
+  const { ok, body } = await api('/api/club/seasons/' + encodeURIComponent(id))
+  if (!ok) { $view.innerHTML = `<div class="empty" style="margin-top:30px">${esc(body.error || 'Not found')}</div>`; return }
+  const se = body.season
+  document.title = `${se.name} · MCN Developer Club`
+  const winners = se.status === 'closed' ? ordered('awards').map(([k, label]) => (se.winners[k] || []).length
+    ? `<h2>🏆 ${esc(label)}</h2><div class="grid">${se.winners[k].map(card).join('')}</div>` : '').join('') : ''
+  $view.innerHTML = `
+    <section class="hero"><div class="hero-in">
+      <div><p style="margin:0 0 6px;color:#b9b3a8">Season · ${esc(se.status_label)}</p><h1>🏁 ${esc(se.name)}</h1>
+        ${se.theme ? `<p style="font-size:18px;color:#f4f1ec">${esc(se.theme)}</p>` : ''}
+        ${se.description ? `<p style="white-space:pre-wrap">${esc(se.description)}</p>` : ''}
+        ${se.status === 'open' ? '<a class="btn" href="/?club=launch">Enter your app</a>' : ''}</div>
+      <div class="nums"><div><b>${esc(new Date(se.starts_at * 1000).toLocaleDateString())}</b><span>opened</span></div>
+        <div><b>${esc(new Date(se.ends_at * 1000).toLocaleDateString())}</b><span>${se.status === 'open' ? esc(left(se.ends_at)) : 'entries closed'}</span></div>
+        <div><b>${se.entries.length}</b><span>approved entries</span></div><div><b>${esc(se.status_label)}</b><span>status</span></div></div>
+    </div></section>
+    ${se.status === 'closed' ? (winners || '<p class="muted">No awards were given this season.</p>') : se.status === 'judging'
+      ? '<p class="lead">Entries are closed and reviewers are scoring them. Winners will be announced here.</p>' : ''}
+    <h2>Entries</h2><div class="grid">${se.entries.length ? se.entries.map(card).join('') : '<div class="empty">No approved entries yet.</div>'}</div>`
 }
 
 // ── Leaderboard and awards ───────────────────────────────────────────────
@@ -303,7 +366,7 @@ async function projectPage(id) {
         <div class="badges">${badges(p)}</div></div>
       <div class="actions"><a class="btn" href="/?club_open=${esc(p.id)}">Open in Studio</a>${like}
         <button class="btn ghost" id="share">Copy link</button></div></div>
-    <p class="muted">${author(p)} · approved ${esc(day(p.listed_at))}${p.category ? ' · ' + esc(p.category) : ''}</p>
+    <p class="muted">${author(p)} · approved ${esc(day(p.listed_at))}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}</p>
     <div class="statrow">
       <div class="stat"><b>${u.uses || 0}</b><span>members using it</span></div>
       <div class="stat"><b id="likes">${u.likes || 0}</b><span>likes</span></div>
@@ -369,7 +432,7 @@ async function certificatePage(code) {
   const title = c.kind === 'award' ? c.award_label : c.kind === 'certified' ? 'Certified MCN Developer' : 'Certificate of Participation'
   const kindLine = c.kind === 'award' ? 'Award of Excellence' : c.kind === 'certified' ? 'Certification' : 'Participation'
   const statement = c.kind === 'award'
-    ? `for winning <b>${esc(c.award_label)}</b> in the MCN Developer Club with <b>${esc(c.project_title || '')}</b>.`
+    ? `for winning <b>${esc(c.award_label)}</b> in the MCN Developer Club${c.season ? `, <b>${esc(c.season)}</b>,` : ''} with <b>${esc(c.project_title || '')}</b>.`
     : c.kind === 'certified'
       ? `for building <b>${esc(c.project_title || '')}</b> in MCN, reviewed and approved by the MCN Developer Club and listed in its marketplace.`
       : 'for building an application in MCN and launching it for review in the MCN Developer Club.'
@@ -385,7 +448,7 @@ async function certificatePage(code) {
           <svg class="emblem"><use href="#emblem"/></svg>
           <div class="club-name">MCN Developer Club</div>
           <div class="cert-title">${esc(title)}</div>
-          <div class="cert-kind">${esc(kindLine)}</div>
+          <div class="cert-kind">${esc(kindLine)}${c.season ? ' · ' + esc(c.season) : ''}</div>
           <div class="presented">This is proudly presented to</div>
           <div class="holder">${esc(c.holder)}</div>
           <div class="holder-org">${esc(c.organization)}${c.holder_kind ? ' · ' + esc(INFO.kinds[c.holder_kind] || '') : ''}</div>
@@ -416,14 +479,17 @@ async function certificatePage(code) {
 }
 
 async function route() {
-  const info = await api('/api/club/info')
+  const [info, se] = await Promise.all([api('/api/club/info'), api('/api/club/seasons')])
   if (info.ok) INFO = info.body
+  SEASONS = (se.body && se.body.seasons) || []
   const me = INFO.member
   document.getElementById('who').textContent = me ? `${me.name} · ${me.organization}` : (INFO.signed_in ? 'Signed in' : '')
   const [, , view, arg] = location.pathname.split('/').map(decodeURIComponent)
   if (view === 'project' && arg) return projectPage(arg)
   if (view === 'certificate' && arg) return certificatePage(arg)
   if (view === 'u' && arg) return profilePage(arg)
+  if (view === 'seasons') return seasonsPage()
+  if (view === 'season' && arg) return seasonPage(arg)
   if (view === 'leaderboard') return leaderboard()
   if (view === 'awards') return awards()
   if (view === 'verify') return verifyPage()

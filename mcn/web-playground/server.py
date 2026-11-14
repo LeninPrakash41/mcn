@@ -84,9 +84,10 @@ def _public_api(path: str, method: str) -> bool:
     (marketplace, approved projects, certificate verification), read-only."""
     if path in _PUBLIC_API:
         return True
-    return method == "GET" and (path in ("/api/club/info", "/api/club/marketplace", "/api/club/leaderboard")
+    return method == "GET" and (path in ("/api/club/info", "/api/club/marketplace", "/api/club/leaderboard",
+                                         "/api/club/seasons")
                                 or path.startswith(("/api/club/projects/", "/api/club/certificates/",
-                                                    "/api/club/members/")))
+                                                    "/api/club/members/", "/api/club/seasons/")))
 
 
 @app.before_request

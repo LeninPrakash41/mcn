@@ -30,6 +30,23 @@ AWARDS = {
 SPOTLIGHTS = {"funding": "Funding candidate", "recognition": "Recognition", "showcase": "Showcase"}
 KINDS = {"student": "Student", "professional": "Professional"}
 STATUSES = ("in_review", "approved", "changes_requested", "rejected", "withdrawn")
+RUBRIC = {
+    "overall": "Overall quality",
+    "innovation": "Innovation",
+    "technical": "Technical implementation",
+    "use_of_mcn": "Use of MCN",
+    "ai": "Use of AI",
+}
+RUBRIC_HELP = {
+    "overall": "Useful, complete and polished: would people use it?",
+    "innovation": "A new idea, or a fresh take on a real problem",
+    "technical": "Clean structure, typed endpoints, tests, sensible data model",
+    "use_of_mcn": "Uses MCN well: services, screens, modules, the app map, agents",
+    "ai": "AI that genuinely helps (not applicable if the app has no AI)",
+}
+RUBRIC_SHORT = {"overall": "Overall", "innovation": "Innovation", "technical": "Technical", "use_of_mcn": "MCN", "ai": "AI"}
+CRITERION_AWARD = {"overall": "best_overall", "innovation": "best_innovation", "technical": "best_technical",
+                   "use_of_mcn": "best_use_of_mcn", "ai": "best_ai"}
 CERTIFICATES = {
     "participant": "Certificate of Participation",
     "certified": "Certified MCN Developer",
@@ -78,7 +95,19 @@ def _conn() -> sqlite3.Connection:
             project_id TEXT NOT NULL, user_id TEXT NOT NULL, at REAL, PRIMARY KEY (project_id, user_id));
         CREATE TABLE IF NOT EXISTS club_views (
             project_id TEXT NOT NULL, visitor TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (project_id, visitor, day));
+        CREATE TABLE IF NOT EXISTS club_seasons (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, theme TEXT, description TEXT, starts_at REAL NOT NULL,
+            ends_at REAL NOT NULL, results_published INTEGER DEFAULT 0, created_by TEXT, created_at REAL);
+        CREATE TABLE IF NOT EXISTS club_scores (
+            project_id TEXT NOT NULL, reviewer TEXT NOT NULL, criterion TEXT NOT NULL, score INTEGER, at REAL,
+            PRIMARY KEY (project_id, reviewer, criterion));
+        CREATE TABLE IF NOT EXISTS club_score_notes (
+            project_id TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT, at REAL, PRIMARY KEY (project_id, reviewer));
     """)
+    # Older club databases: add the season columns
+    for table in ("club_projects", "club_awards"):
+        if "season_id" not in {r[1] for r in c.execute(f"PRAGMA table_info({table})")}:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN season_id TEXT")
     return c
 
 
@@ -139,7 +168,14 @@ def submit(user_id: str, data: Dict[str, Any], stats: Dict[str, Any]) -> Dict[st
         raise ClubError("The app is too large to submit (over 400 KB of MCN)")
     fields = (title, _clean(data.get("tagline"), 140), _clean(data.get("description"), 4000),
               _clean(data.get("category"), 40), backend, ui, json.dumps(stats))
+    season_id = _clean(data.get("season_id"), 20) or None
     with _lock, _conn() as c:
+        if season_id:
+            season = _season_brief(c, season_id)
+            if not season:
+                raise ClubError("No such season")
+            if season["status"] != "open" and not data.get("project_id"):
+                raise ClubError(f"{season['name']} isn't taking entries ({season['status_label'].lower()})")
         pid = data.get("project_id")
         if pid:
             row = c.execute("SELECT * FROM club_projects WHERE id = ? AND user_id = ?", (pid, user_id)).fetchone()
@@ -148,13 +184,14 @@ def submit(user_id: str, data: Dict[str, Any], stats: Dict[str, Any]) -> Dict[st
             if row["status"] not in ("changes_requested", "rejected", "withdrawn", "approved"):
                 raise ClubError("This project is already waiting for review")
             c.execute("UPDATE club_projects SET title=?, tagline=?, description=?, category=?, backend=?, ui=?, stats=?, "
-                      "status='in_review', version=version+1, submitted_at=? WHERE id=?", fields + (time.time(), pid))
+                      "status='in_review', version=version+1, submitted_at=?, season_id=COALESCE(season_id, ?) WHERE id=?",
+                      fields + (time.time(), season_id, pid))
             _event(c, pid, who["email"], "resubmitted")
         else:
             pid = secrets.token_hex(4)
             c.execute("INSERT INTO club_projects (id, user_id, title, tagline, description, category, backend, ui, stats, "
-                      "status, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_review', ?)",
-                      (pid, user_id) + fields + (time.time(),))
+                      "status, submitted_at, season_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_review', ?, ?)",
+                      (pid, user_id) + fields + (time.time(), season_id))
             _event(c, pid, who["email"], "submitted")
         _issue(c, user_id, "participant", None, None, CERTIFICATES["participant"], once=True)
     return project(pid, include_source=True)
@@ -171,8 +208,12 @@ def withdraw(user_id: str, project_id: str) -> Dict[str, Any]:
 
 
 def _awards_for(c, project_id: str) -> List[Dict[str, Any]]:
-    return [{"category": r["category"], "label": AWARDS.get(r["category"], r["category"]), "note": r["note"]}
-            for r in c.execute("SELECT * FROM club_awards WHERE project_id = ? ORDER BY awarded_at", (project_id,))]
+    out = []
+    for r in c.execute("SELECT * FROM club_awards WHERE project_id = ? ORDER BY awarded_at", (project_id,)):
+        season = _season_brief(c, r["season_id"])
+        out.append({"category": r["category"], "label": AWARDS.get(r["category"], r["category"]), "note": r["note"],
+                    "season": season["name"] if season else None})
+    return out
 
 
 def project(project_id: str, include_source: bool = False) -> Optional[Dict[str, Any]]:
@@ -186,6 +227,8 @@ def project(project_id: str, include_source: bool = False) -> Optional[Dict[str,
         out["stats"] = json.loads(out.get("stats") or "{}")
         out["awards"] = _awards_for(c, project_id)
         out["usage"] = _usage(c, project_id)
+        out["season"] = _season_brief(c, out.get("season_id"))
+        out["scores"] = _score_summary(c, project_id)
         out["spotlight_label"] = SPOTLIGHTS.get(out.get("spotlight") or "", "")
         out["history"] = [dict(e) for e in c.execute("SELECT at, actor, action, note FROM club_events "
                                                      "WHERE project_id = ? ORDER BY at", (project_id,))]
@@ -272,7 +315,7 @@ SORTS = {
 
 
 def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str = "", sort: str = "newest",
-                author: str = "", limit: int = 0) -> List[Dict[str, Any]]:
+                author: str = "", limit: int = 0, season: str = "") -> List[Dict[str, Any]]:
     """Approved projects, optionally only those with an award, spotlight, author kind, author or text, sorted
     by newest, most used (by other registered users), most liked, or trending (the last 30 days)."""
     sql = ("SELECT p.id FROM club_projects p JOIN club_members m ON m.user_id = p.user_id "
@@ -293,6 +336,9 @@ def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str
     if author:
         sql += " AND p.user_id = ?"
         args.append(author)
+    if season:
+        sql += " AND p.season_id = ?"
+        args.append(season)
     sql += " ORDER BY " + SORTS.get(sort, SORTS["newest"]).format(month=time.time() - 30 * 86400)
     if limit:
         sql += f" LIMIT {int(limit)}"
@@ -350,6 +396,179 @@ def profile(user_id: str) -> Optional[Dict[str, Any]]:
             "awards": sum(len(a["awards"]) for a in apps)}
 
 
+# ── Seasons ──────────────────────────────────────────────────────────────────
+
+_SEASON_LABELS = {"upcoming": "Starting soon", "open": "Open for entries", "judging": "Judging", "closed": "Results out"}
+
+
+def _season_status(row) -> str:
+    now = time.time()
+    if row["results_published"]:
+        return "closed"
+    if now < row["starts_at"]:
+        return "upcoming"
+    if now <= row["ends_at"]:
+        return "open"
+    return "judging"
+
+
+def _season_brief(c, season_id) -> Optional[Dict[str, Any]]:
+    if not season_id:
+        return None
+    r = c.execute("SELECT * FROM club_seasons WHERE id = ?", (season_id,)).fetchone()
+    if not r:
+        return None
+    status = _season_status(r)
+    return {"id": r["id"], "name": r["name"], "theme": r["theme"], "description": r["description"],
+            "starts_at": r["starts_at"], "ends_at": r["ends_at"], "status": status, "status_label": _SEASON_LABELS[status]}
+
+
+def _season_fields(data: Dict[str, Any]):
+    name = _clean(data.get("name"), 60)
+    if not name:
+        raise ClubError("Give the season a name, e.g. Spring 2027")
+    try:
+        starts, ends = float(data.get("starts_at")), float(data.get("ends_at"))
+    except (TypeError, ValueError):
+        raise ClubError("Give the season a start and a deadline") from None
+    if ends <= starts:
+        raise ClubError("The deadline must be after the start")
+    return name, _clean(data.get("theme"), 120), _clean(data.get("description"), 2000), starts, ends
+
+
+def create_season(data: Dict[str, Any], actor: str) -> Dict[str, Any]:
+    name, theme, description, starts, ends = _season_fields(data)
+    sid = secrets.token_hex(3)
+    with _lock, _conn() as c:
+        c.execute("INSERT INTO club_seasons (id, name, theme, description, starts_at, ends_at, created_by, created_at) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (sid, name, theme, description, starts, ends, actor, time.time()))
+    return season(sid)
+
+
+def update_season(season_id: str, data: Dict[str, Any], actor: str) -> Dict[str, Any]:
+    with _lock, _conn() as c:
+        row = c.execute("SELECT * FROM club_seasons WHERE id = ?", (season_id,)).fetchone()
+        if not row:
+            raise ClubError("No such season")
+        if "results_published" in data:
+            c.execute("UPDATE club_seasons SET results_published = ? WHERE id = ?",
+                      (1 if data["results_published"] else 0, season_id))
+        if any(k in data for k in ("name", "starts_at", "ends_at")):
+            merged = {**dict(row), **data}
+            name, theme, description, starts, ends = _season_fields(merged)
+            c.execute("UPDATE club_seasons SET name=?, theme=?, description=?, starts_at=?, ends_at=? WHERE id=?",
+                      (name, theme, description, starts, ends, season_id))
+    return season(season_id)
+
+
+def seasons() -> List[Dict[str, Any]]:
+    with _conn() as c:
+        rows = c.execute("SELECT id FROM club_seasons ORDER BY starts_at DESC").fetchall()
+        out = []
+        for r in rows:
+            brief = _season_brief(c, r["id"])
+            brief["entries"] = c.execute("SELECT COUNT(*) FROM club_projects WHERE season_id = ? AND status != 'withdrawn'",
+                                         (r["id"],)).fetchone()[0]
+            brief["approved"] = c.execute("SELECT COUNT(*) FROM club_projects WHERE season_id = ? AND status = 'approved'",
+                                          (r["id"],)).fetchone()[0]
+            out.append(brief)
+    return out
+
+
+def open_seasons() -> List[Dict[str, Any]]:
+    return [s for s in seasons() if s["status"] == "open"]
+
+
+def season(season_id: str) -> Optional[Dict[str, Any]]:
+    with _conn() as c:
+        brief = _season_brief(c, season_id)
+    if not brief:
+        return None
+    entries = marketplace(season=season_id, sort="most_used")
+    winners = {cat: [p for p in entries if any(a["category"] == cat for a in p["awards"])] for cat in AWARDS}
+    return {**brief, "entries": entries, "winners": winners}
+
+
+# ── Scoring ──────────────────────────────────────────────────────────────────
+
+def _score_summary(c, project_id: str) -> Dict[str, Any]:
+    """Average score per criterion over the reviewers who scored it, and an overall average."""
+    averages = {}
+    for crit in RUBRIC:
+        r = c.execute("SELECT AVG(score) AS a, COUNT(score) AS n FROM club_scores WHERE project_id = ? AND criterion = ? "
+                      "AND score IS NOT NULL", (project_id, crit)).fetchone()
+        averages[crit] = round(r["a"], 2) if r["n"] else None
+    reviewers = c.execute("SELECT COUNT(DISTINCT reviewer) FROM club_scores WHERE project_id = ?", (project_id,)).fetchone()[0]
+    present = [v for v in averages.values() if v is not None]
+    return {"averages": averages, "total": round(sum(present) / len(present), 2) if present else None,
+            "reviewers": reviewers}
+
+
+def score(project_id: str, reviewer: str, scores: Dict[str, Any], note: str = "") -> Dict[str, Any]:
+    """A reviewer's 1–5 scores on the rubric (AI may be left out when the app has no AI)."""
+    clean: Dict[str, Optional[int]] = {}
+    for crit in RUBRIC:
+        value = scores.get(crit)
+        if value in (None, "", "na"):
+            if crit != "ai":
+                raise ClubError(f"Score {RUBRIC[crit]} from 1 to 5")
+            clean[crit] = None
+            continue
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            raise ClubError(f"{RUBRIC[crit]} must be 1 to 5") from None
+        if not 1 <= n <= 5:
+            raise ClubError(f"{RUBRIC[crit]} must be 1 to 5")
+        clean[crit] = n
+    with _lock, _conn() as c:
+        row = c.execute("SELECT status FROM club_projects WHERE id = ?", (project_id,)).fetchone()
+        if not row or row["status"] not in ("in_review", "approved"):
+            raise ClubError("Only projects in review or approved can be scored")
+        now = time.time()
+        for crit, n in clean.items():
+            c.execute("INSERT OR REPLACE INTO club_scores (project_id, reviewer, criterion, score, at) VALUES (?, ?, ?, ?, ?)",
+                      (project_id, reviewer, crit, n, now))
+        c.execute("INSERT OR REPLACE INTO club_score_notes (project_id, reviewer, note, at) VALUES (?, ?, ?, ?)",
+                  (project_id, reviewer, _clean(note, 1000), now))
+        _event(c, project_id, reviewer, "scored")
+    return project(project_id)
+
+
+def scores_by(project_id: str, reviewer: str) -> Dict[str, Any]:
+    with _conn() as c:
+        mine = {r["criterion"]: r["score"] for r in c.execute(
+            "SELECT criterion, score FROM club_scores WHERE project_id = ? AND reviewer = ?", (project_id, reviewer))}
+        note = c.execute("SELECT note FROM club_score_notes WHERE project_id = ? AND reviewer = ?",
+                         (project_id, reviewer)).fetchone()
+    return {"scores": mine, "note": note["note"] if note else ""}
+
+
+def standings(season_id: str) -> Dict[str, Any]:
+    """A season's approved entries ranked by their rubric score, with a suggested winner for each award (the best
+    average on its criterion) and People's Choice (the most used by other members)."""
+    found = season(season_id)
+    if not found:
+        raise ClubError("No such season")
+    entries = found["entries"]
+    ranked = sorted(entries, key=lambda p: (p["scores"]["total"] is None, -(p["scores"]["total"] or 0)))
+    suggestions = {}
+    for crit, award in CRITERION_AWARD.items():
+        scored = [p for p in entries if p["scores"]["averages"][crit] is not None]
+        if scored:
+            best = max(scored, key=lambda p: (p["scores"]["averages"][crit], p["usage"]["uses"]))
+            suggestions[award] = {"project_id": best["id"], "title": best["title"],
+                                  "score": best["scores"]["averages"][crit]}
+    used = [p for p in entries if p["usage"]["uses"]]
+    peoples = max(used, key=lambda p: (p["usage"]["uses"], p["usage"]["likes"])) if used else None
+    return {"season": {k: v for k, v in found.items() if k not in ("entries", "winners")},
+            "ranked": [{"id": p["id"], "title": p["title"], "author": p["author"], "author_org": p["author_org"],
+                        "scores": p["scores"], "usage": p["usage"], "awards": p["awards"]} for p in ranked],
+            "suggestions": suggestions,
+            "peoples_choice": {"project_id": peoples["id"], "title": peoples["title"], "uses": peoples["usage"]["uses"]}
+            if peoples else None}
+
+
 # ── Review ───────────────────────────────────────────────────────────────────
 
 def queue() -> List[Dict[str, Any]]:
@@ -388,10 +607,12 @@ def give_award(project_id: str, category: str, reviewer: str, note: str = "") ->
             raise ClubError("Only approved projects can win awards")
         if c.execute("SELECT 1 FROM club_awards WHERE project_id=? AND category=?", (project_id, category)).fetchone():
             raise ClubError("This project already has that award")
-        c.execute("INSERT INTO club_awards (project_id, category, note, awarded_by, awarded_at) VALUES (?, ?, ?, ?, ?)",
-                  (project_id, category, _clean(note, 500), reviewer, time.time()))
+        season = _season_brief(c, row["season_id"])
+        c.execute("INSERT INTO club_awards (project_id, category, note, awarded_by, awarded_at, season_id) VALUES (?, ?, ?, ?, ?, ?)",
+                  (project_id, category, _clean(note, 500), reviewer, time.time(), row["season_id"]))
         _event(c, project_id, reviewer, "award", AWARDS[category])
-        _issue(c, row["user_id"], "award", project_id, category, f"{AWARDS[category]}: {row['title']}")
+        _issue(c, row["user_id"], "award", project_id, category,
+               f"{AWARDS[category]}: {row['title']}" + (f" · {season['name']}" if season else ""))
     return project(project_id)
 
 
@@ -475,12 +696,14 @@ def certificate(code: str) -> Optional[Dict[str, Any]]:
     """A certificate by its code (public, for verification); None when there's no such certificate."""
     with _conn() as c:
         r = c.execute("SELECT c.code, c.kind, c.project_id, c.award, c.title, c.holder, c.organization, c.issued_at, "
-                      "m.kind AS holder_kind, p.title AS project_title FROM club_certificates c "
+                      "m.kind AS holder_kind, p.title AS project_title, p.season_id FROM club_certificates c "
                       "LEFT JOIN club_members m ON m.user_id = c.user_id "
                       "LEFT JOIN club_projects p ON p.id = c.project_id WHERE c.code = ?", (code,)).fetchone()
+        season = _season_brief(c, r["season_id"]) if r else None
     if not r:
         return None
     out = dict(r)
+    out["season"] = season["name"] if season and out["kind"] == "award" else None
     out["kind_label"] = CERTIFICATES.get(out["kind"], out["kind"])
     out["award_label"] = AWARDS.get(out.get("award") or "", "")
     return out

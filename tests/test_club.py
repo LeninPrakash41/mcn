@@ -173,7 +173,7 @@ def test_open_an_approved_project_in_my_workspace(client):
 
 def test_pages_are_served(client):
     with hosted():
-        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC", "/club/leaderboard", "/club/awards", "/club/verify", "/club/u/x"):
+        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC", "/club/leaderboard", "/club/awards", "/club/verify", "/club/u/x", "/club/seasons", "/club/season/abc"):
             res = client.get(path)
             assert res.status_code == 200 and b"MCN Developer Club" in res.data
 
@@ -267,3 +267,97 @@ def test_signatory_comes_from_config(client, monkeypatch):
     monkeypatch.setenv("MCN_CLUB_SIGNATORY", "Dr. A. Kumar|Programme Director")
     with hosted():
         assert client.get("/api/club/info").get_json()["signatory"] == {"name": "Dr. A. Kumar", "title": "Programme Director"}
+
+
+def test_seasons_and_scoring(client, monkeypatch):
+    import time as _time
+    monkeypatch.setenv("MCN_ADMIN_EMAILS", "judge@example.com,second@example.com")
+    judge = register(client, "judge@example.com")
+    second = register(client, "second@example.com")
+    dev = register(client, "maya@college.example")
+    fan = register(client, "fan@company.example")
+    now = _time.time()
+    with hosted():
+        assert client.post("/api/club/seasons", headers=dev, json={"name": "X"}).status_code == 403
+        bad = client.post("/api/club/seasons", headers=judge, json={"name": "Bad", "starts_at": now, "ends_at": now - 5})
+        assert bad.status_code == 400 and "after the start" in bad.get_json()["error"]
+        spring = client.post("/api/club/seasons", headers=judge, json={
+            "name": "Spring 2027", "theme": "AI for healthcare", "starts_at": now - 86400, "ends_at": now + 7 * 86400}).get_json()["season"]
+        later = client.post("/api/club/seasons", headers=judge, json={
+            "name": "Autumn 2027", "starts_at": now + 30 * 86400, "ends_at": now + 60 * 86400}).get_json()["season"]
+        assert spring["status"] == "open" and later["status"] == "upcoming"
+        assert [s["name"] for s in client.get("/api/club/info").get_json()["open_seasons"]] == ["Spring 2027"]
+
+        client.post("/api/club/join", headers=dev, json={"name": "Maya", "kind": "student", "organization": "Y College"})
+        put_app(client, dev)
+        refused = client.post("/api/club/submit", headers=dev, json={"title": "Early", "season_id": later["id"]})
+        assert refused.status_code == 400 and "isn't taking entries" in refused.get_json()["error"]
+        entry = client.post("/api/club/submit", headers=dev, json={"title": "Triage Bot", "season_id": spring["id"]}).get_json()["project"]
+        pid = entry["id"]
+        assert entry["season"]["name"] == "Spring 2027"
+
+        assert client.post(f"/api/club/review/{pid}/score", headers=dev, json={"scores": {}}).status_code == 403
+        missing = client.post(f"/api/club/review/{pid}/score", headers=judge, json={"scores": {"overall": 4}})
+        assert missing.status_code == 400 and "Innovation" in missing.get_json()["error"]
+        out_of_range = client.post(f"/api/club/review/{pid}/score", headers=judge, json={"scores": {
+            "overall": 9, "innovation": 4, "technical": 4, "use_of_mcn": 4, "ai": "na"}})
+        assert out_of_range.status_code == 400
+        client.post(f"/api/club/review/{pid}/score", headers=judge, json={"scores": {
+            "overall": 4, "innovation": 5, "technical": 3, "use_of_mcn": 4, "ai": 5}, "note": "Strong idea"})
+        scored = client.post(f"/api/club/review/{pid}/score", headers=second, json={"scores": {
+            "overall": 5, "innovation": 4, "technical": 4, "use_of_mcn": 4, "ai": "na"}}).get_json()
+        sc = scored["project"]["scores"]
+        assert sc["reviewers"] == 2 and sc["averages"]["overall"] == 4.5 and sc["averages"]["ai"] == 5
+        assert sc["total"] == round((4.5 + 4.5 + 3.5 + 4 + 5) / 5, 2)
+        mine = client.get(f"/api/club/review/{pid}", headers=judge).get_json()["mine"]
+        assert mine == {"scores": {"overall": 4, "innovation": 5, "technical": 3, "use_of_mcn": 4, "ai": 5}, "note": "Strong idea"}
+
+        client.post(f"/api/club/review/{pid}", headers=judge, json={"decision": "approve"})
+        client.post(f"/api/club/projects/{pid}/open", headers=fan)
+        public = client.get(f"/api/club/projects/{pid}").get_json()["project"]
+        assert "scores" not in public and public["season"]["id"] == spring["id"]
+        assert all("scores" not in p for p in client.get("/api/club/marketplace").get_json()["projects"])
+        assert client.get("/api/club/me", headers=dev).get_json()["projects"][0]["scores"]["reviewers"] == 2   # feedback
+        assert [p["id"] for p in client.get(f"/api/club/marketplace?season={spring['id']}").get_json()["projects"]] == [pid]
+        assert client.get(f"/api/club/marketplace?season={later['id']}").get_json()["projects"] == []
+
+        assert client.get(f"/api/club/seasons/{spring['id']}/standings", headers=dev).status_code == 403
+        table = client.get(f"/api/club/seasons/{spring['id']}/standings", headers=judge).get_json()
+        assert table["ranked"][0]["id"] == pid and table["suggestions"]["best_ai"]["project_id"] == pid
+        assert table["suggestions"]["best_innovation"]["score"] == 4.5 and table["peoples_choice"]["uses"] == 1
+
+        client.post(f"/api/club/review/{pid}/award", headers=judge, json={"category": "best_innovation"})
+        cert = [c for c in client.get("/api/club/me", headers=dev).get_json()["certificates"] if c["kind"] == "award"][0]
+        assert cert["title"] == "Best Innovation: Triage Bot · Spring 2027"
+        assert client.get(f"/api/club/certificates/{cert['code']}").get_json()["certificate"]["season"] == "Spring 2027"
+
+        page = client.get(f"/api/club/seasons/{spring['id']}").get_json()["season"]
+        assert page["winners"] == {} and len(page["entries"]) == 1 and "scores" not in page["entries"][0]
+        assert client.post(f"/api/club/seasons/{spring['id']}", headers=dev, json={"results_published": True}).status_code == 403
+        client.post(f"/api/club/seasons/{spring['id']}", headers=judge, json={"results_published": True})
+        page = client.get(f"/api/club/seasons/{spring['id']}").get_json()["season"]
+        assert page["status"] == "closed" and [p["id"] for p in page["winners"]["best_innovation"]] == [pid]
+        listed = {s["name"]: s for s in client.get("/api/club/seasons").get_json()["seasons"]}
+        assert listed["Spring 2027"]["approved"] == 1 and listed["Autumn 2027"]["status"] == "upcoming"
+
+
+def test_old_club_databases_gain_season_columns(tmp_path):
+    import sqlite3
+    from playground_server import club_store
+    db = tmp_path / "old.db"
+    old = sqlite3.connect(db)
+    old.execute("CREATE TABLE club_projects (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, title TEXT NOT NULL, tagline TEXT, "
+                "description TEXT, category TEXT, backend TEXT, ui TEXT, stats TEXT, status TEXT NOT NULL, version INTEGER DEFAULT 1, "
+                "submitted_at REAL, reviewed_at REAL, reviewer TEXT, review_notes TEXT, spotlight TEXT, listed_at REAL)")
+    old.execute("CREATE TABLE club_awards (project_id TEXT NOT NULL, category TEXT NOT NULL, note TEXT, awarded_by TEXT, "
+                "awarded_at REAL, PRIMARY KEY (project_id, category))")
+    old.commit()
+    old.close()
+    before = club_store._DB_PATH
+    try:
+        club_store.set_db_path(db)
+        assert club_store.seasons() == []
+        cols = {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(club_projects)")}
+        assert "season_id" in cols
+    finally:
+        club_store.set_db_path(before)
