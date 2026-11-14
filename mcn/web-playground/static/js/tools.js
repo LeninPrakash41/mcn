@@ -2,68 +2,159 @@
 let _activeWorkspace = 'react';
 
 // ── DB, IoT, and AI Trace Helper Functions ────────────────────────────────
+// ── Database explorer: a tree of tables, a table's schema on click, and a SQL console ──
+
+let _dbSchema = []
+let _dbOpen = new Set()          // tables expanded in the tree
+let _dbSelected = ''
+
+const _DB_ICONS = {
+  db: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+  table: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>',
+  key: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/></svg>',
+  col: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/></svg>',
+}
+
 async function refreshDBTables() {
-  const container = document.getElementById('db-tables-list')
-  if (!container) return
+  const tree = document.getElementById('db-tables-list')
+  if (!tree) return
   try {
-    const r = await apiFetch('/api/db/schema')
-    const d = await r.json()
-    if (d.success && d.schema && d.schema.length > 0) {
-      container.innerHTML = d.schema.map(t => `
-        <div style="margin-bottom: 6px;">
-          <strong style="color:var(--text);">${t.table}</strong>
-          <div style="padding-left:10px;margin-top:2px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px;">
-            ${t.columns.map(c => `<span style="background:var(--surface3);padding:1px 4px;border-radius:3px;font-size:10px;">${c}</span>`).join('')}
-          </div>
-        </div>
-      `).join('')
-    } else {
-      container.innerHTML = '<div style="text-align:center;font-style:italic;">No tables found. Run database code first.</div>'
-    }
+    const d = await apiFetch('/api/db/schema').then(r => r.json())
+    if (!d.success) throw new Error(d.error || 'Could not read the database')
+    _dbSchema = d.schema || []
   } catch (e) {
-    container.innerHTML = `<div style="color:#f87171;">Failed to load tables: ${e.message}</div>`
+    tree.innerHTML = `<div class="pane-empty dbx-error">${escapeHtml(e.message)}</div>`
+    return
   }
+  renderDBTree()
+  if (_dbSelected && _dbSchema.some(t => t.table === _dbSelected)) selectDBTable(_dbSelected)
+  else { _dbSelected = ''; document.getElementById('db-table-detail').hidden = true }
+}
+
+function renderDBTree() {
+  const tree = document.getElementById('db-tables-list')
+  if (!_dbSchema.length) {
+    tree.innerHTML = '<div class="pane-empty">No tables yet. They appear once your backend runs a CREATE TABLE.</div>'
+    return
+  }
+  const mine = _dbSchema.filter(t => t.in_app), other = _dbSchema.filter(t => !t.in_app)
+  const group = (label, tables, note) => tables.length ? `
+    <div class="dbx-group">${escapeHtml(label)} <span class="dbx-count">${tables.length}</span>${note ? `<span class="dbx-note">${escapeHtml(note)}</span>` : ''}</div>
+    ${tables.map(tableNode).join('')}` : ''
+  tree.innerHTML = `
+    <div class="dbx-root">${_DB_ICONS.db}<span>mcn_data.db</span></div>
+    ${group(mine.length ? 'Tables in this app' : 'Tables', mine.length ? mine : other, '')}
+    ${mine.length ? group('Other tables', other, 'left by other templates') : ''}`
+}
+
+function tableNode(t) {
+  const open = _dbOpen.has(t.table), name = escapeHtml(t.table)
+  const cols = open ? `<div class="dbx-cols" role="group">${t.columns.map(c => `
+      <div class="dbx-col" title="${escapeHtml(c.name)} ${escapeHtml(c.type)}${c.pk ? ' · primary key' : ''}${c.notnull ? ' · required' : ''}">
+        <span class="dbx-col-icon${c.pk ? ' pk' : ''}">${c.pk ? _DB_ICONS.key : _DB_ICONS.col}</span>
+        <span class="dbx-col-name">${escapeHtml(c.name)}</span>
+        <span class="dbx-col-type">${escapeHtml((c.type || 'any').toLowerCase())}</span>
+      </div>`).join('')}</div>` : ''
+  return `
+    <div class="dbx-table${t.table === _dbSelected ? ' selected' : ''}" role="treeitem" aria-expanded="${open}" tabindex="0"
+         data-table="${name}" onclick="selectDBTable(this.dataset.table)" onkeydown="if(event.key==='Enter')selectDBTable(this.dataset.table)">
+      <span class="dbx-caret${open ? ' open' : ''}" onclick="event.stopPropagation(); toggleDBTable(this.parentElement.dataset.table)">›</span>
+      <span class="dbx-icon">${_DB_ICONS.table}</span>
+      <span class="dbx-name">${name}</span>
+      <span class="dbx-rows">${t.rows} row${t.rows === 1 ? '' : 's'}</span>
+    </div>${cols}`
+}
+
+function toggleDBTable(name) {
+  _dbOpen.has(name) ? _dbOpen.delete(name) : _dbOpen.add(name)
+  renderDBTree()
+}
+
+function selectDBTable(name) {
+  const t = _dbSchema.find(x => x.table === name)
+  if (!t) return
+  _dbSelected = name
+  renderDBTree()
+  const q = _sqlName(name)
+  const box = document.getElementById('db-table-detail')
+  box.hidden = false
+  box.innerHTML = `
+    <div class="dbx-detail-head">
+      <div><div class="dbx-detail-title">${_DB_ICONS.table}${escapeHtml(name)}</div>
+        <div class="dbx-detail-sub">${t.columns.length} column${t.columns.length === 1 ? '' : 's'} · ${t.rows} row${t.rows === 1 ? '' : 's'}${t.in_app ? '' : ' · not created by this app'}</div></div>
+      <div class="dbx-detail-actions">
+        <button class="btn btn-sm" onclick="dbWriteQuery()">Write a query</button>
+        <button class="btn btn-primary btn-sm" onclick="dbShowRows()">Show rows</button>
+      </div>
+    </div>
+    <table class="dbx-grid dbx-schema">
+      <thead><tr><th>Column</th><th>Type</th><th>Required</th><th>Default</th></tr></thead>
+      <tbody>${t.columns.map(c => `<tr>
+        <td><span class="dbx-col-icon${c.pk ? ' pk' : ''}">${c.pk ? _DB_ICONS.key : ''}</span>${escapeHtml(c.name)}</td>
+        <td class="dbx-muted">${escapeHtml(c.type || 'any')}</td>
+        <td class="dbx-muted">${c.pk || c.notnull ? 'yes' : ''}</td>
+        <td class="dbx-muted">${c.default === null || c.default === undefined ? '' : escapeHtml(String(c.default))}</td></tr>`).join('')}</tbody>
+    </table>`
+  box.dataset.sqlName = q
+}
+
+function _sqlName(name) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : '"' + name.replace(/"/g, '""') + '"'
+}
+
+function dbShowRows() {
+  const name = document.getElementById('db-table-detail').dataset.sqlName
+  document.getElementById('db-sql-console').value = `SELECT * FROM ${name} LIMIT 100`
+  runConsoleSQL()
+}
+
+function dbWriteQuery() {
+  const t = _dbSchema.find(x => x.table === _dbSelected)
+  const name = document.getElementById('db-table-detail').dataset.sqlName
+  const cols = t ? t.columns.map(c => _sqlName(c.name)).join(', ') : '*'
+  const input = document.getElementById('db-sql-console')
+  input.value = `SELECT ${cols}\nFROM ${name}\nWHERE 1 = 1\nLIMIT 100`
+  input.focus()
 }
 
 async function runConsoleSQL() {
   const sql = document.getElementById('db-sql-console').value.trim()
-  const resultsDiv = document.getElementById('db-query-results')
-  if (!sql || !resultsDiv) return
-  resultsDiv.textContent = 'Executing query...'
+  const out = document.getElementById('db-query-results')
+  if (!sql || !out) return
+  out.innerHTML = '<div class="pane-empty">Running…</div>'
   try {
-    const r = await apiFetch('/api/db/query', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql })
-    })
-    const d = await r.json()
-    if (d.success) {
-      if (Array.isArray(d.result) && d.result.length > 0) {
-        const cols = Object.keys(d.result[0])
-        const headerHtml = cols.map(c => `<th style="text-align:left;padding:6px;border-bottom:2px solid var(--border);color:var(--text);font-weight:600;">${c}</th>`).join('')
-        const rowsHtml = d.result.map(row => `
-          <tr style="border-bottom:1px solid var(--border);">
-            ${cols.map(c => `<td style="padding:6px;color:var(--muted);">${row[c] !== null ? row[c] : 'NULL'}</td>`).join('')}
-          </tr>
-        `).join('')
-        
-        resultsDiv.innerHTML = `
-          <table style="width:100%;border-collapse:collapse;font-size:11px;">
-            <thead><tr>${headerHtml}</tr></thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        `
-      } else {
-        resultsDiv.innerHTML = `<div style="color:#34d399;font-style:italic;">Query executed successfully. Result: ${JSON.stringify(d.result)}</div>`
-      }
-      refreshDBTables()
-    } else {
-      resultsDiv.innerHTML = `<div style="color:#f87171;">Error: ${d.error}</div>`
+    const d = await apiFetch('/api/db/query', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sql })
+    }).then(r => r.json())
+    if (!d.success) {
+      out.innerHTML = `<div class="dbx-msg dbx-error">${escapeHtml(d.error || 'The query failed')}</div>`
+      return
     }
+    const res = d.result
+    if (!res.columns.length) {
+      out.innerHTML = `<div class="dbx-msg dbx-ok">Done: ${res.affected} row${res.affected === 1 ? '' : 's'} changed · ${res.ms} ms</div>`
+      refreshDBTables()
+      return
+    }
+    const cell = v => v === null ? '<span class="dbx-null">NULL</span>' : escapeHtml(String(v))
+    out.innerHTML = `
+      <div class="dbx-msg">${res.rows.length}${res.truncated ? '+' : ''} row${res.rows.length === 1 ? '' : 's'} · ${res.ms} ms${res.truncated ? ' · showing the first 1000' : ''}</div>
+      <div class="dbx-grid-wrap"><table class="dbx-grid">
+        <thead><tr>${res.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+        <tbody>${res.rows.map(r => `<tr>${r.map(v => `<td title="${v === null ? 'NULL' : escapeHtml(String(v))}">${cell(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`
+    out.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   } catch (e) {
-    resultsDiv.innerHTML = `<div style="color:#f87171;">Connection failed: ${e.message}</div>`
+    out.innerHTML = `<div class="dbx-msg dbx-error">Couldn't reach Studio: ${escapeHtml(e.message)}</div>`
   }
 }
+
+document.addEventListener('keydown', e => {
+  if (e.target && e.target.id === 'db-sql-console' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault()
+    runConsoleSQL()
+  }
+})
 
 // IoT panel: Studio's own devices plus the running Preview backend's, refreshed while the panel is open
 let iotTimer = null

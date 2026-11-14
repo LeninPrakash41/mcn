@@ -30,7 +30,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 ## Inspectors
 
-- **Database:** browse tables and run SQL against the same SQLite database your code uses.
+- **Database:** a tree of your app's tables (the ones your code creates come first), with row counts and each table's columns. Click a table to see its schema (types, required columns, defaults, primary key), then **Show rows** or **Write a query**. The SQL console runs any statement against the same SQLite database your code uses (Cmd/Ctrl+Enter), and shows results in a grid.
 - **IoT Simulator:** a live view of every device: from scripts you **Run**, and from your backend while **Preview** is running. Drag a sensor's slider, trigger a motion sensor or flip a relay, and the running app reacts; the log shows each command. Devices declared for a Raspberry Pi or Arduino are simulated here, with their pins shown. See [IoT and hardware](#/guide/iot).
 - **AI calls:** every `ai`, `classify`, `extract`, `embed`, `rag` and vector search call, with the prompt, response, model and timing.
 - **API Docs** (Tools menu): Swagger documentation for the endpoints in your backend.

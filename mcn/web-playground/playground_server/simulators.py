@@ -14,68 +14,89 @@ bp = Blueprint("simulators", __name__)
 
 # ── DB, IoT, and AI Trace Simulator Endpoints ─────────────────────────────────
 
-def get_sqlite_schema():
-    import sqlite3
+def _db_path() -> Path:
     db_path = _request_workspace() / "mcn_data.db"
-    if not db_path.exists():
-        db_path = Path("mcn_data.db")
+    return db_path if db_path.exists() else Path("mcn_data.db")
+
+
+def _app_tables() -> set:
+    """Tables the workspace's own code creates (from the app map)."""
+    try:
+        from mcn.core_engine.app_map import build_map
+        nodes = build_map(_request_workspace())["nodes"].values()
+        return {n["name"] for n in nodes if n["kind"] == "table"}
+    except Exception:
+        return set()
+
+
+def get_sqlite_schema():
+    """Every table with its columns, row count, and whether this app's code creates it."""
+    import sqlite3
+    db_path = _db_path()
     if not db_path.exists():
         return []
+    mine = _app_tables()
+    conn = sqlite3.connect(str(db_path))
     try:
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [r[0] for r in cursor.fetchall() if r[0] != "sqlite_sequence"]
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
         schema = []
-        for tbl in tables:
-            cursor.execute(f"PRAGMA table_info({tbl})")
-            cols = [f"{c[1]} ({c[2]})" for c in cursor.fetchall()]
-            schema.append({"table": tbl, "columns": cols})
-        conn.close()
+        for (tbl,) in cur.fetchall():
+            quoted = '"' + tbl.replace('"', '""') + '"'
+            cur.execute(f"PRAGMA table_info({quoted})")
+            columns = [{"name": c[1], "type": c[2] or "", "notnull": bool(c[3]), "default": c[4], "pk": bool(c[5])}
+                       for c in cur.fetchall()]
+            cur.execute(f"SELECT COUNT(*) FROM {quoted}")
+            rows = cur.fetchone()[0]
+            schema.append({"table": tbl, "columns": columns, "rows": rows, "in_app": tbl in mine})
         return schema
-    except Exception as e:
-        return [{"error": str(e)}]
+    finally:
+        conn.close()
+
 
 def run_sqlite_query(sql: str):
+    """{columns, rows, affected, ms} for one SQL statement."""
     import sqlite3
-    db_path = _request_workspace() / "mcn_data.db"
+    import time
+    db_path = _db_path()
     if not db_path.exists():
-        db_path = Path("mcn_data.db")
-    if not db_path.exists():
-        raise Exception("Database file does not exist yet. Run some database operations first.")
+        raise Exception("There's no database yet. Run your backend once so it creates its tables.")
     conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute(sql)
-    if sql.strip().upper().startswith("SELECT"):
-        cols = [description[0] for description in cursor.description]
-        rows = cursor.fetchall()
-        result = [dict(zip(cols, row)) for row in rows]
-    else:
-        conn.commit()
-        result = [{"affected_rows": cursor.rowcount}]
-    conn.close()
-    return result
-
+    try:
+        started = time.perf_counter()
+        cur = conn.cursor()
+        cur.execute(sql)
+        if cur.description:                       # SELECT, PRAGMA, WITH ... return rows
+            columns = [d[0] for d in cur.description]
+            rows = cur.fetchmany(1000)
+            result = {"columns": columns, "rows": [list(r) for r in rows], "truncated": len(rows) == 1000}
+        else:
+            conn.commit()
+            result = {"columns": [], "rows": [], "affected": cur.rowcount}
+        result["ms"] = round((time.perf_counter() - started) * 1000, 1)
+        return result
+    finally:
+        conn.close()
 
 @bp.route("/api/db/schema", methods=["GET"])
 def get_db_schema():
     try:
-        schema = get_sqlite_schema()
-        return jsonify({"success": True, "schema": schema})
+        return jsonify({"success": True, "schema": get_sqlite_schema()})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+
 @bp.route("/api/db/query", methods=["POST"])
 def exec_db_query():
+    data = request.get_json(silent=True) or {}
+    sql = (data.get("sql") or "").strip()
+    if not sql:
+        return jsonify({"success": False, "error": "Write a SQL query first"})
     try:
-        data = request.get_json(silent=True) or {}
-        sql = data.get("sql", "")
-        if not sql:
-            return jsonify({"success": False, "error": "No SQL query provided"})
-        result = run_sqlite_query(sql)
-        return jsonify({"success": True, "result": result})
+        return jsonify({"success": True, "result": run_sqlite_query(sql)})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 def _iot():
     """This process's device registry (scripts run with Run), with the demo devices."""
