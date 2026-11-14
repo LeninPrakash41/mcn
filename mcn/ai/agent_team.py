@@ -30,9 +30,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import anthropic
-
-from .mcn_agent import DEFAULT_MODEL, MCNAgent, _extract_blocks, _validate_mcn, raise_if_refused
+from .llm import DEFAULT_CLAUDE_MODEL, AnthropicProvider, Provider, describe, get_provider
+from .mcn_agent import MCNAgent, _extract_blocks, _validate_mcn
 from .mcn_spec import MCN_SYSTEM_PROMPT
 
 Emit = Callable[[Dict[str, Any]], None]
@@ -126,12 +125,16 @@ def _first_line(text: str, limit: int = 140) -> str:
 class AgentTeam:
     """Plan, design, build and test an MCN app with a team of Claude agents."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL,
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None,
                  emit: Optional[Emit] = None, web_research: bool = True,
                  browser_check: Optional[BrowserCheck] = None,
-                 client: Optional[anthropic.Anthropic] = None):
-        self.client = client or anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
-        self.model = model
+                 client: Any = None, provider: Any = None, base_url: Optional[str] = None):
+        if isinstance(provider, Provider):
+            self.llm = provider
+        elif client is not None:                     # an Anthropic client (tests pass a fake one)
+            self.llm = AnthropicProvider(model or DEFAULT_CLAUDE_MODEL, client=client)
+        else:
+            self.llm = get_provider(provider, model, api_key, base_url)
         self.emit: Emit = emit or (lambda event: None)
         self.web_research = web_research
         self.browser_check = browser_check
@@ -142,25 +145,19 @@ class AgentTeam:
     # ── Talking to Claude ─────────────────────────────────────────────────────
 
     def _ask(self, role: str, system: str, content: Any, effort: str = "medium",
-             tools: Optional[list] = None, stream_tokens: bool = False) -> str:
-        """One specialist turn. Continues server-tool turns (web search) until Claude finishes."""
+             web_search: bool = False, stream_tokens: bool = False) -> str:
+        """One specialist turn. Continues web-search turns until the model finishes."""
         messages: List[Dict[str, Any]] = [{"role": "user", "content": content}]
         texts: List[str] = []
+        on_text = (lambda text: self.emit({"type": "token", "role": role, "text": text})) if stream_tokens else None
+        search = 3 if web_search and self.llm.supports_web_search else 0
         for _ in range(4):
-            kwargs: Dict[str, Any] = dict(model=self.model, max_tokens=32000, system=system,
-                                          messages=messages, output_config={"effort": effort})
-            if tools:
-                kwargs["tools"] = tools
-            with self.client.messages.stream(**kwargs) as stream:
-                if stream_tokens:
-                    for text in stream.text_stream:
-                        self.emit({"type": "token", "role": role, "text": text})
-                message = stream.get_final_message()
-            raise_if_refused(message)
-            texts += [b.text for b in message.content if getattr(b, "type", "") == "text"]
-            if message.stop_reason != "pause_turn":
+            reply = self.llm.complete(system, messages, max_tokens=32000, effort=effort, on_text=on_text,
+                                      web_search=search)
+            texts.append(reply.text)
+            if reply.stop != "pause":
                 break
-            messages.append({"role": "assistant", "content": message.content})
+            messages.append({"role": "assistant", "reply": reply})
         return "".join(texts).strip()
 
     def _step(self, role: str, system: str, content: Any, **kwargs) -> str:
@@ -181,8 +178,8 @@ class AgentTeam:
         out = Path(output_dir)
         request = description.strip()
 
-        tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}] if self.web_research else None
-        research = self._step("researcher", _RESEARCHER, f"Request:\n{request}", effort="low", tools=tools)
+        research = self._step("researcher", _RESEARCHER, f"Request:\n{request}", effort="low",
+                              web_search=self.web_research)
         plan = self._step("architect", _ARCHITECT, f"Request:\n{request}\n\nResearch:\n{research}", effort="high")
         design = self._step("designer", _DESIGNER, f"Request:\n{request}\n\nPlan:\n{plan}", effort="medium")
 
@@ -213,6 +210,7 @@ class AgentTeam:
             self.emit({"type": "agent", "role": "builder", "status": "done", "summary": "Applied QA fixes"})
 
         return {"backend_mcn": backend, "ui_mcn": ui, "attempts": attempts, "research": research,
+                "model": describe(self.llm),
                 "plan": plan, "design": design, "verdict": verdict,
                 "modules": [m["name"] for m in spec["modules"]] if spec else [],
                 "qa_report": {k: v for k, v in report.items() if k != "screenshots"}}
@@ -222,11 +220,10 @@ class AgentTeam:
         team = self
 
         class _Builder(MCNAgent):
-            def _call_claude(self, prompt, system, verbose):
+            def _call_model(self, prompt, system, verbose):
                 return team._ask("builder", system, prompt, effort="high", stream_tokens=True)
 
-        builder = _Builder.__new__(_Builder)
-        builder.client, builder.model = self.client, self.model
+        builder = _Builder(provider=self.llm)
         try:
             result = builder.generate(description=brief, attachments=attachments, output_dir=str(out), verbose=False)
         except Exception as exc:
@@ -373,7 +370,7 @@ class AgentTeam:
         content: List[Dict[str, Any]] = []
         for shot in report.get("screenshots", [])[:6]:
             content.append({"type": "text", "text": f"Screenshot of the {shot.get('name')} screen:"})
-            content.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": shot["png"]}})
+            content.append({"type": "image", "media_type": "image/png", "data": shot["png"]})
         import json
         content.append({"type": "text", "text": f"Request:\n{request}\n\nPlan:\n{plan}\n\n"
                                                 f"Check report:\n{json.dumps(summary, indent=1, default=str)[:20000]}"})

@@ -80,6 +80,7 @@ setup(
             "version.py",
             "fullstack/*.dart",
             "iot_firmware/*/*.ino",
+            "core_engine/msg_schema.json",
             "studio/vscode-mcn/syntaxes/*.json",
             "studio/vscode-mcn/package.json",
             "studio/vscode-mcn/*.vsix",

@@ -27,3 +27,4 @@ global-exclude *.log
 global-exclude *.db
 include mcn/fullstack/*.dart
 recursive-include mcn/iot_firmware *.ino
+include mcn/core_engine/msg_schema.json

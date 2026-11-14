@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcn-lang.dev/schemas/msg-1.json",
+  "title": "MCN Semantic Graph (MSG)",
+  "description": "A canonical, machine-readable model of an MCN app: its declarations and how they connect, and every file's complete syntax tree and exact source.",
+  "type": "object",
+  "required": [
+    "msg_version",
+    "generator",
+    "summary",
+    "nodes",
+    "edges",
+    "issues",
+    "errors",
+    "files"
+  ],
+  "properties": {
+    "msg_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "MSG format version: readers accept any 1.x"
+    },
+    "generator": {
+      "type": "string",
+      "description": "The MCN version that produced it"
+    },
+    "root": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/issue"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "file"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]+:.+$",
+          "description": "kind:name, unique in the app"
+        },
+        "kind": {
+          "enum": [
+            "table",
+            "service",
+            "endpoint",
+            "function",
+            "contract",
+            "test",
+            "workflow",
+            "schedule",
+            "component",
+            "app",
+            "module"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "span": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "start_line",
+                "end_line"
+              ],
+              "properties": {
+                "start_line": {
+                  "type": "integer"
+                },
+                "end_line": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "ast_ref": {
+          "type": "string",
+          "pattern": "^[^#]+#(/[A-Za-z0-9_]+)+$",
+          "description": "file#JSON-pointer into files[file].ast"
+        },
+        "module": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "object",
+          "required": [
+            "params"
+          ],
+          "properties": {
+            "params": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "auth": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tested": {
+          "type": "boolean"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "from",
+        "to",
+        "kind"
+      ],
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "contains",
+            "calls",
+            "uses",
+            "renders",
+            "shows",
+            "covers",
+            "reads",
+            "writes",
+            "owns"
+          ]
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "required": [
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "note"
+          ]
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": [
+        "sha256",
+        "lines"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "lines": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "ast": {
+          "$ref": "#/$defs/ast_node"
+        }
+      }
+    },
+    "ast_node": {
+      "type": "object",
+      "required": [
+        "$type"
+      ],
+      "properties": {
+        "$type": {
+          "enum": [
+            "AgentDecl",
+            "AgentTaskDecl",
+            "AppDecl",
+            "Array",
+            "ArrowFunc",
+            "AssertStmt",
+            "AssignStmt",
+            "Binary",
+            "BreakStmt",
+            "Call",
+            "ComponentDecl",
+            "ComponentStateDecl",
+            "CompoundAssignStmt",
+            "ContinueStmt",
+            "ContractDecl",
+            "ContractField",
+            "EndpointDecl",
+            "ExprStmt",
+            "ForStmt",
+            "FunctionDecl",
+            "IfStmt",
+            "IncludeStmt",
+            "Index",
+            "IndexAssignStmt",
+            "LayoutBlock",
+            "Literal",
+            "MCNObject",
+            "MCNTuple",
+            "MCPServerDecl",
+            "MCPToolDecl",
+            "ModuleDecl",
+            "NamedArg",
+            "NavItem",
+            "Node",
+            "OnHandler",
+            "PipelineDecl",
+            "Program",
+            "PromptDecl",
+            "Property",
+            "PropertyAssignStmt",
+            "RenderBlock",
+            "ReturnStmt",
+            "RouteItem",
+            "ScheduleDecl",
+            "ServiceDecl",
+            "StageDecl",
+            "StepDecl",
+            "TabItem",
+            "TaskStmt",
+            "TernaryExpr",
+            "TestDecl",
+            "ThrowStmt",
+            "TryStmt",
+            "UIAttr",
+            "UIElement",
+            "Unary",
+            "UseStmt",
+            "VarDecl",
+            "Variable",
+            "WhileStmt",
+            "WorkflowDecl"
+          ]
+        },
+        "line": {
+          "type": "integer"
+        },
+        "col": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/ast_value"
+      }
+    },
+    "ast_value": {
+      "oneOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ast_value"
+          }
+        },
+        {
+          "$ref": "#/$defs/ast_node"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$map"
+          ],
+          "properties": {
+            "$map": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/ast_value"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "$tuple"
+          ],
+          "properties": {
+            "$tuple": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ast_value"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

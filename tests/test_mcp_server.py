@@ -43,8 +43,8 @@ def test_handshake_and_tools(app):
     assert rpc(server, "initialize", {"protocolVersion": "1999-01-01"})["protocolVersion"] == "2025-06-18"
     assert server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     tools = {t["name"]: t for t in rpc(server, "tools/list")["tools"]}
-    assert set(tools) == {"inspect", "find", "explain", "create", "modify", "remove", "validate", "test", "show",
-                          "patches", "language_guide"}
+    assert set(tools) == {"inspect", "semantic_graph", "find", "explain", "create", "modify", "remove", "validate",
+                          "test", "show", "patches", "language_guide"}
     assert tools["explain"]["annotations"]["readOnlyHint"] and not tools["modify"]["annotations"]["readOnlyHint"]
     assert tools["create"]["inputSchema"]["required"] == ["kind", "source"]
     assert rpc(server, "ping") == {}

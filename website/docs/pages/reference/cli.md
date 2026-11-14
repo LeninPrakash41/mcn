@@ -33,7 +33,7 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn fmt <file or folder>` | Print formatted code |
 | `mcn fmt --write <path>` | Format in place |
 | `mcn fmt --check <path>` | Exit 1 if anything needs formatting (for CI) |
-| `mcn describe [folder] [--json] [--strict]` | Map the app: tables, endpoints, screens, tests and how they connect, plus problems such as calls to missing endpoints. See [building with AI agents](#/guide/ai-agents) |
+| `mcn describe [folder] [--json] [--strict] [--msg [--no-ast]] [--msg-schema]` | Map the app: tables, endpoints, screens, tests and how they connect, plus problems such as calls to missing endpoints. `--msg` gives the MCN Semantic Graph (versioned JSON with every file's syntax tree); `--msg-schema` its JSON Schema. See [building with AI agents](#/guide/ai-agents) |
 | `mcn impact <name>... \| --changed [--base REF] [--module NAME] [--json]` | What changing a table, endpoint, function, screen or module would affect, and which tests cover it. With `--module`, exit code 1 if anything outside that module changed |
 
 ## Full stack
@@ -41,11 +41,11 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | Command | What it does |
 |---|---|
 | `mcn build <ui-file> [--out frontend]` | Compile MCN components to a React + Vite + Tailwind + shadcn/ui project |
-| `mcn generate "<description>"` | Write a backend and UI with Claude, then validate them. Options: `--out DIR`, `--port`, `--build`, `--model` |
+| `mcn generate "<description>"` | Write a backend and UI with Claude, then validate them. Options: `--out DIR`, `--port`, `--build`, and `--provider`, `--model`, `--api-key`, `--base-url` to pick any model with tool calling |
 | `mcn generate --team "<description>"` | Have the agent team research, plan, design, build and test the app; an app with several areas is built as modules, in parallel. `--no-research` skips web search. See [the agent team](#/guide/ai) |
 | `mcn op <operation> [args] [--dir DIR] [--json]` | The agent interface: `inspect`, `find`, `explain`, `create`, `modify`, `remove` (build a patch), `validate`, `test`, `show`, `patches`, `execute --yes`. Options: `--source FILE\|-`, `--patch ID`, `--module`, `--service`, `--nav`, `--reason`, `--strict`. See [building with AI agents](#/guide/ai-agents) |
 | `mcn mcp [--dir DIR] [--allow-execute] [--print-config]` | Serve the agent interface over MCP (stdio) for Claude Code, Claude Desktop, Cursor and other agents. `execute` is offered only with `--allow-execute`; `--print-config` prints the client settings JSON |
-| `mcn change "<request>" [--dir DIR] [--yes]` | An AI agent changes the app through the agent interface: it builds a patch, validates and tests it, and you approve it before it's written |
+| `mcn change "<request>" [--dir DIR] [--yes] [--provider P] [--model M]` | An AI agent changes the app through the agent interface: it builds a patch, validates and tests it, and you approve it before it's written |
 | `mcn deploy --target vercel [--name] [--prod]` | Put the React app and its backend (at `/api`) on Vercel. `--stage-only` writes the Vercel project without uploading. See [deploying](#/guide/deploy) |
 | `mcn deploy --target aws [--region R] [--name]` | Run the app on AWS App Runner in your account, in the region you choose |
 | `mcn deploy --target cloudflare [--name]` | Serve the web app from Cloudflare and run the API in a Cloudflare container |

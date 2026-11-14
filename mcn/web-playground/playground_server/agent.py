@@ -1,11 +1,9 @@
 """AI coding agent endpoints and app generation (SSE)."""
-import os
 import queue
 import threading
 from flask import Blueprint
 from .core import (
     Response,
-    _load_config,
     _request_workspace,
     _sse,
     jsonify,
@@ -14,6 +12,15 @@ from .core import (
 )
 
 bp = Blueprint("agent", __name__)
+
+
+def _agent_model(data: dict):
+    """The model for MCN's agents (Claude, OpenAI, Gemini, a local model...), or (None, error response)."""
+    from mcn.ai.llm import ModelError, get_provider
+    try:
+        return get_provider(api_key=(data.get("api_key") or "").strip() or None), None
+    except ModelError as exc:
+        return None, (jsonify({"error": str(exc)}), 400)
 
 @bp.route("/api/agent/verify", methods=["POST"])
 def agent_verify_endpoint():
@@ -84,17 +91,14 @@ def generate_mcn():
     data        = request.get_json(silent=True) or {}
     description = data.get("description", "").strip()
     attachments = data.get("attachments", []) or []
-    api_key     = (data.get("api_key") or "").strip() \
-                  or _load_config().get("api_key") \
-                  or os.getenv("ANTHROPIC_API_KEY") \
-                  or os.getenv("OPENAI_API_KEY")
 
     if not description and not attachments:
         return jsonify({"error": "Missing 'description' or 'attachments'"}), 400
     if not description and attachments:
         description = f"Build a complete full-stack application according to the {len(attachments)} attached specification documents, flowcharts, and Figma design mockups."
-    if not api_key:
-        return jsonify({"error": "No API key found. Enter your Claude API key in the modal or run: mcn config set api_key sk-ant-..."}), 400
+    model, problem = _agent_model(data)
+    if problem:
+        return problem
 
     ws = _request_workspace()
     token_queue: queue.Queue = queue.Queue()
@@ -102,35 +106,8 @@ def generate_mcn():
 
     def _agent_thread():
         try:
-            try:
-                from mcn.ai.mcn_agent import MCNAgent, GENERATION_EFFORT, raise_if_refused
-                from mcn.ai.mcn_spec  import MCN_SYSTEM_PROMPT
-            except ImportError:
-                from ai.mcn_agent import MCNAgent, GENERATION_EFFORT, raise_if_refused  # type: ignore
-                from ai.mcn_spec  import MCN_SYSTEM_PROMPT  # type: ignore
-
-            agent = MCNAgent(api_key=api_key)
-
-            # ── Patch _call_claude so every token goes into the SSE queue ──
-            original_call = agent._call_claude.__func__  # unbound method
-
-            def _streaming_call(self_inner, prompt, system, verbose):
-                chunks = []
-                with self_inner.client.messages.stream(
-                    model=self_inner.model,
-                    max_tokens=64000,  # thinking tokens count toward this cap
-                    output_config={"effort": GENERATION_EFFORT},
-                    system=system,
-                    messages=[{"role": "user", "content": prompt}],
-                ) as stream:
-                    for text in stream.text_stream:
-                        chunks.append(text)
-                        token_queue.put({"type": "token", "text": text})
-                    raise_if_refused(stream.get_final_message())
-                return "".join(chunks)
-
-            import types
-            agent._call_claude = types.MethodType(_streaming_call, agent)
+            from mcn.ai.mcn_agent import MCNAgent
+            agent = MCNAgent(provider=model, on_text=lambda text: token_queue.put({"type": "token", "text": text}))
 
             status_msg = f"Generating MCN app with {len(attachments)} attachment(s)…" if attachments else "Generating MCN app…"
             token_queue.put({"type": "status", "text": status_msg})
@@ -183,17 +160,17 @@ def generate_mcn():
 
 @bp.route("/api/agent/team", methods=["POST"])
 def agent_team():
-    """Research, plan, design, build and test an app with a team of Claude agents, streaming progress."""
+    """Research, plan, design, build and test an app with the agent team, streaming progress."""
     data        = request.get_json(silent=True) or {}
     description = (data.get("description") or "").strip()
     attachments = data.get("attachments") or []
-    api_key     = (data.get("api_key") or "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
     if not description and not attachments:
         return jsonify({"error": "Describe the app the team should build"}), 400
     if not description:
         description = "Build a complete full-stack application according to the attached documents and designs."
-    if not api_key:
-        return jsonify({"error": "No API key found. Enter your Claude API key or run: mcn config set api_key sk-ant-..."}), 400
+    model, problem = _agent_model(data)
+    if problem:
+        return problem
 
     ws = _request_workspace()
     preview_url = request.host_url.rstrip("/") + "/preview/"
@@ -206,7 +183,7 @@ def agent_team():
             from . import browser_qa
             from .devserver import _start_backend
             check = browser_qa.make_check(preview_url, _start_backend) if data.get("browser", True) else None
-            team = AgentTeam(api_key=api_key, emit=events.put, web_research=bool(data.get("research", True)),
+            team = AgentTeam(provider=model, emit=events.put, web_research=bool(data.get("research", True)),
                              browser_check=check)
             result_box[0] = team.run(description, str(ws), attachments=attachments)
         except Exception as exc:
@@ -267,11 +244,11 @@ def agent_change():
     prompt  = (data.get("prompt") or "").strip()
     area    = data.get("area") if data.get("area") in _AREAS else None
     mode    = "ask" if data.get("mode") == "ask" else "change"
-    api_key = (data.get("api_key") or "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
     if not prompt:
         return jsonify({"error": "Describe the change"}), 400
-    if not api_key:
-        return jsonify({"error": "No API key found. Enter your Claude API key or run: mcn config set api_key sk-ant-..."}), 400
+    model, problem = _agent_model(data)
+    if problem:
+        return problem
     ws = _request_workspace()
     if not any(ws.rglob("*.mcn")):
         return jsonify({"error": "There's no app in this workspace yet. Generate one first."}), 400
@@ -283,7 +260,7 @@ def agent_change():
         try:
             from mcn.ai.change_agent import ChangeAgent
             from mcn.core_engine.agent_interface import Workspace
-            agent = ChangeAgent(api_key=api_key, emit=events.put)
+            agent = ChangeAgent(provider=model, emit=events.put)
             if mode == "ask":
                 result = agent.ask(prompt, str(ws))
             else:

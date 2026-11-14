@@ -22,6 +22,7 @@ FEATURES = {
     "iot":       "real hardware for device(): Raspberry Pi pins, Arduino/ESP32 over USB, MQTT",
     "browser-qa": "the agent team's browser check: Studio opens every screen of a generated app in headless Chrome",
     "sso":       "single sign-on for services (auth \"sso\"): Okta, Microsoft Entra ID, Google Workspace and other OIDC providers",
+    "pdf":       "PDF attachments for the AI agents when they use a model other than Claude (Claude reads PDFs itself)",
 }
 
 _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source checkouts
@@ -31,6 +32,7 @@ _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source chec
     "scheduler": ["apscheduler>=3.10.0"],
     "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
     "sso": ["cryptography>=42.0"],
+    "pdf": ["pypdf>=4.0"],
     "browser-qa": ["playwright>=1.45"],
 }
 

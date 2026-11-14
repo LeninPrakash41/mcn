@@ -3,7 +3,7 @@
 //   Change   the agent edits the app through the agent interface and returns a patch to review
 //   Ask      the agent answers questions using only the read-only operations
 //   New app  the agent team plans, builds and tests a whole app
-// Cmd/Ctrl+L opens it. The Claude key, if typed here, is kept in memory only.
+// Cmd/Ctrl+L opens it. An API key typed here is kept in memory only; any model with tool calling works.
 
 const AP_MODES = {
   change: {
@@ -223,9 +223,9 @@ async function sendAgentMessage() {
     else await _apChange(text, msg, steps)
   } catch (e) {
     steps.finish()
-    if (e.status === 400 && /API key/i.test(e.message)) {
+    if (e.status === 400 && /API key|No AI model/i.test(e.message)) {
       document.getElementById('ap-key-row').classList.remove('hidden')
-      msg.appendChild(_el('div', 'ap-error', 'Add your Claude API key below, then send again.'))
+      msg.appendChild(_el('div', 'ap-error', 'Add an API key below (Claude, OpenAI, Gemini or OpenRouter), then send again. To use a local model, set it up with mcn config set ai_provider ollama.'))
       input.value = text
       _apResize()
     } else {

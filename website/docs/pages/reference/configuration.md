@@ -6,10 +6,14 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 
 | Variable | Default | Effect |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | Enables real AI calls, Studio's Copilot and `mcn generate`. Without it, AI functions return mock replies |
+| `ANTHROPIC_API_KEY` | — | Enables real AI calls with Claude and lets MCN's agents use Claude. Without any key, AI functions return mock replies |
 | `MCN_AI_MODEL` | `claude-opus-5-5` | Model for `ai()`, `classify()`, `extract()` and `rag()` |
-| `MCN_CLAUDE_MODEL` | `claude-opus-5-5` | Model for the Copilot and `mcn generate` |
-| `OPENAI_API_KEY` | — | Use OpenAI embeddings for `embed()` and vector search |
+| `MCN_CLAUDE_MODEL` | `claude-opus-5-5` | Claude model for MCN's agents (`mcn change`, `mcn generate`, the agent team, Studio's Agent) |
+| `MCN_AGENT_PROVIDER` | the key you have | Which model provider MCN's agents use: `anthropic`, `openai`, `gemini`, `openrouter`, `ollama` or `compatible` (config: `ai_provider`). See [choosing the model](#/guide/ai-agents) |
+| `MCN_AGENT_MODEL` | the provider's | The agents' model name (config: `ai_model`) |
+| `MCN_AGENT_BASE_URL` | — | An OpenAI-compatible server for the agents (config: `ai_base_url`) |
+| `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | — | Let the agents use Gemini or OpenRouter |
+| `OPENAI_API_KEY` | — | Use OpenAI embeddings for `embed()` and vector search, and lets MCN's agents use OpenAI |
 | `OLLAMA_URL` | — | Use a local Ollama server for embeddings |
 
 ## Runtime

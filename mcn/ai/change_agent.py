@@ -12,14 +12,11 @@ diff, what it affects and the test results, and only applied when they approve.
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Callable, Dict, List, Optional
-
-import anthropic
 
 from mcn.core_engine.agent_interface import AGENT_TOOLS, Workspace, call_tool
 
-from .mcn_agent import DEFAULT_MODEL, raise_if_refused
+from .llm import DEFAULT_CLAUDE_MODEL, AnthropicProvider, Provider, get_provider
 from .mcn_spec import MCN_SYSTEM_PROMPT
 
 MAX_TURNS = 40
@@ -46,16 +43,22 @@ _ASK_INSTRUCTIONS = """You answer a developer's questions about their MCN app. U
 briefly, naming the screens, endpoints and tables involved (with file:line where it helps). You can't change
 anything; if they ask for a change, say what you'd change and suggest Change mode."""
 
-READ_ONLY_TOOLS = ("inspect", "find", "explain")
+READ_ONLY_TOOLS = ("inspect", "semantic_graph", "find", "explain")
 
 Emit = Callable[[Dict[str, Any]], None]
 
 
 class ChangeAgent:
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL, emit: Optional[Emit] = None,
-                 client: Optional[anthropic.Anthropic] = None):
-        self.client = client or anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
-        self.model = model
+    """Works with any model that can call tools (see mcn.ai.llm)."""
+
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, emit: Optional[Emit] = None,
+                 client: Any = None, provider: Any = None, base_url: Optional[str] = None):
+        if isinstance(provider, Provider):
+            self.llm = provider
+        elif client is not None:                     # an Anthropic client (tests pass a fake one)
+            self.llm = AnthropicProvider(model or DEFAULT_CLAUDE_MODEL, client=client)
+        else:
+            self.llm = get_provider(provider, model, api_key, base_url)
         self.emit: Emit = emit or (lambda event: None)
 
     def ask(self, question: str, app_dir: str) -> Dict[str, Any]:
@@ -74,14 +77,11 @@ class ChangeAgent:
         patch_id: Optional[str] = None
         text = ""
         for _ in range(MAX_TURNS):
-            message = self.client.messages.create(
-                model=self.model, max_tokens=16000, system=system, tools=tools, messages=messages,
-                thinking={"type": "adaptive"}, output_config={"effort": "high"})
-            raise_if_refused(message)
-            messages.append({"role": "assistant", "content": message.content})
-            text = "".join(b.text for b in message.content if getattr(b, "type", "") == "text").strip()
-            uses = [b for b in message.content if getattr(b, "type", "") == "tool_use"]
-            if message.stop_reason != "tool_use" or not uses:
+            reply = self.llm.complete(system, messages, tools=tools, max_tokens=16000, effort="high")
+            messages.append({"role": "assistant", "reply": reply})
+            text = reply.text
+            uses = reply.tool_calls
+            if reply.stop != "tool_use" or not uses:
                 break
             results = []
             for use in uses:
@@ -98,9 +98,8 @@ class ChangeAgent:
                 body = json.dumps(result, default=str)
                 if len(body) > MAX_RESULT_CHARS:
                     body = body[:MAX_RESULT_CHARS] + '..." (cut short)'
-                results.append({"type": "tool_result", "tool_use_id": use.id, "content": body,
-                                **({"is_error": True} if _error(result) else {})})
-            messages.append({"role": "user", "content": results})
+                results.append({"id": use.id, "content": body, "is_error": bool(_error(result))})
+            messages.append({"role": "tool_results", "results": results})
         for line in text.splitlines():
             if line.strip().startswith("PATCH "):
                 patch_id = line.strip().split(None, 1)[1].strip() or patch_id

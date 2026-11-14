@@ -212,8 +212,8 @@ def test_a_patch_for_one_module_stays_inside_it(app):
 
 
 def test_tools_for_claude(app):
-    assert {t["name"] for t in AGENT_TOOLS} == {"inspect", "find", "explain", "create", "modify", "remove",
-                                                "validate", "test"}          # execute is for people only
+    assert {t["name"] for t in AGENT_TOOLS} == {"inspect", "semantic_graph", "find", "explain", "create", "modify",
+                                                "remove", "validate", "test"}          # execute is for people only
     ws = Workspace(app)
     assert call_tool(ws, "explain", {"target": "nope"})["error"].startswith("Nothing called 'nope'")
     assert call_tool(ws, "execute", {"patch": "x"}) == {"error": "Unknown operation 'execute'"}
@@ -306,12 +306,13 @@ def test_change_agent_works_through_the_interface(app):
 
 def test_mcn_change_asks_before_applying(app, capsys, monkeypatch):
     from mcn.ai import change_agent
+    from mcn.ai import llm as change_agent_llm
     from mcn.core_engine.mcn_cli import main
     steps = [
         [("modify", {"target": "create_order", "source": VERIFIED_ORDER})],
         lambda kw: f"Done.\nPATCH {_last_patch(kw)}",
     ]
-    monkeypatch.setattr(change_agent.anthropic, "Anthropic", lambda **kw: ScriptedClaude(list(steps)))
+    monkeypatch.setattr(change_agent_llm.anthropic, "Anthropic", lambda **kw: ScriptedClaude(list(steps)))
     monkeypatch.setattr(sys, "argv", ["mcn", "change", "verify customers", "--dir", str(app), "--api-key", "k"])
     monkeypatch.setattr("builtins.input", lambda prompt: "n")
     assert main() == 0
@@ -328,6 +329,7 @@ def test_mcn_change_asks_before_applying(app, capsys, monkeypatch):
 def test_studio_changes_go_through_a_reviewed_patch(monkeypatch):
     import shutil
     from mcn.ai import change_agent
+    from mcn.ai import llm as change_agent_llm
     from playground_app import load, quiet
     module, client = load()
     ws = Path(module.app.config["WORKSPACE"])
@@ -347,7 +349,7 @@ def test_studio_changes_go_through_a_reviewed_patch(monkeypatch):
         ])
         seen.append(scripted)
         return scripted
-    monkeypatch.setattr(change_agent.anthropic, "Anthropic", claude)
+    monkeypatch.setattr(change_agent_llm.anthropic, "Anthropic", claude)
     try:
         res = quiet(client.post, "/api/agent/change", json={"prompt": "verify customers", "api_key": "k", "area": "backend"})
         events = [json.loads(l[5:]) for l in res.get_data(as_text=True).split("\n\n") if l.startswith("data:")]
@@ -382,7 +384,7 @@ def test_ask_mode_only_reads(app):
     ])
     result = ChangeAgent(client=client).ask("What does create_order do?", str(app))
     assert result["summary"].startswith("create_order writes") and result["patch"] is None
-    assert [t["name"] for t in client.requests[0]["tools"]] == ["inspect", "find", "explain"]
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["inspect", "semantic_graph", "find", "explain"]
     refused = json.loads(client.requests[1]["messages"][2]["content"][1]["content"])
     assert "isn't available when answering questions" in refused["error"]
     assert not (app / ".mcn" / "patches").exists()                  # nothing was even proposed

@@ -272,12 +272,15 @@ mcn impact orders            # what changing the orders table would affect, and 
 mcn impact --changed         # the same for everything changed since the last commit
 mcn impact --changed --module billing   # fail if a change went outside the billing module
 mcn check --strict backend/main.mcn     # every endpoint parameter has a type
+mcn describe --msg --no-ast             # the MCN Semantic Graph: the whole app as versioned JSON
 mcn op explain create_order             # what it does, what uses it, which tests cover it
 mcn change "Verify the customer before creating an order"   # AI builds a checked patch; you approve it
 claude mcp add mcn -- mcn mcp --dir .   # the same operations for Claude Code, Cursor or any MCP client
 ```
 
 Endpoint parameters can be typed (`amount: float`, `who: Customer`) and are checked on every call. `module` blocks own their tables, so several agents can each work on one module of the same app; the agent team builds an app's modules in parallel.
+
+MCN's agents work with any model that can call tools: Claude, OpenAI, Gemini, OpenRouter, a local model in Ollama, or any OpenAI-compatible server (`--provider`, or `mcn config set ai_provider ...`).
 
 The agent interface (`mcn op`) lets an agent change an app through operations (inspect, find, explain, create, modify, remove) that build a patch, instead of rewriting files. A patch is validated against the app map, tested against a fresh database, and written only when someone approves it.
 

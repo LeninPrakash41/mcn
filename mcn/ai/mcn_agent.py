@@ -1,6 +1,6 @@
 """
-MCN Agent — Claude-powered code generator.
-Converts a natural-language description into a complete MCN application.
+MCN Agent: turns a natural-language description into a complete MCN application.
+Works with any model that the agents can use (see mcn.ai.llm).
 """
 
 from __future__ import annotations
@@ -10,15 +10,13 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-import anthropic
-
+from .llm import DEFAULT_CLAUDE_MODEL, AnthropicProvider, ModelError, Provider, get_provider
 from .mcn_spec import MCN_SYSTEM_PROMPT, MCN_FIX_PROMPT
 
-# Single source of truth for the Claude model used by MCN's AI agents.
-# Override with MCN_CLAUDE_MODEL (e.g. a model your API key has access to).
-DEFAULT_MODEL = os.getenv("MCN_CLAUDE_MODEL", "claude-opus-5-5")
+# The default Claude model for MCN's agents; MCN_CLAUDE_MODEL overrides it. Other models: mcn.ai.llm.
+DEFAULT_MODEL = DEFAULT_CLAUDE_MODEL
 # Code generation is quality-sensitive; Opus 5.5 defaults to "medium" effort.
 GENERATION_EFFORT = "high"
 
@@ -73,16 +71,22 @@ class MCNAgent:
 
     Usage
     -----
-    agent = MCNAgent()                          # reads ANTHROPIC_API_KEY from env
+    agent = MCNAgent()                          # the configured model (see mcn.ai.llm)
     result = agent.generate("A todo-list app", output_dir="./todo_app")
     print(result["backend_path"], result["ui_path"])
     """
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
-        self.client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
-        self.model  = model
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, provider: Any = None,
+                 client: Any = None, base_url: Optional[str] = None, on_text=None):
+        if isinstance(provider, Provider):
+            self.llm = provider
+        elif client is not None:                     # an Anthropic client
+            self.llm = AnthropicProvider(model or DEFAULT_MODEL, client=client)
+        else:
+            self.llm = get_provider(provider, model, api_key, base_url)
+        self.on_text = on_text                       # called with each piece of generated text
 
     # ------------------------------------------------------------------
     # Public API
@@ -130,7 +134,7 @@ class MCNAgent:
                 att_info = f" with {len(attachments)} attachment(s)" if attachments else ""
                 if verbose:
                     print(f"\n[MCN Agent] Generating MCN for: {description!r}{att_info}\n")
-                raw = self._call_claude(prompt, system=MCN_SYSTEM_PROMPT, verbose=verbose)
+                raw = self._call_model(prompt, system=MCN_SYSTEM_PROMPT, verbose=verbose)
             else:
                 if verbose:
                     print(f"\n[MCN Agent] Self-correcting (attempt {attempt}) …\n")
@@ -259,14 +263,7 @@ class MCNAgent:
 
             if mime == "application/pdf" or name.lower().endswith(".pdf"):
                 file_summaries.append(f"- [PDF / Requirements / BRD] {name}")
-                content_blocks.append({
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": raw_data,
-                    },
-                })
+                content_blocks.append({"type": "pdf", "name": name, "data": raw_data})
             elif mime in ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif") or any(
                 name.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp", ".gif")
             ):
@@ -278,14 +275,7 @@ class MCNAgent:
                     else (mime or "image/png")
                 )
                 file_summaries.append(f"- [Image / Figma / Flowchart UI] {name}")
-                content_blocks.append({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": img_media,
-                        "data": raw_data,
-                    },
-                })
+                content_blocks.append({"type": "image", "media_type": img_media, "data": raw_data})
             else:
                 # Text, Markdown, JSON, SVG, CSV, etc.
                 file_summaries.append(f"- [Specification File] {name}")
@@ -318,27 +308,18 @@ class MCNAgent:
         content_blocks.append({"type": "text", "text": instruction_text})
         return content_blocks
 
-    def _call_claude(self, prompt: str | list[dict], system: str, verbose: bool) -> str:
-        """Stream a Claude response and return the full text."""
-        chunks: list[str] = []
-
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=64000,  # thinking tokens count toward this cap
-            output_config={"effort": GENERATION_EFFORT},
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for text in stream.text_stream:
-                chunks.append(text)
-                if verbose:
-                    print(text, end="", flush=True)
-            raise_if_refused(stream.get_final_message())
-
+    def _call_model(self, prompt: str | list[dict], system: str, verbose: bool) -> str:
+        """Stream the model's answer and return the full text."""
+        def on_text(text):
+            if self.on_text:
+                self.on_text(text)
+            if verbose:
+                print(text, end="", flush=True)
+        reply = self.llm.complete(system, [{"role": "user", "content": prompt}],
+                                  max_tokens=64000, effort=GENERATION_EFFORT, on_text=on_text)
         if verbose:
-            print()  # newline after stream ends
-
-        return "".join(chunks)
+            print()
+        return reply.text
 
     def _fix_mcn(
         self,
@@ -357,7 +338,7 @@ class MCNAgent:
         )
 
         # Use full spec as system so the fix knows all the rules
-        return self._call_claude(fix_prompt, system=MCN_SYSTEM_PROMPT + "\n\n" + MCN_FIX_PROMPT, verbose=verbose)
+        return self._call_model(fix_prompt, system=MCN_SYSTEM_PROMPT + "\n\n" + MCN_FIX_PROMPT, verbose=verbose)
 
     @staticmethod
     def _write(path: Path, content: str) -> Path:

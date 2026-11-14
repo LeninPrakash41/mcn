@@ -6,7 +6,7 @@ through checked patches.
     mcn mcp --dir ./my-app                  # speaks MCP over stdin/stdout
     mcn mcp --dir ./my-app --print-config   # the JSON to paste into a client's settings
 
-Tools: inspect, find, explain, create, modify, remove, validate, test, show, patches
+Tools: inspect, semantic_graph, find, explain, create, modify, remove, validate, test, show, patches
 and language_guide (MCN's syntax, for agents that haven't seen MCN). `execute`, which
 writes a patch to the files, is only offered with --allow-execute; otherwise the
 person applies a reviewed patch with `mcn op execute <id> --yes`.
@@ -31,7 +31,7 @@ request touches, make the change as one patch with create/modify/remove (pass th
 add a test, validate and test the patch until both pass, and show the diff to the user.
 Applying the patch is the user's decision."""
 
-_READ_ONLY = {"inspect", "find", "explain", "validate", "test", "show", "patches", "language_guide"}
+_READ_ONLY = {"inspect", "semantic_graph", "find", "explain", "validate", "test", "show", "patches", "language_guide"}
 
 _EXTRA_TOOLS: List[Dict[str, Any]] = [
     {"name": "show", "description": "A patch's diff, operations, validation and test results.",

@@ -536,7 +536,7 @@ def test_generate_missing_api_key(r):
     """Without any API key source, should return 400."""
     with patch.dict(os.environ, {}, clear=True):
         # Also clear config
-        with patch("playground_server.agent._load_config", return_value={}):
+        with patch("mcn.ai.llm._config", return_value={}):
             with app.test_client() as c:
                 res  = c.post("/api/generate",
                               data=json.dumps({"description": "a todo app", "api_key": ""}),
@@ -687,10 +687,10 @@ def test_mcn_agent_multimodal_prompt(r):
     blocks = agent._build_prompt("Build user portal", port=8080, attachments=attachments)
     r.check(isinstance(blocks, list), "returns list of content blocks")
     r.check(len(blocks) == 4, f"expected 4 blocks, got {len(blocks)}")
-    r.check(blocks[0]["type"] == "document", "first block is document")
-    r.check(blocks[0]["source"]["media_type"] == "application/pdf", "media_type is application/pdf")
+    # Neutral parts: each model adapter turns them into its own format
+    r.check(blocks[0] == {"type": "pdf", "name": "requirements.pdf", "data": fake_pdf}, "first block is the PDF")
     r.check(blocks[1]["type"] == "image", "second block is image")
-    r.check(blocks[1]["source"]["media_type"] == "image/png", "media_type is image/png")
+    r.check(blocks[1]["media_type"] == "image/png", "media_type is image/png")
     r.check(blocks[2]["type"] == "text", "third block is decoded text")
     r.check("CRUD for users" in blocks[2]["text"], "text attachment content decoded")
     r.check(blocks[3]["type"] == "text", "fourth block is instruction text")

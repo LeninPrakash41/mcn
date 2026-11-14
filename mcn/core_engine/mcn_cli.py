@@ -407,7 +407,20 @@ def _cmd_config(args) -> int:
     return 1
 
 
-def _cmd_generate_team(args, api_key: str) -> int:
+def _agent_model(args):
+    """The model for MCN's agents from --provider/--model/--api-key/--base-url, config or env; None after printing why."""
+    from mcn.ai.llm import ModelError, describe, get_provider
+    try:
+        model = get_provider(getattr(args, "provider", None), getattr(args, "model", None),
+                             getattr(args, "api_key", None), getattr(args, "base_url", None))
+    except ModelError as exc:
+        print(f"Error: {exc}")
+        return None
+    print(f"Using {describe(model)}")
+    return model
+
+
+def _cmd_generate_team(args, model) -> int:
     """mcn generate --team: plan, design, build and check the app with the agent team."""
     from mcn.ai.agent_team import AgentTeam
     names = {"researcher": "Researcher", "architect": "Architect", "designer": "Designer",
@@ -428,8 +441,9 @@ def _cmd_generate_team(args, api_key: str) -> int:
         elif ev.get("type") == "token" and not args.quiet:
             pass                                # the builder's code is long; the files are the result
 
-    team = AgentTeam(api_key=api_key, emit=emit, web_research=args.research,
-                     **({"model": args.model} if args.model else {}))
+    if args.research and not model.supports_web_search:
+        print(f"(The researcher works without web search: {model.name} doesn't offer it to agents)")
+    team = AgentTeam(provider=model, emit=emit, web_research=args.research)
     try:
         result = team.run(args.description, args.out)
     except Exception as exc:
@@ -553,9 +567,8 @@ def _cmd_op(args) -> int:
 def _cmd_change(args) -> int:
     """mcn change "<request>": an AI agent changes the app through the agent interface; you approve the patch."""
     from .agent_interface import InterfaceError, Workspace
-    api_key = getattr(args, "api_key", None) or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("Error: No Claude API key found. Run: mcn config set api_key sk-ant-...")
+    model = _agent_model(args)
+    if model is None:
         return 1
     from mcn.ai.change_agent import ChangeAgent
 
@@ -566,7 +579,7 @@ def _cmd_change(args) -> int:
         elif ev["type"] == "result" and ev.get("error"):
             print(f"    {ev['error']}")
 
-    agent = ChangeAgent(api_key=api_key, emit=emit, **({"model": args.model} if args.model else {}))
+    agent = ChangeAgent(provider=model, emit=emit)
     try:
         result = agent.run(args.request, args.dir)
     except Exception as exc:
@@ -615,22 +628,11 @@ def _cmd_generate(args) -> int:
     MCN application (backend/main.mcn + ui/app.mcn), validates both files,
     and optionally compiles the React frontend.
 
-    API key resolution order:
-      1. --api-key flag
-      2. ~/.mcn/config.json  (set with: mcn config set api_key sk-ant-...)
-      3. ANTHROPIC_API_KEY env var
+    The model: --provider/--model/--api-key/--base-url, then ~/.mcn/config.json
+    (ai_provider, ai_model, api_key...), then environment variables (see mcn.ai.llm).
     """
-    cfg = _load_config()
-    api_key = (
-        getattr(args, "api_key", None)
-        or cfg.get("api_key")
-        or os.getenv("ANTHROPIC_API_KEY")
-    )
-    if not api_key:
-        print("Error: No Claude API key found.")
-        print("  Option 1 (recommended): mcn config set api_key sk-ant-...")
-        print("  Option 2 (one-time):    mcn generate ... --api-key sk-ant-...")
-        print("  Option 3 (env var):     export ANTHROPIC_API_KEY=sk-ant-...")
+    model = _agent_model(args)
+    if model is None:
         return 1
 
     try:
@@ -647,9 +649,9 @@ def _cmd_generate(args) -> int:
         return 1
 
     if getattr(args, "team", False):
-        return _cmd_generate_team(args, api_key)
+        return _cmd_generate_team(args, model)
 
-    agent = MCNAgent(api_key=api_key, **({"model": args.model} if args.model else {}))
+    agent = MCNAgent(provider=model)
     verbose = not args.quiet
 
     if getattr(args, "build", False):
@@ -926,6 +928,17 @@ def _cmd_agent(args) -> int:
         return 1
 
 
+def _model_options(parser) -> None:
+    """--provider/--model/--api-key/--base-url: which model MCN's agents use (any model with tool calling)."""
+    parser.add_argument("--provider", default=None,
+                        help="anthropic, openai, gemini, openrouter, ollama or compatible (default: config, env, "
+                             "or whichever API key is set)")
+    parser.add_argument("--model", default=None, help="Model name (default: the provider's, or ai_model in config)")
+    parser.add_argument("--api-key", dest="api_key", default=None, help="API key for the provider")
+    parser.add_argument("--base-url", dest="base_url", default=None,
+                        help="For an OpenAI-compatible server: its address, e.g. http://localhost:8000/v1")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="MCN (Macincode Scripting Language) CLI v2.0"
@@ -1080,14 +1093,7 @@ def main():
         "--build", action="store_true",
         help="Also run `mcn build` on the generated UI after writing files"
     )
-    gen_parser.add_argument(
-        "--model", default=None,
-        help="Claude model to use (default: $MCN_CLAUDE_MODEL, else claude-opus-5-5)"
-    )
-    gen_parser.add_argument(
-        "--api-key", dest="api_key", default=None,
-        help="Claude API key (overrides config file and env var)"
-    )
+    _model_options(gen_parser)
     gen_parser.add_argument(
         "--quiet", "-q", action="store_true",
         help="Suppress streaming output"
@@ -1187,6 +1193,10 @@ def main():
     describe_parser.add_argument("path", nargs="?", default=".", help="Project folder or .mcn file (default: .)")
     describe_parser.add_argument("--json", action="store_true", help="The full map as JSON, for AI agents and tools")
     describe_parser.add_argument("--strict", action="store_true", help="Exit with code 1 when the map finds issues")
+    describe_parser.add_argument("--msg", action="store_true",
+                                 help="The MCN Semantic Graph: the map plus every file's syntax tree and source, as JSON")
+    describe_parser.add_argument("--no-ast", action="store_true", help="With --msg: leave out syntax trees and source")
+    describe_parser.add_argument("--msg-schema", action="store_true", help="Print the MSG's JSON Schema")
 
     impact_parser = subparsers.add_parser("impact", help="What a change would affect, and which tests cover it")
     impact_parser.add_argument("targets", nargs="*", help="Tables, endpoints, functions, contracts or screens by name "
@@ -1231,8 +1241,7 @@ def main():
     change_parser.add_argument("request", help='What to change, e.g. "Add a customer check before creating an order"')
     change_parser.add_argument("--dir", default=".", help="Project folder (default: .)")
     change_parser.add_argument("--yes", action="store_true", help="Apply without asking when validation and tests pass")
-    change_parser.add_argument("--model", help="Claude model to use")
-    change_parser.add_argument("--api-key", dest="api_key", help="Claude API key (default: mcn config or ANTHROPIC_API_KEY)")
+    _model_options(change_parser)
 
     audit_log_parser = subparsers.add_parser("audit-log", help="Check or export the audit log of `audit` services")
     audit_log_sub = audit_log_parser.add_subparsers(dest="audit_action")
@@ -1364,6 +1373,16 @@ def main():
             if not target.exists():
                 print(f"error: {target} not found")
                 return 1
+            if args.msg_schema:
+                from . import msg
+                print(json.dumps(msg.schema(), indent=2))
+                return 0
+            if args.msg:
+                from . import msg
+                graph = msg.build_msg(target, include_ast=not args.no_ast)
+                print(json.dumps(graph, indent=None if not args.no_ast else 2))
+                serious = [i for i in graph["issues"] if i.get("severity") != "note"] + graph["errors"]
+                return 1 if args.strict and serious else 0
             result = app_map.build_map(target)
             print(json.dumps(result, indent=2) if args.json else app_map.render_map(result))
             serious = [i for i in result["issues"] if i.get("severity") != "note"] + result["errors"]

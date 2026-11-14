@@ -191,6 +191,12 @@ class Workspace:
             "errors": m["errors"],
         }
 
+    def semantic_graph(self, include_ast: bool = False) -> Dict[str, Any]:
+        """The MCN Semantic Graph (MSG): declarations, signatures and connections; with include_ast, every
+        file's full syntax tree and source too."""
+        from .msg import build_msg
+        return build_msg(self.root, include_ast=include_ast)
+
     def find(self, query: str, kind: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
         """Declarations whose name contains `query`; if none, declarations whose code contains it."""
         if kind and kind not in KINDS and kind != "service":
@@ -690,6 +696,10 @@ AGENT_TOOLS: List[Dict[str, Any]] = [
     {"name": "inspect", "description": "The app's structure: modules, tables (with their CREATE statements), "
      "endpoints with typed signatures, screens, navigation, tests, and current problems. Call this first.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "semantic_graph", "description": "The MCN Semantic Graph (MSG): every declaration with its typed "
+     "signature, the tables it reads and writes, and every connection (calls, reads, writes, renders, covers, owns), "
+     "as versioned JSON. include_ast adds each file's complete syntax tree and source (large).",
+     "input_schema": {"type": "object", "properties": {"include_ast": {"type": "boolean"}}}},
     {"name": "find", "description": "Find declarations by name, or by text in their code. Returns their source.",
      "input_schema": {"type": "object", "properties": {
          "query": {"type": "string"},
@@ -730,6 +740,8 @@ def call_tool(ws: Workspace, name: str, args: Dict[str, Any]) -> Any:
     try:
         if name == "inspect":
             return ws.inspect()
+        if name == "semantic_graph":
+            return ws.semantic_graph(bool(args.get("include_ast")))
         if name == "find":
             return ws.find(args["query"], args.get("kind"))
         if name == "explain":

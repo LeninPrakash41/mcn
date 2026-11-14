@@ -11,6 +11,8 @@ Most languages were designed for people typing code. MCN is also designed for AI
 | A way to check its own work | `mcn check`, `mcn test`, `mcn agent verify` and the compiled React and Flutter builds |
 | Exact inputs for every endpoint | Typed parameters (`amount: float`, `who: Customer`), refused with a 400 when wrong, and required by `mcn check --strict` |
 | Room to work alongside other agents | `module` blocks that own their tables, and `mcn impact --changed --module <name>` to prove a change stayed inside one |
+| A model of the app it can read in one go | The MCN Semantic Graph (`mcn describe --msg`): versioned JSON with every declaration, signature and connection, plus each file's complete syntax tree |
+| Freedom to use any model | MCN's own agents and the agent interface work with Claude, OpenAI, Gemini, OpenRouter, a local model in Ollama, or any OpenAI-compatible server |
 | Changes as checked operations, not rewritten files | The agent interface (`mcn op`): find and explain declarations, then create, modify or remove them as a patch that is validated, tested and applied only when a person approves |
 
 ## The map: `mcn describe`
@@ -47,6 +49,22 @@ The JSON has three parts:
 - **`issues`**: problems in the code: a screen calling an endpoint that doesn't exist (including the create, update and delete calls a table screen makes for you), navigation to a missing screen, SQL on a table nothing creates, and, as notes, endpoints nothing calls.
 
 The map is read from the source without running anything, so it's safe and fast to call before every change.
+
+## The MCN Semantic Graph (MSG)
+
+```bash
+mcn describe --msg              # the full MSG as JSON
+mcn describe --msg --no-ast     # just the graph: small enough to hand an agent whole
+mcn describe --msg-schema       # its JSON Schema
+```
+
+The MSG is MCN's canonical, machine-readable model of an app, versioned (`"msg_version": "1.0"`) and described by a published JSON Schema. It has three layers:
+
+- **The graph**: every declaration (`nodes`) with its kind, file and lines, typed signature, the tables it reads and writes, how it's protected and whether a test covers it; how they connect (`edges`: calls, reads, writes, renders, shows, covers, uses, owns, contains); and the problems found (`issues`).
+- **The syntax trees**: each file's complete abstract syntax tree (`files[path].ast`), independent of formatting. Every graph node has an `ast_ref` (its file, then a JSON pointer such as `/body/7/endpoints/2`) pointing at its own subtree, so nothing in the program is left out of the model.
+- **The source**: each file's exact text and SHA-256.
+
+It round-trips: the trees rebuild exactly the AST the parser produces from the source, and the sources come back byte for byte. That is checked on every template in CI. An LLM can read the graph to understand the app far more easily than a long source file, and read a declaration's subtree when it needs the details. Agents get it through the agent interface's `semantic_graph` operation, including over MCP.
 
 ## What a change affects: `mcn impact`
 
@@ -158,12 +176,34 @@ The tools are `inspect`, `find`, `explain`, `create`, `modify`, `remove`, `valid
 
 By default the agent can't apply anything: it hands you a patch id, and you apply it with `mcn op execute <id> --yes` after reading `mcn op show <id>`. Start the server with `--allow-execute` to also offer `execute` (your client still asks before each call). Even then, `execute` only applies a patch that passed `validate` and `test` and whose files haven't changed since. The server needs nothing beyond MCN itself.
 
-The operations are also a Python API (`mcn.core_engine.agent_interface.Workspace`) with tool definitions for Claude (`AGENT_TOOLS`), so your own agents can use them the same way.
+The operations are also a Python API (`mcn.core_engine.agent_interface.Workspace`) with tool definitions as plain JSON Schema (`AGENT_TOOLS`), so your own agents can use them the same way, with any model.
+
+## Choosing the model
+
+MCN doesn't depend on one company's model. `mcn change`, the agent team (`mcn generate --team`), `mcn generate` and Studio's Agent panel work with any model that can call tools:
+
+| Provider | Set up with | Default model |
+|---|---|---|
+| `anthropic` (Claude) | `ANTHROPIC_API_KEY`, or `mcn config set api_key ...` | `claude-opus-5-5` (`MCN_CLAUDE_MODEL`) |
+| `openai` | `OPENAI_API_KEY`, or `mcn config set openai_api_key ...` | `gpt-4o` |
+| `gemini` | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), or `gemini_api_key` | `gemini-2.5-pro` |
+| `openrouter` | `OPENROUTER_API_KEY`, or `openrouter_api_key` | choose with `ai_model` |
+| `ollama` (local) | `OLLAMA_URL` (default `http://localhost:11434`) | choose with `ai_model` or `OLLAMA_MODEL` |
+| `compatible` | `ai_base_url` (any OpenAI-compatible server: vLLM, LM Studio, Together, Groq...), and `ai_api_key` if it needs one | choose with `ai_model` |
+
+```bash
+mcn config set ai_provider gemini            # or pass --provider on each command
+mcn config set ai_model gemini-2.5-flash
+mcn change "Add a search box to the orders table" --provider ollama --model qwen2.5-coder
+mcn generate --team "A clinic booking app" --provider compatible --base-url http://gpu-box:8000/v1 --model my-model
+```
+
+Without a setting, MCN uses whichever key you have, checking Claude first, then OpenAI, Gemini and OpenRouter. A key pasted into Studio's Agent panel picks its provider from its prefix. Two things depend on the model: the agent team's researcher searches the web only on Claude (elsewhere it works from the request alone), and PDF attachments are read directly only by Claude; for other models MCN sends the PDF's text when `pypdf` is installed (`mcn add pdf`).
 
 ## A loop for agents
 
 ```bash
-mcn describe --json            # 1. understand the app
+mcn describe --msg --no-ast    # 1. understand the app
 mcn impact <what you'll change>  # 2. see what else the change touches
 #                                 3. edit the .mcn files
 mcn check . && mcn test .      # 4. types and tests
