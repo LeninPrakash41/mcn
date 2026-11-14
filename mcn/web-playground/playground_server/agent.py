@@ -191,14 +191,18 @@ def agent_team():
         finally:
             events.put(None)
 
-    threading.Thread(target=run, daemon=True).start()
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
 
     def stream():
         while True:
             try:
-                item = events.get(timeout=300)
+                item = events.get(timeout=15)
             except queue.Empty:
-                yield _sse({"type": "error", "message": "The agent team stopped responding for 5 minutes"})
+                if worker.is_alive():           # a slow (e.g. local) model is still thinking
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse({"type": "error", "message": "The agent stopped without finishing"})
                 return
             if item is None:
                 result = result_box[0] or {}
@@ -274,14 +278,18 @@ def agent_change():
         finally:
             events.put(None)
 
-    threading.Thread(target=run, daemon=True).start()
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
 
     def stream():
         while True:
             try:
-                item = events.get(timeout=300)
+                item = events.get(timeout=15)
             except queue.Empty:
-                yield _sse({"type": "error", "message": "The agent stopped responding for 5 minutes"})
+                if worker.is_alive():           # a slow (e.g. local) model is still thinking
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse({"type": "error", "message": "The agent stopped without finishing"})
                 return
             if item is None:
                 return

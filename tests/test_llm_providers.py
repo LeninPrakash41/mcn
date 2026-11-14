@@ -53,7 +53,8 @@ def test_explicit_and_config_choices(clean, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "a")
     config(clean, ai_provider="ollama", ai_model="qwen2.5-coder")
     p = get_provider()
-    assert (p.name, p.model, p.base_url) == ("ollama", "qwen2.5-coder", "http://localhost:11434/v1")
+    assert (p.name, p.model, p.base_url) == ("ollama", "qwen2.5-coder", "http://localhost:11434")
+    assert isinstance(p, llm.OllamaProvider) and p.context == 32768
     p = get_provider("compatible", "my-model", base_url="http://gpu-box:8000/v1/")
     assert (p.name, p.base_url, p.api_key) == ("compatible", "http://gpu-box:8000/v1", None)
     config(clean, ai_provider="openrouter", openrouter_api_key="sk-or-x")
@@ -79,10 +80,11 @@ class FakeServer:
     def __init__(self, answers, status=200):
         self.answers, self.status, self.requests = list(answers), status, []
 
-    def post(self, url, json=None, headers=None, timeout=None):
+    def post(self, url, json=None, headers=None, timeout=None, stream=False):
         self.requests.append({"url": url, "body": json, "headers": headers})
         answer = self.answers.pop(0)
         status = self.status
+        lines = _as_stream(answer) if stream and status < 400 else []
 
         class R:
             status_code = status
@@ -90,7 +92,29 @@ class FakeServer:
 
             def json(self):
                 return answer
+
+            def iter_lines(self, decode_unicode=False):
+                return iter(lines)
         return R()
+
+
+def _as_stream(answer):
+    """A /chat/completions answer as server-sent chunks: text in two pieces, tool calls in fragments."""
+    if "choices" not in answer:                                  # Ollama's own API: already NDJSON lines
+        return answer["lines"]
+    choice = answer["choices"][0]
+    msg, out = choice["message"], []
+    text = msg.get("content") or ""
+    for piece in (text[: len(text) // 2], text[len(text) // 2:]):
+        if piece:
+            out.append({"choices": [{"delta": {"content": piece}}]})
+    for i, tc in enumerate(msg.get("tool_calls") or []):
+        args = tc["function"]["arguments"]
+        out.append({"choices": [{"delta": {"tool_calls": [{"index": i, "id": tc["id"],
+                                                           "function": {"name": tc["function"]["name"], "arguments": args[:5]}}]}}]})
+        out.append({"choices": [{"delta": {"tool_calls": [{"index": i, "function": {"arguments": args[5:]}}]}}]})
+    out.append({"choices": [{"delta": {}, "finish_reason": choice.get("finish_reason")}]})
+    return ["data: " + json.dumps(c) for c in out] + ["data: [DONE]"]
 
 
 def tool_call(i, name, args):
@@ -134,12 +158,12 @@ def test_the_change_agent_runs_on_an_openai_compatible_model(tmp_path, monkeypat
     ])
     original = server.post
 
-    def post(url, json=None, headers=None, timeout=None):
+    def post(url, json=None, headers=None, timeout=None, stream=False):
         if server.answers and server.answers[0] is None:
             patch = next(m for m in json["messages"] if m["role"] == "tool" and '"patch"' in m["content"])
             pid = __import__("json").loads(patch["content"])["patch"]
             server.answers[0] = answer(f"Orders now need a positive total.\nPATCH {pid}")
-        return original(url, json=json, headers=headers, timeout=timeout)
+        return original(url, json=json, headers=headers, timeout=timeout, stream=stream)
     monkeypatch.setattr(llm.requests, "post", post)
 
     model = OpenAICompatibleProvider("openai", "gpt-4o", "https://api.openai.com/v1", "sk-test")
@@ -161,18 +185,40 @@ def test_the_change_agent_runs_on_an_openai_compatible_model(tmp_path, monkeypat
     assert last["body"]["messages"][3]["tool_call_id"] == "call_1"
 
 
-def test_the_generator_runs_on_a_local_model(tmp_path, monkeypatch):
+def test_the_generator_streams_from_an_openai_compatible_server(tmp_path, monkeypatch):
     from mcn.ai.mcn_agent import MCNAgent
     backend = 'service s\n    endpoint hi()\n        return {ok: true}\n'
     ui = 'component Home\n    render\n        text "Hi"\n\napp A\n    title "A"\n    layout\n        tabs\n            tab "Home" Home\n'
     server = FakeServer([answer(f"<backend>{backend}</backend>\n<ui>{ui}</ui>")])
     monkeypatch.setattr(llm.requests, "post", server.post)
     tokens = []
-    model = OpenAICompatibleProvider("ollama", "qwen2.5-coder", "http://localhost:11434/v1")
+    model = OpenAICompatibleProvider("compatible", "my-model", "http://gpu-box:8000/v1")
     result = MCNAgent(provider=model, on_text=tokens.append).generate("a hello app", output_dir=str(tmp_path), verbose=False)
     assert result["attempts"] == 1 and (tmp_path / "ui" / "app.mcn").read_text().startswith("component Home")
-    assert "Authorization" not in server.requests[0]["headers"]                    # no key for a local model
-    assert server.requests[0]["body"]["max_tokens"] == 64000 and tokens
+    assert "Authorization" not in server.requests[0]["headers"]                    # no key needed
+    assert server.requests[0]["body"]["max_tokens"] == 64000 and server.requests[0]["body"]["stream"] is True
+    assert len(tokens) == 2                                                         # text arrived as it streamed
+
+
+def test_ollama_uses_its_own_api_with_a_big_enough_context(tmp_path, monkeypatch):
+    from mcn.ai.change_agent import ChangeAgent
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "backend" / "main.mcn").write_text(APP_BACKEND)
+    first = {"lines": [json.dumps({"message": {"role": "assistant", "content": "",
+                                               "tool_calls": [{"function": {"name": "explain", "arguments": {"target": "create_order"}}}]},
+                                   "done": True, "done_reason": "stop"})]}
+    second = {"lines": [json.dumps({"message": {"content": "It inserts an order."}, "done": False}),
+                        json.dumps({"message": {"content": ""}, "done": True, "done_reason": "stop"})]}
+    server = FakeServer([first, second])
+    monkeypatch.setattr(llm.requests, "post", server.post)
+    monkeypatch.setenv("MCN_OLLAMA_CONTEXT", "16384")
+    result = ChangeAgent(provider=llm.OllamaProvider("gpt-oss:20b", "http://localhost:11434/v1")).ask(
+        "What does create_order do?", str(tmp_path))
+    assert result["summary"] == "It inserts an order." and [o["name"] for o in result["operations"]] == ["explain"]
+    sent = server.requests[0]
+    assert sent["url"] == "http://localhost:11434/api/chat" and sent["body"]["options"]["num_ctx"] == 16384
+    tool_msg = server.requests[1]["body"]["messages"][-1]
+    assert tool_msg["role"] == "tool" and tool_msg["tool_name"] == "explain" and "inserts" not in tool_msg["content"]
 
 
 def test_attachments_for_models_without_pdf_support(monkeypatch):

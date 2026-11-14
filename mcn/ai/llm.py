@@ -136,7 +136,7 @@ def get_provider(provider: Optional[str] = None, model: Optional[str] = None, ap
     key = api_key or (cfg.get(preset["config_key"]) if preset["config_key"] else None) \
         or next((os.getenv(k) for k in preset["keys"] if os.getenv(k)), None)
     if name == "ollama":
-        url = base_url or (os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/") + "/v1")
+        url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
         model = model or os.getenv("OLLAMA_MODEL")
     else:
         url = base_url or preset["base_url"]
@@ -148,6 +148,8 @@ def get_provider(provider: Optional[str] = None, model: Optional[str] = None, ap
     model = model or preset["model"]
     if not model:
         raise ModelError(f"Say which {name} model to use: mcn config set ai_model <model name>")
+    if name == "ollama":
+        return OllamaProvider(model, url)
     return OpenAICompatibleProvider(name, model, url, key)
 
 
@@ -294,18 +296,29 @@ class OpenAICompatibleProvider(Provider):
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if on_text:
+            body["stream"] = True
         try:
-            r = requests.post(f"{self.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout)
+            r = requests.post(f"{self.base_url}/chat/completions", json=body, headers=headers,
+                              timeout=(15, self.timeout), stream=bool(on_text))
         except requests.RequestException as exc:
             raise ModelError(f"Couldn't reach {self.name} at {self.base_url}: {exc}") from None
-        try:
-            data = r.json()
-        except ValueError:
-            data = {}
         if r.status_code >= 400:
+            try:
+                data = r.json()
+            except ValueError:
+                data = {}
             err = data.get("error") if isinstance(data, dict) else None
             message = (err.get("message") if isinstance(err, dict) else err) or r.text[:300]
             raise ModelError(f"{self.name} answered {r.status_code}: {message}")
+        if on_text:
+            data = self._collect_stream(r, on_text)
+            on_text = None                               # already sent piece by piece
+        else:
+            try:
+                data = r.json()
+            except ValueError:
+                raise ModelError(f"{self.name} returned something that isn't JSON") from None
         choices = data.get("choices") or []
         if not choices:
             raise ModelError(f"{self.name} returned no answer")
@@ -332,3 +345,129 @@ class OpenAICompatibleProvider(Provider):
             raw["tool_calls"] = msg["tool_calls"]
         stop = "tool_use" if calls else ("max_tokens" if finish == "length" else "end")
         return Reply(text=text.strip(), tool_calls=calls, stop=stop, raw=raw)
+
+    @staticmethod
+    def _collect_stream(r, on_text) -> Dict[str, Any]:
+        """Server-sent chunks → one /chat/completions answer, sending text as it arrives."""
+        content, calls, finish, refusal = [], {}, None, None
+        for line in r.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data:"):
+                continue
+            payload = line[5:].strip()
+            if payload == "[DONE]":
+                break
+            try:
+                chunk = json.loads(payload)
+            except ValueError:
+                continue
+            for choice in chunk.get("choices") or []:
+                delta = choice.get("delta") or {}
+                if delta.get("content"):
+                    content.append(delta["content"])
+                    on_text(delta["content"])
+                if delta.get("refusal"):
+                    refusal = delta["refusal"]
+                for tc in delta.get("tool_calls") or []:
+                    slot = calls.setdefault(tc.get("index", 0), {"id": None, "type": "function",
+                                                                "function": {"name": "", "arguments": ""}})
+                    slot["id"] = tc.get("id") or slot["id"]
+                    fn = tc.get("function") or {}
+                    slot["function"]["name"] += fn.get("name") or ""
+                    slot["function"]["arguments"] += fn.get("arguments") or ""
+                finish = choice.get("finish_reason") or finish
+        msg: Dict[str, Any] = {"role": "assistant", "content": "".join(content) or None}
+        if calls:
+            msg["tool_calls"] = [dict(c, id=c["id"] or f"call_{i}") for i, c in sorted(calls.items())]
+        if refusal:
+            msg["refusal"] = refusal
+        return {"choices": [{"message": msg, "finish_reason": finish}]}
+
+
+class OllamaProvider(OpenAICompatibleProvider):
+    """A local model in Ollama, through its own API, which (unlike its OpenAI-compatible one) can set the
+    context window: MCN's language guide alone is about 4,000 tokens. MCN_OLLAMA_CONTEXT sets it (default 32768)."""
+
+    def __init__(self, model: str, base_url: str = "http://localhost:11434", timeout: int = 900):
+        base = base_url.rstrip("/")
+        super().__init__("ollama", model, base[:-3] if base.endswith("/v1") else base, None, timeout)
+        self.context = int(os.getenv("MCN_OLLAMA_CONTEXT", "32768"))
+
+    def _part(self, p):
+        return super()._part(p)
+
+    def _ollama_messages(self, system, messages):
+        out: List[Dict[str, Any]] = [{"role": "system", "content": system}] if system else []
+        names: Dict[str, str] = {}
+        for m in messages:
+            if m["role"] == "user":
+                c = m["content"]
+                if isinstance(c, str):
+                    out.append({"role": "user", "content": c})
+                    continue
+                texts, images = [], []
+                for p in c:
+                    if isinstance(p, dict) and p.get("type") == "image":
+                        images.append(p["data"])
+                    else:
+                        texts.append(self._part(p)["text"])
+                out.append({"role": "user", "content": "\n\n".join(texts), **({"images": images} if images else {})})
+            elif m["role"] == "assistant":
+                raw = m["reply"].raw
+                for tc in raw.get("tool_calls") or []:
+                    names[tc.get("id", "")] = tc["function"]["name"]
+                out.append(raw)
+            elif m["role"] == "tool_results":
+                out += [{"role": "tool", "content": r["content"], "tool_name": names.get(r["id"], "")}
+                        for r in m["results"]]
+        return out
+
+    def complete(self, system, messages, tools=None, max_tokens=16000, effort="medium", on_text=None, web_search=0):
+        body: Dict[str, Any] = {"model": self.model, "messages": self._ollama_messages(system, messages), "stream": True,
+                                "options": {"num_ctx": self.context, "num_predict": max_tokens}}
+        if tools:
+            body["tools"] = [{"type": "function", "function": {
+                "name": t["name"], "description": t.get("description", ""),
+                "parameters": t.get("input_schema") or {"type": "object", "properties": {}}}} for t in tools]
+        try:
+            r = requests.post(f"{self.base_url}/api/chat", json=body, timeout=(15, self.timeout), stream=True)
+        except requests.RequestException as exc:
+            raise ModelError(f"Couldn't reach Ollama at {self.base_url}: {exc}. Is it running?") from None
+        if r.status_code >= 400:
+            try:
+                message = r.json().get("error") or r.text[:300]
+            except ValueError:
+                message = r.text[:300]
+            raise ModelError(f"Ollama answered {r.status_code}: {message}")
+        text, calls, done_reason = [], [], None
+        for line in r.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            try:
+                chunk = json.loads(line)
+            except ValueError:
+                continue
+            if chunk.get("error"):
+                raise ModelError(f"Ollama: {chunk['error']}")
+            msg = chunk.get("message") or {}
+            if msg.get("content"):
+                text.append(msg["content"])
+                if on_text:
+                    on_text(msg["content"])
+            for tc in msg.get("tool_calls") or []:
+                fn = tc.get("function") or {}
+                args = fn.get("arguments") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {"_unparsed": args}
+                calls.append(ToolCall(f"call_{len(calls)}", fn.get("name", ""), args if isinstance(args, dict) else {}))
+            if chunk.get("done"):
+                done_reason = chunk.get("done_reason")
+        content = "".join(text)
+        raw = {"role": "assistant", "content": content}
+        if calls:
+            raw["tool_calls"] = [{"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.input}}
+                                 for c in calls]
+        stop = "tool_use" if calls else ("max_tokens" if done_reason == "length" else "end")
+        return Reply(text=content.strip(), tool_calls=calls, stop=stop, raw=raw)
