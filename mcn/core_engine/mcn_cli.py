@@ -422,6 +422,9 @@ def _cmd_generate_team(args, api_key: str) -> int:
             print(line)
             for fix in ev.get("fixes") or []:
                 print(f"    - {fix}")
+        elif ev.get("type") == "module":
+            mark = {"working": "…", "done": "✓", "failed": "✗"}.get(ev["status"], "·")
+            print(f"    {mark} module {ev['name']}" + (f": {ev['summary']}" if ev.get("summary") else ""))
         elif ev.get("type") == "token" and not args.quiet:
             pass                                # the builder's code is long; the files are the result
 
@@ -434,10 +437,173 @@ def _cmd_generate_team(args, api_key: str) -> int:
         return 1
     out = Path(args.out)
     print(f"\nWrote {out / 'backend' / 'main.mcn'} and {out / 'ui' / 'app.mcn'}")
+    if result.get("modules"):
+        print(f"Built as {len(result['modules'])} modules in parallel: {', '.join(result['modules'])}")
     if result["verdict"] != "pass":
         print("QA still had notes after two rounds of fixes; review them above.")
     if getattr(args, "build", False):
         return _cmd_build(str(out / "ui" / "app.mcn"), str(out / "frontend"))
+    return 0
+
+
+def _print_patch(result: dict) -> None:
+    print(f"Patch {result['patch']} ({result['status']})")
+    if result.get("diff"):
+        print(result["diff"].rstrip())
+    for problem in result.get("parse_errors") or []:
+        print(f"  doesn't parse: {problem}")
+
+
+def _print_validation(v: dict) -> None:
+    print(("✓ Valid" if v["ok"] else "✗ Not valid") + f": changes {', '.join(v['changed']) or 'nothing'}")
+    for key, label in (("parse_errors", "Parse error"), ("type_errors", "Type error"), ("map_errors", "Error"),
+                       ("new_issues", "New problem"), ("outside_module", "Outside the module"),
+                       ("warnings", "Warning")):
+        for item in v.get(key) or []:
+            print(f"  {label}: {item}")
+    for kind, ids in (v.get("affects") or {}).items():
+        print(f"  Affects {kind}: {', '.join(ids)}")
+    for item in v.get("fixed_issues") or []:
+        print(f"  Fixes: {item}")
+    if v.get("untested"):
+        print(f"  No test covers: {', '.join(v['untested'])}")
+
+
+def _print_tests(t: dict) -> None:
+    print(("✓" if t["ok"] else "✗") + f" {t['passed']} of {t['total']} test(s) passed")
+    for f in t["failed"]:
+        print(f"  ✗ {f['test']} ({f['file']}): {f['error']}")
+
+
+def _cmd_op(args) -> int:
+    """mcn op <operation>: the agent interface from the command line."""
+    from .agent_interface import InterfaceError, Workspace
+    try:
+        ws = Workspace(args.dir)
+        a = list(args.args)
+        need = lambda what: a[0] if a else (_ for _ in ()).throw(InterfaceError(f"Give {what}"))
+
+        def source() -> str:
+            if not args.source:
+                raise InterfaceError("Give the new code with --source FILE (or --source - to read it from input)")
+            return sys.stdin.read() if args.source == "-" else Path(args.source).read_text(encoding="utf-8")
+
+        op = args.operation
+        if op == "inspect":
+            result = ws.inspect()
+        elif op == "find":
+            result = ws.find(" ".join(a) or need("something to find"), args.kind)
+        elif op == "explain":
+            result = ws.explain(need("a name or id"))
+        elif op == "create":
+            result = ws.create(need("a kind (endpoint, function, component, table...)"), source(), module=args.module,
+                               service=args.service, nav=args.nav, patch=args.patch, reason=args.reason)
+        elif op == "modify":
+            result = ws.modify(need("a name or id"), source(), patch=args.patch, reason=args.reason)
+        elif op == "remove":
+            result = ws.remove(need("a name or id"), patch=args.patch, reason=args.reason)
+        elif op == "validate":
+            result = ws.validate(need("a patch id"), strict=args.strict)
+        elif op == "test":
+            result = ws.test(a[0] if a else None)
+        elif op == "execute":
+            result = ws.execute(need("a patch id"), approved=args.yes, require_tests=not args.skip_tests)
+        elif op == "show":
+            result = ws.show(need("a patch id"))
+        else:
+            result = ws.patches()
+    except InterfaceError as exc:
+        print(json.dumps({"error": str(exc)}) if args.json else f"error: {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2, default=str))
+    elif op == "inspect":
+        from .app_map import build_map, render_map
+        print(render_map(build_map(ws.root)))
+    elif op == "find":
+        for hit in result:
+            print(f"{hit['id']}  {hit['file']}:{hit['line']}" + (f"  (module {hit['module']})" if hit["module"] else ""))
+        if not result:
+            print("Nothing found.")
+    elif op == "explain":
+        print(result["text"])
+    elif op in ("create", "modify", "remove"):
+        _print_patch(result)
+    elif op == "validate":
+        _print_validation(result)
+    elif op == "test":
+        _print_tests(result)
+    elif op == "execute":
+        print(f"Applied patch {result['patch']} to {', '.join(result['files'])}")
+    elif op == "show":
+        print(f"Patch {result['patch']} ({result['status']}): {result['reason']}")
+        print(result["diff"].rstrip())
+    else:
+        for p in result:
+            print(f"{p['patch']}  {p['status']:<9}  {p['reason'] or '; '.join(p['operations'])}")
+        if not result:
+            print("No patches yet.")
+    if op == "validate":
+        return 0 if result["ok"] else 1
+    if op == "test":
+        return 0 if result["ok"] else 1
+    return 0
+
+
+def _cmd_change(args) -> int:
+    """mcn change "<request>": an AI agent changes the app through the agent interface; you approve the patch."""
+    from .agent_interface import InterfaceError, Workspace
+    api_key = getattr(args, "api_key", None) or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("Error: No Claude API key found. Run: mcn config set api_key sk-ant-...")
+        return 1
+    from mcn.ai.change_agent import ChangeAgent
+
+    def emit(ev):
+        if ev["type"] == "operation":
+            detail = ev["input"].get("target") or ev["input"].get("query") or ev["input"].get("kind") or ""
+            print(f"… {ev['name']} {detail}".rstrip())
+        elif ev["type"] == "result" and ev.get("error"):
+            print(f"    {ev['error']}")
+
+    agent = ChangeAgent(api_key=api_key, emit=emit, **({"model": args.model} if args.model else {}))
+    try:
+        result = agent.run(args.request, args.dir)
+    except Exception as exc:
+        print(f"Error: {exc}")
+        return 1
+    print()
+    if result["summary"]:
+        print(result["summary"])
+    if not result["patch"]:
+        print("\nNo change was made.")
+        return 1
+    ws = Workspace(args.dir)
+    try:
+        patch = ws.show(result["patch"])
+    except InterfaceError as exc:
+        print(f"error: {exc}")
+        return 1
+    print(f"\nPatch {patch['patch']}:")
+    print(patch["diff"].rstrip())
+    print()
+    validation = ws.validate(patch["patch"])
+    _print_validation(validation)
+    tests = ws.test(patch["patch"])
+    _print_tests(tests)
+    if not validation["ok"] or not tests["ok"]:
+        print(f"\nNot applied. Look at it with: mcn op show {patch['patch']}")
+        return 1
+    if not args.yes:
+        try:
+            answer = input("\nApply this change? [y/N] ").strip().lower()
+        except EOFError:
+            answer = ""
+        if answer not in ("y", "yes"):
+            print(f"Not applied. Apply it later with: mcn op execute {patch['patch']} --yes")
+            return 0
+    applied = ws.execute(patch["patch"], approved=True)
+    print(f"Applied to {', '.join(applied['files'])}.")
     return 0
 
 
@@ -1032,6 +1198,33 @@ def main():
     impact_parser.add_argument("--module", help="Exit with code 1 if anything outside this module changed "
                                                 "(for an agent or person assigned one module)")
 
+    op_parser = subparsers.add_parser(
+        "op", help="The agent interface: inspect, find, explain, then change the app through checked patches")
+    op_parser.add_argument("operation", choices=["inspect", "find", "explain", "create", "modify", "remove", "validate",
+                                                 "test", "execute", "show", "patches"])
+    op_parser.add_argument("args", nargs="*", help="find: text; explain/modify/remove: a name or id; create: a kind; "
+                                                    "validate/test/execute/show: a patch id")
+    op_parser.add_argument("--dir", default=".", help="Project folder (default: .)")
+    op_parser.add_argument("--source", help="create/modify: file with the new declaration, or - to read it from input")
+    op_parser.add_argument("--kind", help="find: only this kind (endpoint, component, table...)")
+    op_parser.add_argument("--module", help="create: put it inside this module (validate then keeps the patch inside it)")
+    op_parser.add_argument("--service", help="create: the service an endpoint goes in")
+    op_parser.add_argument("--nav", help="create: the navigation label for a new component")
+    op_parser.add_argument("--patch", help="create/modify/remove: add to this patch instead of starting a new one")
+    op_parser.add_argument("--reason", default="", help="Why the change is made")
+    op_parser.add_argument("--strict", action="store_true", help="validate: also require types (like mcn check --strict)")
+    op_parser.add_argument("--yes", action="store_true", help="execute: you have reviewed the patch and approve it")
+    op_parser.add_argument("--skip-tests", action="store_true", help="execute: allow a patch whose tests weren't run")
+    op_parser.add_argument("--json", action="store_true", help="Output JSON")
+
+    change_parser = subparsers.add_parser(
+        "change", help="Change the app from a request: an AI agent builds a checked patch, you approve it")
+    change_parser.add_argument("request", help='What to change, e.g. "Add a customer check before creating an order"')
+    change_parser.add_argument("--dir", default=".", help="Project folder (default: .)")
+    change_parser.add_argument("--yes", action="store_true", help="Apply without asking when validation and tests pass")
+    change_parser.add_argument("--model", help="Claude model to use")
+    change_parser.add_argument("--api-key", dest="api_key", help="Claude API key (default: mcn config or ANTHROPIC_API_KEY)")
+
     audit_log_parser = subparsers.add_parser("audit-log", help="Check or export the audit log of `audit` services")
     audit_log_sub = audit_log_parser.add_subparsers(dest="audit_action")
     audit_log_sub.add_parser("verify", help="Check that no entry was changed, removed or reordered")
@@ -1196,6 +1389,12 @@ def main():
         if outside:
             return 1
         return 1 if result["unknown"] and not result["targets"] else 0
+
+    elif args.command == "op":
+        return _cmd_op(args)
+
+    elif args.command == "change":
+        return _cmd_change(args)
 
     elif args.command == "audit-log":
         from . import security

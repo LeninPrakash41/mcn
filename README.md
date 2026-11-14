@@ -272,9 +272,13 @@ mcn impact orders            # what changing the orders table would affect, and 
 mcn impact --changed         # the same for everything changed since the last commit
 mcn impact --changed --module billing   # fail if a change went outside the billing module
 mcn check --strict backend/main.mcn     # every endpoint parameter has a type
+mcn op explain create_order             # what it does, what uses it, which tests cover it
+mcn change "Verify the customer before creating an order"   # AI builds a checked patch; you approve it
 ```
 
-Endpoint parameters can be typed (`amount: float`, `who: Customer`) and are checked on every call. `module` blocks own their tables, so several agents can each work on one module of the same app.
+Endpoint parameters can be typed (`amount: float`, `who: Customer`) and are checked on every call. `module` blocks own their tables, so several agents can each work on one module of the same app; the agent team builds an app's modules in parallel.
+
+The agent interface (`mcn op`) lets an agent change an app through operations (inspect, find, explain, create, modify, remove) that build a patch, instead of rewriting files. A patch is validated against the app map, tested against a fresh database, and written only when someone approves it.
 
 Every MCN block has one meaning, an app is usually two files, and these two commands let an agent understand the whole app and check that an edit only reached what it meant to. The agent team's QA lead uses them on every build. See [building with AI agents](website/docs/pages/guide/ai-agents.md).
 
@@ -624,7 +628,8 @@ mcn generate "..." --out ./my-app --build
 
 mcn generate --team "An HR portal with leave approvals, company SSO and an audit trail"
 # The agent team: a researcher, architect, designer, builder and QA lead
-# plan the app, build it, test it, and fix what QA finds
+# plan the app, build it, test it, and fix what QA finds. An app with several
+# areas is split into modules, each written by its own builder at the same time
 ```
 
 In Studio, tick **Use the agent team** in the Generate dialog; there the QA lead also opens every screen in a real browser (`mcn add browser-qa`).

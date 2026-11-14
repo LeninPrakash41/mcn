@@ -497,10 +497,11 @@ const TEAM_ROLES = [
   ['researcher', 'Researcher', 'Works out what this kind of app needs'],
   ['architect', 'Architect', 'Plans the data, endpoints and screens'],
   ['designer', 'Designer', 'Designs each screen'],
-  ['builder', 'Builder', 'Writes backend/main.mcn and ui/app.mcn'],
+  ['builder', 'Builder', 'Writes backend/main.mcn and ui/app.mcn, one builder per module at the same time'],
   ['qa', 'QA lead', 'Tests every endpoint and screen in a browser'],
 ]
 let _teamState = {}
+let _teamModules = {}        // modules the builders are writing at the same time
 
 function renderTeamPanel() {
   const panel = document.getElementById('team-panel')
@@ -526,6 +527,17 @@ function renderTeamPanel() {
     summary.className = 'team-step-summary'
     summary.textContent = st.summary || (st.status === 'working' ? 'Working…' : about)
     body.append(title, summary)
+    if (role === 'builder' && Object.keys(_teamModules).length) {
+      const ul = document.createElement('ul')
+      ul.className = 'team-step-fixes team-step-modules'
+      Object.entries(_teamModules).forEach(([name, m]) => {
+        const item = document.createElement('li')
+        const mark = m.status === 'done' ? '✓ ' : m.status === 'failed' ? '! ' : '… '
+        item.textContent = mark + name + (m.summary ? ': ' + m.summary : '')
+        ul.appendChild(item)
+      })
+      body.appendChild(ul)
+    }
     if (st.fixes && st.fixes.length) {
       const ol = document.createElement('ol')
       ol.className = 'team-step-fixes'
@@ -568,6 +580,7 @@ async function submitGenerate() {
 
   const useTeam = !!document.getElementById('gen-team')?.checked
   _teamState = {}
+  _teamModules = {}
   if (useTeam) renderTeamPanel()
 
   try {
@@ -606,6 +619,9 @@ async function submitGenerate() {
           const label = (TEAM_ROLES.find(r => r[0] === ev.role) || [])[1] || ev.role
           document.getElementById('gen-status-text').textContent =
             ev.status === 'working' ? `${label}: ${ev.summary || 'working…'}` : `${label}: ${ev.summary || ev.status}`
+          renderTeamPanel()
+        } else if (ev.type === 'module') {
+          _teamModules[ev.name] = { status: ev.status, summary: ev.summary }
           renderTeamPanel()
         } else if (ev.type === 'qa') {
           appendLog('info', `QA round ${ev.round}: ` + JSON.stringify(ev.report).slice(0, 400))

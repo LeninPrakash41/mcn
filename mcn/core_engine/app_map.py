@@ -180,9 +180,15 @@ def build_map(root: Any) -> Dict[str, Any]:
         current_module[0] = None
         for stmt, start, end in _ranges(program.body, last):
             if isinstance(stmt, ast.ModuleDecl):
-                if f"module:{stmt.name}" in nodes:
-                    errors.append(f"{path.relative_to(base)}: module '{stmt.name}' is declared twice")
-                add("module", stmt.name, path, stmt.line, stmt.end_line, owns=list(stmt.owns))
+                file = str(path.relative_to(base))
+                existing = nodes.get(f"module:{stmt.name}")
+                if existing and file in existing["files"]:
+                    errors.append(f"{file}: module '{stmt.name}' is declared twice")
+                elif existing:            # the same module's screens in ui/, its endpoints in backend/
+                    existing["files"].append(file)
+                    existing["owns"] += [t for t in stmt.owns if t not in existing["owns"]]
+                else:
+                    add("module", stmt.name, path, stmt.line, stmt.end_line, owns=list(stmt.owns), files=[file])
                 current_module[0] = (stmt.name, str(path.relative_to(base)), stmt.line, stmt.end_line)
                 continue
             mod = current_module[0]

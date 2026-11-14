@@ -42,7 +42,9 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 |---|---|
 | `mcn build <ui-file> [--out frontend]` | Compile MCN components to a React + Vite + Tailwind + shadcn/ui project |
 | `mcn generate "<description>"` | Write a backend and UI with Claude, then validate them. Options: `--out DIR`, `--port`, `--build`, `--model` |
-| `mcn generate --team "<description>"` | Have the agent team research, plan, design, build and test the app. `--no-research` skips web search. See [the agent team](#/guide/ai) |
+| `mcn generate --team "<description>"` | Have the agent team research, plan, design, build and test the app; an app with several areas is built as modules, in parallel. `--no-research` skips web search. See [the agent team](#/guide/ai) |
+| `mcn op <operation> [args] [--dir DIR] [--json]` | The agent interface: `inspect`, `find`, `explain`, `create`, `modify`, `remove` (build a patch), `validate`, `test`, `show`, `patches`, `execute --yes`. Options: `--source FILE\|-`, `--patch ID`, `--module`, `--service`, `--nav`, `--reason`, `--strict`. See [building with AI agents](#/guide/ai-agents) |
+| `mcn change "<request>" [--dir DIR] [--yes]` | An AI agent changes the app through the agent interface: it builds a patch, validates and tests it, and you approve it before it's written |
 | `mcn deploy --target vercel [--name] [--prod]` | Put the React app and its backend (at `/api`) on Vercel. `--stage-only` writes the Vercel project without uploading. See [deploying](#/guide/deploy) |
 | `mcn deploy --target aws [--region R] [--name]` | Run the app on AWS App Runner in your account, in the region you choose |
 | `mcn deploy --target cloudflare [--name]` | Serve the web app from Cloudflare and run the API in a Cloudflare container |

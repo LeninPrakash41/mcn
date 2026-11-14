@@ -186,7 +186,7 @@ The agent team writes a whole MCN app from a description, the way a small produc
 | **Researcher** | Works out what this kind of app needs: users and roles, records and fields, workflows, rules. Searches the web when the domain is specialised |
 | **Architect** | Plans the tables, endpoints, screens and navigation, and whether to use SSO and audit logs |
 | **Designer** | Lays out each screen: which components, in what order, labels and empty states |
-| **Builder** | Writes `backend/main.mcn` and `ui/app.mcn`, checked by MCN's parser |
+| **Builder** | Writes `backend/main.mcn` and `ui/app.mcn`, checked by MCN's parser. For an app with several areas, one builder per module works at the same time (see below) |
 | **QA lead** | Runs the checks, then approves the app or sends a numbered list of fixes back to the builder (at most twice) |
 
 The QA lead's checks: the type checker on both files, a call to every endpoint that needs no inputs (in a scratch copy, so your data isn't touched), and a build of the web app. In Studio it also opens the app's live preview in a real browser, visits every screen, and looks at the screenshots, console errors, failed requests and on-screen errors.
@@ -197,6 +197,17 @@ mcn generate --team --no-research "A simple inventory tracker" --out ./inventory
 ```
 
 In Studio, open **Generate**, tick **Use the agent team**, and watch each agent's progress. The browser check needs Playwright: `mcn add browser-qa` (it uses your installed Google Chrome, or `python -m playwright install chromium`).
+
+### Modules built in parallel
+
+When the app has two or more distinct areas (sales, billing, inventory...), the architect splits it into [modules](#/guide/services): which tables each one owns, its endpoints and its screens. Then one builder per module writes it at the same time, each told what the other modules own and offer. The team then:
+
+1. checks each builder's code on its own (it parses, has the screens it was asked for, and has no `app` block or `module` line, which are added for it);
+2. puts the files together: each module's code inside its `module` block, ordered so a module comes after the modules it reads from, and the navigation built from every module's screens;
+3. checks the modules against each other with the app map: a module writing another module's table, or a screen calling an endpoint nobody built, sends that module (and only that module) back to its builder once;
+4. hands the app to QA. The QA lead tags each fix with its module (`[billing] ...`), and those modules are fixed in parallel. Fixes that aren't tied to one module are made to the whole app.
+
+`mcn generate --team` prints a line per module as it's built, and Studio lists them under the Builder. A small app with one area is built by a single builder as before.
 
 The team uses Claude (your `ANTHROPIC_API_KEY`) and makes several calls per app, so it takes a few minutes and costs more than `mcn generate` on its own.
 

@@ -5,7 +5,10 @@ and tests an MCN app from a description.
     researcher  what this kind of app needs: users, data, workflows, rules (can search the web)
     architect   the data model, endpoints, screens, sign-in and audit choices
     designer    each screen's layout, components, wording and empty states
-    builder     writes backend/main.mcn and ui/app.mcn, checked by MCN's parser
+    builder     writes backend/main.mcn and ui/app.mcn, checked by MCN's parser. When the
+                architect splits the app into modules, one builder per module works at the same
+                time; each writes only its module, which is checked against the others
+                (ownership, missing endpoints) before QA
     qa          runs the checks (types, every endpoint, the compiled UI and, in Studio,
                 every screen in a real browser), looks at the screenshots, and either
                 approves or sends a fix list back to the builder (at most twice)
@@ -15,14 +18,17 @@ Progress is reported through `emit(event)`:
 
     {"type": "agent", "role": "architect", "status": "working" | "done" | "skipped" | "failed", "summary": "..."}
     {"type": "token", "role": "builder", "text": "..."}
+    {"type": "module", "name": "billing", "status": "working" | "done" | "failed", "summary": "..."}
     {"type": "qa", "round": 1, "report": {...}}
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import anthropic
 
@@ -34,6 +40,7 @@ BrowserCheck = Callable[[Path], Dict[str, Any]]
 
 ROLES = ("researcher", "architect", "designer", "builder", "qa")
 MAX_FIX_ROUNDS = 2
+MAX_PARALLEL_BUILDERS = 6
 
 _CAPABILITIES = """MCN builds an app from two files: backend/main.mcn (SQLite or Postgres tables via query(),
 a `service` with `endpoint`s, optional `auth "token" | "jwt" | "sso"`, `public` endpoints, `audit`
@@ -62,7 +69,19 @@ Turn the request and the research into a build plan, inside <plan>:
 - Sign-in: none, "jwt", or "sso" when the request mentions company login or SSO; `audit` when it
   mentions compliance, audit trails, approvals or sensitive data.
 - Seed data: a few realistic rows so the app isn't empty.
-Keep it buildable in one backend and one UI file. No code."""
+Keep it buildable in one backend and one UI file. No code.
+
+When the app has two or more distinct areas (for example sales, billing and inventory), also split
+it into modules so several builders can work at the same time. After </plan>, add <modules> with
+JSON in this shape:
+{{"app": {{"name": "OpsHub", "title": "Ops Hub", "theme": "professional"}}, "auth": null, "audit": false,
+ "modules": [{{"name": "billing", "about": "invoices and payments", "owns": ["invoices"],
+   "endpoints": ["list_invoices()", "create_invoice(customer: str, amount: float)"],
+   "screens": [{{"component": "InvoicesTable", "label": "Invoices"}}], "depends_on": ["sales"]}}]}}
+auth is null, "jwt" or "sso". Module names are lowercase identifiers. Every table belongs to exactly
+one module, and only that module writes it; other modules read it or call its endpoints. Endpoint
+and screen names are unique across the app, and the screens are listed in navigation order. Leave
+<modules> out when the app has a single area."""
 
 _DESIGNER = f"""You are the product designer on a team that builds business apps with MCN.
 {_CAPABILITIES}
@@ -84,7 +103,8 @@ the builder changed and which screens and endpoints that affects: check those fi
 Decide whether the app does what was asked and works. Reply with:
 <verdict>pass</verdict> when it's ready, or <verdict>fix</verdict> followed by <fixes> with a
 numbered list of concrete changes for the builder (which file, which endpoint or component, what
-to change). Only list real problems: errors, broken screens, missing requested features, empty
+to change). When the report lists modules, start each fix with the module it belongs to in brackets,
+like "[billing] ...", or "[app]" for navigation and anything shared. Only list real problems: errors, broken screens, missing requested features, empty
 screens that should show data, confusing wording. Don't ask for style preferences."""
 
 _TAG = {"researcher": "research", "architect": "plan", "designer": "design"}
@@ -115,6 +135,9 @@ class AgentTeam:
         self.emit: Emit = emit or (lambda event: None)
         self.web_research = web_research
         self.browser_check = browser_check
+        self._raw: Dict[str, str] = {}
+        self._spec: Optional[Dict[str, Any]] = None             # the modules, when built in parallel
+        self._fragments: Dict[str, Dict[str, str]] = {}         # each module's own backend and UI code
 
     # ── Talking to Claude ─────────────────────────────────────────────────────
 
@@ -143,7 +166,9 @@ class AgentTeam:
     def _step(self, role: str, system: str, content: Any, **kwargs) -> str:
         self.emit({"type": "agent", "role": role, "status": "working"})
         try:
-            text = _section(self._ask(role, system, content, **kwargs), _TAG[role])
+            raw = self._ask(role, system, content, **kwargs)
+            self._raw[role] = raw
+            text = _section(raw, _TAG[role])
         except Exception as exc:
             self.emit({"type": "agent", "role": role, "status": "failed", "summary": str(exc)})
             raise
@@ -163,7 +188,11 @@ class AgentTeam:
 
         brief = (f"{request}\n\nFollow this plan from the architect:\n{plan}\n\n"
                  f"And this screen design from the designer:\n{design}")
-        backend, ui, attempts = self._build(brief, out, attachments)
+        spec = parse_modules(self._raw.get("architect", ""))
+        if spec:
+            backend, ui, attempts = self._build_modules(spec, brief, out)
+        else:
+            backend, ui, attempts = self._build(brief, out, attachments)
 
         report: Dict[str, Any] = {}
         verdict = "pass"
@@ -175,11 +204,17 @@ class AgentTeam:
                 break
             self.emit({"type": "agent", "role": "builder", "status": "working",
                        "summary": f"Fixing {len(fixes)} issue(s) from QA"})
-            backend, ui = self._fix(backend, ui, fixes, out)
+            by_module = self._fixes_by_module(fixes)
+            if by_module:
+                backend, ui = self._fix_modules(by_module, out)
+            else:
+                backend, ui = self._fix(backend, ui, fixes, out)
+                self._fragments = {}            # the files were rewritten whole; fix them whole from now on
             self.emit({"type": "agent", "role": "builder", "status": "done", "summary": "Applied QA fixes"})
 
         return {"backend_mcn": backend, "ui_mcn": ui, "attempts": attempts, "research": research,
                 "plan": plan, "design": design, "verdict": verdict,
+                "modules": [m["name"] for m in spec["modules"]] if spec else [],
                 "qa_report": {k: v for k, v in report.items() if k != "screenshots"}}
 
     def _build(self, brief: str, out: Path, attachments: Optional[list]):
@@ -220,11 +255,104 @@ class AgentTeam:
             prompt += "\n\nYour last answer didn't parse:\n" + "\n".join(errors)
         return backend, ui                  # keep the last working version
 
+    # ── Building modules in parallel ──────────────────────────────────────────
+
+    def _build_modules(self, spec: Dict[str, Any], brief: str, out: Path):
+        """One builder per module, all at once. Each writes only its own module; the files are
+        assembled, checked against each other, and modules with problems are rebuilt once."""
+        names = [m["name"] for m in spec["modules"]]
+        self._spec = spec
+        self._brief = brief
+        self.emit({"type": "agent", "role": "builder", "status": "working",
+                   "summary": f"Building {len(names)} modules at once: {', '.join(names)}"})
+        try:
+            self._fragments = dict(zip(names, self._parallel(
+                lambda m: self._build_module(spec, m, brief), spec["modules"])))
+            backend, ui = self._write_assembled(out)
+            attempts = 1
+            problems = module_problems(out, spec)
+            if problems:
+                attempts = 2
+                redo = [m for m in spec["modules"] if m["name"] in problems]
+                fixed = self._parallel(lambda m: self._build_module(
+                    spec, m, brief, previous=self._fragments[m["name"]], fixes=problems[m["name"]]), redo)
+                self._fragments.update(zip([m["name"] for m in redo], fixed))
+                backend, ui = self._write_assembled(out)
+        except Exception as exc:
+            self.emit({"type": "agent", "role": "builder", "status": "failed", "summary": str(exc)})
+            raise
+        self.emit({"type": "agent", "role": "builder", "status": "done",
+                   "summary": f"Built {len(names)} modules in parallel ({', '.join(names)})"})
+        return backend, ui, attempts
+
+    def _parallel(self, fn, items: List[Any]) -> List[Any]:
+        with ThreadPoolExecutor(max_workers=max(1, min(len(items), MAX_PARALLEL_BUILDERS))) as pool:
+            return list(pool.map(fn, items))
+
+    def _build_module(self, spec: Dict[str, Any], module: Dict[str, Any], brief: str,
+                      previous: Optional[Dict[str, str]] = None, fixes: Optional[List[str]] = None) -> Dict[str, str]:
+        name = module["name"]
+        self.emit({"type": "module", "name": name, "status": "working",
+                   "summary": f"Fixing {len(fixes)} issue(s)" if fixes else module.get("about", "")})
+        prompt = brief
+        if previous:
+            prompt += ("\n\nYou wrote this module before:\n<backend>" + previous["backend"] + "</backend>\n<ui>"
+                       + previous["ui"] + "</ui>\n\nChange it to fix these problems, and return the whole "
+                       "module again:\n" + "\n".join(f"{i}. {f}" for i, f in enumerate(fixes or [], 1)))
+        system = MCN_SYSTEM_PROMPT + "\n\n" + _module_brief(spec, module)
+        errors: List[str] = []
+        for _ in range(2):
+            backend, ui = _extract_blocks(self._ask("builder", system, prompt, effort="high"))
+            fragment = {"backend": backend, "ui": ui}
+            errors = fragment_errors(fragment, module)
+            if not errors:
+                self.emit({"type": "module", "name": name, "status": "done",
+                           "summary": "Fixed" if fixes else f"Wrote module {name}"})
+                return fragment
+            prompt += "\n\nYour last answer had problems:\n" + "\n".join(errors)
+        if previous:
+            self.emit({"type": "module", "name": name, "status": "done", "summary": "Kept the last working version"})
+            return previous
+        self.emit({"type": "module", "name": name, "status": "failed", "summary": errors[0]})
+        raise RuntimeError(f"The builder for module {name} didn't return valid MCN: {errors[0]}")
+
+    def _write_assembled(self, out: Path):
+        backend, ui = assemble(self._spec, self._fragments)
+        before = _snapshot(out) if (out / "backend" / "main.mcn").exists() else None
+        MCNAgent._write(out / "backend" / "main.mcn", backend)
+        MCNAgent._write(out / "ui" / "app.mcn", ui)
+        if before:
+            self._last_change = _change_impact(before, out)
+        return backend, ui
+
+    def _fixes_by_module(self, fixes: List[str]) -> Dict[str, List[str]]:
+        """QA fixes grouped by module, when every fix names one of the modules; otherwise {}."""
+        if not self._fragments:
+            return {}
+        groups: Dict[str, List[str]] = {}
+        for fix in fixes:
+            m = re.match(r"\s*\[([A-Za-z_]\w*)\]\s*(.*)", fix, re.S)
+            if not m or m.group(1) not in self._fragments:
+                return {}
+            groups.setdefault(m.group(1), []).append(m.group(2).strip())
+        return groups
+
+    def _fix_modules(self, by_module: Dict[str, List[str]], out: Path):
+        modules = [m for m in self._spec["modules"] if m["name"] in by_module]
+        fixed = self._parallel(lambda m: self._build_module(
+            self._spec, m, getattr(self, "_brief", ""), previous=self._fragments[m["name"]],
+            fixes=by_module[m["name"]]), modules)
+        self._fragments.update(zip([m["name"] for m in modules], fixed))
+        return self._write_assembled(out)
+
     # ── QA ────────────────────────────────────────────────────────────────────
 
     def _check(self, out: Path) -> Dict[str, Any]:
         self.emit({"type": "agent", "role": "qa", "status": "working", "summary": "Running checks"})
         report = run_checks(out)
+        if self._fragments and self._spec:
+            report["modules"] = {m["name"]: {"owns": m["owns"], "screens": [x["component"] for x in m["screens"]]}
+                                 for m in self._spec["modules"]}
         if getattr(self, "_last_change", None):
             report["last_fix"] = self._last_change          # what the builder's fix changed, and what that affects
         if self.browser_check:
@@ -260,6 +388,172 @@ class AgentTeam:
                    "fixes": fixes})
         return verdict, fixes
 
+
+# ── Modules: the architect's split, each builder's brief, and putting the app together ─
+
+_IDENT = re.compile(r"[A-Za-z_]\w*")
+
+
+def parse_modules(text: str) -> Optional[Dict[str, Any]]:
+    """The architect's <modules> JSON, checked; None when there is none or it can't be built in parallel."""
+    m = re.search(r"<modules>(.*?)</modules>", text or "", re.S)
+    if not m:
+        return None
+    try:
+        spec = json.loads(re.sub(r"^\s*```(?:json)?|```\s*$", "", m.group(1).strip()))
+    except ValueError:
+        return None
+    modules = spec.get("modules") if isinstance(spec, dict) else None
+    if not isinstance(modules, list) or len(modules) < 2:
+        return None
+    seen_tables, seen_screens, names = set(), set(), []
+    for mod in modules:
+        if not isinstance(mod, dict) or not _IDENT.fullmatch(str(mod.get("name", ""))):
+            return None
+        mod["name"] = mod["name"].lower()
+        mod["owns"] = [str(t) for t in mod.get("owns") or []]
+        mod["endpoints"] = [str(e) for e in mod.get("endpoints") or []]
+        mod["depends_on"] = [str(d) for d in mod.get("depends_on") or []]
+        screens = []
+        for screen in mod.get("screens") or []:
+            if isinstance(screen, str):
+                screen = {"component": screen}
+            comp = str(screen.get("component", ""))
+            if not _IDENT.fullmatch(comp) or comp in seen_screens:
+                return None
+            seen_screens.add(comp)
+            screens.append({"component": comp, "label": str(screen.get("label") or comp).replace('"', "'")})
+        mod["screens"] = screens
+        if mod["name"] in names or seen_tables & set(mod["owns"]):
+            return None
+        names.append(mod["name"])
+        seen_tables |= set(mod["owns"])
+    app = spec.get("app") if isinstance(spec.get("app"), dict) else {}
+    app_name = str(app.get("name") or "App")
+    spec["app"] = {"name": app_name if _IDENT.fullmatch(app_name) else "App",
+                   "title": str(app.get("title") or app_name).replace('"', "'"),
+                   "theme": str(app.get("theme") or "professional").replace('"', "")}
+    spec["auth"] = spec.get("auth") if spec.get("auth") in ("jwt", "sso", "token") else None
+    spec["audit"] = bool(spec.get("audit"))
+    return spec
+
+
+def _module_brief(spec: Dict[str, Any], module: Dict[str, Any]) -> str:
+    others = "\n".join(f"- module {m['name']}: owns {', '.join(m['owns']) or 'no tables'}; endpoints "
+                       f"{', '.join(m['endpoints']) or 'none'}" for m in spec["modules"] if m is not module)
+    service_lines = ([f'auth "{spec["auth"]}"'] if spec["auth"] else []) + (["audit"] if spec["audit"] else [])
+    under = f" with {' and '.join(service_lines)} under it" if service_lines else ""
+    return f"""You are one of several builders working at the same time, each on one module of the same
+MCN app. Build ONLY module {module['name']} ({module.get('about') or 'see the plan'}).
+
+Backend (inside <backend>):
+- CREATE TABLE IF NOT EXISTS and a few seed rows for the tables this module owns: {', '.join(module['owns']) or 'none'}.
+- One `service {module['name']}_api`{under}, with exactly these endpoints: {', '.join(module['endpoints']) or 'none'}.
+  Give every parameter a type.
+- Never INSERT, UPDATE or DELETE another module's tables. SELECT from them, or call their endpoints.
+- Declare contracts only for this module's own records.
+
+UI (inside <ui>):
+- These components, one per screen: {', '.join(s['component'] for s in module['screens']) or 'none'}.
+- No `app` block: navigation is put together from every module.
+
+Write plain top-level code. Don't write a `module` line; it is added around your code.
+
+The other modules (being built right now):
+{others}
+
+Reply with <backend>...</backend> and <ui>...</ui> only."""
+
+
+def _parse_errors(code: str) -> Tuple[Optional[Any], List[str]]:
+    from mcn.core_engine.lexer import Lexer
+    from mcn.core_engine.parser import Parser
+    try:
+        parser = Parser(Lexer(code).tokenize())
+        program = parser.parse()
+    except Exception as exc:
+        return None, [str(exc)]
+    return program, [str(e) for e in getattr(parser, "errors", []) or []]
+
+
+def fragment_errors(fragment: Dict[str, str], module: Dict[str, Any]) -> List[str]:
+    """What's wrong with one builder's module, before it is put together with the others."""
+    errors: List[str] = []
+    for part in ("backend", "ui"):
+        code = fragment.get(part, "")
+        if not code:
+            if part == "backend" or module["screens"]:
+                errors.append(f"[{part}] missing")
+            continue
+        program, problems = _parse_errors(code)
+        errors += [f"[{part}] {p}" for p in problems]
+        if program is None:
+            continue
+        kinds = {type(s).__name__ for s in program.body}
+        if "ModuleDecl" in kinds:
+            errors.append(f"[{part}] don't write a `module` line; it is added for you")
+        if part == "ui":
+            if "AppDecl" in kinds:
+                errors.append("[ui] don't write an `app` block; navigation is put together from every module")
+            names = {getattr(s, "name", None) for s in program.body if type(s).__name__ == "ComponentDecl"}
+            missing = [s["component"] for s in module["screens"] if s["component"] not in names]
+            if missing:
+                errors.append(f"[ui] missing component(s): {', '.join(missing)}")
+    return errors
+
+
+def _indent(code: str) -> str:
+    return "\n".join(("    " + line) if line.strip() else "" for line in code.strip().splitlines())
+
+
+def _ordered(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Modules with the ones they depend on first, so a module's tables exist before others read them."""
+    by_name = {m["name"]: m for m in spec["modules"]}
+    out: List[Dict[str, Any]] = []
+
+    def visit(m, path=()):
+        if m in out or m["name"] in path:
+            return
+        for dep in m["depends_on"]:
+            if dep in by_name:
+                visit(by_name[dep], path + (m["name"],))
+        out.append(m)
+    for m in spec["modules"]:
+        visit(m)
+    return out
+
+
+def assemble(spec: Dict[str, Any], fragments: Dict[str, Dict[str, str]]) -> Tuple[str, str]:
+    """backend/main.mcn and ui/app.mcn from each module's code, plus the app's navigation."""
+    backend, ui = [], []
+    for m in _ordered(spec):
+        frag = fragments[m["name"]]
+        owns = f"\n    owns {', '.join(m['owns'])}" if m["owns"] else ""
+        backend.append(f"module {m['name']}{owns}\n\n{_indent(frag['backend'])}\n")
+        if frag.get("ui", "").strip():
+            ui.append(f"module {m['name']}\n\n{_indent(frag['ui'])}\n")
+    app = spec["app"]
+    nav = "\n".join(f'            nav "{s["label"]}" {s["component"]}' for m in spec["modules"] for s in m["screens"])
+    ui.append(f'app {app["name"]}\n    title "{app["title"]}"\n    theme "{app["theme"]}"\n'
+              f"    layout\n        sidebar\n{nav}\n")
+    return "\n".join(backend), "\n".join(ui)
+
+
+def module_problems(app_dir: Path, spec: Dict[str, Any]) -> Dict[str, List[str]]:
+    """Problems in the assembled app, grouped by the module that has to fix them: writes to another
+    module's table, screens calling endpoints nobody built, tables a module owns but never creates."""
+    from mcn.core_engine.app_map import build_map
+    app = build_map(app_dir)
+    names = {m["name"] for m in spec["modules"]}
+    problems: Dict[str, List[str]] = {}
+    for issue in app["issues"]:
+        if issue.get("severity") == "note" or issue["kind"] == "shared_ownership":
+            continue
+        node = app["nodes"].get(issue.get("where", ""), {})
+        owner = node.get("module") or (node["name"] if node.get("kind") == "module" else None)
+        if owner in names:
+            problems.setdefault(owner, []).append(issue["message"])
+    return problems
 
 def _snapshot(app_dir: Path) -> Path:
     """A copy of the app's MCN files, to compare against after an edit."""
