@@ -195,3 +195,123 @@ def schema() -> Dict[str, Any]:
 
 def ast_types() -> List[str]:
     return sorted(_AST_CLASSES)
+
+
+# ── Writing an MSG back to source ────────────────────────────────────────────
+
+def _unit_spans(text: str, program: ast.Program):
+    """(units, header, [(first line, last line)]) for the top-level units of a file. A unit starts at
+    the comment lines directly above it, and ends before the next unit's comments."""
+    from .unparse import units
+    lines = text.splitlines()
+    groups = units(program.body)
+    starts = []
+    for g in groups:
+        start = getattr(g[0], "line", 0) or 1
+        while start > 1 and lines[start - 2].strip().startswith("//"):
+            start -= 1
+        starts.append(start)
+    spans = []
+    for i, start in enumerate(starts):
+        end = (starts[i + 1] - 1) if i + 1 < len(starts) else len(lines)
+        while end > start and not lines[end - 1].strip():
+            end -= 1
+        spans.append((start, end))
+    header_end = (starts[0] - 1) if starts else len(lines)
+    header = "\n".join(lines[:header_end]).rstrip()
+    return groups, header, spans
+
+
+def rewrite(original: Optional[str], tree: ast.Program) -> str:
+    """Source for `tree`, keeping the original text (and comments) of every unchanged top-level
+    declaration or module; only what changed is printed fresh."""
+    from .unparse import print_unit, same_tree, to_source, units
+    if not original:
+        return to_source(tree)
+    old = _parse(original)
+    if same_tree(old, tree):
+        return original
+    old_groups, header, spans = _unit_spans(original, old)
+    lines = original.splitlines()
+    used = set()
+    pieces = []                                   # (old index or None, text)
+    for i, group in enumerate(units(tree.body)):
+        if i < len(old_groups) and i not in used and same_tree(old_groups[i], group):
+            match = i
+        else:
+            match = next((j for j, g in enumerate(old_groups) if j not in used and same_tree(g, group)), None)
+        if match is not None:
+            used.add(match)
+            start, end = spans[match]
+            pieces.append((match, "\n".join(lines[start - 1:end])))
+        else:
+            pieces.append((None, "\n".join(print_unit(group))))
+
+    def gap(before, after):
+        """The original blank lines between two neighbouring unchanged units; one blank line otherwise."""
+        if before is not None and after is not None and after == before + 1:
+            return "\n" * (spans[after][0] - spans[before][1])
+        return "\n\n"
+    out = header
+    if header:
+        first = pieces[0][0] if pieces else None
+        out += ("\n" * (spans[0][0] - len(header.splitlines()))) if first == 0 else "\n\n"
+    for k, (index, text) in enumerate(pieces):
+        if k:
+            out += gap(pieces[k - 1][0], index)
+        out += text
+    text = out.rstrip("\n") + "\n"
+
+    if not same_tree(_parse(text), tree):                  # never write something that means something else
+        return to_source(tree)
+    return text
+
+
+def write_back(msg: Dict[str, Any], root: Any, force: bool = False, dry_run: bool = False) -> Dict[str, Any]:
+    """Write the program in an MSG to an app folder. Unchanged files aren't touched; in changed files
+    only the declarations that changed are reprinted. Refuses when a file changed after the MSG was
+    made (unless force)."""
+    _check_version(msg)
+    base = Path(root).resolve()
+    result: Dict[str, List[str]] = {"written": [], "unchanged": [], "conflicts": []}
+    planned: Dict[Path, str] = {}
+    for rel, entry in msg["files"].items():
+        if "ast" not in entry:
+            continue
+        path = (base / rel).resolve()
+        if base not in path.parents:
+            raise ValueError(f"{rel} is outside the app folder")
+        current = path.read_text(encoding="utf-8") if path.exists() else None
+        if current is not None and not force and \
+                hashlib.sha256(current.encode("utf-8")).hexdigest() != entry.get("sha256"):
+            result["conflicts"].append(rel)
+            continue
+        text = rewrite(entry.get("source", current), ast_from_json(entry["ast"]))
+        if text == current:
+            result["unchanged"].append(rel)
+        else:
+            planned[path] = text
+            result["written"].append(rel)
+    if result["conflicts"]:
+        result["written"] = []
+        return result
+    if not dry_run:
+        for path, text in planned.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+    return result
+
+
+def materialise(msg: Dict[str, Any], folder: Any) -> List[str]:
+    """Write the MSG's program as source files into an empty folder (for building from an MSG)."""
+    _check_version(msg)
+    out = Path(folder)
+    written = []
+    for rel, entry in msg["files"].items():
+        if "ast" not in entry:
+            continue
+        path = out / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rewrite(entry.get("source"), ast_from_json(entry["ast"])), encoding="utf-8")
+        written.append(rel)
+    return written

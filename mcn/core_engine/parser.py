@@ -1017,6 +1017,22 @@ class Parser:
         return ast.EndpointDecl(name=name_tok.value, params=params, defaults=defaults,
                                 param_types=param_types, body=body, line=tok.line, col=tok.col)
 
+    def _schedule_decl(self) -> ast.ScheduleDecl:
+        """
+        schedule name at "cron expression"
+            body
+        (`at` is optional)
+        """
+        tok      = self._advance()   # consume SCHEDULE
+        name_tok = self._consume(TT.IDENTIFIER, "Expected schedule name")
+        if self._check(TT.IDENTIFIER) and self._current().value == "at":
+            self._advance()
+        cron_tok = self._consume(TT.STRING, 'Expected a cron expression in quotes, e.g. schedule nightly at "0 0 * * *"')
+        self._consume_end()
+        body = self._block()
+        return ast.ScheduleDecl(name=name_tok.value, cron_expr=cron_tok.value, body=body,
+                                line=tok.line, col=tok.col)
+
     def _workflow_decl(self) -> ast.WorkflowDecl:
         """
         workflow name

@@ -64,7 +64,22 @@ The MSG is MCN's canonical, machine-readable model of an app, versioned (`"msg_v
 - **The syntax trees**: each file's complete abstract syntax tree (`files[path].ast`), independent of formatting. Every graph node has an `ast_ref` (its file, then a JSON pointer such as `/body/7/endpoints/2`) pointing at its own subtree, so nothing in the program is left out of the model.
 - **The source**: each file's exact text and SHA-256.
 
-It round-trips: the trees rebuild exactly the AST the parser produces from the source, and the sources come back byte for byte. That is checked on every template in CI. An LLM can read the graph to understand the app far more easily than a long source file, and read a declaration's subtree when it needs the details. Agents get it through the agent interface's `semantic_graph` operation, including over MCP.
+It round-trips in both directions, checked on every template and example in CI:
+
+- **Source → MSG → source**: the trees rebuild exactly the AST the parser produces, and the files come back byte for byte.
+- **MSG → source**: MCN can print any syntax tree as canonical MCN, and parsing that gives back the same tree. So a tool can change the program by editing the MSG and write it back:
+
+```bash
+mcn describe --msg > app.msg.json        # export
+#                                          a tool edits the trees in app.msg.json
+mcn msg apply app.msg.json --dry-run     # which files would change
+mcn msg apply app.msg.json               # write them
+mcn msg build app.msg.json --out web     # or build the web app straight from the MSG
+```
+
+`mcn msg apply` reprints only the declarations whose tree changed; everything else, comments and blank lines included, keeps its original text. It refuses if a file changed after the MSG was made (`--force` overrides), and never writes anything that doesn't parse back to the edited tree. `mcn msg build` produces exactly the same project as building from the source.
+
+Hand-written and AI-written code go through the same pipeline: both are MCN source, parsed into the same tree, so there's one compiler and nothing to keep in sync. For an AI agent, MCN source is also the more compact way to *write* a change (a few lines instead of a large tree), which is why the agent interface takes source snippets and checks them. The MSG is for *reading* the app, and for tools that would rather edit structure than text. An LLM can read the graph to understand the app far more easily than a long source file, and read a declaration's subtree when it needs the details. Agents get it through the agent interface's `semantic_graph` operation, including over MCP.
 
 ## What a change affects: `mcn impact`
 

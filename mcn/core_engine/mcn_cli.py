@@ -489,6 +489,42 @@ def _print_tests(t: dict) -> None:
         print(f"  ✗ {f['test']} ({f['file']}): {f['error']}")
 
 
+def _cmd_msg(args) -> int:
+    """mcn msg apply | build: from an MCN Semantic Graph back to source, or to a built app."""
+    from . import msg as msg_mod
+    if args.msg_action not in ("apply", "build"):
+        print("Usage: mcn msg {apply|build} <file.json>   (make one with: mcn describe --msg > app.msg.json)")
+        return 1
+    try:
+        raw = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
+        graph = json.loads(raw)
+    except (OSError, ValueError) as exc:
+        print(f"error: can't read the MSG: {exc}")
+        return 1
+    try:
+        if args.msg_action == "apply":
+            result = msg_mod.write_back(graph, args.dir, force=args.force, dry_run=args.dry_run)
+            if result["conflicts"]:
+                print("Not written: these files changed after the MSG was made: " + ", ".join(result["conflicts"]))
+                print("Make a new MSG (mcn describe --msg), or use --force to overwrite them.")
+                return 1
+            verb = "Would write" if args.dry_run else "Wrote"
+            print(f"{verb}: {', '.join(result['written'])}" if result["written"] else "Nothing changed.")
+            return 0
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="mcn_msg_") as folder:
+            files = msg_mod.materialise(graph, folder)
+            ui = next((f for f in files if f.endswith("ui/app.mcn")), None) or next(
+                (f for f in files if f.startswith("ui/")), None)
+            if not ui:
+                print("error: the MSG has no UI file (ui/app.mcn) to build")
+                return 1
+            return _cmd_build(str(Path(folder) / ui), args.out)
+    except (ValueError, SyntaxError) as exc:
+        print(f"error: {exc}")
+        return 1
+
+
 def _cmd_op(args) -> int:
     """mcn op <operation>: the agent interface from the command line."""
     from .agent_interface import InterfaceError, Workspace
@@ -1208,6 +1244,18 @@ def main():
     impact_parser.add_argument("--module", help="Exit with code 1 if anything outside this module changed "
                                                 "(for an agent or person assigned one module)")
 
+    msg_parser = subparsers.add_parser(
+        "msg", help="Work from an MCN Semantic Graph (MSG): write an edited one back to the app, or build from one")
+    msg_sub = msg_parser.add_subparsers(dest="msg_action")
+    msg_apply = msg_sub.add_parser("apply", help="Write an edited MSG back to the app's .mcn files")
+    msg_apply.add_argument("file", help="The MSG JSON file (- to read it from input)")
+    msg_apply.add_argument("--dir", default=".", help="App folder (default: .)")
+    msg_apply.add_argument("--dry-run", action="store_true", help="Say what would change, without writing")
+    msg_apply.add_argument("--force", action="store_true", help="Write even if the files changed after the MSG was made")
+    msg_build = msg_sub.add_parser("build", help="Build the web app from an MSG, without touching any .mcn files")
+    msg_build.add_argument("file", help="The MSG JSON file (- to read it from input)")
+    msg_build.add_argument("--out", default="frontend", help="Where to write the web project (default: frontend)")
+
     op_parser = subparsers.add_parser(
         "op", help="The agent interface: inspect, find, explain, then change the app through checked patches")
     op_parser.add_argument("operation", choices=["inspect", "find", "explain", "create", "modify", "remove", "validate",
@@ -1420,6 +1468,9 @@ def main():
 
     elif args.command == "op":
         return _cmd_op(args)
+
+    elif args.command == "msg":
+        return _cmd_msg(args)
 
     elif args.command == "change":
         return _cmd_change(args)
