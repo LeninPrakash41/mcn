@@ -1441,8 +1441,8 @@ class UICompiler:
                     acc[pkg_path] = []
                 acc[pkg_path].extend(names)
 
-            # input/textarea with label attr → needs Label import
-            if tag in ("input", "textarea"):
+            # form fields with a label attr render <Label> → need its import
+            if tag in ("input", "textarea", "select", "file_upload"):
                 has_label = any(a.key == "label" for a in el.attrs)
                 if has_label:
                     self._shadcn_needed.add("label")

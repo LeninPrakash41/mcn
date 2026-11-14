@@ -638,7 +638,7 @@ function renderTemplateGallery() {
   grid.innerHTML = html
 }
 
-const FEATURED_TEMPLATES = ['ai_agent_builder', 'ops_dashboard', 'data_labeling', 'ml_training_lab', 'iot_smart_home', 'hello']
+const FEATURED_TEMPLATES = ['ai_agent_builder', 'voice_agent_builder', 'ops_dashboard', 'data_labeling', 'iot_smart_home', 'hello']
 
 function renderStarterHub() {
   const grid = document.getElementById('starter-grid')

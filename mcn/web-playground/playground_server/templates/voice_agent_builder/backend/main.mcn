@@ -1,0 +1,364 @@
+// Voice Agent Builder: AI phone agents on Twilio — backend
+//
+// Each agent answers one Twilio phone number. When someone calls, Twilio posts to
+// voice_incoming; the agent greets them and listens. Every time the caller speaks,
+// Twilio posts their words to voice_turn, the agent answers (with Claude), and the
+// call goes on, is handed to a person, or ends. voice_status records how it ended.
+//
+// Set up (see the Setup screen):
+//   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN   your Twilio account
+//   TWILIO_FROM_NUMBER                      a Twilio number, for test calls to your phone
+//   MCN_PUBLIC_URL                          the address Twilio can reach this app at
+//   ANTHROPIC_API_KEY                       for the agents' replies
+// In Twilio, set the number's "A call comes in" webhook to MCN_PUBLIC_URL/voice_incoming
+// and its "Call status changes" webhook to MCN_PUBLIC_URL/voice_status.
+
+query("CREATE TABLE IF NOT EXISTS voice_agents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, phone_number TEXT, greeting TEXT, instructions TEXT, voice TEXT, language TEXT, transfer_number TEXT, max_turns INTEGER, status TEXT, created_at TEXT DEFAULT (datetime('now')))")
+query("CREATE TABLE IF NOT EXISTS voice_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, call_sid TEXT UNIQUE, agent_id INTEGER, agent TEXT, caller TEXT, direction TEXT, status TEXT, outcome TEXT, turns INTEGER DEFAULT 0, duration INTEGER DEFAULT 0, started_at TEXT DEFAULT (datetime('now')), ended_at TEXT)")
+query("CREATE TABLE IF NOT EXISTS voice_turns (id INTEGER PRIMARY KEY AUTOINCREMENT, call_sid TEXT, role TEXT, text TEXT, created_at TEXT DEFAULT (datetime('now')))")
+
+if query("SELECT COUNT(*) AS n FROM voice_agents")[0].n == 0
+    query("INSERT INTO voice_agents (name, phone_number, greeting, instructions, voice, language, transfer_number, max_turns, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Front desk", "+15550100001", "Thanks for calling Bright Smile Dental. How can I help you today?",
+           "You are the receptionist at Bright Smile Dental. Opening hours are Monday to Friday, 8am to 6pm. A check-up costs $95 and a cleaning $120. You can take a booking request: ask for the patient's name, the treatment and a preferred day, then confirm that the team will call back to confirm the time. Never give medical advice; for pain or swelling, suggest calling back to speak to a dentist.",
+           "Polly.Joanna", "en-US", "+15550100009", 12, "Active"))
+    query("INSERT INTO voice_agents (name, phone_number, greeting, instructions, voice, language, transfer_number, max_turns, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          ("Order status", "+15550100002", "Hi, you've reached Northwind orders. What's your order number?",
+           "You help customers of Northwind, an online shop, with their orders. Orders ship within 2 business days and arrive in 3 to 5 days. Returns are free within 30 days. If the caller gives an order number, say you've noted it and that a confirmation will be sent by text. For refunds over $200, offer to connect them to a person.",
+           "Polly.Matthew", "en-US", "", 10, "Active"))
+    var history = [
+        ["CA-demo-1", 1, "Front desk", "+15550142231", "inbound", "completed", "completed", 4, 96, "2026-11-12 09:12:00"],
+        ["CA-demo-2", 1, "Front desk", "+15550178810", "inbound", "completed", "transferred", 3, 71, "2026-11-12 11:40:00"],
+        ["CA-demo-3", 2, "Order status", "+15550190044", "inbound", "completed", "completed", 5, 132, "2026-11-13 14:05:00"],
+        ["CA-demo-4", 2, "Order status", "+15550155567", "inbound", "no-answer", "missed", 0, 0, "2026-11-13 16:22:00"]
+    ]
+    for c in history
+        query("INSERT INTO voice_calls (call_sid, agent_id, agent, caller, direction, status, outcome, turns, duration, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[9]))
+    var lines = [
+        ["CA-demo-1", "agent", "Thanks for calling Bright Smile Dental. How can I help you today?"],
+        ["CA-demo-1", "caller", "Hi, I'd like to book a cleaning next Tuesday."],
+        ["CA-demo-1", "agent", "Of course. May I have your name, please?"],
+        ["CA-demo-1", "caller", "It's Maria Lopez."],
+        ["CA-demo-1", "agent", "Thanks, Maria. I've noted a cleaning for next Tuesday; the team will call you back to confirm the time."],
+        ["CA-demo-2", "agent", "Thanks for calling Bright Smile Dental. How can I help you today?"],
+        ["CA-demo-2", "caller", "Can I talk to a person about my bill?"],
+        ["CA-demo-2", "agent", "Connecting you to a person now."]
+    ]
+    for l in lines
+        query("INSERT INTO voice_turns (call_sid, role, text) VALUES (?, ?, ?)", (l[0], l[1], l[2]))
+
+// ── How an agent handles a call ───────────────────────────────────────────
+
+var PHONE_RULES = "You are speaking on a phone call, so your words are read aloud. Reply in one or two short, natural sentences, with no lists, markdown, emojis or links. Ask one question at a time. If the caller wants a person, or you can't help, reply with exactly [TRANSFER]. When the caller is done, say goodbye and end your reply with [END]."
+
+var PERSON_WORDS = ["human", "real person", "a person", "representative", "operator", "agent please", "speak to someone", "talk to someone"]
+var GOODBYE_WORDS = ["goodbye", "bye", "that's all", "that is all", "no thanks", "nothing else", "hang up"]
+
+function clean_phone(number)
+    var n = trim(str(number or ""))
+    for ch in [" ", "-", "(", ")", "."]
+        n = replace(n, ch, "")
+    return n
+
+function says_any(text, words)
+    var t = lower(text)
+    for w in words
+        if contains(t, w)
+            return true
+    return false
+
+function agent_by_id(id)
+    var rows = query("SELECT * FROM voice_agents WHERE id = ?", (id,))
+    return rows[0] if len(rows) > 0 else null
+
+function agent_for_number(number)
+    var wanted = clean_phone(number)
+    for a in query("SELECT * FROM voice_agents WHERE status = 'Active' ORDER BY id")
+        if clean_phone(a.phone_number) == wanted
+            return a
+    return null
+
+function call_by_sid(sid)
+    var rows = query("SELECT * FROM voice_calls WHERE call_sid = ?", (sid,))
+    return rows[0] if len(rows) > 0 else null
+
+function add_turn(sid, role, text)
+    query("INSERT INTO voice_turns (call_sid, role, text) VALUES (?, ?, ?)", (sid, role, text))
+    if role == "caller"
+        query("UPDATE voice_calls SET turns = turns + 1 WHERE call_sid = ?", (sid,))
+
+function transcript(sid)
+    return query("SELECT role, text, created_at FROM voice_turns WHERE call_sid = ? ORDER BY id", (sid,))
+
+function begin_call(sid, agent, caller, direction)
+    query("INSERT OR IGNORE INTO voice_calls (call_sid, agent_id, agent, caller, direction, status, outcome) VALUES (?, ?, ?, ?, ?, 'in-progress', 'in progress')",
+          (sid, agent.id, agent.name, caller, direction))
+    query("UPDATE voice_calls SET agent_id = ?, agent = ?, status = 'in-progress' WHERE call_sid = ?", (agent.id, agent.name, sid))
+    add_turn(sid, "agent", agent.greeting)
+    return {action: "listen", say: agent.greeting}
+
+function finish_call(sid, outcome)
+    query("UPDATE voice_calls SET outcome = ?, ended_at = datetime('now') WHERE call_sid = ?", (outcome, sid))
+
+// The agent's next move after the caller speaks: {action: listen | transfer | hangup, say}
+function next_step(sid, agent, said)
+    var heard = trim(str(said or ""))
+    var call = call_by_sid(sid)
+    if heard == ""
+        var last = query("SELECT text FROM voice_turns WHERE call_sid = ? AND role = 'agent' ORDER BY id DESC LIMIT 1", (sid,))
+        if len(last) > 0 and last[0].text == "Sorry, I didn't catch that. Could you say it again?"
+            add_turn(sid, "agent", "Sorry, I still can't hear you. Please call back. Goodbye.")
+            finish_call(sid, "no speech")
+            return {action: "hangup", say: "Sorry, I still can't hear you. Please call back. Goodbye."}
+        add_turn(sid, "agent", "Sorry, I didn't catch that. Could you say it again?")
+        return {action: "listen", say: "Sorry, I didn't catch that. Could you say it again?"}
+
+    add_turn(sid, "caller", heard)
+    var step = {action: "listen", say: ""}
+    if says_any(heard, PERSON_WORDS) and agent.transfer_number
+        step = {action: "transfer", say: "Of course. Connecting you to a person now."}
+    else if says_any(heard, GOODBYE_WORDS) and len(split(heard, " ")) <= 6
+        step = {action: "hangup", say: "Thanks for calling. Goodbye!"}
+    else if call and call.turns + 1 >= agent.max_turns
+        step = {action: "hangup", say: "Thanks for calling. Someone from the team will follow up with you. Goodbye!"}
+    else
+        var lines = map(transcript(sid), t => ("Caller: " if t.role == "caller" else "You: ") + t.text)
+        var reply = ai("The call so far:\n" + join(lines, "\n") + "\n\nYour next reply:",
+                       {system: PHONE_RULES + "\n\n" + agent.instructions, max_tokens: 200})
+        reply = trim(replace(replace(str(reply), "*", ""), "#", ""))
+        if contains(reply, "[TRANSFER]")
+            step = {action: "transfer", say: "Let me connect you to a person."} if agent.transfer_number else {action: "listen", say: "I'm sorry, there's nobody I can transfer you to right now. Is there anything else I can help with?"}
+        else if contains(reply, "[END]")
+            step = {action: "hangup", say: trim(replace(reply, "[END]", "")) or "Goodbye!"}
+        else
+            step = {action: "listen", say: reply}
+    add_turn(sid, "agent", step.say)
+    if step.action == "transfer"
+        finish_call(sid, "transferred")
+    else if step.action == "hangup"
+        finish_call(sid, "completed")
+    return step
+
+// The same step as TwiML, for Twilio
+function twiml_for(step, agent)
+    var options = {voice: agent.voice, language: agent.language, action: "voice_turn"}
+    if step.action == "transfer"
+        return voice_transfer(step.say, agent.transfer_number, options)
+    if step.action == "hangup"
+        return voice_hangup(step.say, options)
+    return voice_say(step.say, options)
+
+function refused()
+    return respond("This request didn't come from Twilio.", "text/plain", 403)
+
+// ── The service ───────────────────────────────────────────────────────────
+
+service voice_api
+    port 8080
+    auth "token"
+    public voice_incoming, voice_outbound, voice_turn, voice_status
+
+    // Twilio webhooks (signed by Twilio; checked with twilio_request_ok)
+
+    endpoint voice_incoming(CallSid: str, From: str = "", To: str = "")
+        if not twilio_request_ok()
+            return refused()
+        var agent = agent_for_number(To)
+        if not agent
+            return voice_hangup("Sorry, this number isn't set up yet. Goodbye.")
+        return twiml_for(begin_call(CallSid, agent, From, "inbound"), agent)
+
+    endpoint voice_outbound(CallSid: str, To: str = "")
+        if not twilio_request_ok()
+            return refused()
+        var call = call_by_sid(CallSid)
+        var agent = agent_by_id(call.agent_id) if call else null
+        if not agent
+            return voice_hangup("Sorry, something went wrong. Goodbye.")
+        return twiml_for(begin_call(CallSid, agent, To, "outbound"), agent)
+
+    endpoint voice_turn(CallSid: str, SpeechResult: str = "")
+        if not twilio_request_ok()
+            return refused()
+        var call = call_by_sid(CallSid)
+        var agent = agent_by_id(call.agent_id) if call else null
+        if not agent
+            return voice_hangup("Sorry, something went wrong. Goodbye.")
+        return twiml_for(next_step(CallSid, agent, SpeechResult), agent)
+
+    endpoint voice_status(CallSid: str, CallStatus: str = "", CallDuration: str = "0")
+        if not twilio_request_ok()
+            return refused()
+        var seconds = int(CallDuration) if CallDuration else 0
+        query("UPDATE voice_calls SET status = ?, duration = ?, ended_at = COALESCE(ended_at, datetime('now')) WHERE call_sid = ?",
+              (CallStatus, seconds, CallSid))
+        query("UPDATE voice_calls SET outcome = 'missed' WHERE call_sid = ? AND outcome = 'in progress' AND status IN ('no-answer', 'busy', 'failed', 'canceled')", (CallSid,))
+        query("UPDATE voice_calls SET outcome = 'caller hung up' WHERE call_sid = ? AND outcome = 'in progress'", (CallSid,))
+        return {success: true}
+
+    // Agents
+
+    endpoint list_agents()
+        return {success: true, data: query("SELECT id, name, phone_number, greeting, instructions, voice, language, transfer_number, max_turns, status FROM voice_agents ORDER BY id")}
+
+    endpoint agent_names()
+        return {success: true, data: map(query("SELECT name FROM voice_agents ORDER BY id"), a => a.name)}
+
+    endpoint create_agent(name: str, phone_number: str, greeting: str, instructions: str, voice: str, language: str, transfer_number: str, max_turns: int)
+        if trim(name) == ""
+            return {success: false, error: "Give the agent a name"}
+        if len(query("SELECT id FROM voice_agents WHERE name = ?", (trim(name),))) > 0
+            return {success: false, error: "There's already an agent called " + trim(name)}
+        query("INSERT INTO voice_agents (name, phone_number, greeting, instructions, voice, language, transfer_number, max_turns, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')",
+              (trim(name), clean_phone(phone_number), greeting or "Hello, how can I help you?", instructions, voice or "Polly.Joanna", language or "en-US", clean_phone(transfer_number), max_turns if max_turns > 0 else 10))
+        return {success: true, id: query("SELECT last_insert_rowid() AS id")[0].id}
+
+    endpoint update_agent(id: int, name: str, phone_number: str, greeting: str, instructions: str, voice: str, language: str, transfer_number: str, max_turns: int, status: str)
+        query("UPDATE voice_agents SET name = ?, phone_number = ?, greeting = ?, instructions = ?, voice = ?, language = ?, transfer_number = ?, max_turns = ?, status = ? WHERE id = ?",
+              (trim(name), clean_phone(phone_number), greeting, instructions, voice or "Polly.Joanna", language or "en-US", clean_phone(transfer_number), max_turns if max_turns > 0 else 10, status or "Active", id))
+        return {success: true}
+
+    endpoint delete_agent(id: int)
+        query("DELETE FROM voice_agents WHERE id = ?", (id,))
+        return {success: true}
+
+    // Calls
+
+    endpoint list_calls()
+        return {success: true, data: query("SELECT call_sid, agent, caller, direction, outcome, status, turns, duration, started_at FROM voice_calls ORDER BY started_at DESC, id DESC LIMIT 200")}
+
+    endpoint call_ids()
+        return {success: true, data: map(query("SELECT call_sid FROM voice_calls ORDER BY started_at DESC, id DESC LIMIT 50"), c => c.call_sid)}
+
+    endpoint call_transcript(call_sid: str)
+        return {success: true, data: transcript(call_sid)}
+
+    endpoint voice_stats()
+        var calls = query("SELECT COUNT(*) AS n FROM voice_calls WHERE direction != 'test'")[0].n
+        var turns = query("SELECT AVG(turns) AS n FROM voice_calls WHERE direction != 'test' AND turns > 0")[0].n
+        return {success: true, data: {
+            agents: query("SELECT COUNT(*) AS n FROM voice_agents WHERE status = 'Active'")[0].n,
+            calls: calls,
+            avg_turns: round(turns or 0, 1),
+            transferred: query("SELECT COUNT(*) AS n FROM voice_calls WHERE outcome = 'transferred'")[0].n,
+            by_agent: query("SELECT agent, COUNT(*) AS calls FROM voice_calls WHERE direction != 'test' GROUP BY agent ORDER BY calls DESC"),
+            by_outcome: query("SELECT outcome, COUNT(*) AS calls FROM voice_calls WHERE direction != 'test' GROUP BY outcome ORDER BY calls DESC")
+        }}
+
+    // Try an agent without a phone: the same steps a real call takes
+
+    endpoint simulate_start(agent_name: str)
+        var rows = query("SELECT * FROM voice_agents WHERE name = ?", (agent_name,))
+        if len(rows) == 0
+            return {success: false, error: "Pick an agent first"}
+        var sid = "TEST-" + uuid()
+        var step = begin_call(sid, rows[0], "Call simulator", "test")
+        return {success: true, call_sid: sid, action: step.action, say: step.say, transcript: transcript(sid)}
+
+    endpoint simulate_turn(call_sid: str, said: str)
+        var call = call_by_sid(call_sid)
+        if not call
+            return {success: false, error: "Start a test call first"}
+        if call.outcome != "in progress"
+            return {success: false, error: "This call has ended. Start a new one."}
+        var agent = agent_by_id(call.agent_id)
+        var step = next_step(call_sid, agent, said)
+        return {success: true, call_sid: call_sid, action: step.action, say: step.say,
+                twiml: twiml_for(step, agent).body, transcript: transcript(call_sid)}
+
+    // Setup: what's configured (never the secrets themselves) and a real test call
+
+    endpoint setup_status()
+        var base = env("MCN_PUBLIC_URL") or ""
+        var ready = (env("TWILIO_ACCOUNT_SID") or "") != "" and (env("TWILIO_AUTH_TOKEN") or "") != ""
+        return {success: true, data: {
+            twilio: "Connected" if ready else "Not set up",
+            caller_id: env("TWILIO_FROM_NUMBER") or "Not set",
+            public_url: base or "Not set",
+            claude: "Connected" if (env("ANTHROPIC_API_KEY") or "") != "" else "Not set up",
+            incoming_webhook: (base + "/voice_incoming") if base else "Set MCN_PUBLIC_URL first",
+            status_webhook: (base + "/voice_status") if base else "Set MCN_PUBLIC_URL first"
+        }}
+
+    endpoint start_test_call(agent_name: str, to_number: str)
+        var rows = query("SELECT * FROM voice_agents WHERE name = ?", (agent_name,))
+        if len(rows) == 0
+            return {success: false, error: "Pick an agent first"}
+        var result = twilio_call(to_number, "voice_outbound", {status_callback: "voice_status"})
+        if not result.success
+            return result
+        query("INSERT INTO voice_calls (call_sid, agent_id, agent, caller, direction, status, outcome) VALUES (?, ?, ?, ?, 'outbound', 'queued', 'in progress')",
+              (result.sid, rows[0].id, rows[0].name, clean_phone(to_number)))
+        return {success: true, message: "Calling " + clean_phone(to_number) + " now. Answer to talk to " + rows[0].name + "."}
+
+// ── Tests (no phone or Twilio account needed) ─────────────────────────────
+
+test "an incoming call to an agent's number is greeted, then the agent listens"
+    var twiml = voice_incoming("CA-t1", "+15550001111", "+1 555 010 0001")
+    assert twiml.content_type == "text/xml"
+    assert contains(twiml.body, "Bright Smile Dental")
+    assert contains(twiml.body, "<Gather input=\"speech\" action=\"voice_turn\"")
+    assert call_by_sid("CA-t1").agent == "Front desk"
+
+test "a number with no agent is told so and hung up on"
+    var twiml = voice_incoming("CA-t2", "+15550001111", "+15559999999")
+    assert contains(twiml.body, "isn't set up yet")
+    assert contains(twiml.body, "<Hangup/>")
+
+test "asking for a person transfers to the agent's transfer number"
+    voice_incoming("CA-t3", "+15550002222", "+15550100001")
+    var twiml = voice_turn("CA-t3", "Can I speak to a real person please")
+    assert contains(twiml.body, "<Dial timeout=\"20\">+15550100009</Dial>")
+    assert call_by_sid("CA-t3").outcome == "transferred"
+
+test "saying goodbye ends the call"
+    voice_incoming("CA-t4", "+15550003333", "+15550100002")
+    var twiml = voice_turn("CA-t4", "No thanks, bye")
+    assert contains(twiml.body, "<Hangup/>")
+    assert call_by_sid("CA-t4").outcome == "completed"
+
+test "silence is asked about once, then the call ends"
+    voice_incoming("CA-t5", "+15550004444", "+15550100001")
+    assert contains(voice_turn("CA-t5", "").body, "didn't catch that")
+    assert contains(voice_turn("CA-t5", "").body, "<Hangup/>")
+
+test "the agent answers what the caller says and the transcript is kept"
+    voice_incoming("CA-t6", "+15550005555", "+15550100001")
+    var twiml = voice_turn("CA-t6", "What are your opening hours?")
+    assert contains(twiml.body, "<Gather")
+    var turns = call_transcript("CA-t6").data
+    assert len(turns) == 3
+    assert turns[1].role == "caller"
+    assert call_by_sid("CA-t6").turns == 1
+
+test "the call simulator runs the same steps without a phone"
+    var start = simulate_start("Order status")
+    assert start.success == true
+    assert start.say == "Hi, you've reached Northwind orders. What's your order number?"
+    var reply = simulate_turn(start.call_sid, "goodbye")
+    assert reply.action == "hangup"
+    assert simulate_turn(start.call_sid, "hello again").success == false
+
+test "agents need a unique name"
+    assert create_agent("", "+15550100003", "Hi", "Help", "", "", "", 5).success == false
+    assert create_agent("Front desk", "+15550100003", "Hi", "Help", "", "", "", 5).success == false
+    assert create_agent("Support line", "+1 (555) 010-0003", "Hi", "Help", "", "", "", 0).success == true
+    assert agent_for_number("+15550100003").max_turns == 10
+
+test "the call status webhook records how the call ended"
+    voice_incoming("CA-t7", "+15550006666", "+15550100002")
+    voice_status("CA-t7", "completed", "42")
+    assert call_by_sid("CA-t7").duration == 42
+    assert call_by_sid("CA-t7").outcome == "caller hung up"
+
+test "setup status never shows secrets"
+    var status = setup_status().data
+    assert not contains(to_json(status), env("TWILIO_AUTH_TOKEN") or "no-token-set-here")
+    assert status.twilio == "Connected" or status.twilio == "Not set up"
+
+test "an outgoing call is greeted by the agent that placed it"
+    query("INSERT INTO voice_calls (call_sid, agent_id, agent, caller, direction, status, outcome) VALUES ('CA-out', 2, 'Order status', '+15550007777', 'outbound', 'queued', 'in progress')")
+    var twiml = voice_outbound("CA-out", "+15550007777")
+    assert contains(twiml.body, "Northwind orders")
+    assert call_by_sid("CA-out").direction == "outbound"

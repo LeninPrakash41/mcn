@@ -1,0 +1,202 @@
+// Voice Agent Builder: AI phone agents on Twilio — user interface
+
+component Overview
+    state stats = {agents: 0, calls: 0, avg_turns: 0, transferred: 0, by_agent: [], by_outcome: []}
+    state calls = []
+
+    on load
+        stats = voice_stats().data
+        calls = list_calls().data
+
+    render
+        div grid_cols=4
+            stat_card label="Active agents" value=stats.agents icon="Bot" color="purple"
+            stat_card label="Calls answered" value=stats.calls icon="Phone" color="blue"
+            stat_card label="Average turns per call" value=stats.avg_turns icon="MessageCircle" color="green"
+            stat_card label="Handed to a person" value=stats.transferred icon="Users" color="amber"
+        div grid_cols=2
+            card
+                card_header "Calls by agent"
+                card_content
+                    bar_chart data=stats.by_agent x_key="agent" y_key="calls" height=240 empty="Calls appear here once your number rings"
+            card
+                card_header "How calls ended"
+                card_content
+                    pie_chart data=stats.by_outcome name_key="outcome" value_key="calls" height=240
+        data_table title="Recent calls" description="Every call your agents took or made" columns=["started_at", "agent", "caller", "direction", "outcome", "turns", "duration"] page_size=5 empty="No calls yet"
+
+component AgentsTable
+    state items = []
+
+    on load
+        items = list_agents().data
+
+    render
+        card
+            card_header "Phone agents"
+            text "Each agent answers one Twilio number with its own greeting, instructions and voice. Callers who ask for a person are put through to the transfer number."
+            table data=items
+                table_header
+                    table_row
+                        table_head "name"
+                        table_head "phone_number"
+                        table_head "greeting"
+                        table_head "instructions"
+                        table_head "voice"
+                        table_head "language"
+                        table_head "transfer_number"
+                        table_head "max_turns"
+                        table_head "status"
+                table_body
+
+component CallSimulator
+    state agents = []
+    state agent_name = ""
+    state call_sid = ""
+    state said = ""
+    state turns = []
+    state last_action = "No test call yet"
+    state twiml = ""
+    state message = ""
+
+    on load
+        agents = agent_names().data
+        if len(agents) > 0
+            agent_name = agents[0]
+
+    on start
+        var result = simulate_start(agent_name)
+        if result.success
+            call_sid = result.call_sid
+            turns = result.transcript
+            last_action = "Listening for the caller"
+            twiml = ""
+            message = ""
+        else
+            message = result.error
+
+    on send
+        var result = simulate_turn(call_sid, said)
+        if result.success
+            turns = result.transcript
+            twiml = result.twiml
+            said = ""
+            message = ""
+            if result.action == "transfer"
+                last_action = "Transferred to a person: the call ends here"
+            else if result.action == "hangup"
+                last_action = "The agent hung up: start a new call to try again"
+            else
+                last_action = "Listening for the caller"
+        else
+            message = result.error
+
+    render
+        div grid_cols=2
+            card
+                card_header "Try an agent"
+                text "Play the caller. This runs exactly what a phone call runs, without a phone or a Twilio account."
+                form on_submit=start
+                    select bind=agent_name options=agents label="Agent"
+                    button "Start a test call" variant="default"
+                form on_submit=send
+                    input bind=said label="The caller says"
+                    button "Say it" variant="outline"
+                text message
+            card
+                card_header "What happens next"
+                text last_action
+                separator
+                text twiml
+        data_table title="Conversation" description="The test call so far" columns=["role", "text"] page_size=20 data=turns empty="Start a test call to see the conversation"
+
+component CallLog
+    state items = []
+    state ids = []
+    state selected = ""
+    state turns = []
+
+    on load
+        items = list_calls().data
+        ids = call_ids().data
+        if len(ids) > 0
+            selected = ids[0]
+            turns = call_transcript(selected).data
+
+    on open
+        turns = call_transcript(selected).data
+
+    render
+        data_table title="Calls" description="Inbound, outbound and test calls" columns=["started_at", "agent", "caller", "direction", "outcome", "status", "turns", "duration", "call_sid"] filters=["agent", "direction", "outcome"] page_size=10
+        card
+            card_header "Transcript"
+            form on_submit=open
+                select bind=selected options=ids label="Call"
+                button "Show transcript" variant="outline"
+            data_table columns=["role", "text", "created_at"] data=turns page_size=30 empty="Pick a call"
+
+component Setup
+    state status = {twilio: "", caller_id: "", public_url: "", claude: "", incoming_webhook: "", status_webhook: ""}
+    state incoming_webhook = ""
+    state status_webhook = ""
+    state agents = []
+    state agent_name = ""
+    state to_number = ""
+    state message = ""
+
+    on load
+        status = setup_status().data
+        incoming_webhook = status.incoming_webhook
+        status_webhook = status.status_webhook
+        agents = agent_names().data
+        if len(agents) > 0
+            agent_name = agents[0]
+
+    on call
+        var result = start_test_call(agent_name, to_number)
+        message = result.message if result.success else result.error
+
+    render
+        div grid_cols=4
+            stat_card label="Twilio" value=status.twilio icon="Phone" color="blue"
+            stat_card label="Claude" value=status.claude icon="Sparkles" color="purple"
+            stat_card label="Caller ID" value=status.caller_id icon="Hash" color="green"
+            stat_card label="Public address" value=status.public_url icon="Globe" color="amber"
+        card
+            card_header "Connect a Twilio number"
+            div
+                text "1. In Twilio, buy or pick a phone number."
+            div
+                text "2. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER for this app, and ANTHROPIC_API_KEY for the agents' replies."
+            div
+                text "3. Make the app reachable from the internet (deploy it, or run a tunnel such as ngrok) and set MCN_PUBLIC_URL to that address."
+            div
+                text "4. On the number's page in Twilio, set A call comes in to the incoming webhook (HTTP POST) and Call status changes to the status webhook."
+            div
+                text "5. Put the number on an agent on the Agents page, then call it."
+            separator
+            div
+                text "Incoming webhook: "
+                text incoming_webhook
+            div
+                text "Status webhook: "
+                text status_webhook
+        card
+            card_header "Have an agent call you"
+            form on_submit=call
+                select bind=agent_name options=agents label="Agent"
+                input bind=to_number label="Your phone number" type="tel"
+                button "Call me" variant="default"
+            text message
+
+app VoiceAgents
+    title "Voice Agents"
+    logo "Phone"
+    footer "Voice Agents · AI phone agents on Twilio · built with MCN"
+    layout
+        sidebar
+            nav "Overview" Overview icon="LayoutDashboard"
+            nav "Agents" AgentsTable icon="Bot" group="Build"
+            nav "Call simulator" CallSimulator icon="Mic" group="Build"
+            nav "Calls" CallLog icon="History" group="Monitor"
+            nav "Setup" Setup icon="Settings" group="Monitor"

@@ -36,6 +36,15 @@ def set_current_user(user: Any) -> None:
     _request.user = user
 
 
+def current_request() -> Optional[Dict[str, Any]]:
+    """The HTTP request an endpoint is answering ({url, path, query, headers, form}), or None outside one."""
+    return getattr(_request, "http", None)
+
+
+def set_current_request(info: Optional[Dict[str, Any]]) -> None:
+    _request.http = info
+
+
 def check_auth(mode: str, authorization: Optional[str]) -> Tuple[bool, Any, str]:
     """(allowed, user, error) for an Authorization header under the endpoint's auth mode."""
     if not mode:

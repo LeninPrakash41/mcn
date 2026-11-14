@@ -83,33 +83,17 @@ function dismissDiagnosticBanner() {
   if (banner) banner.classList.add('hidden')
 }
 
-async function autoFixWithAI() {
+// Hand the current error to the Agent; the fix comes back as a patch to review
+function autoFixWithAI() {
   if (!_active) return
-  const model = _models.get(_active)
-  if (!model) return
-  const code = model.getValue()
-  setStatus('AI Self-Healing…')
-  switchPanel('output', document.querySelector('[data-panel="output"]'))
-  appendLog('info', 'AI Copilot: Synthesizing self-healing fix for current file…')
-  try {
-    const res = await apiFetch('/api/agent/repair', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
-    })
-    const data = await res.json()
-    if (data.success && data.repair_prompt) {
-      appendLog('success', 'Diagnostic repair prompt prepared.')
-      openAgentStudioModal()
-      const promptInput = document.getElementById('agent-prompt-input')
-      if (promptInput) {
-        promptInput.value = 'Fix the following compiler and syntax errors:\n' + data.repair_prompt
-      }
-      dismissDiagnosticBanner()
-    }
-  } catch (e) {
-    appendLog('error', 'Auto-fix error: ' + e.message)
-  }
+  const banner = document.getElementById('diag-msg')
+  const problem = banner && !document.getElementById('editor-diagnostic-banner').classList.contains('hidden')
+    ? banner.textContent.trim() : ''
+  openAgentPanel('change')
+  const input = document.getElementById('ap-input')
+  input.value = `Fix the error in ${_active}` + (problem ? `: ${problem}` : '')
+  _apResize()
+  dismissDiagnosticBanner()
 }
 
 async function buildAndLaunchPreview() {

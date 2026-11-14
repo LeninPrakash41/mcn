@@ -109,7 +109,7 @@ render
 - **`agent_builder`**: configure an agent's instructions, model, tools and knowledge, and test it live.
 - **`workflow_builder`**: build automations from a trigger and steps (AI, condition, HTTP, database, notify, email, delay, approval) and run them step by step.
 
-The **AI Agent Builder** and **Workflow Automation** templates in Studio include complete backends for these.
+The **AI Agent Builder**, **Voice Agent Builder** and **Workflow Automation** templates in Studio include complete backends for these.
 
 ## Notifications
 

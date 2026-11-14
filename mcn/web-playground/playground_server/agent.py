@@ -7,7 +7,6 @@ from .core import (
     Response,
     _load_config,
     _request_workspace,
-    _safe_path_for,
     _sse,
     jsonify,
     request,
@@ -15,71 +14,6 @@ from .core import (
 )
 
 bp = Blueprint("agent", __name__)
-
-@bp.route("/api/agent/enhance", methods=["POST"])
-def agent_enhance_ui():
-    data    = request.get_json(silent=True) or {}
-    rel_path = data.get("path", "").strip()
-    prompt   = data.get("prompt", "").strip()
-    mode     = data.get("mode", "mcn").strip()
-    
-    api_key  = (data.get("api_key") or "").strip() \
-               or _load_config().get("api_key") \
-               or os.getenv("ANTHROPIC_API_KEY") \
-               or os.getenv("OPENAI_API_KEY")
-               
-    if not rel_path or not prompt:
-        return jsonify({"success": False, "error": "Missing 'path' or 'prompt'"}), 400
-    if mode in ("mcn", "backend"):
-        # Existing MCN code is changed through the agent interface (a checked patch someone approves),
-        # never by rewriting the whole file
-        return jsonify({"success": False, "error": "MCN files are changed through /api/agent/change, which "
-                        "builds a checked patch to review and apply"}), 400
-    if not api_key:
-        return jsonify({"success": False, "error": "No API key found. Enter your Claude API key to proceed."}), 400
-        
-    ws = _request_workspace()
-    try:
-        try:
-            from mcn.ai.mcn_coding_agent import MCNCodingAgent
-        except ImportError:
-            from ai.mcn_coding_agent import MCNCodingAgent  # type: ignore
-
-        agent = MCNCodingAgent(api_key=api_key)
-
-        if mode == "generate_backend":
-            # Fresh generation — no existing file required
-            enhanced_code = agent.generate_backend_code(prompt)
-            p = _safe_path_for(rel_path or "backend/main.mcn", ws)
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(enhanced_code, encoding="utf-8")
-            return jsonify({
-                "success": True,
-                "content": enhanced_code,
-                "path": rel_path or "backend/main.mcn",
-                "message": f"Backend code generated and written to {p.name}."
-            })
-
-        # All other modes require the target file to exist
-        p = _safe_path_for(rel_path, ws)
-        if not p.exists():
-            return jsonify({"success": False, "error": f"File does not exist: {rel_path}"}), 404
-
-        file_content = p.read_text(encoding="utf-8")
-
-        enhanced_code = agent.enhance_compiled_code(file_content, str(p), prompt)
-
-        # Write back the enhanced code
-        p.write_text(enhanced_code, encoding="utf-8")
-
-        return jsonify({
-            "success": True,
-            "content": enhanced_code,
-            "message": f"Successfully enhanced {rel_path} using MCN Coding Agent."
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
 
 @bp.route("/api/agent/verify", methods=["POST"])
 def agent_verify_endpoint():
@@ -327,10 +261,12 @@ def _patch_review(ws_obj, patch_id: str) -> dict:
 @bp.route("/api/agent/change", methods=["POST"])
 def agent_change():
     """An AI agent changes the workspace app through the agent interface; streams its operations and ends
-    with a patch to review. Nothing is written until /api/agent/change/apply."""
+    with a patch to review. Nothing is written until /api/agent/change/apply. With mode "ask" it only
+    answers a question, using the read-only operations."""
     data    = request.get_json(silent=True) or {}
     prompt  = (data.get("prompt") or "").strip()
     area    = data.get("area") if data.get("area") in _AREAS else None
+    mode    = "ask" if data.get("mode") == "ask" else "change"
     api_key = (data.get("api_key") or "").strip() or _load_config().get("api_key") or os.getenv("ANTHROPIC_API_KEY")
     if not prompt:
         return jsonify({"error": "Describe the change"}), 400
@@ -347,10 +283,14 @@ def agent_change():
         try:
             from mcn.ai.change_agent import ChangeAgent
             from mcn.core_engine.agent_interface import Workspace
-            result = ChangeAgent(api_key=api_key, emit=events.put).run(request_text, str(ws))
-            done = {"type": "done", "summary": result["summary"], "patch": result["patch"]}
-            if result["patch"]:
-                done.update(_patch_review(Workspace(ws), result["patch"]))
+            agent = ChangeAgent(api_key=api_key, emit=events.put)
+            if mode == "ask":
+                result = agent.ask(prompt, str(ws))
+            else:
+                result = agent.run(request_text, str(ws))
+            done = {"type": "done", "mode": mode, "summary": result["summary"], "patch": result.get("patch")}
+            if done["patch"]:
+                done.update(_patch_review(Workspace(ws), done["patch"]))
             events.put(done)
         except Exception as exc:
             events.put({"type": "error", "message": str(exc)})

@@ -23,8 +23,14 @@ def load_template(template_id: str) -> dict:
     raise KeyError(template_id)
 
 
-@lru_cache(maxsize=1)
 def _index() -> tuple:
+    # Re-read when index.json changes, so a new template shows up without restarting Studio
+    path = TEMPLATES_DIR / "index.json"
+    return _read_index(path.stat().st_mtime_ns)
+
+
+@lru_cache(maxsize=4)
+def _read_index(_mtime: int) -> tuple:
     return tuple(json.loads((TEMPLATES_DIR / "index.json").read_text(encoding="utf-8")))
 
 

@@ -91,6 +91,8 @@ A wrong or missing value is refused with status 400 and says which parameter: `{
 
 `mcn check --strict` requires a type on every endpoint parameter, and `mcn check` always reports a type that doesn't exist. The types also appear in `mcn describe`, so AI agents and tools know exactly what each endpoint takes.
 
+Endpoints also accept form posts (`application/x-www-form-urlencoded` and `multipart/form-data`), and can answer with something other than JSON using `respond(body, content_type, status)`, which is how [phone calls](#/guide/phone-calls) answer Twilio.
+
 ## Calling endpoints from MCN
 
 Inside the same file, endpoints are ordinary functions, which is what makes them easy to test:

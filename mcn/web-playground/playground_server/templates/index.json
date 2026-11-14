@@ -74,6 +74,19 @@
     ]
   },
   {
+    "badge": "Voice AI",
+    "category": "internal_app",
+    "description": "AI phone agents on Twilio: give each number a greeting, instructions and a voice, try agents in a call simulator, hand callers to a person, and review every call and transcript.",
+    "id": "voice_agent_builder",
+    "name": "Voice Agent Builder (Twilio)",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
     "badge": "Automation",
     "category": "internal_app",
     "description": "Visual workflow builder: triggers, AI, HTTP, condition, database and notification steps, real execution with step-by-step results and run history.",

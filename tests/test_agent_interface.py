@@ -365,11 +365,24 @@ def test_studio_changes_go_through_a_reviewed_patch(monkeypatch):
         again = client.post("/api/agent/change/apply", json={"patch": done["patch"]})
         assert again.status_code == 409 and "already applied" in again.get_json()["error"]
 
-        old = client.post("/api/agent/enhance", json={"path": "ui/app.mcn", "prompt": "x", "mode": "mcn", "api_key": "k"})
-        assert old.status_code == 400 and "/api/agent/change" in old.get_json()["error"]
+        assert client.post("/api/agent/enhance", json={"prompt": "x"}).status_code == 404     # no whole-file rewrites
         assert client.post("/api/agent/change", json={"api_key": "k"}).status_code == 400
     finally:
         shutil.rmtree(ws, ignore_errors=True)
         for path, content in saved.items():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
+
+
+def test_ask_mode_only_reads(app):
+    from mcn.ai.change_agent import ChangeAgent
+    client = ScriptedClaude([
+        [("explain", {"target": "create_order"}), ("modify", {"target": "create_order", "source": VERIFIED_ORDER})],
+        "create_order writes `ai_orders` and is covered by one test.",
+    ])
+    result = ChangeAgent(client=client).ask("What does create_order do?", str(app))
+    assert result["summary"].startswith("create_order writes") and result["patch"] is None
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["inspect", "find", "explain"]
+    refused = json.loads(client.requests[1]["messages"][2]["content"][1]["content"])
+    assert "isn't available when answering questions" in refused["error"]
+    assert not (app / ".mcn" / "patches").exists()                  # nothing was even proposed

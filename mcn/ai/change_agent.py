@@ -41,6 +41,13 @@ interface's operations; you never rewrite whole files.
 If the request can't be done safely, say why instead of guessing. Applying the patch is not your job:
 a person reviews and approves it."""
 
+_ASK_INSTRUCTIONS = """You answer a developer's questions about their MCN app. Use the read-only operations
+(inspect, find, explain) to look at the real code before answering; never guess. Answer in plain language,
+briefly, naming the screens, endpoints and tables involved (with file:line where it helps). You can't change
+anything; if they ask for a change, say what you'd change and suggest Change mode."""
+
+READ_ONLY_TOOLS = ("inspect", "find", "explain")
+
 Emit = Callable[[Dict[str, Any]], None]
 
 
@@ -51,17 +58,24 @@ class ChangeAgent:
         self.model = model
         self.emit: Emit = emit or (lambda event: None)
 
-    def run(self, request: str, app_dir: str) -> Dict[str, Any]:
+    def ask(self, question: str, app_dir: str) -> Dict[str, Any]:
+        """Answer a question about the app with the read-only operations. Returns {"summary", "operations"}."""
+        return self.run(question, app_dir, mode="ask")
+
+    def run(self, request: str, app_dir: str, mode: str = "change") -> Dict[str, Any]:
         """Returns {"summary", "patch" (id or None), "operations": [...]}."""
         ws = Workspace(app_dir)
-        messages: List[Dict[str, Any]] = [{"role": "user", "content": f"Request:\n{request.strip()}"}]
-        system = MCN_SYSTEM_PROMPT + "\n\n" + _INSTRUCTIONS
+        asking = mode == "ask"
+        tools = [t for t in AGENT_TOOLS if t["name"] in READ_ONLY_TOOLS] if asking else AGENT_TOOLS
+        messages: List[Dict[str, Any]] = [{"role": "user", "content": (
+            f"Question:\n{request.strip()}" if asking else f"Request:\n{request.strip()}")}]
+        system = MCN_SYSTEM_PROMPT + "\n\n" + (_ASK_INSTRUCTIONS if asking else _INSTRUCTIONS)
         operations: List[Dict[str, Any]] = []
         patch_id: Optional[str] = None
         text = ""
         for _ in range(MAX_TURNS):
             message = self.client.messages.create(
-                model=self.model, max_tokens=16000, system=system, tools=AGENT_TOOLS, messages=messages,
+                model=self.model, max_tokens=16000, system=system, tools=tools, messages=messages,
                 thinking={"type": "adaptive"}, output_config={"effort": "high"})
             raise_if_refused(message)
             messages.append({"role": "assistant", "content": message.content})
@@ -72,7 +86,10 @@ class ChangeAgent:
             results = []
             for use in uses:
                 self.emit({"type": "operation", "name": use.name, "input": _brief(use.input)})
-                result = call_tool(ws, use.name, dict(use.input or {}))
+                if asking and use.name not in READ_ONLY_TOOLS:
+                    result: Any = {"error": f"'{use.name}' isn't available when answering questions"}
+                else:
+                    result = call_tool(ws, use.name, dict(use.input or {}))
                 if isinstance(result, dict) and result.get("patch") and use.name in ("create", "modify", "remove"):
                     patch_id = result["patch"]
                 operations.append({"name": use.name, "input": _brief(use.input), "error": _error(result)})
@@ -87,6 +104,8 @@ class ChangeAgent:
         for line in text.splitlines():
             if line.strip().startswith("PATCH "):
                 patch_id = line.strip().split(None, 1)[1].strip() or patch_id
+        if asking:
+            patch_id = None
         summary = "\n".join(l for l in text.splitlines() if not l.strip().startswith("PATCH ")).strip()
         return {"summary": summary, "patch": patch_id, "operations": operations}
 

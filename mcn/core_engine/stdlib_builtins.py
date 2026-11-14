@@ -608,6 +608,8 @@ def register_stdlib_builtins(functions: dict) -> None:
     _ai_fn    = functions.get("ai")
     _embed_fn = functions.get("embed")
 
+    from .voice import BUILTINS as _voice_builtins
+    functions.update(_voice_builtins)          # respond(), voice_say(), twilio_call()...
     functions.update({
         # Session
         "session_set":       mcn_session_set,

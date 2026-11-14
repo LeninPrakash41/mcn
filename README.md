@@ -76,7 +76,7 @@ mcn studio .                      # open it in MCN Studio → http://localhost:5
 
 `mcn upgrade` updates MCN, `mcn add ml` (or `postgres`, `mongodb`, `scheduler`) adds optional features, and `mcn uninstall` removes it. Node.js is only needed to run the generated React app.
 
-**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** gallery (the button in the left bar) has 23 starter apps, searchable by category. Studio only accepts connections from your own machine and needs no account; **Sign In** (or `mcn login`) optionally connects your MCN account. `mcn studio --hosted` runs a shared Studio where everyone signs in, each person gets their own workspace, and admins manage users and signed-in computers at `/admin` ([accounts guide](website/docs/pages/guide/accounts.md)).
+**MCN Studio** is a browser IDE: edit, **Run** the backend, **Preview** the web app, switch to **App** for the mobile (Flutter) version, inspect the database, IoT devices and AI calls, and deploy with **Build → Deploy**. `mcn studio` with no folder opens Studio's own workspace, where the **Templates** gallery (the button in the left bar) has 27 starter apps, searchable by category, including AI agents and AI phone agents on Twilio. The **Agent** chat (Cmd/Ctrl+L) changes your app through checked patches you approve, answers questions about it, or builds a new app with the agent team. Studio only accepts connections from your own machine and needs no account; **Sign In** (or `mcn login`) optionally connects your MCN account. `mcn studio --hosted` runs a shared Studio where everyone signs in, each person gets their own workspace, and admins manage users and signed-in computers at `/admin` ([accounts guide](website/docs/pages/guide/accounts.md)).
 
 **Editor support.** `mcn vscode` installs the bundled VS Code extension: highlighting, completions, hover docs, errors underlined as you type, and commands to run, test, serve and open Studio.
 
@@ -633,7 +633,7 @@ mcn generate --team "An HR portal with leave approvals, company SSO and an audit
 # areas is split into modules, each written by its own builder at the same time
 ```
 
-In Studio, tick **Use the agent team** in the Generate dialog; there the QA lead also opens every screen in a real browser (`mcn add browser-qa`).
+In Studio, open the **Agent** panel (Cmd/Ctrl+L) and choose **New app**; you can attach specs, flowcharts or mockups, and the QA lead also opens every screen in a real browser (`mcn add browser-qa`).
 
 ### Options
 

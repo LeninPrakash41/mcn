@@ -97,6 +97,27 @@ def _run_endpoint(evaluator: Evaluator, fn_name: str, args: list, client: str) -
     return status, body
 
 
+def _run_in_request(request: Any, form: Optional[Dict[str, Any]], run):
+    """Run an endpoint with the request available to builtins such as twilio_request_ok()."""
+    from . import security
+    security.set_current_request({"url": str(request.url), "path": request.url.path, "query": request.url.query,
+                                  "headers": {k.lower(): v for k, v in request.headers.items()}, "form": form})
+    try:
+        return run()
+    finally:
+        security.set_current_request(None)
+
+
+def _reply(status: int, result: Any):
+    """JSON, or the body and content type an endpoint chose with respond() / voice_say()."""
+    from .voice import MCNResponse
+    if isinstance(result, MCNResponse):
+        from fastapi.responses import Response
+        return Response(content=result["body"], media_type=result["content_type"],
+                        status_code=result["status"] if status == 200 else status)
+    return JSONResponse(result, status_code=status)
+
+
 def _auth_route(method: str, raw_path: str, base_url: str, query: Dict[str, str], cookies: Dict[str, str],
                 authorization: Optional[str]):
     """The single sign-on routes (/_auth/*), or None for other paths."""
@@ -275,26 +296,28 @@ class MCNServer:
             if blocked:
                 return blocked
             content_type = request.headers.get("content-type", "")
-            if "multipart/form-data" in content_type:
-                body = dict(await request.form())
+            form = None
+            if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+                form = {k: v for k, v in (await request.form()).items()}      # Twilio and HTML forms post this
+                body = form
             else:
                 try: body = await request.json()
                 except Exception: body = {}
+            if not isinstance(body, dict):
+                body = {}
             args = []
             for p in params:
                 if p not in body:
                     break
                 args.append(body[p])
-            status, result = _run_endpoint(evaluator, fn_name, args, client_of(request))
-            return JSONResponse(result, status_code=status)
+            return _reply(*_run_in_request(request, form, lambda: _run_endpoint(evaluator, fn_name, args, client_of(request))))
 
         async def get_endpoint(request: Request, path_arg: str = None):
             blocked = refused(request)
             if blocked:
                 return blocked
-            status, result = _run_endpoint(evaluator, fn_name, _get_args(params, path_arg, dict(request.query_params)),
-                                           client_of(request))
-            return JSONResponse(result, status_code=status)
+            args = _get_args(params, path_arg, dict(request.query_params))
+            return _reply(*_run_in_request(request, None, lambda: _run_endpoint(evaluator, fn_name, args, client_of(request))))
 
         self.app.add_api_route(f"/{fn_name}", post_endpoint, methods=["POST"])
         self.app.add_api_route(f"/{fn_name}", get_endpoint, methods=["GET"])
@@ -377,9 +400,15 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
 
         def _send_json(self, status: int, obj: Any):
             from . import security
-            body = json.dumps(obj, default=str).encode()
+            from .voice import MCNResponse
+            content_type = "application/json"
+            if isinstance(obj, MCNResponse):           # respond(), voice_say(): the endpoint chose the body
+                body, content_type = obj["body"].encode(), obj["content_type"]
+                status = obj["status"] if status == 200 else status
+            else:
+                body = json.dumps(obj, default=str).encode()
             self.send_response(status)
-            self.send_header("Content-Type",  "application/json")
+            self.send_header("Content-Type",  content_type)
             self.send_header("Content-Length", str(len(body)))
             self._cors()
             for key, value in security.SECURITY_HEADERS.items():
@@ -483,14 +512,20 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
             if self._refused(fn_name, length):
                 return
 
-            # Read JSON body (optional)
+            # Read the body: JSON, or a form (Twilio and HTML forms post application/x-www-form-urlencoded)
             body: Dict[str, Any] = {}
+            form = None
             if length:
-                try:
-                    body = json.loads(self.rfile.read(length))
-                except json.JSONDecodeError:
-                    self._send_json(400, {"error": "Invalid JSON body"})
-                    return
+                raw = self.rfile.read(length)
+                if "application/x-www-form-urlencoded" in self.headers.get("Content-Type", ""):
+                    form = {k: v[0] for k, v in urllib.parse.parse_qs(raw.decode(), keep_blank_values=True).items()}
+                    body = form
+                else:
+                    try:
+                        body = json.loads(raw)
+                    except json.JSONDecodeError:
+                        self._send_json(400, {"error": "Invalid JSON body"})
+                        return
 
             # Build args: path_arg first (if any), then body dict keys in param order
             params: List[str] = list(evaluator.function_params.get(fn_name, []))
@@ -502,7 +537,16 @@ def _make_handler(evaluator: Evaluator, cors_origin: str = "*"):
                 if p not in body:
                     break   # remaining use MCN defaults
                 args.append(body[p])
-            self._send_json(*_run_endpoint(evaluator, fn_name, args, self.client_address[0]))
+            from . import security
+            parsed = urllib.parse.urlparse(self.path)
+            host = self.headers.get("Host", f"localhost:{self.server.server_port}")
+            security.set_current_request({"url": f"http://{host}{self.path}", "path": parsed.path,
+                                          "query": parsed.query, "form": form,
+                                          "headers": {k.lower(): v for k, v in self.headers.items()}})
+            try:
+                self._send_json(*_run_endpoint(evaluator, fn_name, args, self.client_address[0]))
+            finally:
+                security.set_current_request(None)
 
     return MCNHandler
 

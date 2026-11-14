@@ -196,7 +196,7 @@ mcn generate --team "An HR portal: leave requests with manager approval, company
 mcn generate --team --no-research "A simple inventory tracker" --out ./inventory --build
 ```
 
-In Studio, open **Generate**, tick **Use the agent team**, and watch each agent's progress. The browser check needs Playwright: `mcn add browser-qa` (it uses your installed Google Chrome, or `python -m playwright install chromium`).
+In Studio, open the **Agent** panel (Cmd/Ctrl+L), choose **New app**, describe the app (and attach specs, flowcharts or mockups if you have them), and watch each agent's progress. The browser check needs Playwright: `mcn add browser-qa` (it uses your installed Google Chrome, or `python -m playwright install chromium`).
 
 ### Modules built in parallel
 

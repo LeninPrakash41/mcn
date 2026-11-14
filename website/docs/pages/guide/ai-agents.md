@@ -135,7 +135,7 @@ mcn change "Add a customer verification step before creating an order"
 
 Claude gets the operations as tools, never your files. It inspects the app, finds and explains what the request touches, builds one patch, adds a test, then validates and tests until both pass. It can't apply anything. You see the diff, what it affects and the test results, and answer **Apply this change? [y/N]**. `--yes` applies it without asking, but only when validation and tests passed.
 
-In Studio, **AI Copilot Studio** (for MCN) and the **AI Backend Agent** (for an existing backend) work the same way. They save your open files, show each operation as the agent works, then show a review card: the summary, whether the patch is valid, what it affects, the test results and the diff. Nothing is written until you click **Apply change**, and Apply is only offered when validation and tests passed. (Editing the compiled React code, and generating a new backend from scratch, still write files directly, since they don't change existing MCN.)
+In Studio, the **Agent** panel's **Change** mode (Cmd/Ctrl+L) works the same way. It saves your open files, shows each operation as the agent works, then shows a review card: the summary, whether the patch is valid, what it affects, the test results and the diff. Nothing is written until you click **Apply change**, and Apply is only offered when validation and tests passed. **Fix with the Agent** (on an error, or Edit → Fix Errors with the Agent) starts a change with the error filled in.
 
 ### Any agent: the MCP server
 

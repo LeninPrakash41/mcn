@@ -133,7 +133,7 @@ async function submitCommunityRegistration() {
     msgEl.textContent = e.message;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Register Installation';
+    btn.textContent = 'Get updates';
   }
 }
 
