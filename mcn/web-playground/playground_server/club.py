@@ -8,9 +8,13 @@ local workspace's files when you launch a project.
 """
 from __future__ import annotations
 
+import hashlib
+import os
 import re
 import tempfile
 from pathlib import Path
+
+import time
 
 from flask import Blueprint, redirect, send_from_directory
 
@@ -119,7 +123,11 @@ def _check(files: dict) -> dict:
 @bp.route("/club/")
 @bp.route("/club/project/<project_id>")
 @bp.route("/club/certificate/<code>")
-def club_page(project_id: str = "", code: str = ""):
+@bp.route("/club/u/<user_id>")
+@bp.route("/club/leaderboard")
+@bp.route("/club/awards")
+@bp.route("/club/verify")
+def club_page(project_id: str = "", code: str = "", user_id: str = ""):
     if not is_hosted():
         url = _account().account_url().rstrip("/")
         if url:
@@ -136,8 +144,46 @@ def club_info():
     user = _current_user()
     return jsonify({"awards": store.AWARDS, "spotlights": store.SPOTLIGHTS, "kinds": store.KINDS,
                     "order": {"awards": list(store.AWARDS), "spotlights": list(store.SPOTLIGHTS), "kinds": list(store.KINDS)},
+                    "sorts": {"newest": "Newest", "most_used": "Most used", "most_liked": "Most liked", "trending": "Trending"},
+                    "signatory": _signatory(), "user_id": user["sub"] if user else None,
+                    "counts": store.public_counts(),
                     "signed_in": bool(user), "member": store.member(user["sub"]) if user else None,
                     "is_reviewer": _is_reviewer(user), "club_url": request.host_url.rstrip("/") + "/club"})
+
+
+def _signatory():
+    """Who signs certificates, from MCN_CLUB_SIGNATORY="Name|Title" (nobody when unset)."""
+    raw = os.getenv("MCN_CLUB_SIGNATORY", "").strip()
+    if not raw:
+        return None
+    name, _, title = raw.partition("|")
+    return {"name": name.strip()[:80], "title": title.strip()[:80] or "MCN Developer Club"}
+
+
+def _visitor() -> str:
+    """A visitor key for counting page views once a day, without keeping anyone's address."""
+    user = _current_user()
+    if user and user.get("sub"):
+        return "u:" + user["sub"]
+    raw = f"{request.remote_addr}|{request.headers.get('User-Agent', '')}|{time.strftime('%Y-%m-%d')}"
+    return "a:" + hashlib.sha256(raw.encode()).hexdigest()[:24]
+
+
+@bp.route("/api/club/leaderboard")
+def club_leaderboard():
+    if not is_hosted():
+        return _forward("GET", "/api/club/leaderboard")
+    return jsonify(store.leaderboard())
+
+
+@bp.route("/api/club/members/<user_id>")
+def club_member(user_id):
+    if not is_hosted():
+        return _forward("GET", f"/api/club/members/{user_id}")
+    found = store.profile(user_id)
+    if not found:
+        return jsonify({"error": "No such member"}), 404
+    return jsonify({"member": found})
 
 
 @bp.route("/api/club/marketplace")
@@ -146,7 +192,7 @@ def club_marketplace():
         return _forward("GET", "/api/club/marketplace")
     a = request.args
     return jsonify({"projects": store.marketplace(a.get("award", ""), a.get("spotlight", ""), a.get("kind", ""),
-                                                  a.get("q", "")[:80])})
+                                                  a.get("q", "")[:80], a.get("sort", "newest"))})
 
 
 @bp.route("/api/club/projects/<project_id>")
@@ -158,7 +204,51 @@ def club_project(project_id):
     mine = bool(user and found and found["user_id"] == user.get("sub"))
     if not found or (found["status"] != "approved" and not mine and not _is_reviewer(user)):
         return jsonify({"error": "No such project in the marketplace"}), 404
+    if request.args.get("view") == "1" and found["status"] == "approved":
+        store.record_view(project_id, _visitor())
+        found["usage"] = store.project(project_id)["usage"]
+    found["liked"] = bool(user and store.liked_by(project_id, user["sub"]))
+    found["mine"] = mine
     return jsonify({"project": found})
+
+
+@bp.route("/api/club/projects/<project_id>/like", methods=["POST"])
+def club_like(project_id):
+    data = request.get_json(silent=True) or {}
+    if not is_hosted():
+        return _forward("POST", f"/api/club/projects/{project_id}/like", data)
+    user, err = _signed_in()
+    if err:
+        return err
+    try:
+        return jsonify(store.set_like(project_id, user["sub"], bool(data.get("liked", True))))
+    except store.ClubError as exc:
+        return _bad(exc)
+
+
+@bp.route("/api/club/projects/<project_id>/use", methods=["POST"])
+def club_use(project_id):
+    """Installed Studio reporting that its signed-in user opened this app."""
+    if not is_hosted():
+        return _forward("POST", f"/api/club/projects/{project_id}/use", {})
+    user, err = _signed_in()
+    if err:
+        return err
+    try:
+        return jsonify({"counted": store.record_use(project_id, user["sub"])})
+    except store.ClubError as exc:
+        return _bad(exc, 404)
+
+
+@bp.route("/api/club/precheck", methods=["POST"])
+def club_precheck():
+    """The checks a launch would run, on this workspace's app, before sending it (runs locally)."""
+    files = _workspace_files()
+    if not (files["backend"].strip() or files["ui"].strip()):
+        return jsonify({"ready": False, "checks": None,
+                        "error": "There's no app here yet: backend/main.mcn and ui/app.mcn are empty"})
+    checks = _check(files)
+    return jsonify({"ready": not checks["parse_errors"], "checks": checks})
 
 
 @bp.route("/api/club/certificates/<code>")
@@ -248,6 +338,12 @@ def club_open(project_id):
         if status != 200:
             return resp, status
         found = resp.get_json()["project"]
+    if is_hosted():
+        user = _current_user()
+        if user and found["status"] == "approved":
+            store.record_use(project_id, user["sub"])
+    else:
+        _forward("POST", f"/api/club/projects/{project_id}/use", {})          # counted on the account server
     ws = _request_workspace()
     for key, rel in (("backend", "backend/main.mcn"), ("ui", "ui/app.mcn")):
         if found.get(key):

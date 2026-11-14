@@ -10,7 +10,7 @@ Open Studio's **Club** tab and join with your name, whether you're a **student**
 
 ## Launching an app for review
 
-In the **Club** tab, choose **Launch for review**, give the app a title, a one-line description, a category and a short explanation, and send it. Studio sends `backend/main.mcn` and `ui/app.mcn` from your workspace. The app must parse; reviewers also see its type check and [app map](#/guide/ai-agents) (screens, endpoints, tables, tests, whether it uses AI, and any problems found). Submitted code is checked, never run, on the server.
+Click **Publish** in Studio's toolbar (or Build → Publish to the Developer Club, or **Publish your app** on the club's site). Studio first checks the app in your workspace and shows the result: whether it parses, type errors, problems in its app map, its screens, endpoints, tables and tests, and tips that help with reviews and awards. Then give the app a title, a one-line description, a category and a short explanation, and send it. Studio sends `backend/main.mcn` and `ui/app.mcn` from your workspace. The app must parse; reviewers also see its type check and [app map](#/guide/ai-agents) (screens, endpoints, tables, tests, whether it uses AI, and any problems found). Submitted code is checked, never run, on the server.
 
 A project is **In review** until a reviewer decides:
 
@@ -24,7 +24,17 @@ You can withdraw a project at any time.
 
 ## The marketplace
 
-`/club` on the account server lists approved apps for anyone, signed in or not. Filter by award, by spotlight, by students or professionals, or search by app, person, college or company. Each app has its own page with its description, awards and the reviewers' notes, its code, and **Open in Studio**, which copies it into your workspace to try or build on.
+`/club` on the account server lists approved apps for anyone, signed in or not. Filter by award, by spotlight, by students or professionals, search by app, person, college or company, and sort by **newest**, **most used**, **most liked** or **trending** (the last 30 days).
+
+### Usage and the best apps
+
+The club tracks how other registered members use each app:
+
+- **Uses**: members who opened the app in Studio (**Open in Studio**, from the site or from installed Studio). Each person counts once, and the author's own opens don't count.
+- **Likes**: members can like an app on its page; you can't like your own.
+- **Views**: visits to the app's page, once per visitor per day.
+
+The **Leaderboard** ranks the most used, most liked and trending apps, and the top builders (by how many members use their apps, then awards and approved apps). Each developer has a public profile page with their apps, how many people use them, their awards and certificates. Reviewers see the most used apps on their dashboard, to help choose winners and spotlights. Each app has its own page with its description, awards and the reviewers' notes, its code, and **Open in Studio**, which copies it into your workspace to try or build on.
 
 ### Awards
 
@@ -50,7 +60,9 @@ A reviewer can mark a promising app as a **funding candidate**, for **recognitio
 | Certified MCN Developer | for each approved app |
 | Award | for each award an app wins |
 
-Each certificate has a code (like `MCN-7KX2Q9PDRT`) and its own page, `/club/certificate/<code>`, which anyone can open to check it's genuine, and print or save as a PDF. **My work** in the Club tab lists yours.
+Each certificate has a code (like `MCN-7KX2Q9PDRT`) and its own page, `/club/certificate/<code>`, which anyone can open to check it's genuine. The certificate is designed to print on A4 landscape: **Download PDF** prints it, **Add to LinkedIn** adds it to your LinkedIn profile's certifications, and its QR code opens the verification page. Participation certificates are coral, certifications teal, and awards gold.
+
+To have certificates signed, set `MCN_CLUB_SIGNATORY="Name|Title"` on the account server (for example `"Priya Nair|Programme Director"`); without it they're issued by the MCN Developer Club. **My work** in the Club tab lists yours, and Studio tells you when a review decision comes in.
 
 ## Reviewing
 

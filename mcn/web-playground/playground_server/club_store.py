@@ -71,6 +71,13 @@ def _conn() -> sqlite3.Connection:
             holder TEXT, organization TEXT, title TEXT, issued_at REAL);
         CREATE TABLE IF NOT EXISTS club_events (
             project_id TEXT, at REAL, actor TEXT, action TEXT, note TEXT);
+        CREATE TABLE IF NOT EXISTS club_uses (
+            project_id TEXT NOT NULL, user_id TEXT NOT NULL, first_at REAL, last_at REAL, times INTEGER DEFAULT 1,
+            PRIMARY KEY (project_id, user_id));
+        CREATE TABLE IF NOT EXISTS club_likes (
+            project_id TEXT NOT NULL, user_id TEXT NOT NULL, at REAL, PRIMARY KEY (project_id, user_id));
+        CREATE TABLE IF NOT EXISTS club_views (
+            project_id TEXT NOT NULL, visitor TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (project_id, visitor, day));
     """)
     return c
 
@@ -178,6 +185,7 @@ def project(project_id: str, include_source: bool = False) -> Optional[Dict[str,
         out = dict(r)
         out["stats"] = json.loads(out.get("stats") or "{}")
         out["awards"] = _awards_for(c, project_id)
+        out["usage"] = _usage(c, project_id)
         out["spotlight_label"] = SPOTLIGHTS.get(out.get("spotlight") or "", "")
         out["history"] = [dict(e) for e in c.execute("SELECT at, actor, action, note FROM club_events "
                                                      "WHERE project_id = ? ORDER BY at", (project_id,))]
@@ -187,6 +195,66 @@ def project(project_id: str, include_source: bool = False) -> Optional[Dict[str,
         return out
 
 
+def _usage(c, project_id: str) -> Dict[str, int]:
+    """uses: distinct registered users (not the author) who opened the app in Studio;
+    recent_uses: those in the last 30 days; likes; views: visitors per day."""
+    month = time.time() - 30 * 86400
+    one = lambda sql, *a: c.execute(sql, (project_id,) + a).fetchone()[0]
+    return {"uses": one("SELECT COUNT(*) FROM club_uses WHERE project_id = ?"),
+            "recent_uses": one("SELECT COUNT(*) FROM club_uses WHERE project_id = ? AND last_at >= ?", month),
+            "likes": one("SELECT COUNT(*) FROM club_likes WHERE project_id = ?"),
+            "views": one("SELECT COUNT(*) FROM club_views WHERE project_id = ?")}
+
+
+def _approved_or_raise(c, project_id: str) -> sqlite3.Row:
+    row = c.execute("SELECT * FROM club_projects WHERE id = ?", (project_id,)).fetchone()
+    if not row or row["status"] != "approved":
+        raise ClubError("No such project in the marketplace")
+    return row
+
+
+def record_use(project_id: str, user_id: str) -> bool:
+    """A registered user opened the app in Studio. Counts once per person; the author's own opens don't count."""
+    with _lock, _conn() as c:
+        row = _approved_or_raise(c, project_id)
+        if row["user_id"] == user_id:
+            return False
+        now = time.time()
+        updated = c.execute("UPDATE club_uses SET last_at = ?, times = times + 1 WHERE project_id = ? AND user_id = ?",
+                            (now, project_id, user_id)).rowcount
+        if not updated:
+            c.execute("INSERT INTO club_uses (project_id, user_id, first_at, last_at) VALUES (?, ?, ?, ?)",
+                      (project_id, user_id, now, now))
+        return not updated
+
+
+def set_like(project_id: str, user_id: str, liked: bool) -> Dict[str, Any]:
+    with _lock, _conn() as c:
+        row = _approved_or_raise(c, project_id)
+        if row["user_id"] == user_id:
+            raise ClubError("You can't like your own app")
+        if liked:
+            c.execute("INSERT OR IGNORE INTO club_likes (project_id, user_id, at) VALUES (?, ?, ?)",
+                      (project_id, user_id, time.time()))
+        else:
+            c.execute("DELETE FROM club_likes WHERE project_id = ? AND user_id = ?", (project_id, user_id))
+        return {"liked": liked, **_usage(c, project_id)}
+
+
+def liked_by(project_id: str, user_id: str) -> bool:
+    with _conn() as c:
+        return bool(c.execute("SELECT 1 FROM club_likes WHERE project_id = ? AND user_id = ?",
+                              (project_id, user_id)).fetchone())
+
+
+def record_view(project_id: str, visitor: str) -> None:
+    """A visit to the app's page, counted once per visitor per day."""
+    with _lock, _conn() as c:
+        if c.execute("SELECT status FROM club_projects WHERE id = ?", (project_id,)).fetchone():
+            c.execute("INSERT OR IGNORE INTO club_views (project_id, visitor, day) VALUES (?, ?, ?)",
+                      (project_id, visitor[:64], time.strftime("%Y-%m-%d")))
+
+
 def projects_of(user_id: str) -> List[Dict[str, Any]]:
     with _conn() as c:
         ids = [r["id"] for r in c.execute("SELECT id FROM club_projects WHERE user_id = ? ORDER BY submitted_at DESC",
@@ -194,8 +262,19 @@ def projects_of(user_id: str) -> List[Dict[str, Any]]:
     return [project(i) for i in ids]
 
 
-def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str = "") -> List[Dict[str, Any]]:
-    """Approved projects, newest first, optionally only those with an award, spotlight, author kind or text."""
+SORTS = {
+    "newest": "p.listed_at DESC",
+    "most_used": "(SELECT COUNT(*) FROM club_uses u WHERE u.project_id = p.id) DESC, p.listed_at DESC",
+    "most_liked": "(SELECT COUNT(*) FROM club_likes l WHERE l.project_id = p.id) DESC, p.listed_at DESC",
+    "trending": "(SELECT COUNT(*) FROM club_uses u WHERE u.project_id = p.id AND u.last_at >= {month}) DESC, "
+                "(SELECT COUNT(*) FROM club_likes l WHERE l.project_id = p.id AND l.at >= {month}) DESC, p.listed_at DESC",
+}
+
+
+def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str = "", sort: str = "newest",
+                author: str = "", limit: int = 0) -> List[Dict[str, Any]]:
+    """Approved projects, optionally only those with an award, spotlight, author kind, author or text, sorted
+    by newest, most used (by other registered users), most liked, or trending (the last 30 days)."""
     sql = ("SELECT p.id FROM club_projects p JOIN club_members m ON m.user_id = p.user_id "
            "WHERE p.status = 'approved'")
     args: List[Any] = []
@@ -211,10 +290,64 @@ def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str
     if query:
         sql += " AND (p.title LIKE ? OR p.tagline LIKE ? OR p.description LIKE ? OR m.organization LIKE ? OR m.name LIKE ?)"
         args += [f"%{query}%"] * 5
-    sql += " ORDER BY p.listed_at DESC"
+    if author:
+        sql += " AND p.user_id = ?"
+        args.append(author)
+    sql += " ORDER BY " + SORTS.get(sort, SORTS["newest"]).format(month=time.time() - 30 * 86400)
+    if limit:
+        sql += f" LIMIT {int(limit)}"
     with _conn() as c:
         ids = [r["id"] for r in c.execute(sql, args)]
     return [project(i) for i in ids]
+
+
+def public_counts() -> Dict[str, int]:
+    with _conn() as c:
+        one = lambda sql: c.execute(sql).fetchone()[0]
+        return {"apps": one("SELECT COUNT(*) FROM club_projects WHERE status = 'approved'"),
+                "members": one("SELECT COUNT(*) FROM club_members"),
+                "organizations": one("SELECT COUNT(DISTINCT lower(organization)) FROM club_members"),
+                "certificates": one("SELECT COUNT(*) FROM club_certificates")}
+
+
+def leaderboard(limit: int = 10) -> Dict[str, Any]:
+    """The apps other members use and like most, the builders with the most approved and used apps,
+    and the award winners by category."""
+    with _conn() as c:
+        builders = [dict(r) for r in c.execute(
+            "SELECT m.user_id, m.name, m.kind, m.organization, COUNT(DISTINCT p.id) AS apps, "
+            "(SELECT COUNT(*) FROM club_uses u JOIN club_projects q ON q.id = u.project_id "
+            " WHERE q.user_id = m.user_id AND q.status = 'approved') AS uses, "
+            "(SELECT COUNT(*) FROM club_awards a JOIN club_projects q ON q.id = a.project_id "
+            " WHERE q.user_id = m.user_id AND q.status = 'approved') AS awards "
+            "FROM club_members m JOIN club_projects p ON p.user_id = m.user_id AND p.status = 'approved' "
+            "GROUP BY m.user_id ORDER BY uses DESC, awards DESC, apps DESC LIMIT ?", (limit,))]
+        winners = {}
+        for cat in AWARDS:
+            ids = [r["project_id"] for r in c.execute(
+                "SELECT a.project_id FROM club_awards a JOIN club_projects p ON p.id = a.project_id "
+                "WHERE a.category = ? AND p.status = 'approved' ORDER BY a.awarded_at DESC", (cat,))]
+            winners[cat] = ids
+    flat = {i for ids in winners.values() for i in ids}
+    projects = {i: project(i) for i in flat}
+    return {"most_used": marketplace(sort="most_used", limit=limit),
+            "most_liked": marketplace(sort="most_liked", limit=limit),
+            "trending": marketplace(sort="trending", limit=limit),
+            "builders": builders,
+            "winners": {cat: [projects[i] for i in ids] for cat, ids in winners.items()}}
+
+
+def profile(user_id: str) -> Optional[Dict[str, Any]]:
+    """A member's public page: who they are, their approved apps and the certificates they've earned."""
+    who = member(user_id)
+    if not who:
+        return None
+    apps = marketplace(author=user_id)
+    certs = [c for c in certificates_of(user_id)]
+    return {"name": who["name"], "kind": who["kind"], "organization": who["organization"], "title": who.get("title"),
+            "country": who.get("country"), "bio": who.get("bio"), "joined_at": who["joined_at"], "apps": apps,
+            "certificates": certs, "uses": sum(a["usage"]["uses"] for a in apps),
+            "awards": sum(len(a["awards"]) for a in apps)}
 
 
 # ── Review ───────────────────────────────────────────────────────────────────
@@ -306,7 +439,10 @@ def stats() -> Dict[str, Any]:
         members = c.execute("SELECT COUNT(*) FROM club_members").fetchone()[0]
         uses_ai = c.execute("SELECT COUNT(*) FROM club_projects WHERE status='approved' AND stats LIKE '%\"uses_ai\": true%'"
                             ).fetchone()[0]
+    top_used = [{"id": p["id"], "title": p["title"], "author_org": p["author_org"], **p["usage"]}
+                for p in marketplace(sort="most_used", limit=5)]
     return {"members": members, "members_by_kind": members_by_kind, "projects_by_status": by_status,
+            "top_used": top_used,
             "awards": awards, "spotlights": spotlights, "top_organizations": top_orgs,
             "certificates": certificates, "approved_using_ai": uses_ai}
 

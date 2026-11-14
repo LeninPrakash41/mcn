@@ -28,6 +28,13 @@ function _clubUrl(path) {
   return base.replace(/\/club\/?$/, '') + path
 }
 
+function openClub(view) {
+  const panel = document.querySelector('.preview-panel')
+  if (panel && panel.classList.contains('collapsed')) toggleRightPanel()
+  if (view) _club.view = view
+  switchPanel('club')
+}
+
 async function refreshClub() {
   const box = document.getElementById('club-body')
   if (!box) return
@@ -72,6 +79,7 @@ function renderClub() {
 function _clubJoin() {
   const m = (_club.me && _club.me.member) || {}
   document.getElementById('club-view').innerHTML = `
+    ${_clubSteps(0)}
     <div class="club-card">
       <div class="club-title">Join the MCN Developer Club</div>
       <div class="pane-sub">Build apps in MCN, launch them for review, and get a certificate. Approved apps go to the
@@ -110,10 +118,12 @@ function _clubMine() {
         <div class="pane-sub">${_cEsc(member.kind === 'student' ? 'Student' : 'Professional')} · ${_cEsc(member.organization)}${member.title ? ' · ' + _cEsc(member.title) : ''}</div></div>
       <button class="btn btn-sm" onclick="_club.view='join'; renderClub()">Edit profile</button>
     </div>
+    ${projects.length ? '' : _clubSteps(1)}
     <div class="pane-label club-label">My projects</div>
     ${projects.length ? projects.map(p => `
       <div class="club-card">
         <div class="club-row"><b>${_cEsc(p.title)}</b><span class="club-status s-${p.status}">${_STATUS[p.status] || p.status}</span></div>
+        ${p.status === 'approved' ? `<div class="club-usage"><span><b>${p.usage.uses}</b> members using it</span><span><b>${p.usage.likes}</b> likes</span><span><b>${p.usage.views}</b> views</span></div>` : ''}
         <div class="pane-sub">Version ${p.version} · sent ${_cDate(p.submitted_at)}${p.awards.length ? ' · 🏆 ' + p.awards.map(a => _cEsc(a.label)).join(', ') : ''}${p.spotlight_label ? ' · ' + _cEsc(p.spotlight_label) : ''}</div>
         ${p.review_notes ? `<div class="club-notes"><b>Reviewer:</b> ${_cEsc(p.review_notes)}</div>` : ''}
         <div class="club-actions">
@@ -121,7 +131,7 @@ function _clubMine() {
           ${p.status === 'approved' ? `<a class="btn btn-sm" target="_blank" href="${_cEsc(_clubUrl('/club/project/' + p.id))}">View in marketplace</a>` : ''}
           ${['in_review', 'changes_requested', 'approved'].includes(p.status) ? `<button class="btn btn-sm" onclick="clubWithdraw('${p.id}')">Withdraw</button>` : ''}
         </div>
-      </div>`).join('') : '<div class="pane-empty">No projects yet. Build an app, then use Launch for review.</div>'}
+      </div>`).join('') : '<div class="pane-empty">No projects yet. Build an app (a template or the Agent is a quick start), then <a href="#" onclick="openClub(\'launch\'); return false">launch it for review</a>.</div>'}
     <div class="pane-label club-label">My certificates</div>
     ${certificates.length ? certificates.map(c => `
       <a class="club-card club-cert" target="_blank" href="${_cEsc(_clubUrl('/club/certificate/' + c.code))}">
@@ -144,26 +154,59 @@ async function clubWithdraw(id) {
 
 // ── Launch for review ─────────────────────────────────────────────────────
 
+function _clubSteps(active) {
+  const steps = ['Join', 'Build', 'Launch for review', 'Listed and certified']
+  return `<ol class="club-steps">${steps.map((t, i) => `<li class="${i < active ? 'done' : i === active ? 'now' : ''}"><i>${i < active ? '✓' : i + 1}</i>${t}</li>`).join('')}</ol>`
+}
+
 function _clubLaunch() {
   const p = _club.resubmit || {}
   document.getElementById('club-view').innerHTML = `
+    ${_clubSteps(2)}
+    <div class="club-card">
+      <div class="club-title">Before you launch</div>
+      <div id="club-precheck" class="club-check"><div class="pane-sub">Checking this workspace's app…</div></div>
+    </div>
     <div class="club-card">
       <div class="club-title">${p.id ? 'Send a new version of ' + _cEsc(p.title) : 'Launch this app for review'}</div>
-      <div class="pane-sub">Sends backend/main.mcn and ui/app.mcn from this workspace. It must parse; reviewers also see
-        its type check and app map. Approved apps are listed in the marketplace.</div>
+      <div class="pane-sub">Sends backend/main.mcn and ui/app.mcn from this workspace. You get a certificate when you launch,
+        another when it's approved, and it's listed in the marketplace.</div>
       <form class="club-form" onsubmit="event.preventDefault(); clubLaunch(this)">
-        <label>Title<input name="title" required maxlength="80" value="${_cEsc(p.title)}"></label>
-        <label>One line about it<input name="tagline" maxlength="140" value="${_cEsc(p.tagline)}"></label>
+        <label>Title<input name="title" required maxlength="80" placeholder="e.g. Clinic Booking" value="${_cEsc(p.title)}"></label>
+        <label>One line about it<input name="tagline" maxlength="140" placeholder="Who it's for and what it does" value="${_cEsc(p.tagline)}"></label>
         <label>Category<select name="category">${['AI', 'Business', 'Education', 'Health', 'Finance', 'IoT', 'Social good', 'Tools', 'Other']
           .map(c => `<option ${p.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>What it does and who it's for<textarea name="description" rows="5" maxlength="4000">${_cEsc(p.description)}</textarea></label>
+        <label>What it does and who it's for<textarea name="description" rows="5" maxlength="4000" placeholder="The problem, who uses it, and how">${_cEsc(p.description)}</textarea></label>
         <div class="club-error" id="club-launch-error"></div>
         <div class="club-actions">
-          <button class="btn btn-primary btn-sm">${p.id ? 'Send new version' : 'Launch for review'}</button>
+          <button class="btn btn-primary btn-sm" id="club-launch-btn">${p.id ? 'Send new version' : 'Launch for review'}</button>
           ${p.id ? '<button type="button" class="btn btn-sm" onclick="_club.resubmit=null; renderClub()">Cancel</button>' : ''}
         </div>
       </form>
     </div>`
+  _clubPrecheck()
+}
+
+async function _clubPrecheck() {
+  await saveAllTabs()
+  const box = document.getElementById('club-precheck')
+  const res = await _clubApi('/api/club/precheck', {})
+  if (!box) return
+  const d = res.data
+  if (!d.checks) { box.innerHTML = `<div class="club-item bad">✗ ${_cEsc(d.error || 'Could not check the app')}</div>`; return }
+  const c = d.checks
+  const item = (ok, text) => `<div class="club-item ${ok === true ? 'ok' : ok === false ? 'bad' : 'tip'}">${ok === true ? '✓' : ok === false ? '✗' : '💡'} ${text}</div>`
+  const tips = []
+  if (!c.tests) tips.push(item(null, 'Add a <code>test</code> block: reviewers look for tests, and it helps toward Best Technical Implementation'))
+  if (!c.uses_ai) tips.push(item(null, 'Apps that use AI (<code>ai()</code>, <code>agent_run()</code>) can win Best AI-Powered Application'))
+  if (c.screens < 2) tips.push(item(null, 'More than one screen with navigation makes the app easier to try'))
+  box.innerHTML = item(!c.parse_errors.length, c.parse_errors.length ? 'Doesn\'t parse: ' + _cEsc(c.parse_errors[0]) : 'Parses')
+    + item(!c.type_errors.length, c.type_errors.length ? `${c.type_errors.length} type error(s): ${_cEsc(c.type_errors[0])}` : 'No type errors')
+    + item(!c.issues.length, c.issues.length ? `${c.issues.length} app map problem(s): ${_cEsc(c.issues[0])}` : 'No app map problems')
+    + item(true, `${c.screens} screens · ${c.endpoints} endpoints · ${c.tables} tables · ${c.tests} tests${c.uses_ai ? ' · uses AI' : ''}`)
+    + tips.join('')
+  const btn = document.getElementById('club-launch-btn')
+  if (btn) btn.disabled = !d.ready
 }
 
 async function clubLaunch(form) {
@@ -292,4 +335,33 @@ async function _clubOpenFromLink() {
   showToast(`Opened ${res.data.title}`, 'success')
 }
 
-window.addEventListener('load', () => setTimeout(_clubOpenFromLink, 1500))
+// A dot on the Club tab, and a toast, when a review decision comes in
+async function _clubNotify() {
+  const res = await _clubApi('/api/club/me')
+  if (!res.ok || !res.data.projects) return
+  let seen = {}
+  try { seen = JSON.parse(localStorage.getItem('mcn_club_seen') || '{}') } catch {}
+  const words = { approved: 'was approved and is in the marketplace', changes_requested: 'needs changes', rejected: 'was not approved' }
+  let changed = false
+  for (const p of res.data.projects) {
+    if (seen[p.id] && seen[p.id] !== p.status && words[p.status]) {
+      showToast(`${p.title} ${words[p.status]}`, p.status === 'approved' ? 'success' : 'warning', 6000)
+      changed = true
+    }
+    seen[p.id] = p.status
+  }
+  try { localStorage.setItem('mcn_club_seen', JSON.stringify(seen)) } catch {}
+  if (changed) document.getElementById('tab-club')?.classList.add('has-news')
+}
+
+function _clubFromLink() {
+  const params = new URLSearchParams(location.search)
+  if (params.get('club')) {
+    const view = params.get('club')
+    history.replaceState(null, '', location.pathname)
+    openClub(['launch', 'mine', 'review', 'join'].includes(view) ? view : 'mine')
+  }
+}
+
+window.addEventListener('load', () => setTimeout(() => { _clubOpenFromLink(); _clubFromLink(); _clubNotify() }, 1500))
+document.addEventListener('click', e => { if (e.target.id === 'tab-club') e.target.classList.remove('has-news') })

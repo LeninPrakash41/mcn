@@ -731,3 +731,14 @@ header .btn-hero-preview { padding: 0 10px; }
 .club-code { max-height: 220px; overflow: auto; background: var(--bg-alt); border-radius: 7px; padding: 8px; font: 11px/1.5 'JetBrains Mono', monospace; color: var(--text-dim); white-space: pre; }
 .club-desc { margin: 2px 0; white-space: pre-wrap; color: var(--text-dim); }
 #club-review-notes { width: 100%; box-sizing: border-box; resize: vertical; }
+
+.club-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.club-steps li { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: 11px; color: var(--muted); }
+.club-steps i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 600; }
+.club-steps li.done i { background: var(--green-bg); color: var(--green); } .club-steps li.now i { background: var(--accent); color: #fff; }
+.club-steps li.now { color: var(--text); font-weight: 550; }
+.club-check { display: flex; flex-direction: column; gap: 4px; }
+.club-item { font-size: 12px; color: var(--text-dim); } .club-item.ok { color: var(--green); } .club-item.bad { color: var(--red); }
+.club-item.tip { color: var(--muted); } .club-item code { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.club-usage { display: flex; gap: 12px; font-size: 11.5px; color: var(--muted); } .club-usage b { color: var(--text); }
+.panel-tab.has-news::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 5px; vertical-align: middle; }

@@ -16,6 +16,12 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `OPENAI_API_KEY` | — | Use OpenAI embeddings for `embed()` and vector search, and lets MCN's agents use OpenAI |
 | `OLLAMA_URL` | — | Use a local Ollama server for embeddings |
 
+## Developer Club
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MCN_CLUB_SIGNATORY` | — | `Name|Title` printed as the signature on [Developer Club](#/guide/developer-club) certificates |
+
 ## Runtime
 
 | Variable | Default | Effect |

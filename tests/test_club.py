@@ -173,7 +173,7 @@ def test_open_an_approved_project_in_my_workspace(client):
 
 def test_pages_are_served(client):
     with hosted():
-        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC"):
+        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC", "/club/leaderboard", "/club/awards", "/club/verify", "/club/u/x"):
             res = client.get(path)
             assert res.status_code == 200 and b"MCN Developer Club" in res.data
 
@@ -195,3 +195,75 @@ def test_installed_studio_forwards_with_the_local_files(client, monkeypatch, tmp
     assert sent["payload"]["title"] == "Helper" and "service helper" in sent["payload"]["backend"]
     monkeypatch.setattr(account, "account_url", lambda: "")
     assert client.get("/api/club/me").status_code == 409
+
+
+def approved_app(client, email="builder@college.example", title="Helper", org="X University", judge=None):
+    dev = register(client, email)
+    judge = judge or register(client, "judge@example.com")
+    with hosted():
+        client.post("/api/club/join", headers=dev, json={"name": email.split("@")[0].title(), "kind": "student",
+                                                          "organization": org})
+        put_app(client, dev)
+        pid = client.post("/api/club/submit", headers=dev, json={"title": title}).get_json()["project"]["id"]
+        client.post(f"/api/club/review/{pid}", headers=judge, json={"decision": "approve"})
+    return dev, judge, pid
+
+
+def test_usage_counts_other_members_once(client):
+    dev, judge, pid = approved_app(client)
+    users = [register(client, f"user{i}@company.example") for i in range(3)]
+    with hosted():
+        client.post(f"/api/club/projects/{pid}/open", headers=dev)                     # the author: not counted
+        for u in users:
+            client.post(f"/api/club/projects/{pid}/open", headers=u)
+        client.post(f"/api/club/projects/{pid}/open", headers=users[0])               # again: still one person
+        assert client.post(f"/api/club/projects/{pid}/like", headers=dev, json={"liked": True}).status_code == 400
+        client.post(f"/api/club/projects/{pid}/like", headers=users[1], json={"liked": True})
+        client.post(f"/api/club/projects/{pid}/like", headers=users[2], json={"liked": True})
+        client.post(f"/api/club/projects/{pid}/like", headers=users[2], json={"liked": False})
+        client.get(f"/api/club/projects/{pid}?view=1")
+        client.get(f"/api/club/projects/{pid}?view=1")                                 # same visitor, same day
+        client.get(f"/api/club/projects/{pid}?view=1", headers=users[0])
+        page = client.get(f"/api/club/projects/{pid}", headers=users[1]).get_json()["project"]
+        assert page["usage"] == {"uses": 3, "recent_uses": 3, "likes": 1, "views": 2} and page["liked"] is True
+        assert client.post(f"/api/club/projects/{pid}/like", json={"liked": True}).status_code == 401
+
+
+def test_best_apps_by_usage(client):
+    _, judge, popular = approved_app(client, "a@college.example", "Popular", "A College")
+    _, _, quiet = approved_app(client, "b@company.example", "Quiet", "B Corp", judge=judge)
+    fans = [register(client, f"fan{i}@company.example") for i in range(2)]
+    with hosted():
+        for f in fans:
+            client.post(f"/api/club/projects/{popular}/open", headers=f)
+        client.post(f"/api/club/projects/{quiet}/like", headers=fans[0], json={"liked": True})
+        titles = lambda sort: [p["title"] for p in client.get(f"/api/club/marketplace?sort={sort}").get_json()["projects"]]
+        assert titles("most_used") == ["Popular", "Quiet"] and titles("most_liked") == ["Quiet", "Popular"]
+        assert titles("trending")[0] == "Popular" and titles("newest") == ["Quiet", "Popular"]
+        board = client.get("/api/club/leaderboard").get_json()                         # public
+        assert board["most_used"][0]["title"] == "Popular" and board["builders"][0]["organization"] == "A College"
+        assert board["builders"][0]["uses"] == 2
+        stats = client.get("/api/club/review", headers=judge).get_json()["stats"]
+        assert stats["top_used"][0]["title"] == "Popular" and stats["top_used"][0]["uses"] == 2
+        author = board["most_used"][0]["user_id"]
+        profile = client.get(f"/api/club/members/{author}").get_json()["member"]      # public profile
+        assert profile["organization"] == "A College" and profile["uses"] == 2 and len(profile["certificates"]) == 2
+        assert client.get("/api/club/members/nobody").status_code == 404
+        info = client.get("/api/club/info").get_json()
+        assert info["counts"]["apps"] == 2 and info["counts"]["organizations"] == 2 and "most_used" in info["sorts"]
+
+
+def test_precheck_runs_on_the_workspace(client):
+    dev = register(client, "pre@college.example")
+    with hosted():
+        put_app(client, dev)
+        res = client.post("/api/club/precheck", headers=dev, json={}).get_json()
+        assert res["ready"] is True and res["checks"]["uses_ai"] is True and res["checks"]["tests"] == 0
+        put_app(client, dev, backend="service s\n    endpoint broken(\n")
+        assert client.post("/api/club/precheck", headers=dev, json={}).get_json()["ready"] is False
+
+
+def test_signatory_comes_from_config(client, monkeypatch):
+    monkeypatch.setenv("MCN_CLUB_SIGNATORY", "Dr. A. Kumar|Programme Director")
+    with hosted():
+        assert client.get("/api/club/info").get_json()["signatory"] == {"name": "Dr. A. Kumar", "title": "Programme Director"}

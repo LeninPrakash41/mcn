@@ -4,174 +4,429 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCN Developer Club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 :root { --bg:#f7f6f3; --card:#ffffff; --text:#1d1d1b; --muted:#6b6a65; --line:#e6e4de; --accent:#c4664a; --accent-bg:#f6e7e1;
-  --gold:#a5780b; --gold-bg:#fbf1d9; --green:#2f7d4f; --green-bg:#e3f2e8; }
-@media (prefers-color-scheme: dark) { :root { --bg:#161616; --card:#1f1f1f; --text:#ececec; --muted:#9b9b96; --line:#2e2e2e;
-  --accent:#e08a6c; --accent-bg:#3a2a24; --gold:#e3b54a; --gold-bg:#3a3020; --green:#6cc290; --green-bg:#1f3328; } }
+  --gold:#9a7417; --gold-bg:#fbf1d9; --green:#2f7d4f; --green-bg:#e3f2e8; --hero:#1f1d1a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1d1d1d; --text:#ececec; --muted:#9b9b96; --line:#2c2c2c;
+  --accent:#e08a6c; --accent-bg:#3a2a24; --gold:#e3b54a; --gold-bg:#3a3020; --green:#6cc290; --green-bg:#1f3328; --hero:#0d0d0d; } }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 Inter, -apple-system, "Segoe UI", sans-serif; }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--card); }
-.brand { font-weight: 650; display: flex; align-items: center; gap: 10px; color: var(--text); }
+button { font: inherit; }
+header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 22px; padding: 12px 24px;
+  background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 650; display: flex; align-items: center; gap: 10px; color: var(--text); white-space: nowrap; }
 .brand b { background: var(--accent); color: #fff; border-radius: 7px; width: 26px; height: 26px; display: grid; place-items: center; font-size: 13px; }
-nav { display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; }
-main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
-h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; } h2 { font-size: 18px; margin: 28px 0 10px; }
-.lead { color: var(--muted); margin: 0 0 22px; max-width: 720px; }
-.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
-.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.search { width: 100%; max-width: 360px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; margin: 6px 0 18px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+nav a { color: var(--muted); padding: 6px 10px; border-radius: 8px; font-size: 14px; white-space: nowrap; }
+nav a:hover { color: var(--text); background: var(--bg); text-decoration: none; }
+nav a.on { color: var(--text); background: var(--bg); font-weight: 550; }
+.who { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: 0; border-radius: 9px;
+  padding: 9px 16px; font-weight: 550; cursor: pointer; white-space: nowrap; }
+.btn:hover { text-decoration: none; filter: brightness(1.05); }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn.liked { background: var(--accent-bg); color: var(--accent); }
+main { max-width: 1120px; margin: 0 auto; padding: 0 20px 70px; }
+.hero { margin: 0 calc(50% - 50vw) 28px; padding: 46px 20px 40px; background: var(--hero); color: #f4f1ec; }
+.hero-in { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; align-items: center; }
+.hero h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+.hero p { color: #c9c4bb; margin: 0 0 20px; max-width: 560px; }
+.hero .nums { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.hero .nums div { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; }
+.hero .nums b { display: block; font-size: 24px; } .hero .nums span { color: #b9b3a8; font-size: 13px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 30px; }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.step i { font-style: normal; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.step b { display: block; margin-bottom: 2px; } .step span { color: var(--muted); font-size: 13px; }
+h1.page { font-size: 28px; margin: 30px 0 6px; letter-spacing: -0.01em; } h2 { font-size: 19px; margin: 30px 0 12px; }
+.lead { color: var(--muted); margin: 0 0 20px; max-width: 760px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.search, select.sort { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
+.search { flex: 1; min-width: 220px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+.chip.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 14px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; color: var(--text); }
-a.card:hover { text-decoration: none; border-color: var(--accent); }
+a.card:hover { text-decoration: none; border-color: var(--accent); transform: translateY(-1px); transition: .12s; }
 .card h3 { margin: 0; font-size: 16px; } .muted { color: var(--muted); font-size: 13px; }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.badge { font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); }
+.badge { font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg); color: var(--accent); white-space: nowrap; }
 .badge.award { background: var(--gold-bg); color: var(--gold); } .badge.spot { background: var(--green-bg); color: var(--green); }
-.stats { display: flex; gap: 12px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-.empty { padding: 40px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
-pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; font: 12.5px/1.5 ui-monospace, Menlo, monospace; max-height: 420px; }
-.btn { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font: inherit; font-weight: 550; cursor: pointer; }
-.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-.award-note { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; }
-.verify { display: flex; gap: 8px; flex-wrap: wrap; } .verify input { flex: 1; min-width: 220px; }
-/* certificate */
-.cert { background: #fffdf8; color: #1d1d1b; border: 10px double #c4664a; border-radius: 6px; padding: 48px 56px; text-align: center; max-width: 860px; margin: 10px auto 18px; }
-.cert .club { letter-spacing: .25em; text-transform: uppercase; font-size: 13px; color: #8a4b37; }
-.cert h1 { font-family: Georgia, "Times New Roman", serif; font-size: 34px; margin: 18px 0 6px; }
-.cert .name { font-family: Georgia, serif; font-size: 30px; margin: 18px 0 2px; border-bottom: 1px solid #d9c9bd; display: inline-block; padding: 0 24px 6px; }
-.cert .for { margin: 18px auto 0; max-width: 560px; color: #55524c; }
-.cert .meta { display: flex; justify-content: space-between; margin-top: 40px; font-size: 13px; color: #55524c; text-align: left; gap: 20px; }
-.no-print { } @media print { header, .no-print { display: none !important; } body { background: #fff; } main { padding: 0; } .cert { margin: 0 auto; } }
-@media (max-width: 600px) { .cert { padding: 28px 18px; } .cert h1 { font-size: 26px; } .cert .name { font-size: 24px; } .cert .meta { flex-direction: column; } }
+.badge.kind { background: var(--bg); color: var(--muted); }
+.meter { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; margin-top: auto; }
+.meter b { color: var(--text); font-weight: 600; }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; grid-column: 1 / -1; }
+.cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.rank { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 0; }
+.rank h3 { margin: 8px 16px 6px; font-size: 15px; }
+.rank a { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px 16px; color: var(--text); }
+.rank a:hover { background: var(--bg); text-decoration: none; }
+.rank em { font-style: normal; color: var(--muted); font-weight: 600; } .rank small { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; } th { color: var(--muted); font-weight: 550; font-size: 12.5px; }
+tr:last-child td { border-bottom: 0; }
+.pjhead { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: start; margin: 28px 0 10px; }
+.pjhead h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -0.01em; }
+.statrow { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; min-width: 96px; }
+.stat b { display: block; font-size: 20px; } .stat span { color: var(--muted); font-size: 12px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; font: 12.5px/1.5 ui-monospace, Menlo, monospace; max-height: 440px; }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; }
+.verify { display: flex; gap: 8px; flex-wrap: wrap; max-width: 560px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; }
+
+/* ── Certificate ── */
+.cert-wrap { padding: 26px 0 10px; }
+.sheet { --c: #c4664a; --c2: #8a4b37; position: relative; width: 100%; max-width: 1060px; aspect-ratio: 297 / 210; margin: 0 auto;
+  background: #fffdf7; color: #24211c; font-family: "Cormorant Garamond", Georgia, serif; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.18); container-type: inline-size; }
+.sheet.certified { --c: #1f6f78; --c2: #164e55; } .sheet.award { --c: #b08a2e; --c2: #7d6220; }
+.sheet::before { content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--c) 9%, transparent) 0 40%, transparent 41%),
+              repeating-radial-gradient(circle at 50% 50%, transparent 0 9px, color-mix(in srgb, var(--c) 5%, transparent) 9px 10px); opacity: .9; }
+.frame { position: absolute; inset: 2.4cqw; border: 0.35cqw solid var(--c); }
+.frame::after { content: ""; position: absolute; inset: 0.9cqw; border: 0.12cqw solid color-mix(in srgb, var(--c) 70%, transparent); }
+.corner { position: absolute; width: 8cqw; height: 8cqw; color: var(--c); }
+.corner.tl { top: 1.4cqw; left: 1.4cqw; } .corner.tr { top: 1.4cqw; right: 1.4cqw; transform: scaleX(-1); }
+.corner.bl { bottom: 1.4cqw; left: 1.4cqw; transform: scaleY(-1); } .corner.br { bottom: 1.4cqw; right: 1.4cqw; transform: scale(-1); }
+.inner { position: absolute; inset: 6cqw 8cqw 5cqw; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.emblem { width: 9cqw; height: 9cqw; color: var(--c); }
+.club-name { font-family: Inter, sans-serif; letter-spacing: .35em; font-size: 1.15cqw; color: var(--c2); text-transform: uppercase; margin-top: 1cqw; font-weight: 600; }
+.cert-title { font-size: 5.2cqw; font-weight: 600; margin: 1.6cqw 0 0; line-height: 1.05; color: #1f1c17; }
+.cert-kind { font-family: Inter, sans-serif; font-size: 1.15cqw; letter-spacing: .28em; text-transform: uppercase; color: var(--c2); margin-top: .8cqw; }
+.presented { font-size: 1.9cqw; font-style: italic; color: #5b5549; margin-top: 2.6cqw; }
+.holder { font-size: 5cqw; font-style: italic; font-weight: 600; margin-top: .4cqw; padding: 0 4cqw .4cqw; border-bottom: 0.12cqw solid color-mix(in srgb, var(--c) 55%, transparent); color: #1f1c17; }
+.holder-org { font-family: Inter, sans-serif; font-size: 1.35cqw; color: #5b5549; margin-top: 1cqw; }
+.statement { font-size: 2cqw; line-height: 1.4; max-width: 62cqw; margin-top: 2cqw; color: #3a352d; }
+.statement b { color: #1f1c17; }
+.foot { margin-top: auto; width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 3cqw; font-family: Inter, sans-serif; }
+.foot .col { font-size: 1.2cqw; color: #5b5549; } .foot .col.right { text-align: right; }
+.foot .line { border-top: 0.1cqw solid #8d857a; padding-top: .6cqw; margin-top: .6cqw; }
+.foot .big { font-family: "Cormorant Garamond", Georgia, serif; font-size: 2cqw; color: #1f1c17; font-style: italic; }
+.seal { width: 11cqw; height: 11cqw; color: var(--c); }
+.qr { position: absolute; right: 6.4cqw; top: 6cqw; display: flex; flex-direction: column-reverse; align-items: center; gap: .5cqw; font-family: Inter, sans-serif; font-size: .9cqw; line-height: 1.3; color: #6b645a; text-align: center; }
+.qr svg { width: 6.5cqw; height: 6.5cqw; background: #fff; }
+.cert-tools { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 22px 0 6px; }
+.valid { text-align: center; color: var(--green); font-size: 14px; }
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  header, .no-print { display: none !important; }
+  body { background: #fff; } main { padding: 0; max-width: none; } .cert-wrap { padding: 0; }
+  .sheet { max-width: none; width: 297mm; height: 210mm; aspect-ratio: auto; box-shadow: none; }
+}
+@media (max-width: 760px) {
+  .hero-in, .cols, .steps { grid-template-columns: 1fr; } .pjhead { grid-template-columns: 1fr; } header { gap: 10px; padding: 10px 14px; } .who { display: none; }
+}
 </style>
 </head>
 <body>
 <header>
   <a class="brand" href="/club"><b>M</b> MCN Developer Club</a>
-  <nav><a href="/club">Marketplace</a><a href="/club#verify">Verify a certificate</a><a href="/">Build in Studio</a></nav>
+  <nav id="nav">
+    <a href="/club" data-v="market">Marketplace</a>
+    <a href="/club/leaderboard" data-v="leaderboard">Leaderboard</a>
+    <a href="/club/awards" data-v="awards">Awards</a>
+    <a href="/club/verify" data-v="verify">Verify a certificate</a>
+  </nav>
+  <span class="who" id="who"></span>
+  <a class="btn" href="/?club=launch">Publish your app</a>
 </header>
-<main id="view"><div class="empty">Loading…</div></main>
+<main id="view"><div class="empty" style="margin-top:30px">Loading…</div></main>
+
+<!-- Ornaments -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="corner" viewBox="0 0 100 100"><g fill="none" stroke="currentColor" stroke-width="2.2">
+      <path d="M4 60 V4 H60"/><path d="M12 48 V12 H48"/><path d="M4 4 L26 26"/>
+      <circle cx="26" cy="26" r="5" fill="currentColor"/><path d="M12 30 q14 -4 18 -18"/></g></symbol>
+    <symbol id="emblem" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="3"/>
+      <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="1"/>
+      <path id="ring" d="M60 60 m-40 0 a40 40 0 1 1 80 0 a40 40 0 1 1 -80 0" fill="none"/>
+      <text font-family="Inter, sans-serif" font-size="9" font-weight="700" letter-spacing="3" fill="currentColor">
+        <textPath href="#ring" startOffset="0">MCN · DEVELOPER · CLUB · CERTIFIED ·</textPath></text>
+      <text x="60" y="70" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="30" font-weight="700" fill="currentColor">M</text>
+    </symbol>
+    <symbol id="seal" viewBox="0 0 140 140">
+      <g fill="currentColor"><path d="M50 96 L36 136 L52 128 L60 140 L68 104 Z" opacity=".85"/><path d="M90 96 L104 136 L88 128 L80 140 L72 104 Z" opacity=".85"/></g>
+      <g fill="currentColor">
+        <circle cx="70" cy="62" r="48" opacity=".18"/>
+        <path d="M70 12 l7 9 11-4 3 11 11 2-2 11 9 7-7 9 4 11-11 3-2 11-11-2-7 9-9-7-11 4-3-11-11-2 2-11-9-7 7-9-4-11 11-3 2-11 11 2z"/>
+      </g>
+      <circle cx="70" cy="62" r="30" fill="#fffdf7"/>
+      <circle cx="70" cy="62" r="26" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="70" y="70" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="24" font-weight="700" fill="currentColor">MCN</text>
+    </symbol>
+  </defs>
+</svg>
+
 <script>
 const $view = document.getElementById('view')
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-const date = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-let INFO = { awards: {}, spotlights: {}, kinds: {} }
-const filters = { award: '', spotlight: '', kind: '', q: '' }
-// Server JSON objects come back with sorted keys; the order list keeps the intended order
-const ordered = group => ((INFO.order || {})[group] || Object.keys(INFO[group] || {})).map(k => [k, INFO[group][k]])
+const day = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+let INFO = { awards: {}, spotlights: {}, kinds: {}, sorts: {}, counts: {} }
+const state = { award: '', spotlight: '', kind: '', q: '', sort: 'newest' }
+const ordered = g => ((INFO.order || {})[g] || Object.keys(INFO[g] || {})).map(k => [k, INFO[g][k]])
+const AWARD_ABOUT = {
+  best_overall: 'The app that is best all round: useful, polished, well built.',
+  best_innovation: 'A new idea, or a fresh take on an old problem.',
+  best_technical: 'Excellent engineering: clean structure, types, tests, modules.',
+  best_use_of_mcn: 'Gets the most out of MCN: services, screens, agents, the app map.',
+  best_ai: 'Puts AI to work where it truly helps people.',
+}
 
-async function api(path) {
-  const r = await fetch(path, { credentials: 'same-origin' })
+function token() { try { return localStorage.getItem('mcn_token') || '' } catch { return '' } }
+async function api(path, body) {
+  const headers = { Accept: 'application/json' }
+  if (token()) headers.Authorization = 'Bearer ' + token()
+  const opts = { headers, credentials: 'same-origin' }
+  if (body !== undefined) { opts.method = 'POST'; headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body) }
+  const r = await fetch(path, opts)
   return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }
 }
+function toast(text) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = text; document.body.append(t); setTimeout(() => t.remove(), 2400) }
+function setNav(v) { document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v)) }
 
 function badges(p) {
   const out = (p.awards || []).map(a => `<span class="badge award">🏆 ${esc(a.label)}</span>`)
   if (p.spotlight_label) out.push(`<span class="badge spot">${esc(p.spotlight_label)}</span>`)
   return out.join('')
 }
-function stats(s = {}) {
-  return [`${s.screens || 0} screens`, `${s.endpoints || 0} endpoints`, `${s.tests || 0} tests`]
-    .concat(s.uses_ai ? ['uses AI'] : []).map(x => `<span>${esc(x)}</span>`).join('')
+function meter(p) {
+  const u = p.usage || {}
+  return `<div class="meter"><span><b>${u.uses || 0}</b> using</span><span><b>${u.likes || 0}</b> likes</span>
+    <span>${(p.stats || {}).screens || 0} screens · ${(p.stats || {}).endpoints || 0} endpoints${(p.stats || {}).uses_ai ? ' · AI' : ''}</span></div>`
 }
-function who(p) { return `${esc(p.author)} · ${esc(p.author_org)} <span class="badge">${esc(INFO.kinds[p.author_kind] || p.author_kind || '')}</span>` }
+function author(p) {
+  return `<a href="/club/u/${esc(p.user_id)}">${esc(p.author)}</a> · ${esc(p.author_org)} <span class="badge kind">${esc(INFO.kinds[p.author_kind] || '')}</span>`
+}
+function card(p) {
+  return `<div class="card"><a href="/club/project/${esc(p.id)}" style="color:inherit"><h3>${esc(p.title)}</h3></a>
+    <div class="muted">${esc(p.tagline || '')}</div><div class="badges">${badges(p)}</div>
+    <div class="muted">${author(p)}</div>${meter(p)}</div>`
+}
+
+// ── Marketplace ──────────────────────────────────────────────────────────
 
 async function marketplace() {
-  const chip = (group, key, label) => `<button class="chip ${filters[group] === key ? 'on' : ''}" data-g="${group}" data-k="${esc(key)}">${esc(label)}</button>`
+  setNav('market')
+  const n = INFO.counts || {}
+  const chip = (g, k, label) => `<button class="chip ${state[g] === k ? 'on' : ''}" data-g="${g}" data-k="${esc(k)}">${esc(label)}</button>`
   $view.innerHTML = `
-    <h1>Marketplace</h1>
-    <p class="lead">Apps built in MCN by students and professionals in the MCN Developer Club, reviewed and approved.
-      The best are recognised in five award categories, and promising ones are picked out for funding, recognition or showcasing.</p>
-    <div class="filters">${chip('award', '', 'All')}${ordered('awards').map(([k, v]) => chip('award', k, v)).join('')}</div>
-    <div class="filters">${ordered('spotlights').map(([k, v]) => chip('spotlight', k, v)).join('')}
-      ${ordered('kinds').map(([k, v]) => chip('kind', k, v + 's')).join('')}</div>
-    <input class="search" id="q" placeholder="Search apps, people, colleges or companies" value="${esc(filters.q)}">
-    <div id="results" class="grid"></div>
-    <h2 id="verify">Verify a certificate</h2>
-    <form class="verify" onsubmit="event.preventDefault(); location.href='/club/certificate/' + encodeURIComponent(this.code.value.trim().toUpperCase())">
-      <input class="search" name="code" placeholder="Certificate code, e.g. MCN-7KX2Q9PDRT" required style="margin:0">
-      <button class="btn">Verify</button></form>`
-  $view.querySelectorAll('.chip').forEach(b => b.onclick = () => {
-    filters[b.dataset.g] = filters[b.dataset.g] === b.dataset.k && b.dataset.k ? '' : b.dataset.k
-    marketplace()
-  })
+    <section class="hero"><div class="hero-in">
+      <div><h1>Apps built by students and professionals, in MCN</h1>
+        <p>Members of the MCN Developer Club build apps, launch them for review and earn certificates. Approved apps are listed
+          here; the best win awards, and promising ones are picked for funding, recognition or the showcase.</p>
+        <a class="btn" href="/?club=launch">Publish your app</a> <a class="btn ghost" style="color:#f4f1ec;border-color:#4a463f" href="/club/leaderboard">See the leaderboard</a></div>
+      <div class="nums"><div><b>${n.apps || 0}</b><span>approved apps</span></div><div><b>${n.members || 0}</b><span>members</span></div>
+        <div><b>${n.organizations || 0}</b><span>colleges & companies</span></div><div><b>${n.certificates || 0}</b><span>certificates issued</span></div></div>
+    </div></section>
+    <div class="steps">
+      <div class="step"><i>1</i><b>Join</b><span>Open the Club tab in Studio; add your college or company.</span></div>
+      <div class="step"><i>2</i><b>Build</b><span>Build your app in Studio, from scratch, a template or with the Agent.</span></div>
+      <div class="step"><i>3</i><b>Launch for review</b><span>One click sends it; you get a certificate straight away.</span></div>
+      <div class="step"><i>4</i><b>Get listed</b><span>Approved apps appear here, earn certificates and can win awards.</span></div>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="q" placeholder="Search apps, people, colleges or companies" value="${esc(state.q)}">
+      <select class="sort" id="sort">${Object.entries(INFO.sorts || {}).map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+    </div>
+    <div class="filters">${chip('award', '', 'All apps')}${ordered('awards').map(([k, v]) => chip('award', k, v)).join('')}</div>
+    <div class="filters">${ordered('spotlights').map(([k, v]) => chip('spotlight', k, v)).join('')}${ordered('kinds').map(([k, v]) => chip('kind', k, v + 's')).join('')}</div>
+    <div id="results" class="grid"></div>`
+  $view.querySelectorAll('.chip').forEach(b => b.onclick = () => { state[b.dataset.g] = state[b.dataset.g] === b.dataset.k && b.dataset.k ? '' : b.dataset.k; marketplace() })
   let t
-  document.getElementById('q').oninput = e => { clearTimeout(t); t = setTimeout(() => { filters.q = e.target.value; results() }, 250) }
+  document.getElementById('q').oninput = e => { clearTimeout(t); t = setTimeout(() => { state.q = e.target.value; results() }, 250) }
+  document.getElementById('sort').onchange = e => { state.sort = e.target.value; results() }
   results()
 }
 
 async function results() {
-  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString()
-  const { body } = await api('/api/club/marketplace' + (qs ? '?' + qs : ''))
+  const qs = new URLSearchParams(Object.entries(state).filter(([, v]) => v)).toString()
+  const { body } = await api('/api/club/marketplace?' + qs)
   const list = body.projects || []
-  document.getElementById('results').innerHTML = list.length ? list.map(p => `
-    <a class="card" href="/club/project/${esc(p.id)}">
-      <h3>${esc(p.title)}</h3>
-      <div class="muted">${esc(p.tagline || '')}</div>
-      <div class="badges">${badges(p)}</div>
-      <div class="muted">${who(p)}</div>
-      <div class="stats">${stats(p.stats)}</div>
-    </a>`).join('') : `<div class="empty" style="grid-column:1/-1">${body.error ? esc(body.error) : 'No approved apps match yet.'}</div>`
+  document.getElementById('results').innerHTML = list.length ? list.map(card).join('')
+    : `<div class="empty">${body.error ? esc(body.error) : 'No approved apps match yet. <a href="/?club=launch">Publish yours</a>.'}</div>`
 }
 
-async function projectPage(id) {
-  const { ok, body } = await api('/api/club/projects/' + encodeURIComponent(id))
-  if (!ok) { $view.innerHTML = `<div class="empty">${esc(body.error || 'Not found')}</div>`; return }
-  const p = body.project
-  document.title = `${p.title} · MCN Developer Club`
+// ── Leaderboard and awards ───────────────────────────────────────────────
+
+async function leaderboard() {
+  setNav('leaderboard')
+  const { body } = await api('/api/club/leaderboard')
+  const list = (title, items, key) => `<div class="rank"><h3>${title}</h3>${items.length ? items.map((p, i) => `
+    <a href="/club/project/${esc(p.id)}"><em>${i + 1}</em><span>${esc(p.title)}<br><small>${esc(p.author_org)}</small></span>
+      <small>${key === 'likes' ? (p.usage.likes + ' likes') : key === 'recent' ? (p.usage.recent_uses + ' this month') : (p.usage.uses + ' using')}</small></a>`).join('')
+    : '<div class="empty" style="margin:10px;border:0">Nothing yet</div>'}</div>`
   $view.innerHTML = `
-    <p><a href="/club">← Marketplace</a></p>
-    <h1>${esc(p.title)}</h1>
-    <p class="lead">${esc(p.tagline || '')}</p>
-    <div class="badges" style="margin-bottom:10px">${badges(p)}</div>
-    <p class="muted">${who(p)} · approved ${esc(date(p.listed_at))}</p>
-    <div class="stats" style="margin:8px 0 18px">${stats(p.stats)}</div>
-    <p class="no-print"><a class="btn" href="/?club_open=${esc(p.id)}">Open in Studio</a></p>
-    ${p.description ? `<h2>About</h2><p style="white-space:pre-wrap">${esc(p.description)}</p>` : ''}
-    ${(p.awards || []).length ? `<h2>Awards</h2>${p.awards.map(a => `<div class="award-note"><b>🏆 ${esc(a.label)}</b>${a.note ? `<div class="muted">${esc(a.note)}</div>` : ''}</div>`).join('')}` : ''}
+    <h1 class="page">Leaderboard</h1>
+    <p class="lead">Apps ranked by how many other registered members use them (open them in Studio) and like them.
+      Only other people count: opening or liking your own app doesn't.</p>
+    <div class="cols">${list('Most used', body.most_used || [], 'uses')}${list('Most liked', body.most_liked || [], 'likes')}${list('Trending this month', body.trending || [], 'recent')}</div>
+    <h2>Top builders</h2>
+    ${(body.builders || []).length ? `<table><thead><tr><th>#</th><th>Developer</th><th>College or company</th><th>Apps</th><th>Using their apps</th><th>Awards</th></tr></thead><tbody>
+      ${body.builders.map((b, i) => `<tr><td>${i + 1}</td><td><a href="/club/u/${esc(b.user_id)}">${esc(b.name)}</a></td>
+        <td>${esc(b.organization)} <span class="badge kind">${esc(INFO.kinds[b.kind] || '')}</span></td><td>${b.apps}</td><td>${b.uses}</td><td>${b.awards}</td></tr>`).join('')}
+      </tbody></table>` : '<div class="empty">No approved apps yet.</div>'}`
+  window.__winners = body.winners
+}
+
+async function awards() {
+  setNav('awards')
+  const { body } = await api('/api/club/leaderboard')
+  const winners = body.winners || {}
+  $view.innerHTML = `<h1 class="page">Awards</h1>
+    <p class="lead">Reviewers recognise approved apps in five categories. Each award comes with a certificate.</p>
+    ${ordered('awards').map(([k, label]) => `<h2>🏆 ${esc(label)}</h2><p class="muted" style="margin-top:-6px">${esc(AWARD_ABOUT[k] || '')}</p>
+      <div class="grid">${(winners[k] || []).length ? winners[k].map(card).join('') : '<div class="empty">Not awarded yet.</div>'}</div>`).join('')}`
+}
+
+// ── A project ────────────────────────────────────────────────────────────
+
+async function projectPage(id) {
+  const { ok, body } = await api('/api/club/projects/' + encodeURIComponent(id) + '?view=1')
+  if (!ok) { $view.innerHTML = `<div class="empty" style="margin-top:30px">${esc(body.error || 'Not found')}</div>`; return }
+  const p = body.project, u = p.usage || {}
+  document.title = `${p.title} · MCN Developer Club`
+  const like = !INFO.signed_in ? `<a class="btn ghost" href="/">Sign in to like</a>`
+    : p.mine ? '' : `<button class="btn ghost ${p.liked ? 'liked' : ''}" id="like">${p.liked ? '♥ Liked' : '♡ Like'}</button>`
+  $view.innerHTML = `
+    <p style="margin-top:24px"><a href="/club">← Marketplace</a></p>
+    <div class="pjhead"><div><h1>${esc(p.title)}</h1><div class="lead" style="margin-bottom:8px">${esc(p.tagline || '')}</div>
+        <div class="badges">${badges(p)}</div></div>
+      <div class="actions"><a class="btn" href="/?club_open=${esc(p.id)}">Open in Studio</a>${like}
+        <button class="btn ghost" id="share">Copy link</button></div></div>
+    <p class="muted">${author(p)} · approved ${esc(day(p.listed_at))}${p.category ? ' · ' + esc(p.category) : ''}</p>
+    <div class="statrow">
+      <div class="stat"><b>${u.uses || 0}</b><span>members using it</span></div>
+      <div class="stat"><b id="likes">${u.likes || 0}</b><span>likes</span></div>
+      <div class="stat"><b>${u.views || 0}</b><span>views</span></div>
+      <div class="stat"><b>${(p.stats || {}).screens || 0}</b><span>screens</span></div>
+      <div class="stat"><b>${(p.stats || {}).endpoints || 0}</b><span>endpoints</span></div>
+      <div class="stat"><b>${(p.stats || {}).tests || 0}</b><span>tests</span></div>
+    </div>
+    ${p.description ? `<h2>About</h2><p style="white-space:pre-wrap;max-width:780px">${esc(p.description)}</p>` : ''}
+    ${(p.awards || []).length ? `<h2>Awards</h2>${p.awards.map(a => `<div class="note"><b>🏆 ${esc(a.label)}</b>${a.note ? `<div class="muted">${esc(a.note)}</div>` : ''}</div>`).join('')}` : ''}
     <h2>The app</h2>
     <details><summary>backend/main.mcn</summary><pre>${esc(p.backend || '')}</pre></details>
     <details><summary>ui/app.mcn</summary><pre>${esc(p.ui || '')}</pre></details>`
+  document.getElementById('share').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Link copied'))
+  const btn = document.getElementById('like')
+  if (btn) btn.onclick = async () => {
+    const want = !btn.classList.contains('liked')
+    const r = await api(`/api/club/projects/${encodeURIComponent(p.id)}/like`, { liked: want })
+    if (!r.ok) { toast(r.body.error || 'Could not save that'); return }
+    btn.classList.toggle('liked', want); btn.textContent = want ? '♥ Liked' : '♡ Like'
+    document.getElementById('likes').textContent = r.body.likes
+  }
+}
+
+// ── A developer ──────────────────────────────────────────────────────────
+
+async function profilePage(id) {
+  const { ok, body } = await api('/api/club/members/' + encodeURIComponent(id))
+  if (!ok) { $view.innerHTML = `<div class="empty" style="margin-top:30px">${esc(body.error || 'Not found')}</div>`; return }
+  const m = body.member
+  document.title = `${m.name} · MCN Developer Club`
+  $view.innerHTML = `
+    <h1 class="page">${esc(m.name)}</h1>
+    <p class="lead">${esc(INFO.kinds[m.kind] || '')} · ${esc(m.organization)}${m.title ? ' · ' + esc(m.title) : ''}${m.country ? ' · ' + esc(m.country) : ''}<br>
+      <span class="muted">Member since ${esc(day(m.joined_at))}</span></p>
+    <div class="statrow"><div class="stat"><b>${m.apps.length}</b><span>approved apps</span></div>
+      <div class="stat"><b>${m.uses}</b><span>members using them</span></div><div class="stat"><b>${m.awards}</b><span>awards</span></div>
+      <div class="stat"><b>${m.certificates.length}</b><span>certificates</span></div></div>
+    <h2>Apps</h2><div class="grid">${m.apps.length ? m.apps.map(card).join('') : '<div class="empty">No approved apps yet.</div>'}</div>
+    <h2>Certificates</h2><div class="grid">${m.certificates.map(c => `<a class="card" href="/club/certificate/${esc(c.code)}">
+      <b>🎓 ${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('') || '<div class="empty">None yet.</div>'}</div>`
+}
+
+// ── Certificates ─────────────────────────────────────────────────────────
+
+function verifyPage() {
+  setNav('verify')
+  $view.innerHTML = `<h1 class="page">Verify a certificate</h1>
+    <p class="lead">Every MCN Developer Club certificate has a code. Enter it to see the certificate and confirm it's genuine.</p>
+    <form class="verify" onsubmit="event.preventDefault(); location.href='/club/certificate/' + encodeURIComponent(this.code.value.trim().toUpperCase())">
+      <input class="search" name="code" placeholder="e.g. MCN-7KX2Q9PDRT" required><button class="btn">Verify</button></form>`
 }
 
 async function certificatePage(code) {
   const { ok, body } = await api('/api/club/certificates/' + encodeURIComponent(code))
   if (!ok) {
-    $view.innerHTML = `<div class="empty"><b>Not a valid certificate.</b><br>No MCN Developer Club certificate has the code ${esc(code)}.</div>`
+    $view.innerHTML = `<div class="empty" style="margin-top:30px"><b>Not a valid certificate.</b><br>No MCN Developer Club certificate has the code ${esc(code)}.
+      <p><a href="/club/verify">Try another code</a></p></div>`
     return
   }
   const c = body.certificate
-  const what = c.kind === 'award'
-    ? `for winning <b>${esc(c.award_label)}</b> with <b>${esc(c.project_title || '')}</b>`
+  const url = `${location.origin}/club/certificate/${c.code}`
+  const title = c.kind === 'award' ? c.award_label : c.kind === 'certified' ? 'Certified MCN Developer' : 'Certificate of Participation'
+  const kindLine = c.kind === 'award' ? 'Award of Excellence' : c.kind === 'certified' ? 'Certification' : 'Participation'
+  const statement = c.kind === 'award'
+    ? `for winning <b>${esc(c.award_label)}</b> in the MCN Developer Club with <b>${esc(c.project_title || '')}</b>.`
     : c.kind === 'certified'
-      ? `for building <b>${esc(c.project_title || '')}</b> in MCN, reviewed and approved by the MCN Developer Club`
-      : 'for building an application in MCN and launching it for review in the MCN Developer Club'
-  document.title = `${c.kind_label} · ${c.holder}`
+      ? `for building <b>${esc(c.project_title || '')}</b> in MCN, reviewed and approved by the MCN Developer Club and listed in its marketplace.`
+      : 'for building an application in MCN and launching it for review in the MCN Developer Club.'
+  const sig = INFO.signatory
+  const issued = new Date(c.issued_at * 1000)
+  document.title = `${title} · ${c.holder}`
   $view.innerHTML = `
-    <div class="cert">
-      <div class="club">MCN Developer Club</div>
-      <h1>${esc(c.kind === 'award' ? c.award_label : c.kind_label)}</h1>
-      <div>This certifies that</div>
-      <div class="name">${esc(c.holder)}</div>
-      <div class="muted" style="color:#55524c">${esc(c.organization)}${c.holder_kind ? ' · ' + esc(INFO.kinds[c.holder_kind] || c.holder_kind) : ''}</div>
-      <p class="for">${what}.</p>
-      <div class="meta"><div>Issued ${esc(date(c.issued_at))}</div>
-        <div>Certificate ${esc(c.code)}<br>Verify at ${esc(location.origin)}/club/certificate/${esc(c.code)}</div></div>
+    <div class="cert-wrap">
+      <div class="sheet ${esc(c.kind)}">
+        <div class="frame"></div>
+        ${['tl', 'tr', 'bl', 'br'].map(p => `<svg class="corner ${p}"><use href="#corner"/></svg>`).join('')}
+        <div class="inner">
+          <svg class="emblem"><use href="#emblem"/></svg>
+          <div class="club-name">MCN Developer Club</div>
+          <div class="cert-title">${esc(title)}</div>
+          <div class="cert-kind">${esc(kindLine)}</div>
+          <div class="presented">This is proudly presented to</div>
+          <div class="holder">${esc(c.holder)}</div>
+          <div class="holder-org">${esc(c.organization)}${c.holder_kind ? ' · ' + esc(INFO.kinds[c.holder_kind] || '') : ''}</div>
+          <div class="statement">${statement}</div>
+          <div class="foot">
+            <div class="col"><div class="big">${esc(day(c.issued_at))}</div><div class="line">Date issued</div></div>
+            <svg class="seal"><use href="#seal"/></svg>
+            <div class="col right"><div class="big">${esc(sig ? sig.name : 'MCN Developer Club')}</div>
+              <div class="line">${esc(sig ? sig.title : 'Issued by')}</div></div>
+          </div>
+        </div>
+        <div class="qr"><span>Verify this certificate<br><b>${esc(c.code)}</b></span><span id="qr"></span></div>
+      </div>
     </div>
-    <p class="no-print" style="text-align:center"><button class="btn" onclick="print()">Print or save as PDF</button>
-      <a class="btn ghost" href="/club">Marketplace</a></p>
-    <p class="no-print muted" style="text-align:center">✓ This certificate is valid: it was issued by the MCN Developer Club on this server.</p>`
+    <div class="cert-tools no-print">
+      <button class="btn" onclick="print()">Download PDF</button>
+      <a class="btn ghost" target="_blank" rel="noopener" href="https://www.linkedin.com/profile/add?${new URLSearchParams({
+        startTask: 'CERTIFICATION_NAME', name: title + (c.project_title ? ': ' + c.project_title : ''), organizationName: 'MCN Developer Club',
+        issueYear: issued.getFullYear(), issueMonth: issued.getMonth() + 1, certUrl: url, certId: c.code })}">Add to LinkedIn</a>
+      <button class="btn ghost" id="copy">Copy link</button>
+    </div>
+    <p class="valid no-print">✓ Valid certificate, issued to ${esc(c.holder)} on ${esc(day(c.issued_at))} by the MCN Developer Club.</p>`
+  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(url).then(() => toast('Link copied'))
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make()
+    document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+  } catch { document.getElementById('qr').remove() }
 }
 
 async function route() {
   const info = await api('/api/club/info')
   if (info.ok) INFO = info.body
-  const parts = location.pathname.split('/').filter(Boolean)
-  if (parts[1] === 'project' && parts[2]) return projectPage(decodeURIComponent(parts[2]))
-  if (parts[1] === 'certificate' && parts[2]) return certificatePage(decodeURIComponent(parts[2]))
+  const me = INFO.member
+  document.getElementById('who').textContent = me ? `${me.name} · ${me.organization}` : (INFO.signed_in ? 'Signed in' : '')
+  const [, , view, arg] = location.pathname.split('/').map(decodeURIComponent)
+  if (view === 'project' && arg) return projectPage(arg)
+  if (view === 'certificate' && arg) return certificatePage(arg)
+  if (view === 'u' && arg) return profilePage(arg)
+  if (view === 'leaderboard') return leaderboard()
+  if (view === 'awards') return awards()
+  if (view === 'verify') return verifyPage()
   return marketplace()
 }
 route()
