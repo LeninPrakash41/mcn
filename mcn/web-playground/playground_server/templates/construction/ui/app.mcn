@@ -407,8 +407,6 @@ component ProcurementTable
 component ApprovalsTable
     state items = []
     state edit_item = null
-    state edit_status = "Pending"
-    state show_edit_modal = false
 
     on load
         var resp = list_approvals()
@@ -425,11 +423,6 @@ component ApprovalsTable
                             table_head "status"
                             table_head "requested_by"
                     table_body
-        modal show=show_edit_modal
-            card_header "Grant Approval"
-            form on_submit=handleSave
-                select bind=edit_status options=["Pending", "Approved", "Rejected"] label="Status Decision"
-                button "Save Decision" variant="default"
 
 
 component DocumentsTable

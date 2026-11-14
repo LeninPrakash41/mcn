@@ -264,6 +264,20 @@ log(len(result.tool_calls))    // every tool call, with its input and output
 
 Return `tool_calls` from an endpoint and the `chat` element shows "Used N tools" under the reply. Without an API key it runs in mock mode, so the wiring can be tested in class or CI.
 
+### Built for AI agents to work on
+
+```bash
+mcn describe --json          # a map of the app: tables, endpoints, screens, tests and how they connect
+mcn impact orders            # what changing the orders table would affect, and which tests cover it
+mcn impact --changed         # the same for everything changed since the last commit
+mcn impact --changed --module billing   # fail if a change went outside the billing module
+mcn check --strict backend/main.mcn     # every endpoint parameter has a type
+```
+
+Endpoint parameters can be typed (`amount: float`, `who: Customer`) and are checked on every call. `module` blocks own their tables, so several agents can each work on one module of the same app.
+
+Every MCN block has one meaning, an app is usually two files, and these two commands let an agent understand the whole app and check that an edit only reached what it meant to. The agent team's QA lead uses them on every build. See [building with AI agents](website/docs/pages/guide/ai-agents.md).
+
 ### Fine-tuning
 
 Teach a model your own examples, then use it from `ai()` by the name you gave it:

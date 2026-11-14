@@ -27,12 +27,14 @@ Every command is a subcommand of `mcn`. Run `mcn <command> --help` for the full 
 | `mcn test <file or folder> [-v]` | Run `test` blocks. Exit code 1 if any fail |
 | `mcn check <file>` | Syntax errors, never-defined names and type problems, without running |
 | `mcn check --json <file>` | The same as JSON: `{"file", "diagnostics": [{kind, message, line, col, length, hint, severity}]}` |
-| `mcn check --strict <file>` | Treat warnings as errors |
+| `mcn check --strict <file>` | Treat warnings as errors, and require a type on every endpoint parameter |
 | `mcn audit [file or folder]` | Find security problems: SQL injection, hard-coded secrets, open services and more. See [security](#/guide/security) |
 | `mcn audit --json` / `--fail-on high\|medium\|low` | JSON output for CI / the lowest severity that fails (default `medium`) |
 | `mcn fmt <file or folder>` | Print formatted code |
 | `mcn fmt --write <path>` | Format in place |
 | `mcn fmt --check <path>` | Exit 1 if anything needs formatting (for CI) |
+| `mcn describe [folder] [--json] [--strict]` | Map the app: tables, endpoints, screens, tests and how they connect, plus problems such as calls to missing endpoints. See [building with AI agents](#/guide/ai-agents) |
+| `mcn impact <name>... \| --changed [--base REF] [--module NAME] [--json]` | What changing a table, endpoint, function, screen or module would affect, and which tests cover it. With `--module`, exit code 1 if anything outside that module changed |
 
 ## Full stack
 

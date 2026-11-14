@@ -192,6 +192,7 @@ class Evaluator:
         self.functions       = functions         # shared with MCNInterpreter
         self.function_params: Dict[str, List[str]] = {}
         self.audited_endpoints: set = set()          # endpoints of `audit` services
+        self.endpoint_types: Dict[str, Dict[str, str]] = {}   # endpoint → {param: declared type}
         self.endpoint_auth: Dict[str, str] = {}      # endpoint → "" | "token" | "jwt"   # param names per endpoint
         self.globals    = Environment()
         self.components: Dict[str, ast.ComponentDecl] = {}   # UI components registry
@@ -421,6 +422,9 @@ class Evaluator:
             raise MCNError("Task system not initialised", stmt.line, stmt.col)
 
         # ── use (package import) ───────────────────────────────────────────────
+        if isinstance(stmt, ast.ModuleDecl):
+            return None      # a marker: its declarations follow it at the top level
+
         if isinstance(stmt, ast.UseStmt):
             if isinstance(stmt.package, ast.Variable):
                 package_name = stmt.package.name
@@ -817,8 +821,19 @@ class Evaluator:
             defaults = {k: self._eval(v, env) for k, v in ep.defaults.items()}
             body     = ep.body
 
-            def make_endpoint_fn(p, d, b, e):
+            types    = dict(getattr(ep, "param_types", {}) or {})
+            required = {name for name in params if name not in ep.defaults}
+
+            def make_endpoint_fn(p, d, b, e, ep_name=ep.name, types=types, required=required):
                 def endpoint_fn(*args: Any) -> Any:
+                    if types:
+                        from .endpoint_types import check_args
+                        from .runtime_types import MCNContract
+
+                        def find_contract(name):
+                            found = e.get(name)
+                            return found if isinstance(found, MCNContract) else None
+                        args = tuple(check_args(ep_name, p, types, required, list(args), find_contract))
                     call_env = Environment(e)
                     for i, param in enumerate(p):
                         call_env.define(param, args[i] if i < len(args) else d.get(param))
@@ -835,6 +850,7 @@ class Evaluator:
             env.define(ep.name, fn)
             self.functions[ep.name] = fn
             self.function_params[ep.name] = params
+            self.endpoint_types[ep.name] = types
             # How the HTTP server protects this endpoint: "", "token" or "jwt"
             self.endpoint_auth[ep.name] = "" if ep.name in stmt.public else stmt.auth
             if getattr(stmt, "audit", False):

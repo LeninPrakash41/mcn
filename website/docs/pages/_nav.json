@@ -23,6 +23,7 @@
       "guide/accounts",
       "guide/ui",
       "guide/ai",
+      "guide/ai-agents",
       "guide/tasks-events-iot",
       "guide/iot",
       "guide/testing",

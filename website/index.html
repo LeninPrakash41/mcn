@@ -227,6 +227,18 @@
       .std-table > div { grid-template-columns: 1fr; gap: 4px; }
     }
     @media (prefers-reduced-motion: reduce) { .show-card { transition: none; } .show-card:hover { transform: none; } }
+
+    /* Designed for AI agents */
+    .native-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+    .native-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .native-point { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 18px; }
+    .native-point h3 { margin: 0 0 6px; font-size: 16px; }
+    .native-point p { margin: 0; color: var(--text-soft); font-size: 14.5px; }
+    .native-window pre { height: auto; font-size: 12.5px; }
+    .native-more { margin: 22px 0 0; }
+    .native-more a { color: var(--accent-text); font-weight: 600; }
+    @media (max-width: 900px) { .native-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .native-points { grid-template-columns: 1fr; } }
   </style>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How is MCN different from AI app builders?", "acceptedAnswer": {"@type": "Answer", "text": "AI app builders write an app for you and usually run it on their own platform. MCN is a language: the app is two short files you can read, change and review, and the same files become a web app, a phone app and an API. You can still have AI write it, with mcn generate or the agent team, and you deploy it to your own Vercel, AWS or Cloudflare account, or any server."}}, {"@type": "Question", "name": "Does MCN support single sign-on and audit logs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. A service with auth \"sso\" signs people in with Okta, Microsoft Entra ID, Google Workspace or another OpenID Connect provider, and current_user() tells endpoints who they are and which roles they have. Adding audit to a service records every call in a tamper-evident log with secrets masked; mcn audit-log verify checks it and mcn audit-log export writes OCSF events for a SIEM. MCN itself isn't a SOC 2 or HIPAA certified service: those certifications belong to whoever runs the app."}}, {"@type": "Question", "name": "Can I deploy to AWS or Cloudflare?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. mcn deploy --target aws builds a container and runs it on AWS App Runner in the region you choose, with HTTPS and automatic scaling. mcn deploy --target cloudflare serves the web app from Cloudflare's edge and runs the API in a Cloudflare container. Both run in your own account. Keep data in PostgreSQL by setting DATABASE_URL."}}, {"@type": "Question", "name": "What kind of language is MCN?", "acceptedAnswer": {"@type": "Answer", "text": "A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain .mcn files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first."}}, {"@type": "Question", "name": "Is MCN a good fit for forward deployed engineers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with fetch(), query() and domain packages, and put it online with mcn deploy --target vercel or a Docker zip. agent_run() turns the customer's own functions into tools for an AI agent, and mcn audit plus service auth cover the security review. Everything stays as readable code the customer's team can keep."}}, {"@type": "Question", "name": "Can data annotation teams use MCN?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a data_table or kanban, forms for labels, classify() and extract() to pre-label items with AI, and people confirming or correcting each one. audit_log() records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code."}}, {"@type": "Question", "name": "Do I need to know another programming language first?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away."}}, {"@type": "Question", "name": "Is MCN ready for production?", "acceptedAnswer": {"@type": "Answer", "text": "It's designed for internal tools, client pilots and coursework, and has what those need: token, JWT and SSO sign-in, audit logs, rate limits, security headers, tests next to the code, a security scanner, and deploys to Docker, Vercel, AWS and Cloudflare. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last."}}, {"@type": "Question", "name": "Which AI models does it use, and where does my data go?", "acceptedAnswer": {"@type": "Answer", "text": "ai() uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI."}}, {"@type": "Question", "name": "Am I locked in?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi."}}, {"@type": "Question", "name": "Can it run on a Raspberry Pi or with an Arduino?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The same device() code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. mcn iot firmware writes the board sketch."}}, {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan."}}]}</script>
 </head>
@@ -501,8 +513,47 @@ MCN Studio — http://localhost:5003</pre>
     </div>
   </section>
 
+
+  <!-- Designed for AI agents -->
+  <section class="alt" id="ai-native">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">Why it works</p>
+        <h2>A language designed for AI agents, not just people.</h2>
+        <p>Programming languages were built around how people type code. An agent's mistakes are rarely typos: they're changes that quietly break something else. MCN is built so agents can see the whole app and check every change.</p>
+      </div>
+      <div class="native-grid">
+        <div class="native-points">
+          <div class="native-point"><h3>Little syntax to get wrong</h3><p>Indented plain words: <code>service</code>, <code>endpoint</code>, <code>component</code>, <code>test</code>. No braces, imports or framework boilerplate.</p></div>
+          <div class="native-point"><h3>Every block means one thing</h3><p>An <code>endpoint</code> is a route, a <code>component</code> is a screen, <code>amount: float</code> is checked on every call, <code>audit</code> logs every call. No framework to guess.</p></div>
+          <div class="native-point"><h3>The whole app on one map</h3><p><code>mcn describe</code> lists every table, endpoint, screen and test and how they connect, and flags a screen calling an endpoint that doesn't exist.</p></div>
+          <div class="native-point"><h3>Changes that stay where you meant</h3><p><code>mcn impact</code> shows what a change reaches and which tests cover it. <code>module</code> blocks own their tables, so agents can work side by side and <code>--module</code> proves each stayed in its own.</p></div>
+        </div>
+        <div class="window native-window">
+          <div class="window-bar"><div class="dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="team-window-title">Terminal</span></div>
+          <pre><code>$ mcn impact orders
+
+Changing table:orders affects:
+  Endpoints: delete_order (writes),
+    list_orders (reads), summary (reads)
+  Screens: Orders, Overview
+Tests to run: summary adds up paid revenue
+No test covers: delete_order, list_orders
+
+$ mcn describe
+3 screens · 8 endpoints · 2 tables · 0 functions · 2 tests
+
+App Operations
+  Overview → Overview
+  Orders → Orders</code></pre>
+        </div>
+      </div>
+      <p class="native-more"><a href="docs/#/guide/ai-agents">How agents work with MCN →</a></p>
+    </div>
+  </section>
+
   <!-- For individuals and teams -->
-  <section class="alt" id="who">
+  <section id="who">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Who it's for</p>
@@ -536,7 +587,7 @@ MCN Studio — http://localhost:5003</pre>
   </section>
 
   <!-- Standard on every app -->
-  <section id="standard">
+  <section class="alt" id="standard">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Standard on every app</p>
@@ -558,7 +609,7 @@ MCN Studio — http://localhost:5003</pre>
   </section>
 
   <!-- Steps -->
-  <section class="alt" id="how">
+  <section id="how">
     <div class="container">
       <div class="section-head">
         <p class="kicker">From idea to running app</p>
@@ -575,7 +626,7 @@ MCN Studio — http://localhost:5003</pre>
   </section>
 
   <!-- Features -->
-  <section id="features">
+  <section class="alt" id="features">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Why MCN</p>
@@ -632,7 +683,7 @@ MCN Studio — http://localhost:5003</pre>
   </section>
 
   <!-- Errors -->
-  <section class="alt" id="errors">
+  <section id="errors">
     <div class="container split">
       <div class="split-copy">
         <p class="kicker">Errors that teach</p>
@@ -658,7 +709,7 @@ Hint: Did you mean 'total'?</code></pre>
   </section>
 
   <!-- Targets -->
-  <section id="targets">
+  <section class="alt" id="targets">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Four ways to ship</p>
@@ -675,7 +726,7 @@ Hint: Did you mean 'total'?</code></pre>
 
 
   <!-- Templates -->
-  <section class="alt" id="templates">
+  <section id="templates">
     <div class="container">
       <div class="section-head">
         <p class="kicker">23 starter templates</p>
@@ -719,7 +770,7 @@ Hint: Did you mean 'total'?</code></pre>
   </section>
 
   <!-- FAQ -->
-  <section id="faq">
+  <section class="alt" id="faq">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Questions</p>

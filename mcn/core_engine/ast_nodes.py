@@ -297,12 +297,31 @@ class PipelineDecl(Node):
 
 
 @dataclass
+class ModuleDecl(Node):
+    """
+    module billing
+        owns invoices, payments
+
+        service billing_api
+            ...
+
+    A part of the app with an owner. Its declarations run as if written at the top
+    level (the parser places them right after this marker); `owns` names the tables
+    only this module may write. `end_line` is the module's last line.
+    """
+    name:     str       = ""
+    owns:     List[str] = field(default_factory=list)
+    end_line: int       = 0
+
+
+@dataclass
 class EndpointDecl(Node):
     """A single endpoint inside a service declaration."""
     name:     str               = ""
     params:   List[str]         = field(default_factory=list)
     defaults: Dict[str, "Expr"] = field(default_factory=dict)
     body:     List["Stmt"]      = field(default_factory=list)
+    param_types: Dict[str, str] = field(default_factory=dict)   # param → declared type
 
 
 @dataclass

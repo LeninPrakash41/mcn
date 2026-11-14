@@ -22,7 +22,7 @@ The sidebar collapses to icons (button or `Ctrl+\`), becomes a drawer on phones,
 |---|---|---|
 | `data_table` | `data`, `columns`, `title`, `description`, `filters`, `page_size`, `views`, `searchable`, `exportable`, `title_key`, `empty`, `add_label`, `on_add`, `on_row`, `on_edit`, `on_delete` | Search, a filter dropdown per column in `filters`, click-to-sort headers, pagination, `views=["table", "grid", "list"]`, CSV export, row actions. Status-like columns (`status`, `stage`, `priority`…) render as colored badges; money and dates are formatted. Without `data`, it shows the component's first list state |
 | `kanban` | `data`, `group_by`, `columns`, `title_key`, `fields`, `on_move`, `on_click` | A board with a column per value of `group_by`. Move cards by dragging with a mouse, dragging the grip with a finger, or with ← → when a card has focus. `on_move` gets `{id, <group_by>: new value, item}` |
-| `table` | `data` | A plain table: `table_header` → `table_row` → `table_head "column"` and an empty `table_body` |
+| `table` | `data` | A table with search and pages: `table_header` → `table_row` → `table_head "column"` and an empty `table_body`. It gets **New**, **Edit** and **Delete** buttons for the backend's `create_<item>`, `update_<item>` and `delete_<item>` endpoints (for `OrdersTable`: `create_order` …), each only when that endpoint exists and the table's columns (plus `id`) supply all its parameters |
 | `stat_card` | `label`, `value`, `icon`, `color`, `unit`, `trend` | A KPI tile. `color`: blue, green, red, amber, purple |
 | `pagination` | `page`, `total`, `page_size` | Page controls for your own lists |
 

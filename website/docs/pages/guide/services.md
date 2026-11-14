@@ -60,6 +60,37 @@ curl localhost:8080/                           # lists every endpoint
 
 > **Tip** Return a consistent shape, like `{success: true, data: ...}` or `{success: false, error: "..."}`. The UI and your tests can then check `.success` everywhere.
 
+## Typed parameters
+
+Give a parameter a type and MCN checks every call before the endpoint runs:
+
+```mcn
+contract Customer
+    name: str
+    email: str
+
+service billing
+    endpoint add_invoice(customer: str, amount: float, paid: bool = false)
+        return {success: true}
+
+    endpoint sign_up(who: Customer)
+        return {success: true, name: who.name}
+```
+
+| Type | Accepts |
+|---|---|
+| `str` | text |
+| `int` | whole numbers, and text like `"42"` |
+| `float`, `number` | numbers, and text like `"12.5"` |
+| `bool` | `true`/`false`, and the text `"true"`/`"false"` |
+| `list`, `dict` | a list, an object |
+| a contract's name | an object with every field of the contract, each of the right type |
+| `any` | anything |
+
+A wrong or missing value is refused with status 400 and says which parameter: `{"success": false, "error": "'amount' must be float, got \"abc\"", "field": "amount"}`. Parameters with a default can be left out. Parameters without a type are passed through as they are.
+
+`mcn check --strict` requires a type on every endpoint parameter, and `mcn check` always reports a type that doesn't exist. The types also appear in `mcn describe`, so AI agents and tools know exactly what each endpoint takes.
+
 ## Calling endpoints from MCN
 
 Inside the same file, endpoints are ordinary functions, which is what makes them easy to test:
@@ -76,6 +107,45 @@ From a UI file (`ui/app.mcn`), calling an endpoint by name compiles to an HTTP r
 ```bash
 mcn serve endpoints/       # serves the endpoints of every .mcn file in the folder
 ```
+
+## Modules
+
+A `module` gives part of the app a name and an owner, and lists the tables it owns. Only code in the owning module may write those tables; other modules can read them.
+
+```mcn
+query("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, total REAL)")
+query("CREATE TABLE IF NOT EXISTS invoices (id INTEGER PRIMARY KEY, order_id INTEGER, amount REAL)")
+
+module sales
+    owns orders
+
+    service sales_api
+        endpoint place_order(total: float)
+            query("INSERT INTO orders (total) VALUES (?)", (total,))
+            return {success: true}
+
+module billing
+    owns invoices
+
+    service billing_api
+        endpoint invoice(order_id: int)
+            query("INSERT INTO invoices (order_id, amount) VALUES (?, 1)", (order_id,))
+            return {success: true}
+```
+
+Everything inside a module runs exactly as if it were written at the top level: endpoints, functions and tests work the same. What modules add is checked by `mcn describe`:
+
+- Code that writes another module's table is reported: `function:bill (module billing) writes table 'orders', which module sales owns`. So is a table owned by two modules.
+- Each module lists what it owns, what it contains, and which other modules it depends on.
+- `mcn impact` names the modules a change reaches, and `mcn impact billing` checks a whole module.
+
+Modules are how several people or AI agents work on one app at once without stepping on each other: give each one a module, and check their work with
+
+```bash
+mcn impact --changed --module billing
+```
+
+which exits with code 1 if anything outside `billing` (or the tables it owns) changed.
 
 ## Postman
 

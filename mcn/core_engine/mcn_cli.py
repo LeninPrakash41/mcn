@@ -146,7 +146,7 @@ def check_file(filepath: str, strict: bool = False, as_json: bool = False) -> in
 
     diags = check(code)
     if not any(d.kind == "Syntax error" for d in diags):
-        for issue in check_source(code):
+        for issue in check_source(code, strict=strict):
             is_error = issue.severity == Severity.ERROR
             diags.append(Diagnostic(
                 kind="Type error" if is_error else "Warning", message=issue.message,
@@ -831,7 +831,7 @@ def main():
     check_parser.add_argument("file", help="MCN script file to check")
     check_parser.add_argument(
         "--strict", action="store_true",
-        help="Treat warnings as errors (exit 1 if any issues)"
+        help="Treat warnings as errors and require a type on every endpoint parameter"
     )
     check_parser.add_argument(
         "--json", action="store_true",
@@ -1017,6 +1017,21 @@ def main():
     subparsers.add_parser("logout", help="Sign this computer out of your MCN account")
     subparsers.add_parser("whoami", help="Show which MCN account this computer is signed in to")
 
+    describe_parser = subparsers.add_parser("describe", help="Map the app: tables, endpoints, screens and how they connect")
+    describe_parser.add_argument("path", nargs="?", default=".", help="Project folder or .mcn file (default: .)")
+    describe_parser.add_argument("--json", action="store_true", help="The full map as JSON, for AI agents and tools")
+    describe_parser.add_argument("--strict", action="store_true", help="Exit with code 1 when the map finds issues")
+
+    impact_parser = subparsers.add_parser("impact", help="What a change would affect, and which tests cover it")
+    impact_parser.add_argument("targets", nargs="*", help="Tables, endpoints, functions, contracts or screens by name "
+                                                          "(or table:orders, file.mcn:LINE)")
+    impact_parser.add_argument("--changed", action="store_true", help="Check the declarations changed in git")
+    impact_parser.add_argument("--base", default="HEAD", help="With --changed: compare against this commit (default: HEAD)")
+    impact_parser.add_argument("--dir", default=".", help="Project folder (default: .)")
+    impact_parser.add_argument("--json", action="store_true", help="Output JSON")
+    impact_parser.add_argument("--module", help="Exit with code 1 if anything outside this module changed "
+                                                "(for an agent or person assigned one module)")
+
     audit_log_parser = subparsers.add_parser("audit-log", help="Check or export the audit log of `audit` services")
     audit_log_sub = audit_log_parser.add_subparsers(dest="audit_action")
     audit_log_sub.add_parser("verify", help="Check that no entry was changed, removed or reordered")
@@ -1139,6 +1154,48 @@ def main():
             return subprocess.call([sys.executable, str(playground_server)], env=env)
         except KeyboardInterrupt:
             return 0
+
+    elif args.command in ("describe", "impact"):
+        from . import app_map
+        if args.command == "describe":
+            target = Path(args.path)
+            if not target.exists():
+                print(f"error: {target} not found")
+                return 1
+            result = app_map.build_map(target)
+            print(json.dumps(result, indent=2) if args.json else app_map.render_map(result))
+            serious = [i for i in result["issues"] if i.get("severity") != "note"] + result["errors"]
+            return 1 if args.strict and serious else 0
+        try:
+            targets = list(args.targets)
+            if args.changed:
+                targets += app_map.changed_targets(args.dir, args.base)
+        except RuntimeError as exc:
+            print(f"error: {exc}")
+            return 1
+        if not targets:
+            print("Nothing changed." if args.changed else "Name what you're changing, e.g. `mcn impact orders`, or use --changed")
+            return 0
+        the_map = app_map.build_map(args.dir)
+        result = app_map.impact(the_map, targets)
+        outside: list = []
+        if args.module:
+            try:
+                outside = app_map.outside_module(the_map, result["targets"], args.module)
+            except ValueError as exc:
+                print(f"error: {exc}")
+                return 1
+            result["outside_module"] = outside
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(app_map.render_impact(result))
+            if args.module:
+                print(f"Outside module {args.module}: {', '.join(outside)}" if outside
+                      else f"Every change is inside module {args.module}.")
+        if outside:
+            return 1
+        return 1 if result["unknown"] and not result["targets"] else 0
 
     elif args.command == "audit-log":
         from . import security

@@ -108,11 +108,15 @@ service construction_api
         var items = query("SELECT * FROM properties")
         return {success: true, data: items}
 
-    endpoint create_property(name, location, units, status)
+    endpoint create_property(name: str, location: str, units: int, status: str)
         query("INSERT INTO properties (name, location, units, status) VALUES (?, ?, ?, ?)", (name, location, units, status))
         return {success: true}
 
-    endpoint delete_property(id)
+    endpoint update_property(id: int, name: str, location: str, units: int, status: str)
+        query("UPDATE properties SET name=?, location=?, units=?, status=? WHERE id=?", (name, location, units, status, id))
+        return {success: true}
+
+    endpoint delete_property(id: int)
         query("DELETE FROM properties WHERE id=?", (id,))
         return {success: true}
 
@@ -120,11 +124,15 @@ service construction_api
         var items = query("SELECT * FROM projects")
         return {success: true, data: items}
 
-    endpoint create_project(name, prop_id, budget, status, start_date, end_date)
+    endpoint create_project(name: str, prop_id: int, budget: float, status: str, start_date: str, end_date: str)
         query("INSERT INTO projects (name, prop_id, budget, status, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)", (name, prop_id, budget, status, start_date, end_date))
         return {success: true}
 
-    endpoint delete_project(id)
+    endpoint update_project(id: int, name: str, budget: float, status: str, start_date: str, end_date: str)
+        query("UPDATE projects SET name=?, budget=?, status=?, start_date=?, end_date=? WHERE id=?", (name, budget, status, start_date, end_date, id))
+        return {success: true}
+
+    endpoint delete_project(id: int)
         query("DELETE FROM projects WHERE id=?", (id,))
         return {success: true}
 
@@ -132,27 +140,31 @@ service construction_api
         var items = query("SELECT * FROM jobs")
         return {success: true, data: items}
 
-    endpoint create_job(project_id, title, assigned_to, status, progress, start_day, duration)
+    endpoint create_job(project_id: int, title: str, assigned_to: str, status: str, progress: int, start_day: int, duration: int)
         query("INSERT INTO jobs (project_id, title, assigned_to, status, progress, start_day, duration) VALUES (?, ?, ?, ?, ?, ?, ?)", (project_id, title, assigned_to, status, progress, start_day, duration))
         return {success: true}
 
-    endpoint delete_job(id)
-        query("DELETE FROM jobs WHERE id=?", (id,))
+    endpoint update_job(id: int, title: str, assigned_to: str, status: str, progress: int, start_day: int, duration: int)
+        query("UPDATE jobs SET title=?, assigned_to=?, status=?, progress=?, start_day=?, duration=? WHERE id=?", (title, assigned_to, status, progress, start_day, duration, id))
         return {success: true}
 
-    endpoint update_job_progress(id, progress, status)
-        query("UPDATE jobs SET progress=?, status=? WHERE id=?", (progress, status, id))
+    endpoint delete_job(id: int)
+        query("DELETE FROM jobs WHERE id=?", (id,))
         return {success: true}
 
     endpoint list_resources()
         var items = query("SELECT * FROM resources")
         return {success: true, data: items}
 
-    endpoint create_resource(name, role, rate, availability)
+    endpoint create_resource(name: str, role: str, rate: float, availability: str)
         query("INSERT INTO resources (name, role, rate, availability) VALUES (?, ?, ?, ?)", (name, role, rate, availability))
         return {success: true}
 
-    endpoint delete_resource(id)
+    endpoint update_resource(id: int, name: str, role: str, rate: float, availability: str)
+        query("UPDATE resources SET name=?, role=?, rate=?, availability=? WHERE id=?", (name, role, rate, availability, id))
+        return {success: true}
+
+    endpoint delete_resource(id: int)
         query("DELETE FROM resources WHERE id=?", (id,))
         return {success: true}
 
@@ -160,11 +172,15 @@ service construction_api
         var items = query("SELECT * FROM materials")
         return {success: true, data: items}
 
-    endpoint create_material(name, unit, stock, reorder_level)
+    endpoint create_material(name: str, unit: str, stock: int, reorder_level: int)
         query("INSERT INTO materials (name, unit, stock, reorder_level) VALUES (?, ?, ?, ?)", (name, unit, stock, reorder_level))
         return {success: true}
 
-    endpoint delete_material(id)
+    endpoint update_material(id: int, name: str, unit: str, stock: int, reorder_level: int)
+        query("UPDATE materials SET name=?, unit=?, stock=?, reorder_level=? WHERE id=?", (name, unit, stock, reorder_level, id))
+        return {success: true}
+
+    endpoint delete_material(id: int)
         query("DELETE FROM materials WHERE id=?", (id,))
         return {success: true}
 
@@ -172,11 +188,15 @@ service construction_api
         var items = query("SELECT * FROM assets")
         return {success: true, data: items}
 
-    endpoint create_asset(name, type, status, location)
+    endpoint create_asset(name: str, type: str, status: str, location: str)
         query("INSERT INTO assets (name, type, status, location) VALUES (?, ?, ?, ?)", (name, type, status, location))
         return {success: true}
 
-    endpoint delete_asset(id)
+    endpoint update_asset(id: int, name: str, type: str, status: str, location: str)
+        query("UPDATE assets SET name=?, type=?, status=?, location=? WHERE id=?", (name, type, status, location, id))
+        return {success: true}
+
+    endpoint delete_asset(id: int)
         query("DELETE FROM assets WHERE id=?", (id,))
         return {success: true}
 
@@ -184,11 +204,15 @@ service construction_api
         var items = query("SELECT * FROM incidents")
         return {success: true, data: items}
 
-    endpoint create_incident(project_id, title, severity, status, reported_by)
+    endpoint create_incident(project_id: int, title: str, severity: str, status: str, reported_by: str)
         query("INSERT INTO incidents (project_id, title, severity, status, reported_by) VALUES (?, ?, ?, ?, ?)", (project_id, title, severity, status, reported_by))
         return {success: true}
 
-    endpoint delete_incident(id)
+    endpoint update_incident(id: int, title: str, severity: str, status: str, reported_by: str)
+        query("UPDATE incidents SET title=?, severity=?, status=?, reported_by=? WHERE id=?", (title, severity, status, reported_by, id))
+        return {success: true}
+
+    endpoint delete_incident(id: int)
         query("DELETE FROM incidents WHERE id=?", (id,))
         return {success: true}
 
@@ -196,11 +220,15 @@ service construction_api
         var items = query("SELECT * FROM documents")
         return {success: true, data: items}
 
-    endpoint create_document(name, type)
+    endpoint create_document(name: str, type: str)
         query("INSERT INTO documents (name, type) VALUES (?, ?)", (name, type))
         return {success: true}
 
-    endpoint delete_document(id)
+    endpoint update_document(id: int, name: str, type: str, uploaded_at: str)
+        query("UPDATE documents SET name=?, type=?, uploaded_at=? WHERE id=?", (name, type, uploaded_at, id))
+        return {success: true}
+
+    endpoint delete_document(id: int)
         query("DELETE FROM documents WHERE id=?", (id,))
         return {success: true}
 
@@ -208,26 +236,37 @@ service construction_api
         var items = query("SELECT p.*, m.name as material_name FROM procurements p JOIN materials m ON p.material_id = m.id")
         return {success: true, data: items}
 
-    endpoint create_procurement(material_name, qty, cost, requested_by)
+    endpoint create_procurement(material_name: str, qty: int, cost: float, requested_by: str)
         var mat = query("SELECT id FROM materials WHERE name=?", (material_name,))[0]
         query("INSERT INTO procurements (material_id, qty, cost, status, requested_by) VALUES (?, ?, ?, 'Pending', ?)", (mat.id, qty, cost, requested_by))
         var pid = query("SELECT last_insert_rowid() as id")[0].id
         query("INSERT INTO approvals (type, item_id, status, requested_by) VALUES (?, ?, 'Pending', ?)", ("Procurement Request #" + pid, pid, requested_by))
         return {success: true}
 
+    endpoint update_procurement(id: int, material_name: str, qty: int, cost: float, status: str, requested_by: str)
+        var mat = query("SELECT id FROM materials WHERE name=?", (material_name,))[0]
+        query("UPDATE procurements SET material_id=?, qty=?, cost=?, status=?, requested_by=? WHERE id=?", (mat.id, qty, cost, status, requested_by, id))
+        return {success: true}
+
+    endpoint delete_procurement(id: int)
+        query("DELETE FROM approvals WHERE item_id=? AND type LIKE 'Procurement Request #%'", (id,))
+        query("DELETE FROM procurements WHERE id=?", (id,))
+        return {success: true}
+
     endpoint list_approvals()
         var items = query("SELECT * FROM approvals")
         return {success: true, data: items}
 
-    endpoint handle_approval(id, status, approved_by)
-        query("UPDATE approvals SET status=? WHERE id=?", (status, id))
+    endpoint update_approval(id: int, type: str, status: str, requested_by: str)
         var app = query("SELECT * FROM approvals WHERE id=?", (id,))[0]
-        if status == "Approved"
-            if app.type == "Procurement Request #" + app.item_id
-                query("UPDATE procurements SET status='Approved' WHERE id=?", (app.item_id,))
+        query("UPDATE approvals SET type=?, status=?, requested_by=? WHERE id=?", (type, status, requested_by, id))
+        if app.status != status and app.type == "Procurement Request #" + app.item_id
+            query("UPDATE procurements SET status=? WHERE id=?", (status, app.item_id))
+            if status == "Approved"
                 var req = query("SELECT * FROM procurements WHERE id=?", (app.item_id,))[0]
                 query("UPDATE materials SET stock = stock + ? WHERE id=?", (req.qty, req.material_id))
-        else
-            if app.type == "Procurement Request #" + app.item_id
-                query("UPDATE procurements SET status='Rejected' WHERE id=?", (app.item_id,))
+        return {success: true}
+
+    endpoint delete_approval(id: int)
+        query("DELETE FROM approvals WHERE id=?", (id,))
         return {success: true}

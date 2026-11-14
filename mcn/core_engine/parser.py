@@ -77,6 +77,9 @@ class Parser:
             if self._at_end():
                 break
             try:
+                if self._at_module_header():
+                    body.extend(self._module_decl())
+                    continue
                 stmt = self._statement()
                 if stmt is not None:
                     body.append(stmt)
@@ -84,6 +87,58 @@ class Parser:
                 self.errors.append(str(e))
                 self._synchronize()          # skip to next safe statement boundary
         return ast.Program(body=body, line=tok.line, col=tok.col)
+
+    def _at_module_header(self) -> bool:
+        """`module <name>` on its own line followed by an indented block (`module` stays usable as a name)."""
+        tok = self._current()
+        if tok.type != TT.IDENTIFIER or tok.value != "module":
+            return False
+        name, end = self._peek_token(1), self._peek_token(2)
+        return name.type == TT.IDENTIFIER and end.type == TT.NEWLINE and self._next_significant(3) == TT.INDENT
+
+    def _next_significant(self, offset: int):
+        i = self._pos + offset
+        while i < len(self._tokens) and self._tokens[i].type == TT.NEWLINE:
+            i += 1
+        return self._tokens[i].type if i < len(self._tokens) else None
+
+    def _module_decl(self) -> List[ast.Stmt]:
+        """module <name> / owns a, b / declarations → [ModuleDecl, *declarations]."""
+        tok = self._advance()                                   # 'module'
+        name = self._consume(TT.IDENTIFIER, "Expected module name").value
+        self._skip_newlines()
+        self._consume(TT.INDENT, f"Expected an indented block after 'module {name}'")
+        module = ast.ModuleDecl(name=name, line=tok.line, col=tok.col)
+        members: List[ast.Stmt] = []
+        last_line = tok.line
+        while not self._at_end():
+            self._skip_newlines()
+            if self._check(TT.DEDENT):
+                self._advance()
+                break
+            if self._at_end():
+                break
+            cur = self._current()
+            if cur.type == TT.IDENTIFIER and cur.value == "owns" and \
+                    self._peek_token(1).type == TT.IDENTIFIER:
+                self._advance()
+                module.owns.append(self._advance().value)
+                while self._match(TT.COMMA):
+                    module.owns.append(self._consume(TT.IDENTIFIER, "Expected a table name after ','").value)
+                last_line = cur.line
+                self._consume_end()
+                continue
+            if self._at_module_header():
+                raise ParseError("Modules can't be nested", cur)
+            stmt = self._statement()
+            if stmt is not None:
+                members.append(stmt)
+            i = self._pos - 1
+            while i > 0 and self._tokens[i].type in (TT.NEWLINE, TT.INDENT, TT.DEDENT):
+                i -= 1
+            last_line = max(last_line, self._tokens[i].line)
+        module.end_line = last_line
+        return [module, *members]
 
     def _synchronize(self) -> None:
         """Advance past the current bad token(s) to the next top-level statement.
@@ -953,13 +1008,14 @@ class Parser:
         name_tok = self._consume(TT.IDENTIFIER, "Expected endpoint name")
         params: List[str] = []
         defaults: dict    = {}
+        param_types: dict = {}
         if self._match(TT.LPAREN):
-            params, defaults, _ = self._parse_params()
+            params, defaults, param_types = self._parse_params()
             self._consume(TT.RPAREN, "Expected ')' after endpoint parameters")
         self._consume_end()
         body = self._block()
         return ast.EndpointDecl(name=name_tok.value, params=params, defaults=defaults,
-                                body=body, line=tok.line, col=tok.col)
+                                param_types=param_types, body=body, line=tok.line, col=tok.col)
 
     def _workflow_decl(self) -> ast.WorkflowDecl:
         """

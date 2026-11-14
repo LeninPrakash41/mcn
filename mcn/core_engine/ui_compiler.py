@@ -693,7 +693,7 @@ def _expr_to_ts(expr: Optional[ast.Expr],
     return '""'
 
 
-def _get_entity_names(comp_name: str) -> Tuple[str, str]:
+def _get_entity_names(comp_name: str, known=None) -> Tuple[str, str]:
     """Given a component name like DealsTable, return (singular, plural) entity names (e.g. ('deal', 'deals'))."""
     name = comp_name.replace("Table", "")
     lower = name.lower()
@@ -711,20 +711,31 @@ def _get_entity_names(comp_name: str) -> Tuple[str, str]:
         return mappings[lower]
 
     if lower.endswith("ies"):
-        singular = lower[:-3] + "y"
-        plural = lower
-    elif lower.endswith("es"):
-        singular = lower[:-2]
-        plural = lower
+        candidates = [lower[:-3] + "y"]
+    elif lower.endswith(("sses", "xes", "ches", "shes", "zes")):
+        candidates = [lower[:-2], lower[:-1]]            # boxes → box, branches → branch
     elif lower.endswith("s") and not lower.endswith("ss"):
-        singular = lower[:-1]
-        plural = lower
+        candidates = [lower[:-1], lower[:-2]]            # resources → resource
     else:
-        singular = lower
-        plural = lower + "s"
+        return lower, lower + "s"
 
-    return singular, plural
+    # Prefer the spelling the backend's endpoints actually use
+    for singular in candidates:
+        if any(f"{verb}_{singular}" in (_ENDPOINT_PARAMS if known is None else known)
+               for verb in ("create", "update", "delete", "get")):
+            return singular, lower
+    return candidates[0], lower
 
+
+
+def crud_endpoint_fits(name: str, columns: List[str], endpoints: Dict[str, List[str]]) -> bool:
+    """Whether a table screen can call this endpoint correctly: it exists, and the table's columns
+    (plus the row's id) supply every parameter. Without backend information, assume it does."""
+    if not endpoints:
+        return True
+    if name not in endpoints:
+        return False
+    return set(endpoints[name] or []) <= set(columns) | {"id"}
 
 
 # ── main compiler class ────────────────────────────────────────────────────────
@@ -1046,6 +1057,17 @@ class UICompiler:
         has_crud_from_table = bool(table_columns)
         has_crud_from_states = any(s.name == "edit_item" for s in comp.states)
         has_crud = has_crud_from_table or has_crud_from_states
+        # Only offer the create, edit and delete actions whose endpoints exist.
+        # Without backend information (compiling a UI on its own), offer all three.
+        _crud_one = _get_entity_names(comp.name)[0]
+        self._crud_ops = {
+            verb: has_crud and crud_endpoint_fits(
+                f"{verb}_{_crud_one}",
+                table_columns + ([st.name[5:] for st in comp.states if st.name.startswith("edit_")] if verb == "update" else []),
+                _ENDPOINT_PARAMS)
+            for verb in ("create", "update", "delete")
+        }
+        crud = self._crud_ops
 
         # Determine which React hooks are needed
         has_load_handler   = any(h.event == "load" for h in comp.handlers)
@@ -1175,6 +1197,7 @@ class UICompiler:
         # Inject CRUD helper functions for components with edit_item state
         if has_crud:
             entity_singular, entity_plural = _get_entity_names(comp.name)
+        if has_crud and crud["update"]:
             handlers.append(
                 f"  const handleEdit = useCallback((row: Row) => {{\n"
                 f"    set_mcnEditItemId(row.id)\n"
@@ -1183,20 +1206,30 @@ class UICompiler:
                 f"    set_mcnShowEditModal(true)\n"
                 f"  }}, [])\n"
             )
+        if has_crud and crud["delete"]:
             handlers.append(
                 f"  const handleDelete = useCallback(async (id: number) => {{\n"
                 f'    if (!window.confirm("Delete this {entity_singular}?")) return\n'
-                f"    await api.post(\"/delete_{entity_singular}\", {{ id }})\n"
-                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
-                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    try {{\n"
+                f"      await api.post(\"/delete_{entity_singular}\", {{ id }})\n"
+                f"      const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
+                f"      set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    }} catch (err) {{\n"
+                f"      notify(errorMessage(err), \"error\")\n"
+                f"    }}\n"
                 f"  }}, [])\n"
             )
+        if has_crud and crud["update"]:
             handlers.append(
                 f"  const handleSave = useCallback(async () => {{\n"
-                f"    await api.post(\"/update_{entity_singular}\", {{ id: _mcnEditItemId, {save_payload_fields} }})\n"
-                f"    set_mcnShowEditModal(false)\n"
-                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
-                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    try {{\n"
+                f"      await api.post(\"/update_{entity_singular}\", {{ id: _mcnEditItemId, {save_payload_fields} }})\n"
+                f"      set_mcnShowEditModal(false)\n"
+                f"      const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
+                f"      set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    }} catch (err) {{\n"
+                f"      notify(errorMessage(err), \"error\")\n"
+                f"    }}\n"
                 f"  }}, [_mcnEditItemId, {', '.join(name for name in edit_fields_names)}])\n"
             )
 
@@ -1206,15 +1239,21 @@ class UICompiler:
             # Create handler
             create_payload_fields = ", ".join(f"{name[7:]}: {name}" for name in synthetic_create_fields)
             create_reset_fields = "\n    ".join(f"set{_pascal(name)}('')" for name in synthetic_create_fields)
+        if has_crud and crud["create"]:
             handlers.append(
                 f"  const handleCreate = useCallback(async () => {{\n"
-                f"    await api.post(\"/create_{entity_singular}\", {{ {create_payload_fields} }})\n"
-                f"    set_mcnShowCreateModal(false)\n"
-                f"    {create_reset_fields}\n"
-                f"    const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
-                f"    set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    try {{\n"
+                f"      await api.post(\"/create_{entity_singular}\", {{ {create_payload_fields} }})\n"
+                f"      set_mcnShowCreateModal(false)\n"
+                f"      {create_reset_fields.replace(chr(10) + '    ', chr(10) + '      ')}\n"
+                f"      const _resp = await api.post(\"/list_{entity_plural}\", {{}})\n"
+                f"      set{_pascal(arr_state or 'items')}(_resp.data ?? _resp)\n"
+                f"    }} catch (err) {{\n"
+                f"      notify(errorMessage(err), \"error\")\n"
+                f"    }}\n"
                 f"  }}, [{', '.join(synthetic_create_fields)}])\n"
             )
+        if has_crud:
             
             # Filtering and Pagination
             handlers.append(
@@ -1269,10 +1308,7 @@ class UICompiler:
                     f'          </div>',
                 ])
 
-            self._shadcn_needed.add("sheet")
-            self._extra_imports.add('import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"')
-
-            modal_jsx = [
+            edit_sheet = [
                 f'      <Sheet open={{_mcnShowEditModal}} onOpenChange={{set_mcnShowEditModal}}>',
                 f'        <SheetContent className="sm:max-w-md overflow-y-auto">',
                 f'          <SheetHeader>',
@@ -1290,7 +1326,8 @@ class UICompiler:
                 f'          </SheetFooter>',
                 f'        </SheetContent>',
                 f'      </Sheet>',
-                f'',
+            ]
+            create_sheet = [
                 f'      <Sheet open={{_mcnShowCreateModal}} onOpenChange={{set_mcnShowCreateModal}}>',
                 f'        <SheetContent className="sm:max-w-md overflow-y-auto">',
                 f'          <SheetHeader>',
@@ -1309,6 +1346,10 @@ class UICompiler:
                 f'        </SheetContent>',
                 f'      </Sheet>'
             ]
+            modal_jsx = (edit_sheet if crud["update"] else []) + (create_sheet if crud["create"] else [])
+            if modal_jsx:
+                self._shadcn_needed.add("sheet")
+                self._extra_imports.add('import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"')
             jsx_lines.extend(modal_jsx)
 
         jsx_lines = [wrapped for ln in jsx_lines for wrapped in wrap_jsx(tidy_jsx(ln))]
@@ -1612,21 +1653,27 @@ class UICompiler:
                 self._extra_imports.add('import { Label } from "@/components/ui/label"')
                 self._shadcn_needed.add("label")
                 entity_singular = _get_entity_names(self._current_comp.name)[0] if self._current_comp else "item"
+                ops = getattr(self, "_crud_ops", {}) or {}
+                new_button = [
+                    f'{pad}  <button className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90" onClick={{() => set_mcnShowCreateModal(true)}}>',
+                    f'{pad}    <Plus className="w-4 h-4" /> New {entity_singular.capitalize()}',
+                    f'{pad}  </button>',
+                ] if ops.get("create", True) else []
                 lines.extend([
                     f'{pad}<div className="flex items-center justify-between pb-4">',
                     f'{pad}  <div className="relative w-64">',
                     f'{pad}    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />',
                     f'{pad}    <input type="text" placeholder="Search..." className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={{searchQuery}} onChange={{(e) => setSearchQuery(e.target.value)}} />',
                     f'{pad}  </div>',
-                    f'{pad}  <button className="flex items-center gap-2 px-4 py-2 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90" onClick={{() => set_mcnShowCreateModal(true)}}>',
-                    f'{pad}    <Plus className="w-4 h-4" /> New {entity_singular.capitalize()}',
-                    f'{pad}  </button>',
+                    *new_button,
                     f'{pad}</div>'
                 ])
             lines.append(f'{pad}<Table {props}>')
 
             for child in el.children:
-                if child.tag == "table_header" and has_actions:
+                ops = getattr(self, "_crud_ops", {}) or {}
+                row_actions = has_actions and (ops.get("update", True) or ops.get("delete", True))
+                if child.tag == "table_header" and row_actions:
                     # Inject Actions column into header
                     lines.extend(self._element_to_jsx_header_with_actions(child, indent + 2))
                 elif child.tag == "table_body" and not child.children:
@@ -2027,19 +2074,23 @@ class UICompiler:
         p6  = pad + "      "
 
         actions_cell = ""
-        if has_actions:
-            actions_cell = (
-                f"\n{p4}<TableCell>"
+        ops = getattr(self, "_crud_ops", {}) or {}
+        can_edit, can_delete = ops.get("update", True), ops.get("delete", True)
+        if has_actions and (can_edit or can_delete):
+            edit_btn = (
                 f"\n{p6}<button"
                 f'\n{p6}  className="mr-2 text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"'
                 f"\n{p6}  onClick={{() => handleEdit(row)}}"
                 f"\n{p6}>Edit</button>"
+            ) if can_edit else ""
+            delete_btn = (
                 f"\n{p6}<button"
                 f'\n{p6}  className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"'
                 f"\n{p6}  onClick={{() => handleDelete(row.id)}}"
                 f"\n{p6}>Delete</button>"
-                f"\n{p4}</TableCell>"
-            )
+            ) if can_delete else ""
+            actions_cell = f"\n{p4}<TableCell>{edit_btn}{delete_btn}\n{p4}</TableCell>"
+
 
         if not cols:
             # No column info — use Object.entries as fallback

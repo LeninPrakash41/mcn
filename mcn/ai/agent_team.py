@@ -76,7 +76,10 @@ _QA = """You are the QA lead on a team that builds business apps with MCN.
 
 You get the request, the plan, an automated check report (type check, every endpoint called, the
 compiled web UI, and when available each screen opened in a real browser with console errors,
-failed requests and on-screen errors) plus screenshots of the screens.
+failed requests and on-screen errors) plus screenshots of the screens. The report's app_map lists
+structural problems found in the code (a screen calling an endpoint that doesn't exist, navigation to a
+missing screen, a table nothing creates); treat those as real bugs. After a fix round, last_fix says what
+the builder changed and which screens and endpoints that affects: check those first.
 
 Decide whether the app does what was asked and works. Reply with:
 <verdict>pass</verdict> when it's ready, or <verdict>fix</verdict> followed by <fixes> with a
@@ -209,8 +212,10 @@ class AgentTeam:
             errors = [e for e in (_validate_mcn(new_backend, "backend") if new_backend else "[backend] missing",
                                   _validate_mcn(new_ui, "ui") if new_ui else "[ui] missing") if e]
             if not errors:
+                before = _snapshot(out)
                 MCNAgent._write(out / "backend" / "main.mcn", new_backend)
                 MCNAgent._write(out / "ui" / "app.mcn", new_ui)
+                self._last_change = _change_impact(before, out)
                 return new_backend, new_ui
             prompt += "\n\nYour last answer didn't parse:\n" + "\n".join(errors)
         return backend, ui                  # keep the last working version
@@ -220,6 +225,8 @@ class AgentTeam:
     def _check(self, out: Path) -> Dict[str, Any]:
         self.emit({"type": "agent", "role": "qa", "status": "working", "summary": "Running checks"})
         report = run_checks(out)
+        if getattr(self, "_last_change", None):
+            report["last_fix"] = self._last_change          # what the builder's fix changed, and what that affects
         if self.browser_check:
             try:
                 report["browser"] = self.browser_check(out)
@@ -254,6 +261,33 @@ class AgentTeam:
         return verdict, fixes
 
 
+def _snapshot(app_dir: Path) -> Path:
+    """A copy of the app's MCN files, to compare against after an edit."""
+    import shutil
+    import tempfile
+    copy = Path(tempfile.mkdtemp(prefix="mcn_before_"))
+    for part in ("backend", "ui"):
+        if (app_dir / part).exists():
+            shutil.copytree(app_dir / part, copy / part)
+    return copy
+
+
+def _change_impact(before: Path, after: Path) -> Dict[str, Any]:
+    """What an edit changed and what depends on it (mcn impact), for the QA lead."""
+    import shutil
+    from mcn.core_engine.app_map import build_map, changed_between, impact
+    try:
+        changed = changed_between(before, after)
+        result = impact(build_map(after), [c for c in changed if c in build_map(after)["nodes"]])
+        return {"changed": changed, "affected_screens": [s["id"] for s in result["affected"]["screens"]],
+                "affected_endpoints": [e["id"] for e in result["affected"]["endpoints"]],
+                "tests": result["tests"], "untested": result["untested"]}
+    except Exception as exc:
+        return {"error": str(exc)}
+    finally:
+        shutil.rmtree(before, ignore_errors=True)
+
+
 # ── Automated checks (no AI) ─────────────────────────────────────────────────
 
 def run_checks(app_dir: Path) -> Dict[str, Any]:
@@ -265,6 +299,14 @@ def run_checks(app_dir: Path) -> Dict[str, Any]:
 
     report: Dict[str, Any] = {"types": [], "endpoints": [], "ui_build": None}
     app_dir = Path(app_dir).resolve()
+    try:
+        from mcn.core_engine.app_map import build_map
+        app = build_map(app_dir)
+        report["app_map"] = {"summary": app["summary"], "issues": [i["message"] for i in app["issues"]
+                                                                    if i.get("severity") != "note"],
+                             "notes": [i["message"] for i in app["issues"] if i.get("severity") == "note"]}
+    except Exception as exc:
+        report["app_map"] = {"error": str(exc)}
     backend_file, ui_file = app_dir / "backend" / "main.mcn", app_dir / "ui" / "app.mcn"
 
     from mcn.core_engine.type_checker import check_source

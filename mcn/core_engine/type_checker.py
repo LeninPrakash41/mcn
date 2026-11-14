@@ -379,13 +379,16 @@ class TypeChecker:
         errors  = [i for i in issues if i.severity == Severity.ERROR]
     """
 
-    def __init__(self):
+    def __init__(self, strict: bool = False):
         self._issues: List[TypeIssue] = []
+        self._strict = strict             # endpoint parameters must declare a type
+        self._contracts: set = set()
 
     # ── Entry point ────────────────────────────────────────────────────────────
 
     def check(self, program: ast.Program) -> List[TypeIssue]:
         self._issues = []
+        self._contracts = {st.name for st in program.body if isinstance(st, ast.ContractDecl)}
         scope = TypeScope()
         # Seed built-ins so they are always CALLABLE
         for name in BUILTIN_RETURN_TYPES:
@@ -566,10 +569,28 @@ class TypeChecker:
         for attr in ("stages", "endpoints", "steps", "tools"):
             for sub in getattr(stmt, attr, []):
                 sub_scope = scope.child()
+                types = getattr(sub, "param_types", {}) or {}
                 for param in getattr(sub, "params", []):
-                    sub_scope.define(param, MCNType.ANY)
+                    declared = types.get(param)
+                    if attr == "endpoints":
+                        self._check_endpoint_param(sub, param, declared)
+                    known = declared and declared.lower() in _TYPE_MAP
+                    sub_scope.define(param, _resolve_type_name(declared) if known else
+                                     (MCNType.DICT if declared in self._contracts else MCNType.ANY))
                 self._check_block(getattr(sub, "body", []), sub_scope)
         scope.define(stmt.name, MCNType.ANY)
+
+    def _check_endpoint_param(self, endpoint: Any, param: str, declared: Optional[str]) -> None:
+        from .endpoint_types import is_known_type
+        line, col = getattr(endpoint, "line", 0), getattr(endpoint, "col", 0)
+        if declared is None:
+            if self._strict:
+                self._warn(f"Endpoint '{endpoint.name}' parameter '{param}' has no type "
+                              f"(strict mode: write {param}: str, int, float, bool, list, dict or a contract)",
+                              line, col)
+        elif not is_known_type(declared, self._contracts):
+            self._error(f"Endpoint '{endpoint.name}' parameter '{param}' has unknown type '{declared}' "
+                        f"(use str, int, float, number, bool, list, dict, any or a contract name)", line, col)
 
     # ── Expression inference ───────────────────────────────────────────────────
 
@@ -757,7 +778,7 @@ class TypeChecker:
 
 # ── Convenience function ───────────────────────────────────────────────────────
 
-def check_source(code: str) -> List[TypeIssue]:
+def check_source(code: str, strict: bool = False) -> List[TypeIssue]:
     """
     Lex, parse, and type-check a MCN source string.
     Returns a list of TypeIssue (may be empty — means clean).
@@ -778,4 +799,4 @@ def check_source(code: str) -> List[TypeIssue]:
             line, col = int(m.group(1)), int(m.group(2))
         return [TypeIssue(Severity.ERROR, str(exc), line, col)]
 
-    return TypeChecker().check(program)
+    return TypeChecker(strict=strict).check(program)

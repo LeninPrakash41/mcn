@@ -45,6 +45,9 @@ except ImportError:
     HAS_FASTAPI = False
 
 
+from .endpoint_types import InvalidInput
+
+
 def _guard(evaluator: Evaluator, fn_name: str, authorization: Optional[str], client: str,
            body_length: int = 0) -> Optional[Tuple[int, Dict[str, Any]]]:
     """Checks before an endpoint runs. Returns (status, body) to refuse, or None to allow.
@@ -84,6 +87,8 @@ def _run_endpoint(evaluator: Evaluator, fn_name: str, args: list, client: str) -
     try:
         result = evaluator.functions[fn_name](*args)
         status, body, error = 200, (result if result is not None else {}), None
+    except InvalidInput as exc:
+        status, body, error = 400, {"success": False, "error": str(exc), "field": exc.param}, str(exc)
     except Exception as exc:
         status, body, error = 500, {"error": str(exc)}, str(exc)
     if fn_name in getattr(evaluator, "audited_endpoints", ()):

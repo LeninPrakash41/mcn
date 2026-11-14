@@ -42,29 +42,42 @@ query("CREATE TABLE IF NOT EXISTS tablename (id INTEGER PRIMARY KEY AUTOINCREMEN
 service my_api
     port 8080
 
-    endpoint create_item(field1, field2)
+    endpoint create_item(field1: str, field2: int)
         query("INSERT INTO items (field1, field2) VALUES (?, ?)", (field1, field2))
         var id = query("SELECT last_insert_rowid() as id")[0].id
         return {success: true, id: id}
 
-    endpoint get_item(id)
+    endpoint get_item(id: int)
         var rows = query("SELECT * FROM items WHERE id = ?", (id,))
         if not rows
             throw "Item not found: {id}"
         return rows[0]
 
-    endpoint list_items(limit = 50, offset = 0)
+    endpoint list_items(limit: int = 50, offset: int = 0)
         var items = query("SELECT * FROM items ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
         var insight = ai("Give a one-sentence business insight on these records: {items}")
         return {success: true, data: items, total: items, insight: insight}
 
-    endpoint update_item(id, field1, field2)
+    endpoint update_item(id: int, field1: str, field2: int)
         query("UPDATE items SET field1 = ?, field2 = ? WHERE id = ?", (field1, field2, id))
         return {success: true}
 
-    endpoint delete_item(id)
+    endpoint delete_item(id: int)
         query("DELETE FROM items WHERE id = ?", (id,))
         return {success: true}
+
+# Give every endpoint parameter a type: str, int, float, number, bool, list, dict, any or a contract
+# name. Calls with wrong values are refused with a 400 before the endpoint runs.
+# A table screen named ItemsTable gets New / Edit / Delete buttons for create_item, update_item and
+# delete_item; give update_ and create_ exactly the table's columns (plus id for update_).
+
+## Modules (for larger apps: each part owns its tables; only its own code writes them)
+module billing
+    owns invoices
+
+    service billing_api
+        endpoint invoice(order_id: int)
+            ...
 
 ## AI built-ins (use inside endpoints)
     var result   = ai("prompt text")                         // free-form text generation
