@@ -80,6 +80,34 @@ tr:last-child td { border-bottom: 0; }
 pre { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; font: 12.5px/1.5 ui-monospace, Menlo, monospace; max-height: 440px; }
 .note { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; }
 .verify { display: flex; gap: 8px; flex-wrap: wrap; max-width: 560px; }
+/* ── My club and Review ── */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 18px 0 18px; overflow-x: auto; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.tabs button.on { color: var(--text); border-color: var(--accent); font-weight: 550; }
+.form { display: grid; gap: 12px; max-width: 560px; }
+.form label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.form input, .form select, .form textarea, .field { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; width: 100%; }
+.form input:focus, .form textarea:focus, .field:focus { outline: none; border-color: var(--accent); }
+.err { color: #c0392b; font-size: 13px; } .err:empty { display: none; }
+.status { font-size: 12px; padding: 2px 9px; border-radius: 6px; background: var(--bg); color: var(--muted); white-space: nowrap; }
+.status.s-approved, .status.s-open { background: var(--green-bg); color: var(--green); }
+.status.s-in_review, .status.s-judging { background: var(--accent-bg); color: var(--accent); }
+.status.s-changes_requested { background: var(--gold-bg); color: var(--gold); }
+.row { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.list { display: grid; gap: 12px; }
+.scores { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); } .scores b { color: var(--text); }
+.split { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 18px; align-items: start; }
+.qitem { cursor: pointer; } .qitem:hover, .qitem.on { border-color: var(--accent); }
+.crit { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.dots { display: flex; gap: 4px; } .dots input { display: none; }
+.dots span { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding: 0 6px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 13px; }
+.dots input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.table-wrap { overflow-x: auto; } .table-wrap td, .table-wrap th { white-space: nowrap; }
+.pill-btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
+.pill-btn.on { background: var(--gold-bg); border-color: var(--gold); color: var(--gold); }
+.btn.sm { padding: 6px 12px; font-size: 13px; }
+details.card summary { cursor: pointer; font-weight: 550; }
+@media (max-width: 760px) { .split { grid-template-columns: 1fr; } .crit { grid-template-columns: 1fr; } }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; }
 
 /* ── Certificate ── */
@@ -122,7 +150,7 @@ pre { background: var(--card); border: 1px solid var(--line); border-radius: 10p
   .sheet { max-width: none; width: 297mm; height: 210mm; aspect-ratio: auto; box-shadow: none; }
 }
 @media (max-width: 760px) {
-  .hero-in, .cols, .steps { grid-template-columns: 1fr; } .pjhead { grid-template-columns: 1fr; } header { gap: 10px; padding: 10px 14px; } .who { display: none; }
+  .hero-in, .cols, .steps { grid-template-columns: 1fr; } .pjhead { grid-template-columns: 1fr; } header { gap: 8px 10px; padding: 10px 14px; flex-wrap: wrap; } header > .btn { margin-left: auto; padding: 7px 12px; font-size: 14px; } nav { order: 3; flex-basis: 100%; margin: 0 -6px; } .who { display: none; }
 }
 </style>
 </head>
@@ -134,7 +162,9 @@ pre { background: var(--card); border: 1px solid var(--line); border-radius: 10p
     <a href="/club/seasons" data-v="seasons">Seasons</a>
     <a href="/club/leaderboard" data-v="leaderboard">Leaderboard</a>
     <a href="/club/awards" data-v="awards">Awards</a>
-    <a href="/club/verify" data-v="verify">Verify a certificate</a>
+    <a href="/club/verify" data-v="verify">Verify</a>
+    <a href="/club/me" data-v="me" id="nav-me">My club</a>
+    <a href="/club/review" data-v="review" id="nav-review" hidden>Review</a>
   </nav>
   <span class="who" id="who"></span>
   <a class="btn" href="/?club=launch">Publish your app</a>
@@ -174,7 +204,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const day = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 let INFO = { awards: {}, spotlights: {}, kinds: {}, sorts: {}, counts: {} }
 const state = { award: '', spotlight: '', kind: '', q: '', sort: 'newest', season: '' }
-let SEASONS = []
+let SEASONS = [], ME = null
 const ordered = g => ((INFO.order || {})[g] || Object.keys(INFO[g] || {})).map(k => [k, INFO[g][k]])
 const AWARD_ABOUT = {
   best_overall: 'The app that is best all round: useful, polished, well built.',
@@ -478,13 +508,306 @@ async function certificatePage(code) {
   } catch { document.getElementById('qr').remove() }
 }
 
+// ── My club (members) ────────────────────────────────────────────────────
+
+const STATUS = { in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested',
+  rejected: 'Not approved', withdrawn: 'Withdrawn' }
+const num = v => v == null ? '–' : (Math.round(v * 10) / 10).toString()
+const rubric = () => ordered('rubric')
+function go(path, render) { history.pushState(null, '', path); render() }
+window.addEventListener('popstate', () => route())
+
+function tabs(base, list, on, fn) {
+  return `<div class="tabs">${list.map(([k, l]) => `<button class="${k === on ? 'on' : ''}" onclick="go('${base}/${k}', () => ${fn}('${k}'))">${l}</button>`).join('')}</div>`
+}
+
+function scoreLine(sc) {
+  if (!sc || !sc.reviewers) return ''
+  return `<div class="scores">${rubric().map(([k, l]) => `<span>${esc(l)} <b>${num(sc.averages[k])}</b></span>`).join('')}
+    <span>Overall <b>${num(sc.total)}</b>/5 from ${sc.reviewers} reviewer${sc.reviewers === 1 ? '' : 's'}</span></div>`
+}
+
+function joinForm(m = {}) {
+  return `<form class="form" id="join">
+    <label>Your name<input name="name" required maxlength="80" value="${esc(m.name)}"></label>
+    <label>I am a<select name="kind">
+      <option value="student" ${m.kind !== 'professional' ? 'selected' : ''}>Student</option>
+      <option value="professional" ${m.kind === 'professional' ? 'selected' : ''}>Professional</option></select></label>
+    <label><span id="org-label">${m.kind === 'professional' ? 'Company' : 'College or university'}</span><input name="organization" required maxlength="120" value="${esc(m.organization)}"></label>
+    <label>Course and year, or job title (optional)<input name="title" maxlength="80" value="${esc(m.title)}"></label>
+    <label>Country (optional)<input name="country" maxlength="60" value="${esc(m.country)}"></label>
+    <div class="err" id="join-err"></div>
+    <div><button class="btn">${m.name ? 'Save profile' : 'Join the club'}</button></div></form>`
+}
+
+function wireJoin(after) {
+  const f = document.getElementById('join')
+  f.kind.onchange = () => { document.getElementById('org-label').textContent = f.kind.value === 'student' ? 'College or university' : 'Company' }
+  f.onsubmit = async e => {
+    e.preventDefault()
+    const r = await api('/api/club/join', Object.fromEntries(new FormData(f).entries()))
+    if (!r.ok) { document.getElementById('join-err').textContent = r.body.error || 'Could not save that'; return }
+    toast(after); location.href = '/club/me'
+  }
+}
+
+async function myClub(tab) {
+  setNav('me')
+  if (!INFO.signed_in) {
+    $view.innerHTML = `<h1 class="page">My club</h1>
+      <p class="lead">Sign in with your MCN account to join the club, follow your reviews and collect your certificates.</p>
+      <a class="btn" href="/?signin=club">Sign in</a>`
+    return
+  }
+  const me = ME || {}
+  if (!me.member) {
+    $view.innerHTML = `<h1 class="page">Join the MCN Developer Club</h1>
+      <p class="lead">Build apps in MCN, launch them for review, and get a certificate. Approved apps go to the marketplace,
+        where the best win awards and promising ones are picked for funding, recognition or the showcase.</p>
+      <div class="steps">${[['Join', 'With your college or company'], ['Build', 'An app in Studio'], ['Launch', 'Publish it for review'], ['Get listed', 'And certified']]
+        .map(([b, t], i) => `<div class="step"><i>${i + 1}</i><b>${b}</b><span>${t}</span></div>`).join('')}</div>
+      ${joinForm()}`
+    wireJoin('Welcome to the MCN Developer Club')
+    return
+  }
+  const m = me.member, projects = me.projects || [], certs = me.certificates || []
+  $view.innerHTML = `
+    <div class="pjhead"><div><h1>${esc(m.name)}</h1>
+      <div class="muted">${esc(INFO.kinds[m.kind] || '')} · ${esc(m.organization)}${m.title ? ' · ' + esc(m.title) : ''} · <a href="/club/u/${esc(m.user_id || me.user_id || '')}">Public profile</a></div></div>
+</div>
+    ${tabs('/club/me', [['projects', `Projects (${projects.length})`], ['certificates', `Certificates (${certs.length})`], ['profile', 'Profile']], tab, 'myClub')}
+    <div id="pane"></div>`
+  const pane = document.getElementById('pane')
+  if (tab === 'certificates') {
+    pane.innerHTML = `<div class="grid">${certs.map(c => `<a class="card" href="/club/certificate/${esc(c.code)}">
+      <b>🎓 ${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('')
+      || '<div class="empty">Your first certificate arrives when you launch an app for review.</div>'}</div>`
+    return
+  }
+  if (tab === 'profile') { pane.innerHTML = joinForm(m); wireJoin('Profile saved'); return }
+  pane.innerHTML = projects.length ? `<div class="list">${projects.map(p => `
+    <div class="card">
+      <div class="row"><h3>${esc(p.title)}</h3><span class="status s-${p.status}">${STATUS[p.status] || esc(p.status)}</span></div>
+      <div class="muted">Version ${p.version} · sent ${esc(day(p.submitted_at))}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}</div>
+      ${p.status === 'approved' ? `<div class="meter"><span><b>${p.usage.uses}</b> members using it</span><span><b>${p.usage.likes}</b> likes</span><span><b>${p.usage.views}</b> views</span></div>` : ''}
+      <div class="badges">${badges(p)}</div>
+      ${scoreLine(p.scores)}
+      ${p.review_notes ? `<div class="note"><b>Reviewer:</b> ${esc(p.review_notes)}</div>` : ''}
+      <div class="actions">
+        ${p.status === 'approved' ? `<a class="btn sm" href="/club/project/${esc(p.id)}">View in marketplace</a>` : ''}
+        ${['changes_requested', 'rejected', 'withdrawn', 'approved'].includes(p.status) ? `<a class="btn sm ghost" href="/?club=launch&project=${esc(p.id)}">Send a new version from Studio</a>` : ''}
+        ${['in_review', 'changes_requested', 'approved'].includes(p.status) ? `<button class="btn sm ghost" data-withdraw="${esc(p.id)}">Withdraw</button>` : ''}
+      </div>
+    </div>`).join('')}</div>`
+    : `<div class="steps">${[['Joined', 'You are a member'], ['Build', 'An app in Studio: a template or the Agent is a quick start'], ['Launch', 'Click Publish in Studio'], ['Get listed', 'And certified']]
+        .map(([b, t], i) => `<div class="step"><i>${i ? i + 1 : '✓'}</i><b>${b}</b><span>${t}</span></div>`).join('')}</div>
+       <div class="empty">No apps yet. <a href="/?club=launch">Open Studio to publish one</a>.</div>`
+  pane.querySelectorAll('[data-withdraw]').forEach(b => b.onclick = async () => {
+    if (!confirm('Withdraw this app? It leaves the review queue or the marketplace. You can send it again later.')) return
+    const r = await api(`/api/club/projects/${encodeURIComponent(b.dataset.withdraw)}/withdraw`, {})
+    if (!r.ok) { toast(r.body.error || 'Could not withdraw it'); return }
+    route()
+  })
+}
+
+// ── Review (reviewers and admins) ────────────────────────────────────────
+
+async function reviewPage(tab, openId) {
+  setNav('review')
+  if (!(ME && ME.is_reviewer)) { $view.innerHTML = `<div class="empty" style="margin-top:30px">Reviewing is for club reviewers.</div>`; return }
+  const r = await api('/api/club/review')
+  if (!r.ok) { $view.innerHTML = `<div class="empty" style="margin-top:30px">${esc(r.body.error)}</div>`; return }
+  const { queue, stats } = r.body
+  $view.innerHTML = `<h1 class="page">Review</h1>
+    <p class="lead">Review launched apps, score them on the rubric, run seasons and give awards. Scores are private to reviewers;
+      developers see only the average on each criterion.</p>
+    ${tabs('/club/review', [['queue', `Queue (${queue.length})`], ['approved', 'Approved apps'], ['seasons', 'Seasons'], ['dashboard', 'Dashboard']], tab, 'reviewPage')}
+    <div id="pane"></div>`
+  const pane = document.getElementById('pane')
+  if (tab === 'dashboard') return reviewDashboard(pane, stats)
+  if (tab === 'seasons') return reviewSeasons(pane)
+  if (tab === 'approved') return reviewApproved(pane, openId)
+  pane.innerHTML = `<div class="split"><div class="list">${queue.length ? queue.map(p => `<div class="card qitem" data-open="${esc(p.id)}">
+      <div class="row"><b>${esc(p.title)}</b><span class="muted">v${p.version}</span></div>
+      <div class="muted">${esc(p.author)} · ${esc(p.author_org)}</div>
+      <div class="muted">${p.stats.screens} screens · ${p.stats.endpoints} endpoints · ${p.stats.tests} tests${p.stats.uses_ai ? ' · AI' : ''}</div></div>`).join('')
+    : '<div class="empty">Nothing waiting for review.</div>'}</div><div id="detail"></div></div>`
+  wireOpen(pane)
+  const first = openId || (queue[0] && queue[0].id)
+  if (first) openReview(first, !!openId)
+}
+
+function wireOpen(root) {
+  root.querySelectorAll('[data-open]').forEach(el => el.onclick = () => openReview(el.dataset.open))
+}
+
+async function openReview(id, scroll = true) {
+  document.querySelectorAll('.qitem').forEach(el => el.classList.toggle('on', el.dataset.open === id))
+  const box = document.getElementById('detail')
+  const r = await api('/api/club/review/' + encodeURIComponent(id))
+  if (!r.ok) { box.innerHTML = `<div class="empty">${esc(r.body.error)}</div>`; return }
+  const p = r.body.project, c = r.body.checks, have = (r.body.mine && r.body.mine.scores) || {}
+  const help = INFO.rubric_help || {}
+  const list = (title, items) => items.length ? `<div class="note"><b>${title}</b><ul>${items.slice(0, 8).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''
+  box.innerHTML = `<div class="card">
+    <div class="row"><h3>${esc(p.title)}</h3><span class="status s-${p.status}">${STATUS[p.status] || esc(p.status)}</span></div>
+    <div class="muted">${esc(p.tagline || '')}</div>
+    <div class="muted">${esc(p.author)} · ${esc(INFO.kinds[p.author_kind] || '')} · ${esc(p.author_org)}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ' · 🏁 ' + esc(p.season.name) : ''}</div>
+    ${p.description ? `<p style="white-space:pre-wrap;margin:4px 0">${esc(p.description)}</p>` : ''}
+    <div class="muted">Checks: ${c.screens} screens, ${c.endpoints} endpoints, ${c.tables} tables, ${c.tests} tests${c.uses_ai ? ', uses AI' : ''}${!c.type_errors.length && !c.issues.length ? ' · no problems found' : ''}</div>
+    ${list('Type errors', c.type_errors)}${list('App map problems', c.issues)}
+    <details><summary>backend/main.mcn</summary><pre>${esc(p.backend || '')}</pre></details>
+    <details><summary>ui/app.mcn</summary><pre>${esc(p.ui || '')}</pre></details>
+    <h2 style="margin:14px 0 0">Score it</h2>
+    <div>${rubric().map(([k, label]) => `<div class="crit"><div><b style="font-weight:550">${esc(label)}</b><div class="muted">${esc(help[k] || '')}</div></div>
+      <div class="dots" role="radiogroup" aria-label="${esc(label)}">${[1, 2, 3, 4, 5].map(n => `<label><input type="radio" name="crit-${k}" value="${n}" ${have[k] === n ? 'checked' : ''}><span>${n}</span></label>`).join('')}
+        ${k === 'ai' ? `<label><input type="radio" name="crit-${k}" value="na" ${k in have && have[k] == null ? 'checked' : ''}><span>N/A</span></label>` : ''}</div></div>`).join('')}</div>
+    <input class="field" id="score-note" placeholder="A note for other reviewers (optional)" value="${esc((r.body.mine && r.body.mine.note) || '')}">
+    <div class="row"><button class="btn sm ghost" id="save-scores">Save scores</button>
+      <span class="muted" id="score-sum">${p.scores && p.scores.reviewers ? `Average ${num(p.scores.total)}/5 from ${p.scores.reviewers} reviewer(s)` : 'Not scored yet'}</span></div>
+    ${p.status === 'in_review' ? `<h2 style="margin:14px 0 0">Decision</h2>
+      <textarea class="field" id="notes" rows="3" placeholder="Notes for the developer (needed to request changes or reject)"></textarea>
+      <div class="err" id="decide-err"></div>
+      <div class="actions"><button class="btn" data-decide="approve">Approve</button>
+        <button class="btn ghost" data-decide="changes">Request changes</button><button class="btn ghost" data-decide="reject">Reject</button></div>` : ''}
+  </div>`
+  document.getElementById('save-scores').onclick = async () => {
+    const scores = {}
+    for (const [k] of rubric()) { const x = box.querySelector(`input[name="crit-${k}"]:checked`); scores[k] = x ? x.value : null }
+    const s = await api(`/api/club/review/${encodeURIComponent(id)}/score`, { scores, note: document.getElementById('score-note').value })
+    if (!s.ok) { toast(s.body.error || 'Could not save the scores'); return }
+    const sc = s.body.project.scores
+    document.getElementById('score-sum').textContent = `Average ${num(sc.total)}/5 from ${sc.reviewers} reviewer(s)`
+    toast('Scores saved')
+  }
+  box.querySelectorAll('[data-decide]').forEach(b => b.onclick = async () => {
+    const d = await api('/api/club/review/' + encodeURIComponent(id), { decision: b.dataset.decide, notes: document.getElementById('notes').value })
+    if (!d.ok) { document.getElementById('decide-err').textContent = d.body.error; return }
+    toast(b.dataset.decide === 'approve' ? 'Approved: it is in the marketplace and the developer has a certificate' : 'Sent back to the developer')
+    reviewPage('queue')
+  })
+  if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+async function giveAward(id, category, remove) {
+  let note = ''
+  if (!remove) { note = prompt('A line on why (shown on the app page). Optional.', ''); if (note === null) return false }
+  const r = await api(`/api/club/review/${encodeURIComponent(id)}/award`, { category, note, remove })
+  if (!r.ok) { toast(r.body.error || 'Could not save that'); return false }
+  toast(remove ? 'Award removed' : 'Award given, with a certificate'); return true
+}
+
+async function setSpotlight(id, spotlight) {
+  const r = await api(`/api/club/review/${encodeURIComponent(id)}/spotlight`, { spotlight })
+  toast(r.ok ? (spotlight ? 'Spotlight set' : 'Spotlight removed') : (r.body.error || 'Could not save that'))
+}
+
+async function reviewApproved(pane, openId) {
+  const market = (await api('/api/club/marketplace')).body.projects || []
+  pane.innerHTML = `<div class="split"><div class="list">${market.length ? market.map(p => `<div class="card qitem" data-open="${esc(p.id)}">
+      <div class="row"><b>${esc(p.title)}</b><span class="muted">${p.usage ? p.usage.uses + ' using' : ''}</span></div>
+      <div class="muted">${esc(p.author)} · ${esc(p.author_org)}</div>
+      <div class="badges">${ordered('awards').map(([k, l]) => { const has = (p.awards || []).some(a => a.category === k)
+        return `<button class="pill-btn ${has ? 'on' : ''}" data-award="${k}" data-id="${esc(p.id)}" data-has="${has ? 1 : ''}">🏆 ${esc(l)}</button>` }).join('')}</div>
+      <label class="muted" style="display:flex;gap:8px;align-items:center">Spotlight <select class="field" style="width:auto;padding:4px 8px" data-spot="${esc(p.id)}">
+        <option value="">None</option>${ordered('spotlights').map(([k, l]) => `<option value="${k}" ${p.spotlight === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    </div>`).join('') : '<div class="empty">No approved apps yet.</div>'}</div>
+    <div id="detail">${market.length ? '<div class="empty">Pick an app to score it.</div>' : ''}</div></div>`
+  wireOpen(pane)
+  pane.querySelectorAll('[data-award]').forEach(b => b.onclick = async e => {
+    e.stopPropagation()
+    if (await giveAward(b.dataset.id, b.dataset.award, !!b.dataset.has)) { b.dataset.has = b.dataset.has ? '' : '1'; b.classList.toggle('on', !!b.dataset.has) }
+  })
+  pane.querySelectorAll('[data-spot]').forEach(s => { s.onclick = e => e.stopPropagation(); s.onchange = () => setSpotlight(s.dataset.spot, s.value) })
+  if (openId) openReview(openId)
+}
+
+async function reviewSeasons(pane) {
+  const list = (await api('/api/club/seasons')).body.seasons || []
+  const admin = INFO.is_admin
+  pane.innerHTML = `<div class="list">${list.length ? list.map(se => `<div class="card">
+      <div class="row"><h3>🏁 ${esc(se.name)}</h3><span class="status s-${se.status}">${esc(se.status_label)}</span></div>
+      <div class="muted">${se.theme ? esc(se.theme) + ' · ' : ''}${esc(day(se.starts_at))} to ${esc(day(se.ends_at))} · ${se.entries} entries, ${se.approved} approved</div>
+      <div class="actions"><button class="btn sm" data-standings="${esc(se.id)}">Standings and suggested winners</button>
+        <a class="btn sm ghost" href="/club/season/${esc(se.id)}">Public page</a>
+        ${admin ? `<button class="btn sm ghost" data-publish="${esc(se.id)}" data-on="${se.status !== 'closed' ? 1 : ''}">${se.status === 'closed' ? 'Hide results' : 'Publish results'}</button>` : ''}</div>
+      <div data-standings-box="${esc(se.id)}"></div>
+    </div>`).join('') : '<div class="empty">No seasons yet.</div>'}
+    ${admin ? `<details class="card"><summary>New season</summary><form class="form" id="new-season" style="margin-top:12px">
+      <label>Name<input name="name" required maxlength="60" placeholder="e.g. Spring 2027"></label>
+      <label>Theme (optional)<input name="theme" maxlength="120" placeholder="e.g. AI for healthcare"></label>
+      <label>Opens<input name="starts" type="date" required></label>
+      <label>Entries close<input name="ends" type="date" required></label>
+      <label>About it (optional)<textarea name="description" rows="3" maxlength="2000"></textarea></label>
+      <div><button class="btn">Create season</button></div></form></details>` : ''}</div>`
+  pane.querySelectorAll('[data-standings]').forEach(b => b.onclick = () => standings(b.dataset.standings))
+  pane.querySelectorAll('[data-publish]').forEach(b => b.onclick = async () => {
+    const on = !!b.dataset.on
+    if (on && !confirm('Publish the results? The season closes and its winners appear on its public page.')) return
+    const r = await api('/api/club/seasons/' + encodeURIComponent(b.dataset.publish), { results_published: on })
+    if (!r.ok) { toast(r.body.error || 'Could not save that'); return }
+    reviewSeasons(pane)
+  })
+  const f = document.getElementById('new-season')
+  if (f) f.onsubmit = async e => {
+    e.preventDefault()
+    const v = Object.fromEntries(new FormData(f).entries())
+    const r = await api('/api/club/seasons', { name: v.name, theme: v.theme, description: v.description,
+      starts_at: new Date(v.starts + 'T00:00:00').getTime() / 1000, ends_at: new Date(v.ends + 'T23:59:59').getTime() / 1000 })
+    if (!r.ok) { toast(r.body.error || 'Could not create it'); return }
+    toast(`${r.body.season.name} created`); reviewSeasons(pane)
+  }
+}
+
+async function standings(id) {
+  const box = document.querySelector(`[data-standings-box="${CSS.escape(id)}"]`)
+  const r = await api(`/api/club/seasons/${encodeURIComponent(id)}/standings`)
+  if (!r.ok) { box.innerHTML = `<div class="err">${esc(r.body.error)}</div>`; return }
+  const d = r.body, short = INFO.rubric_short || {}
+  box.innerHTML = `${d.ranked.length ? `<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>#</th><th>App</th>
+      ${rubric().map(([k, l]) => `<th title="${esc(l)}">${esc(short[k] || l)}</th>`).join('')}<th>Avg</th><th>Using</th></tr></thead>
+      <tbody>${d.ranked.map((p, i) => `<tr><td>${i + 1}</td><td><a href="#" data-score="${esc(p.id)}">${esc(p.title)}</a><div class="muted">${esc(p.author_org)} · ${p.scores.reviewers} reviewer(s)</div></td>
+        ${rubric().map(([k]) => `<td>${num(p.scores.averages[k])}</td>`).join('')}<td><b>${num(p.scores.total)}</b></td><td>${p.usage.uses}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="muted" style="margin-top:8px">No approved entries in this season yet.</div>'}
+    <h3 style="margin:16px 0 6px;font-size:15px">Suggested winners</h3>
+    ${ordered('awards').filter(([k]) => d.suggestions[k]).map(([award]) => [award, d.suggestions[award]]).map(([award, s]) => {
+      const entry = d.ranked.find(p => p.id === s.project_id), has = entry && entry.awards.some(a => a.category === award)
+      return `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>🏆 ${esc(INFO.awards[award])}: <b>${esc(s.title)}</b> <span class="muted">(${num(s.score)}/5)</span></span>
+        ${has ? '<span class="status s-approved">Awarded</span>' : `<button class="btn sm" data-give="${esc(award)}" data-id="${esc(s.project_id)}">Give award</button>`}</div>`
+    }).join('') || '<div class="muted">Score the entries to see suggestions.</div>'}
+    ${d.peoples_choice ? `<div class="row" style="padding:6px 0"><span>❤ People's Choice (most used): <b>${esc(d.peoples_choice.title)}</b> <span class="muted">(${d.peoples_choice.uses} members)</span></span>
+      <button class="btn sm ghost" id="pc-${esc(id)}">Spotlight for recognition</button></div>` : ''}`
+  box.querySelectorAll('[data-give]').forEach(b => b.onclick = async () => { if (await giveAward(b.dataset.id, b.dataset.give, false)) standings(id) })
+  box.querySelectorAll('[data-score]').forEach(a => a.onclick = e => { e.preventDefault(); go('/club/review/approved', () => reviewPage('approved', a.dataset.score)) })
+  const pc = document.getElementById('pc-' + id)
+  if (pc) pc.onclick = () => setSpotlight(d.peoples_choice.project_id, 'recognition')
+}
+
+function reviewDashboard(pane, stats) {
+  const s = stats.projects_by_status
+  pane.innerHTML = `<div class="statrow">${[['Members', stats.members], ['Students', stats.members_by_kind.student], ['Professionals', stats.members_by_kind.professional],
+      ['In review', s.in_review], ['Approved', s.approved], ['Certificates', stats.certificates], ['Approved using AI', stats.approved_using_ai]]
+      .map(([l, n]) => `<div class="stat"><b>${n || 0}</b><span>${l}</span></div>`).join('')}</div>
+    <h2>Awards and spotlights</h2>
+    <div class="badges">${ordered('awards').map(([k, l]) => `<span class="badge award">🏆 ${esc(l)} · ${stats.awards[k] || 0}</span>`).join('')}
+      ${ordered('spotlights').map(([k, l]) => `<span class="badge spot">${esc(l)} · ${stats.spotlights[k] || 0}</span>`).join('')}</div>
+    ${(stats.top_used || []).length ? `<h2>Most used</h2><table><thead><tr><th>App</th><th>College or company</th><th>Using</th><th>Likes</th></tr></thead>
+      <tbody>${stats.top_used.map(p => `<tr><td><a href="/club/project/${esc(p.id)}">${esc(p.title)}</a></td><td>${esc(p.author_org)}</td><td>${p.uses || 0}</td><td>${p.likes || 0}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${stats.top_organizations.length ? `<h2>Top colleges and companies</h2><table><thead><tr><th>College or company</th><th>Approved apps</th></tr></thead>
+      <tbody>${stats.top_organizations.map(o => `<tr><td>${esc(o.organization)}</td><td>${o.approved}</td></tr>`).join('')}</tbody></table>` : ''}`
+}
+
 async function route() {
   const [info, se] = await Promise.all([api('/api/club/info'), api('/api/club/seasons')])
   if (info.ok) INFO = info.body
   SEASONS = (se.body && se.body.seasons) || []
+  if (INFO.signed_in) { const r = await api('/api/club/me'); ME = r.ok ? r.body : null }
   const me = INFO.member
   document.getElementById('who').textContent = me ? `${me.name} · ${me.organization}` : (INFO.signed_in ? 'Signed in' : '')
+  document.getElementById('nav-review').hidden = !(ME && ME.is_reviewer)
   const [, , view, arg] = location.pathname.split('/').map(decodeURIComponent)
+  if (view === 'me') return myClub(arg || 'projects')
+  if (view === 'review') return reviewPage(arg || 'queue')
   if (view === 'project' && arg) return projectPage(arg)
   if (view === 'certificate' && arg) return certificatePage(arg)
   if (view === 'u' && arg) return profilePage(arg)

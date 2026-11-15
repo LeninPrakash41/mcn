@@ -173,7 +173,8 @@ def test_open_an_approved_project_in_my_workspace(client):
 
 def test_pages_are_served(client):
     with hosted():
-        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC", "/club/leaderboard", "/club/awards", "/club/verify", "/club/u/x", "/club/seasons", "/club/season/abc"):
+        for path in ("/club", "/club/project/abc", "/club/certificate/MCN-ABC", "/club/leaderboard", "/club/awards", "/club/verify", "/club/u/x", "/club/seasons", "/club/season/abc",
+                     "/club/me", "/club/me/certificates", "/club/review", "/club/review/seasons"):
             res = client.get(path)
             assert res.status_code == 200 and b"MCN Developer Club" in res.data
 

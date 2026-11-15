@@ -6,7 +6,11 @@ The club runs on your MCN account server (hosted Studio, `mcn studio --hosted`).
 
 ## Joining
 
-Open Studio's **Club** tab and join with your name, whether you're a **student** (with your college or university) or a **professional** (with your company), and optionally your course and year or job title.
+Open **My club** on the club's site (`/club/me`, or **Build → Open the Developer Club** in Studio), or just click **Publish** in Studio, and join with your name, whether you're a **student** (with your college or university) or a **professional** (with your company), and optionally your course and year or job title.
+
+## My club
+
+**My club** on the club's site has your **Projects** (each with its status, reviewers' notes, the average scores and, once approved, how many members use it; withdraw it, or send a new version from Studio), your **Certificates**, and your **Profile**. Studio only publishes: everything else about the club is on its site.
 
 ## Launching an app for review
 
@@ -33,7 +37,7 @@ A season is a round of the club with a name, a theme and a deadline, for example
 | Judging | after the deadline: reviewers score the entries and give awards |
 | Results out | an admin published the results: the season's page lists the winners of each award |
 
-Awards given to a season's entries carry its name, on the app and on the certificate ("Best Innovation · Spring 2027"). The club site's **Seasons** page lists every season; each has its own page with its theme, dates, how long is left, the entries and, once results are out, the winners. The marketplace can be filtered by season. Admins create seasons, and publish their results, in the Club tab's **Review** section.
+Awards given to a season's entries carry its name, on the app and on the certificate ("Best Innovation · Spring 2027"). The club site's **Seasons** page lists every season; each has its own page with its theme, dates, how long is left, the entries and, once results are out, the winners. The marketplace can be filtered by season. Admins create seasons, and publish their results, on the club site's **Review** page (**Seasons**).
 
 ## Scoring
 
@@ -89,12 +93,13 @@ A reviewer can mark a promising app as a **funding candidate**, for **recognitio
 
 Each certificate has a code (like `MCN-7KX2Q9PDRT`) and its own page, `/club/certificate/<code>`, which anyone can open to check it's genuine. The certificate is designed to print on A4 landscape: **Download PDF** prints it, **Add to LinkedIn** adds it to your LinkedIn profile's certifications, and its QR code opens the verification page. Participation certificates are coral, certifications teal, and awards gold.
 
-To have certificates signed, set `MCN_CLUB_SIGNATORY="Name|Title"` on the account server (for example `"Priya Nair|Programme Director"`); without it they're issued by the MCN Developer Club. **My work** in the Club tab lists yours, and Studio tells you when a review decision comes in.
+To have certificates signed, set `MCN_CLUB_SIGNATORY="Name|Title"` on the account server (for example `"Priya Nair|Programme Director"`); without it they're issued by the MCN Developer Club. **My club** on the club's site lists yours, and Studio tells you when a review decision comes in.
 
 ## Reviewing
 
-Admins and anyone given the `reviewer` role (Admin → Users) see a **Review** tab in the Club panel:
+Admins and anyone given the `reviewer` role (Admin → Users) see **Review** on the club's site (`/club/review`):
 
-- **The dashboard**: members (students and professionals), projects by status, certificates issued, approved apps that use AI, awards and spotlights given, and the colleges and companies with the most approved apps. This is where you track the ideas coming through the club.
-- **The queue**: each project with its checks and code. Approve it, or request changes or reject it with notes for the developer (notes are required for those).
-- **The marketplace**: give or take back awards, and set a spotlight.
+- **Queue**: each project with its checks and code beside the list. Score it on the rubric, then approve it, or request changes or reject it with notes for the developer (notes are required for those).
+- **Approved apps**: give or take back awards, set a spotlight, and score apps.
+- **Seasons**: each season's standings and suggested winners; admins create seasons and publish results.
+- **Dashboard**: members (students and professionals), projects by status, certificates issued, approved apps that use AI, awards and spotlights given, the most used apps, and the colleges and companies with the most approved apps. This is where you track the ideas coming through the club.

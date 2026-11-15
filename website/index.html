@@ -239,6 +239,7 @@
     .native-more a { color: var(--accent-text); font-weight: 600; }
     @media (max-width: 900px) { .native-grid { grid-template-columns: 1fr; } }
     @media (max-width: 560px) { .native-points { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .nav-right .nav-club { display: none; } }
   </style>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How is MCN different from AI app builders?", "acceptedAnswer": {"@type": "Answer", "text": "AI app builders write an app for you and usually run it on their own platform. MCN is a language: the app is two short files you can read, change and review, and the same files become a web app, a phone app and an API. You can still have AI write it, with mcn generate or the agent team, and you deploy it to your own Vercel, AWS or Cloudflare account, or any server."}}, {"@type": "Question", "name": "Does MCN support single sign-on and audit logs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. A service with auth \"sso\" signs people in with Okta, Microsoft Entra ID, Google Workspace or another OpenID Connect provider, and current_user() tells endpoints who they are and which roles they have. Adding audit to a service records every call in a tamper-evident log with secrets masked; mcn audit-log verify checks it and mcn audit-log export writes OCSF events for a SIEM. MCN itself isn't a SOC 2 or HIPAA certified service: those certifications belong to whoever runs the app."}}, {"@type": "Question", "name": "Can I deploy to AWS or Cloudflare?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. mcn deploy --target aws builds a container and runs it on AWS App Runner in the region you choose, with HTTPS and automatic scaling. mcn deploy --target cloudflare serves the web app from Cloudflare's edge and runs the API in a Cloudflare container. Both run in your own account. Keep data in PostgreSQL by setting DATABASE_URL."}}, {"@type": "Question", "name": "What kind of language is MCN?", "acceptedAnswer": {"@type": "Answer", "text": "A high-level, interpreted scripting language with dynamic typing, built for applications. You write plain .mcn files with indentation-based blocks and run them straight away. The database, APIs, web and mobile UI, AI and hardware are part of the language, so you don't assemble frameworks first."}}, {"@type": "Question", "name": "Is MCN a good fit for forward deployed engineers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, it's built for that kind of work: turning a customer's problem into a working tool in days, on site. One person can write the backend, the UI and the AI logic in a few files, connect the customer's systems with fetch(), query() and domain packages, and put it online with mcn deploy --target vercel or a Docker zip. agent_run() turns the customer's own functions into tools for an AI agent, and mcn audit plus service auth cover the security review. Everything stays as readable code the customer's team can keep."}}, {"@type": "Question", "name": "Can data annotation teams use MCN?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for building the tools annotators work in, rather than as an off-the-shelf labeling platform. A team lead can build a custom labeling app quickly: a review queue in a data_table or kanban, forms for labels, classify() and extract() to pre-label items with AI, and people confirming or correcting each one. audit_log() records who labeled what, and the data imports and exports as CSV. Annotators just use the app in a browser or on a phone; they don't need to write code."}}, {"@type": "Question", "name": "Do I need to know another programming language first?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN reads like a description of what the program does, and every error shows the line, points at the problem and suggests a fix. The student pilot kit goes from a first program to a full-stack app with AI in two sessions. Developers who know another language can usually read MCN code straight away."}}, {"@type": "Question", "name": "Is MCN ready for production?", "acceptedAnswer": {"@type": "Answer", "text": "It's designed for internal tools, client pilots and coursework, and has what those need: token, JWT and SSO sign-in, audit logs, rate limits, security headers, tests next to the code, a security scanner, and deploys to Docker, Vercel, AWS and Cloudflare. For a high-traffic public product, load-test it first, and use PostgreSQL for data that must last."}}, {"@type": "Question", "name": "Which AI models does it use, and where does my data go?", "acceptedAnswer": {"@type": "Answer", "text": "ai() uses Claude by default, or OpenAI or a local Ollama model if you choose. MCN doesn't send your code or data anywhere on its own: AI calls happen only when you set an API key, and send only the prompts your code builds. Without a key, AI functions return mock answers, so code still runs offline, in class or in CI."}}, {"@type": "Question", "name": "Am I locked in?", "acceptedAnswer": {"@type": "Answer", "text": "No. MCN is open source under the MIT license. The UI compiles to standard React and Flutter projects you own and can keep editing, and the backend runs anywhere MCN installs: your laptop, a container, Vercel or a Raspberry Pi."}}, {"@type": "Question", "name": "Can it run on a Raspberry Pi or with an Arduino?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The same device() code is simulated in Studio and drives Raspberry Pi pins, Arduino and ESP32 boards over USB, or MQTT devices. mcn iot firmware writes the board sketch."}}, {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing. MCN, Studio, the UI kit and the templates are free and MIT licensed. You only pay for AI usage if you use a paid model, and for hosting if you deploy to a paid plan."}}]}</script>
 </head>
@@ -264,6 +265,7 @@
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
       </button>
+      <a class="btn btn-secondary btn-sm nav-club" href="#club">Developer Club</a>
       <a class="btn btn-primary btn-sm" href="docs/#/getting-started/quick-start">Get started</a>
     </div>
   </div>
@@ -283,6 +285,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
           <a class="btn btn-secondary" href="#team">See the agent team</a>
+          <a class="btn btn-secondary" href="#club">Developer Club</a>
         </div>
         <div class="install-tabs" role="tablist" aria-label="Your operating system">
           <button type="button" role="tab" aria-selected="true" data-os="unix">macOS &amp; Linux</button>
@@ -769,8 +772,43 @@ Hint: Did you mean 'total'?</code></pre>
     </div>
   </section>
 
+  <!-- Developer Club -->
+  <section class="alt" id="club">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker">MCN Developer Club</p>
+        <h2>Build an app. Get it reviewed. Get certified.</h2>
+        <p>A club for students and professionals who build in MCN. Join with your college or company, publish an app from Studio, and reviewers score it, approve it and list it in the club's marketplace.</p>
+      </div>
+      <div class="audience">
+        <div class="aud">
+          <h3>Publish and get certified</h3>
+          <p>Click <b>Publish</b> in Studio. It checks the app first, then sends it for review. The code is checked on the server, never run.</p>
+          <ul>
+            <li>A certificate when you launch, and another when your app is approved</li>
+            <li>Each certificate has a code and a page anyone can open to check it, and you can add it to LinkedIn</li>
+            <li>Reviewers score every app on a five-part rubric and send you notes</li>
+          </ul>
+        </div>
+        <div class="aud">
+          <h3>Marketplace, awards and seasons</h3>
+          <p>Approved apps are listed in the marketplace, where other members open them in Studio, like them and build on them.</p>
+          <ul>
+            <li>Awards: Best Overall, Best Innovation, Best Technical Implementation, Best Use of MCN and Best AI-Powered Application</li>
+            <li>Promising apps are picked for funding, recognition or the showcase</li>
+            <li>Seasons with a theme and a deadline, and a leaderboard of the most used apps</li>
+          </ul>
+        </div>
+      </div>
+      <div class="cta-row" style="margin-top:28px">
+        <a class="btn btn-primary" href="docs/#/guide/developer-club">Join the Developer Club</a>
+        <a class="btn btn-secondary" href="docs/#/getting-started/studio">Open Studio</a>
+      </div>
+    </div>
+  </section>
+
   <!-- FAQ -->
-  <section class="alt" id="faq">
+  <section id="faq">
     <div class="container">
       <div class="section-head">
         <p class="kicker">Questions</p>

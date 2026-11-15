@@ -142,7 +142,11 @@ def _check(files: dict) -> dict:
 @bp.route("/club/verify")
 @bp.route("/club/seasons")
 @bp.route("/club/season/<season_id>")
-def club_page(project_id: str = "", code: str = "", user_id: str = "", season_id: str = ""):
+@bp.route("/club/me")
+@bp.route("/club/me/<tab>")
+@bp.route("/club/review")
+@bp.route("/club/review/<tab>")
+def club_page(project_id: str = "", code: str = "", user_id: str = "", season_id: str = "", tab: str = ""):
     if not is_hosted():
         url = _account().account_url().rstrip("/")
         if url:
