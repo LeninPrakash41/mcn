@@ -135,8 +135,11 @@
           <div class="menu-action" onclick="openClub('launch')">
             <span>Publish to the Developer Club…</span>
           </div>
+          <div class="menu-action" onclick="openClubSite('/club/me')">
+            <span>My club ↗</span>
+          </div>
           <div class="menu-action" onclick="openClubSite('/club')">
-            <span>Open the Developer Club ↗</span>
+            <span>Club marketplace ↗</span>
           </div>
         </div>
       </div>
@@ -219,6 +222,7 @@
 
     <!-- AI & Generation Tools -->
     <div class="nav-group">
+      <button class="btn btn-sm" onclick="openClubSite('/club/me')" title="My club: your apps, reviews and certificates in the MCN Developer Club">My club</button>
       <button class="btn btn-sm" onclick="openClub('launch')" title="Publish this app to the MCN Developer Club">Publish</button>
       <button class="btn btn-coral-sm" onclick="openAgentPanel()" title="Agent: change the app, ask about it, or build a new one (Cmd+L)">
         <span>Agent</span>

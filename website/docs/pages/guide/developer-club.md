@@ -6,7 +6,7 @@ The club runs on your MCN account server (hosted Studio, `mcn studio --hosted`).
 
 ## Joining
 
-Open **My club** on the club's site (`/club/me`, or **Build → Open the Developer Club** in Studio), or just click **Publish** in Studio, and join with your name, whether you're a **student** (with your college or university) or a **professional** (with your company), and optionally your course and year or job title.
+Open **My club** on the club's site (`/club/me`, or **My club** in Studio's toolbar), or just click **Publish** in Studio, and join with your name, whether you're a **student** (with your college or university) or a **professional** (with your company), and optionally your course and year or job title.
 
 ## My club
 

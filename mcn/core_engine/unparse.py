@@ -336,6 +336,8 @@ def _app(s: ast.AppDecl, indent: str) -> List[str]:
         lines.append(f"{inner}logo {_string(s.logo)}")
     if s.footer:
         lines.append(f"{inner}footer {_string(s.footer)}")
+    if getattr(s, "brand", ""):
+        lines.append(f"{inner}brand {_string(s.brand)}")
     lay = s.layout
     if lay is not None:
         l1, l2, l3 = inner + IND, inner + IND * 2, inner + IND * 3
@@ -356,7 +358,7 @@ def _app(s: ast.AppDecl, indent: str) -> List[str]:
             for tab in lay.tabs:
                 lines.append(f"{l2}tab {_string(tab.label)}" + (f" {tab.component}" if tab.component else ""))
         if lay.main:
-            lines.append(f"{l1}main")
+            lines.append(f"{l1}{'page' if getattr(lay, 'page', False) else 'main'}")
             lines += [f"{l2}{m}" for m in lay.main]
         if lay.routes:
             lines.append(f"{l1}routes")

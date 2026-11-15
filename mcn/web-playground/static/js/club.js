@@ -34,7 +34,7 @@ function _clubModal() {
     m.innerHTML = `<div class="modal-card club-modal">
       <div class="modal-hdr club-modal-hdr"><div><div class="modal-title">Publish to the Developer Club</div>
         <div class="modal-sub">Launch this app for review. Approved apps are listed in the marketplace.</div></div>
-        <a href="#" class="club-site-link" onclick="openClubSite('/club/me'); return false">Open the club ↗</a></div>
+        <a href="#" class="club-site-link" onclick="openClubSite('/club/me'); return false">My club ↗</a></div>
       <div class="modal-body club" id="club-body"></div></div>`
     m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden') })
     document.body.appendChild(m)

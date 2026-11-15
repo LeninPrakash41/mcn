@@ -37,7 +37,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 ## Templates
 
-The **Templates** gallery (the **Templates** button in the left bar, or **Templates → Browse all templates**) has 27 starter apps you can search and filter: AI and automation (AI agent builder, voice agents on Twilio, workflow automation, operations dashboard), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), data and ML (data labeling studio, ML training lab), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
+The **Templates** gallery (the **Templates** button in the left bar, or **Templates → Browse all templates**) has 28 starter apps you can search and filter: AI and automation (AI agent builder, voice agents on Twilio, workflow automation, operations dashboard), websites (a landing page with pricing, reviews and a waitlist), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), data and ML (data labeling studio, ML training lab), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
 
 ## Agent
 
@@ -53,7 +53,7 @@ It uses your Claude key from `mcn config set api_key ...` or `ANTHROPIC_API_KEY`
 
 ## Publishing to the Developer Club
 
-**Publish** in the toolbar checks the app in your workspace and launches it for review in the [MCN Developer Club](#/guide/developer-club) (you join in the same dialog the first time). Your projects, certificates and reviewing are on the club's site: **Build → Open the Developer Club**.
+**Publish** in the toolbar checks the app in your workspace and launches it for review in the [MCN Developer Club](#/guide/developer-club) (you join in the same dialog the first time). Your projects, certificates and reviewing are on the club's site: **My club** in the toolbar opens it.
 
 ## Feedback
 

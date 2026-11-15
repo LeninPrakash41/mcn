@@ -1,0 +1,15 @@
+// Pulse landing page — waitlist backend
+
+query("CREATE TABLE IF NOT EXISTS waitlist (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, created_at TEXT)")
+
+service site_api
+    port 8080
+
+    endpoint join_waitlist(email)
+        if not contains(email, "@")
+            return {success: false, message: "Enter a valid email"}
+        query("INSERT OR IGNORE INTO waitlist (email, created_at) VALUES (?, ?)", (email, now()))
+        return {success: true, message: "Thanks! We'll be in touch."}
+
+test "rejects a bad email"
+    assert join_waitlist("nope").success == false

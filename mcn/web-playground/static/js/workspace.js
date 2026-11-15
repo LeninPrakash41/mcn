@@ -569,13 +569,14 @@ let _allExamples = [];
 
 const TEMPLATE_CATEGORIES = {
   internal_app: { title: "Web apps & AI" },
+  website:      { title: "Websites" },
   data:         { title: "Data & ML" },
   student:      { title: "Student & Mathematics" },
   flutter_app:  { title: "Mobile & IoT" },
   backend:      { title: "Backends & APIs" },
   repl:         { title: "Learn the language" },
 };
-const NEW_TEMPLATES = new Set(['data_labeling', 'ml_training_lab']);
+const NEW_TEMPLATES = new Set(['landing_page', 'voice_agent_builder']);
 let _galleryCategory = 'all';
 
 function openTemplateGallery() {
@@ -739,7 +740,7 @@ async function loadExample(ex) {
     switchWorkspace('flutter');
   } else if (ex.category === 'repl') {
     switchWorkspace('repl');
-  } else if (ex.category === 'internal_app' || ex.category === 'data') {
+  } else if (ex.category === 'internal_app' || ex.category === 'data' || ex.category === 'website') {
     switchWorkspace('react');
   }
   

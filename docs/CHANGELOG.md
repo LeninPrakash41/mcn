@@ -5,6 +5,8 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **My club** in Studio's toolbar (and the Build menu) opens your club page directly, beside **Publish**
+- **Landing Page (Pulse) template**, the 28th, in a new **Websites** category of the Templates gallery: navbar, gradient hero, features, pricing, reviews, FAQ and a waitlist backend, with a brand colour; it builds to React and Flutter like every template
 - **Developer Club showcase**: every marketplace starts with two showcase apps built with the new design elements, **Pulse** (a fitness app) by Praveen P and the **Pulse landing page** by Karthiga R, both of Macincode, with their certificates. The members have no login until an account is created with their email, which then owns the profile, apps and certificates. `MCN_CLUB_SHOWCASE=0` turns it off
 - **Landing pages and consumer-style app screens**: a `page` layout without the app frame; landing-page sections `navbar`, `hero`, `logo_cloud`, `feature_grid`/`feature`, `pricing`/`plan` (with a highlighted plan), `testimonials`/`testimonial`, `faq`/`question`, `cta_band` and `site_footer`, whose links scroll to sections; app design elements `avatar`, `list_item`, `progress_ring` and `carousel`; and `brand "violet"` (or a hex color) in the `app` block to color the app in light and dark mode. Every element compiles to the React kit and to native Flutter widgets. `button` takes `icon=` on the web too, and `on_*` handlers on these elements receive the value given with `item=`
 - **Developer Club on its own site**: the club's site now has **My club** (join, your projects with notes, scores and usage, certificates, profile) and, for reviewers, **Review** (queue with the rubric beside the code, approved apps with awards and spotlights, seasons with standings, dashboard). Studio's Club tab is replaced by a focused **Publish** dialog (join, pre-flight check, season, launch) and **Build → Open the Developer Club**. The website's landing page has a **Developer Club** button and section
@@ -89,6 +91,7 @@ All notable changes to MCN will be documented in this file.
   - Generated React and Flutter apps and Studio's preview send a bearer token
 
 ### Fixed
+- The MCN printer behind the MSG round trip kept `brand` and the `page` layout (it dropped the first and printed `page` as `main`)
 - The club site's first step pointed to Studio's old Club tab; counts like "1 endpoints" read correctly
 - `accordion_item "Title"` now shows its title (it showed "Item 1") on the web and on phones; stat units on phones are spaced and muted like the web ("64 bpm"); added fitness and health icons (`Footprints`, `HeartPulse`, `Dumbbell`, `Salad`, `Apple`, `Bike`, `Watch`, `Quote`, `Medal`, `Gift`, `Crown`, `CalendarCheck`) on both
 - Exported apps read `.data` from an unresolved promise (`items = list_tasks().data` left lists empty)

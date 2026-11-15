@@ -178,6 +178,19 @@
     ]
   },
   {
+    "badge": "Website",
+    "category": "website",
+    "description": "A modern landing page: sticky navbar, gradient hero, features, pricing with a highlighted plan, reviews, FAQ and a waitlist that saves sign-ups. One brand colour, light and dark mode, responsive, and a native app too.",
+    "id": "landing_page",
+    "name": "Landing Page (Pulse)",
+    "open": "ui/app.mcn",
+    "project": true,
+    "files": [
+      "backend/main.mcn",
+      "ui/app.mcn"
+    ]
+  },
+  {
     "badge": "Data labeling",
     "category": "data",
     "description": "A labeling queue with AI or rule-based suggestions, a review board, an audit log and CSV import and export.",
