@@ -21,6 +21,7 @@ Wifi Workflow Wrench X XCircle Zap
 Thermometer Droplets DoorOpen DoorClosed House Cpu Fan Radio Power Battery BatteryCharging Bluetooth
 CloudRain Wind Flame Leaf Sprout Waves Lamp Blinds Cctv Router Microchip Signal Siren Vibrate
 FlaskConical Brain Tags ClipboardCheck Highlighter ScanText Sigma Dices
+Footprints HeartPulse Dumbbell Salad Apple Bike Watch Quote Medal Gift Crown CalendarCheck
 `.trim().split(/\s+/)
 
 const missing = NAMES.filter((n) => !icons[n])

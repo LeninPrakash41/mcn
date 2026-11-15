@@ -101,6 +101,7 @@ def _conn() -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS club_scores (
             project_id TEXT NOT NULL, reviewer TEXT NOT NULL, criterion TEXT NOT NULL, score INTEGER, at REAL,
             PRIMARY KEY (project_id, reviewer, criterion));
+        CREATE TABLE IF NOT EXISTS club_meta (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS club_score_notes (
             project_id TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT, at REAL, PRIMARY KEY (project_id, reviewer));
     """)
@@ -707,3 +708,75 @@ def certificate(code: str) -> Optional[Dict[str, Any]]:
     out["kind_label"] = CERTIFICATES.get(out["kind"], out["kind"])
     out["award_label"] = AWARDS.get(out.get("award") or "", "")
     return out
+
+
+# ── Showcase ─────────────────────────────────────────────────────────────────
+# Apps every marketplace starts with (club_showcase/showcase.json). Their members
+# have no login: their user_id is an opaque "showcase-…" id (it appears in profile
+# links, so it never contains the email) until someone creates an account with that
+# email, and then the profile, apps and certificates become theirs.
+
+SHOWCASE_DIR = Path(__file__).resolve().parent / "club_showcase"
+_SHOWCASE_PREFIX = "showcase-"
+
+
+def _showcase_id(email: str) -> str:
+    import hashlib
+    return _SHOWCASE_PREFIX + hashlib.sha256(email.strip().lower().encode()).hexdigest()[:12]
+
+
+def showcase_enabled() -> bool:
+    import os
+    return os.environ.get("MCN_CLUB_SHOWCASE", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def seed_showcase(check, version: str = "1") -> int:
+    """List the showcase apps once per club database. `check` is the club's static
+    check (the apps are checked, never run). Returns how many apps were listed."""
+    spec = json.loads((SHOWCASE_DIR / "showcase.json").read_text(encoding="utf-8"))
+    with _lock, _conn() as c:
+        if c.execute("SELECT 1 FROM club_meta WHERE key = 'showcase'").fetchone():
+            return 0
+        listed = 0
+        for m in spec["members"]:
+            email = m["email"].lower()
+            claimed = c.execute("SELECT user_id FROM club_members WHERE lower(email) = ?", (email,)).fetchone()
+            uid = claimed["user_id"] if claimed else _showcase_id(email)
+            if not claimed:
+                c.execute("INSERT INTO club_members (user_id, email, name, kind, organization, title, country, bio, joined_at) "
+                          "VALUES (?, ?, ?, ?, ?, '', '', '', ?)", (uid, email, m["name"], m["kind"], m["organization"], time.time()))
+            _issue(c, uid, "participant", None, None, CERTIFICATES["participant"], once=True)
+        for p in spec["projects"]:
+            email = p["author"].lower()
+            uid = c.execute("SELECT user_id FROM club_members WHERE lower(email) = ?", (email,)).fetchone()["user_id"]
+            folder = SHOWCASE_DIR / p["folder"]
+            files = {k: (folder / rel).read_text(encoding="utf-8") if (folder / rel).exists() else ""
+                     for k, rel in (("backend", "backend/main.mcn"), ("ui", "ui/app.mcn"))}
+            stats = check(files)
+            pid = "sc-" + p["key"].replace("_", "-")[:16]
+            now = time.time()
+            c.execute("INSERT OR IGNORE INTO club_projects (id, user_id, title, tagline, description, category, backend, ui, stats, "
+                      "status, submitted_at, reviewed_at, reviewer, review_notes, listed_at) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, 'MCN Developer Club', ?, ?)",
+                      (pid, uid, p["title"], p["tagline"], p["description"], p["category"], files["backend"], files["ui"],
+                       json.dumps(stats), now, now, "Featured in the MCN showcase.", now))
+            _event(c, pid, "MCN Developer Club", "approved", "Featured in the MCN showcase.")
+            _issue(c, uid, "certified", pid, None, f"{CERTIFICATES['certified']}: {p['title']}")
+            listed += 1
+        c.execute("INSERT INTO club_meta (key, value) VALUES ('showcase', ?)", (version,))
+    return listed
+
+
+def claim_showcase(user_id: str, email: str) -> bool:
+    """Give a showcase member's profile, apps and certificates to the account with their email."""
+    if not email or user_id.startswith(_SHOWCASE_PREFIX):
+        return False
+    placeholder = _showcase_id(email)
+    with _lock, _conn() as c:
+        if not c.execute("SELECT 1 FROM club_members WHERE user_id = ?", (placeholder,)).fetchone():
+            return False
+        if c.execute("SELECT 1 FROM club_members WHERE user_id = ?", (user_id,)).fetchone():
+            return False                  # they already joined on their own: keep their profile
+        for table in ("club_members", "club_projects", "club_certificates", "club_uses", "club_likes"):
+            c.execute(f"UPDATE {table} SET user_id = ? WHERE user_id = ?", (user_id, placeholder))
+    return True

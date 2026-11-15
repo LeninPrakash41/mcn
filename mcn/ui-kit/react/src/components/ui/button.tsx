@@ -1,13 +1,16 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Icon } from "./icon"
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
   size?: "default" | "sm" | "lg" | "icon"
+  /** An icon name shown before the label, e.g. "Plus" */
+  icon?: string
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", ...props }, ref) => {
+  ({ className, variant = "default", size = "default", icon, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
@@ -26,7 +29,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           className,
         )}
         {...props}
-      />
+      >
+        {icon ? <Icon name={icon} size={16} className={children ? "mr-2" : undefined} /> : null}
+        {children}
+      </button>
     )
   },
 )

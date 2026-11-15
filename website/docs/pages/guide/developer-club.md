@@ -57,6 +57,12 @@ Every reviewer scores separately; the app's score on each criterion is the avera
 
 `/club` on the account server lists approved apps for anyone, signed in or not. Filter by award, by spotlight, by students or professionals, search by app, person, college or company, and sort by **newest**, **most used**, **most liked** or **trending** (the last 30 days).
 
+### The showcase
+
+Every marketplace starts with a few showcase apps that show what MCN can build: **Pulse**, a fitness app with activity rings, workouts and an AI coach, by Praveen P (Macincode), and the **Pulse landing page**, by Karthiga R (Macincode). They're listed the first time the club is used, with a participation certificate and a Certified MCN Developer certificate for each author.
+
+Showcase members have no login of their own. When someone creates an account on the Studio with a showcase member's email, the profile, the app and its certificates become that account's. Set `MCN_CLUB_SHOWCASE=0` on the account server to start with an empty marketplace instead.
+
 ### Usage and the best apps
 
 The club tracks how other registered members use each app:

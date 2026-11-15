@@ -67,6 +67,29 @@ _KIT_ACTIONS: Dict[str, Dict[str, Tuple[str, str, str]]] = {
 }
 _KIT_ACTIONS["chat_widget"] = _KIT_ACTIONS["chat"]
 
+# Landing-page sections and app-design elements: tag → (component, kit module,
+# attributes that name an `on` handler or endpoint → the component's callback prop).
+# The element's text is its `title` (an avatar's `name`); children nest inside.
+_DESIGN: Dict[str, Tuple[str, str, Dict[str, str]]] = {
+    "navbar":        ("Navbar",       "landing", {"on_cta": "onCta"}),
+    "hero":          ("Hero",         "landing", {"on_primary": "onPrimary", "on_secondary": "onSecondary"}),
+    "feature_grid":  ("FeatureGrid",  "landing", {}),
+    "feature":       ("Feature",      "landing", {}),
+    "pricing":       ("Pricing",      "landing", {}),
+    "plan":          ("Plan",         "landing", {"on_click": "onClick"}),
+    "testimonials":  ("Testimonials", "landing", {}),
+    "testimonial":   ("Testimonial",  "landing", {}),
+    "logo_cloud":    ("LogoCloud",    "landing", {}),
+    "faq":           ("Faq",          "landing", {}),
+    "question":      ("Question",     "landing", {}),
+    "cta_band":      ("CtaBand",      "landing", {"on_click": "onClick", "on_secondary": "onSecondary"}),
+    "site_footer":   ("SiteFooter",   "landing", {}),
+    "avatar":        ("PersonAvatar", "design",  {}),
+    "list_item":     ("ListItem",     "design",  {"on_click": "onClick"}),
+    "progress_ring": ("ProgressRing", "design",  {}),
+    "carousel":      ("Carousel",     "design",  {}),
+}
+
 
 # ── shadcn component map ───────────────────────────────────────────────────────
 # MCN tag → (shadcn component name(s), shadcn package name, JSX tag(s))
@@ -103,8 +126,6 @@ _SHADCN: Dict[str, Tuple[List[str], str, str]] = {
     "modal":        (["Dialog","DialogContent","DialogHeader","DialogTitle"],
                      "dialog",  "Dialog"),
     "scroll_area":  (["ScrollArea"],                   "scroll-area", "ScrollArea"),
-    "avatar":       (["Avatar","AvatarImage","AvatarFallback"],
-                     "avatar",  "Avatar"),
     "progress":     (["Progress"],                     "progress", "Progress"),
     "skeleton":     (["Skeleton"],                     "skeleton", "Skeleton"),
     "toast":        ([],                               "toast",    "toast"),
@@ -193,6 +214,44 @@ _THEMES: Dict[str, Dict[str, str]] = {
     },
 }
 
+
+
+# ── Brand colors ─────────────────────────────────────────────────────────────
+
+BRAND_NAMES: Dict[str, str] = {
+    "blue": "#2563eb", "indigo": "#4f46e5", "violet": "#7c3aed", "purple": "#9333ea", "pink": "#db2777",
+    "rose": "#e11d48", "red": "#dc2626", "orange": "#ea580c", "amber": "#d97706", "green": "#16a34a",
+    "emerald": "#059669", "teal": "#0d9488", "cyan": "#0891b2", "sky": "#0284c7", "slate": "#334155",
+    "black": "#111111",
+}
+
+
+def brand_hex(brand: str) -> Optional[str]:
+    """`brand` as #rrggbb: a hex color or one of BRAND_NAMES; None when it isn't one."""
+    value = (brand or "").strip().lower()
+    value = BRAND_NAMES.get(value, value)
+    if re.fullmatch(r"#[0-9a-f]{3}", value):
+        value = "#" + "".join(c * 2 for c in value[1:])
+    return value if re.fullmatch(r"#[0-9a-f]{6}", value) else None
+
+
+def brand_colors(brand: str) -> Optional[Dict[str, Dict[str, str]]]:
+    """The theme variables for a brand color, for light and dark mode (HSL, as the kit uses)."""
+    import colorsys
+    hex_ = brand_hex(brand)
+    if not hex_:
+        return None
+    r, g, b = (int(hex_[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    hsl = lambda hh, ss, ll: f"{hh * 360:.1f} {ss * 100:.1f}% {ll * 100:.1f}%"
+    on = "0 0% 100%" if lum < 0.6 else "222.2 47.4% 11.2%"
+    dark_l = min(max(l, 0.55), 0.7)                     # brighter on dark backgrounds
+    return {
+        "light": {"--primary": hsl(h, s, l), "--primary-foreground": on, "--ring": hsl(h, s, l)},
+        "dark":  {"--primary": hsl(h, s, dark_l), "--primary-foreground": "0 0% 100%" if dark_l < 0.62 else "222.2 47.4% 11.2%",
+                  "--ring": hsl(h, s, dark_l)},
+    }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -834,7 +893,7 @@ class UICompiler:
 
         # 5. globals.css with theme variables
         css_path = src / "globals.css"
-        css_path.write_text(self._gen_globals_css(theme))
+        css_path.write_text(self._gen_globals_css(theme, app_decl.brand if app_decl else ""))
         written.append(css_path)
         print(f"  write  {css_path.relative_to(self.out.parent)}")
 
@@ -1440,6 +1499,9 @@ class UICompiler:
                 if pkg_path not in acc:
                     acc[pkg_path] = []
                 acc[pkg_path].extend(names)
+            if tag in _DESIGN:
+                comp_name, module, _ = _DESIGN[tag]
+                acc.setdefault(f"@/components/ui/{module}", []).append(comp_name)
 
             # form fields with a label attr render <Label> → need its import
             if tag in ("input", "textarea", "select", "file_upload"):
@@ -1481,6 +1543,9 @@ class UICompiler:
                                      text=el.text, children=el.children)
             inner = self._element_to_jsx(inner_el, indent + 2)
             return [f"{pad}{{({cond}) && ("] + inner + [f"{pad})}}"]
+
+        if tag in _DESIGN:
+            return self._design_element(el, indent)
 
         if tag in _KIT_TAGS:
             return self._kit_element(el, indent)
@@ -1953,7 +2018,9 @@ class UICompiler:
             for i, child in enumerate(el.children):
                 if child.tag == "accordion_item":
                     title_attr = next((a for a in child.attrs if a.key == "title"), None)
-                    title      = _expr_to_ts(title_attr.value) if title_attr else f'"Item {i + 1}"'
+                    # accordion_item "Question" (or title="...") names the section
+                    title      = (_expr_to_ts(title_attr.value) if title_attr
+                                  else _expr_to_ts(child.text) if child.text is not None else f'"Item {i + 1}"')
                     lines.append(f'{pad}  <AccordionItem value="item-{i}">')
                     lines.append(f'{pad}    <AccordionTrigger>{{{title}}}</AccordionTrigger>')
                     lines.append(f'{pad}    <AccordionContent>')
@@ -2118,6 +2185,45 @@ class UICompiler:
             f"{p2}))}}",
             f"{pad}</TableBody>",
         ]
+
+    def _design_element(self, el: ast.UIElement, indent: int) -> List[str]:
+        """A landing-page section or app-design element. Attributes become camelCase
+        props, `on_*` attributes call an `on` handler (with `item=` as its value) or an
+        endpoint, the text is the title, and children render inside."""
+        pad = " " * indent
+        comp_name, _, actions = _DESIGN[el.tag]
+        handlers = {h.event for h in self._current_comp.handlers} if self._current_comp else set()
+        item = next((a.value for a in el.attrs if a.key == "item"), None)
+        arg = _expr_to_ts(item) if item is not None else ""
+        props: List[str] = []
+        if el.text is not None and not any(a.key in ("title", "name") for a in el.attrs):
+            props.append(f"{'name' if el.tag == 'avatar' else 'title'}={{{_expr_to_ts(el.text)}}}")
+        for attr in el.attrs:
+            key, val = attr.key, attr.value
+            if key == "item":
+                continue
+            if key in actions or key.startswith("on_"):
+                prop = actions.get(key) or "on" + _pascal(key[3:])
+                if isinstance(val, ast.Variable) and val.name in handlers:
+                    props.append(f"{prop}={{() => {_handler_name(val.name)}({arg})}}")
+                elif isinstance(val, ast.Variable):
+                    props.append(f"{prop}={{async () => api.post(\"/{val.name}\", {{}})}}")
+                continue
+            name = _camel(key)
+            if val is None:
+                props.append(name)
+            elif isinstance(val, ast.Literal) and isinstance(val.value, str):
+                props.append(f"{name}={{{json.dumps(val.value)}}}")
+            else:
+                props.append(f"{name}={{{_expr_to_ts(val)}}}")
+        open_tag = f"<{comp_name}{(' ' + ' '.join(props)) if props else ''}"
+        if not el.children:
+            return [f"{pad}{open_tag} />"]
+        lines = [f"{pad}{open_tag}>"]
+        for child in el.children:
+            lines.extend(self._element_to_jsx(child, indent + 2))
+        lines.append(f"{pad}</{comp_name}>")
+        return lines
 
     def _kit_element(self, el: ast.UIElement, indent: int) -> List[str]:
         """A kit component: attributes become props, and attributes that name an
@@ -2403,6 +2509,21 @@ class UICompiler:
         imports = "\n".join(f'import {{ {name} }} from "./components/{name}"' for name in components
                             if name in used or (not nav and name in names))
 
+        if layout and layout.page and not nav:
+            # A landing page: the components fill the screen, without the app frame
+            stacked = "\n".join(f"      <{name} />" for name in names)
+            return f'''import {{ SitePage }} from "@/components/ui/landing"
+{imports}
+import "./globals.css"
+
+export default function App() {{
+  return (
+    <SitePage>
+{stacked}
+    </SitePage>
+  )
+}}
+'''
         if nav:
             items = ",\n".join(
                 f'  {{ label: {json.dumps(label)}, icon: {json.dumps(icon)}, element: <{comp} />'
@@ -2581,7 +2702,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 )
 '''
 
-    def _gen_globals_css(self, theme: str) -> str:
+    def _gen_globals_css(self, theme: str, brand: str = "") -> str:
         # Full shadcn CSS variable set — theme presets only override a subset
         base_vars = {
             "--background":            "0 0% 100%",
@@ -2629,6 +2750,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         # Apply theme overrides on top of base
         overrides = _THEMES.get(theme, {})
         light = {**base_vars, **overrides}
+        # `brand "#7c3aed"` (or a name) recolors buttons, links, rings and accents
+        colors = brand_colors(brand)
+        if colors:
+            light.update(colors["light"])
+            dark_vars = {**dark_vars, **colors["dark"]}
         light_css = "\n".join(f"    {k}: {v};" for k, v in light.items())
         dark_css  = "\n".join(f"    {k}: {v};" for k, v in dark_vars.items())
         return f'''\

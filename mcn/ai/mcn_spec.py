@@ -212,6 +212,32 @@ component ComponentName
 ### Pagination
     pagination page=pageVar total=totalVar page_size=10
 
+### Consumer-style app screens (web and phone)
+    avatar "Maya Patel" size=48 online          // photo with src="...", else initials
+    list_item "Morning run" subtitle="32 min" icon="Footprints" color="rose" trailing="Done" badge="New"
+    list_item {w.title} item=w on_click=open    // `on open` receives w as `item`
+    progress_ring value=76 label="Move" color="rose" size=88    // circular 0-100
+    carousel "Up next" width=240                // children scroll sideways
+        for w in items
+            list_item {w.title} subtitle={w.detail}
+
+### Landing pages (use with the `page` layout)
+    navbar "Brand" logo="Activity" links=["Features", "Pricing", "FAQ"] cta="Get started" cta_link="#join"
+    hero "Headline" eyebrow="New" subtitle="One line" primary="Get started" primary_link="#join" secondary="See pricing" secondary_link="#pricing" variant="gradient"
+        // optional children (cards, rings, list_items) show beside the headline; or image="https://..."
+    logo_cloud "Trusted by" names=["Acme", "Globex"]
+    feature_grid "Title" id="features" eyebrow="Features" subtitle="..."
+        feature "Name" icon="Sparkles" description="..."
+    pricing "Pricing" id="pricing"
+        plan "Plus" price="$8" period="/month" description="..." features=["...", "..."] cta="Try it" link="#join" highlight
+    testimonials "Reviews" id="reviews"
+        testimonial "Quote text" author="Name" role="Role"
+    faq "Questions" id="faq"
+        question "Question?" answer="Answer."
+    cta_band "Ready?" id="join" subtitle="..." cta="Get started" on_click=handler    // children (a form) show on a card
+    site_footer "Brand" logo="Activity" text="(c) 2026 Brand" links=["Features", "Pricing"]
+    // links=["Pricing"] scroll to the section with id="pricing"; on_* attributes call an `on` handler or an endpoint
+
 ### Conditional Rendering
     div show=boolVar            // renders only when boolVar is true
         text message            // any element can have show=
@@ -241,6 +267,14 @@ app AppName
             nav "Records"    icon="list"  component=RecordsTable
         tabs
             tab "Tab 1"  Component1
+
+## Landing page layout (no app frame; sections run edge to edge)
+app SiteName
+    title "Brand"
+    brand "violet"              // brand color: a hex like "#7c3aed" or blue|indigo|violet|purple|pink|rose|red|orange|amber|green|emerald|teal|cyan|sky|slate|black
+    layout
+        page
+            Landing
 
 ## URL routing layout (for multi-page apps)
 app AppName

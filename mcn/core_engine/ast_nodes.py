@@ -551,6 +551,7 @@ class LayoutBlock(Node):
     sidebar:    List[NavItem]  = field(default_factory=list)
     tabs:       List[TabItem]  = field(default_factory=list)
     main:       List[str]      = field(default_factory=list)   # component names
+    page:       bool           = False   # `page`: the components fill the screen without the app frame
     routes:     List["RouteItem"] = field(default_factory=list)
 
 
@@ -585,6 +586,7 @@ class AppDecl(Node):
     layout:     Optional[LayoutBlock] = None
     footer:     str                  = ""      # footer text
     logo:       str                  = ""      # icon name shown next to the title
+    brand:      str                  = ""      # brand color: "#7c3aed" or a name like "violet"
 
 
 # ── Type aliases ───────────────────────────────────────────────────────────────

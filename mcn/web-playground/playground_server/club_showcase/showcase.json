@@ -1,0 +1,27 @@
+{
+  "_about": "Apps every MCN Developer Club marketplace starts with. Their members have no login until they create an account with the same email; then the profile, apps and certificates are theirs.",
+  "members": [
+    {"email": "praveen.p@macincode.com", "name": "Praveen P", "kind": "professional", "organization": "Macincode"},
+    {"email": "karthiga.r@macincode.com", "name": "Karthiga R", "kind": "professional", "organization": "Macincode"}
+  ],
+  "projects": [
+    {
+      "key": "pulse",
+      "author": "praveen.p@macincode.com",
+      "folder": "pulse",
+      "title": "Pulse",
+      "tagline": "A fitness and wellness tracker with activity rings, workouts and an AI coach",
+      "category": "Health",
+      "description": "Pulse turns steps, sleep and workouts into a daily picture: a dark hero with move, goal and water rings, stat tiles, an 'Up next' carousel of planned workouts, weekly activity and heart-rate charts, macros, and habits. Plan workouts on a kanban board, ask the AI coach about training or food, and edit your profile. Built with MCN's app design elements (hero, progress_ring, carousel, list_item, avatar) and a violet brand colour; the same file runs on the web and as a native Flutter app."
+    },
+    {
+      "key": "pulse_site",
+      "author": "karthiga.r@macincode.com",
+      "folder": "pulse_site",
+      "title": "Pulse landing page",
+      "tagline": "A modern marketing site with pricing, reviews, FAQ and a waitlist",
+      "category": "Business",
+      "description": "The landing page for Pulse, built with MCN's page layout: a sticky navbar whose links scroll to each section, a gradient hero with live rings beside the headline, a logo cloud, six features, three pricing plans with a highlighted favourite, reviews, an FAQ and a waitlist form that saves sign-ups to its own backend. It follows one brand colour in light and dark mode and is responsive down to phones, where it also runs as a native app."
+    }
+  ]
+}

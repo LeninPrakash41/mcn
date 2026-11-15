@@ -108,10 +108,17 @@ String mcnErrorText(Object err) {
 
 const Color _seed = Color(0xFF2563EB); // Vibrant modern primary blue
 
-ThemeData mcnTheme(Brightness brightness) {
+ThemeData mcnTheme(Brightness brightness, [Color? brand]) {
   final isDark = brightness == Brightness.dark;
+  // A brand color is used as it is (Material would soften a seed color)
+  final hsl = brand == null ? null : HSLColor.fromColor(brand);
+  final brandPrimary = hsl == null ? null
+      : isDark ? hsl.withLightness(hsl.lightness.clamp(0.6, 0.72)).toColor() : brand;
   final scheme = ColorScheme.fromSeed(
-    seedColor: _seed,
+    seedColor: brand ?? _seed,
+    primary: brandPrimary,
+    onPrimary: brandPrimary == null ? null
+        : (brandPrimary.computeLuminance() > 0.45 ? const Color(0xFF0F172A) : Colors.white),
     brightness: brightness,
     surface: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
   );
@@ -308,6 +315,10 @@ const Map<String, IconData> _icons = {
   'webhook': LucideIcons.webhook, 'wifi': LucideIcons.wifi, 'wind': LucideIcons.wind,
   'workflow': LucideIcons.workflow, 'wrench': LucideIcons.wrench, 'x': LucideIcons.x, 'xcircle': LucideIcons.xCircle,
   'zap': LucideIcons.zap,
+  'footprints': LucideIcons.footprints, 'heartpulse': LucideIcons.heartPulse, 'dumbbell': LucideIcons.dumbbell,
+  'salad': LucideIcons.salad, 'apple': LucideIcons.apple, 'bike': LucideIcons.bike, 'watch': LucideIcons.watch,
+  'quote': LucideIcons.quote, 'medal': LucideIcons.medal, 'gift': LucideIcons.gift, 'crown': LucideIcons.crown,
+  'calendarcheck': LucideIcons.calendarCheck,
 };
 
 IconData mcnIcon(dynamic name) => _icons[mcnStr(name).toLowerCase().replaceAll(RegExp(r'[-_ ]'), '')] ?? LucideIcons.circle;
@@ -390,10 +401,12 @@ class MCNSection {
 class MCNScope extends InheritedWidget {
   final String title;
   final VoidCallback? openDrawer;
-  const MCNScope({super.key, required this.title, this.openDrawer, required super.child});
+  /// A `page` layout: the screen has no app bar (its own navbar, if any, is part of the page)
+  final bool bare;
+  const MCNScope({super.key, required this.title, this.openDrawer, this.bare = false, required super.child});
   static MCNScope? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<MCNScope>();
   @override
-  bool updateShouldNotify(MCNScope old) => old.title != title || old.openDrawer != openDrawer;
+  bool updateShouldNotify(MCNScope old) => old.title != title || old.openDrawer != openDrawer || old.bare != bare;
 }
 
 /// Phones: a bottom navigation bar (up to five sections) or a drawer (more).
@@ -403,13 +416,21 @@ class MCNApp extends StatefulWidget {
   final String title;
   final String? logo;
   final List<MCNSection> sections;
-  const MCNApp({super.key, required this.title, required this.sections, this.logo});
+  /// Brand color ("#7c3aed"): buttons, links, rings and accents follow it
+  final String? brand;
+  /// A `page` layout (landing pages): one screen without the app bar
+  final bool page;
+  const MCNApp({super.key, required this.title, required this.sections, this.logo, this.brand, this.page = false});
   @override
   State<MCNApp> createState() => _MCNAppState();
 }
 
 class _MCNAppState extends State<MCNApp> {
   int _index = 0;
+  Color? get _brandColor {
+    final b = widget.brand ?? '';
+    return RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(b) ? Color(int.parse('FF${b.substring(1)}', radix: 16)) : null;
+  }
   late final List<GlobalKey<NavigatorState>> _tabs = [for (final _ in widget.sections) GlobalKey<NavigatorState>()];
   final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
 
@@ -438,7 +459,7 @@ class _MCNAppState extends State<MCNApp> {
     return Navigator(
       key: _tabs[i],
       onGenerateRoute: (settings) => MaterialPageRoute(settings: settings,
-          builder: (_) => MCNScope(title: s.label, openDrawer: openDrawer, child: s.build())),
+          builder: (_) => MCNScope(title: s.label, openDrawer: openDrawer, bare: widget.page, child: s.build())),
     );
   }
 
@@ -534,8 +555,8 @@ class _MCNAppState extends State<MCNApp> {
         title: widget.title,
         debugShowCheckedModeBanner: false,
         scaffoldMessengerKey: _messenger,
-        theme: mcnTheme(Brightness.light),
-        darkTheme: mcnTheme(Brightness.dark),
+        theme: mcnTheme(Brightness.light, _brandColor),
+        darkTheme: mcnTheme(Brightness.dark, _brandColor),
         themeMode: ThemeMode.system,
         home: Builder(builder: _shell),
       );
@@ -572,9 +593,10 @@ class MCNPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
 
+    final bare = scope?.bare == true && !canPop;
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
+      appBar: bare ? null : AppBar(
         title: Text(
           pageTitle,
           style: GoogleFonts.inter(
@@ -620,17 +642,27 @@ class MCNPage extends StatelessWidget {
       ),
       body: LayoutBuilder(builder: (context, size) {
         final side = math.max(16.0, (size.maxWidth - 1100) / 2);
+        final top = bare ? MediaQuery.of(context).padding.top + 12 : 16.0;
         final items = [
           if (error != null) _MCNLoadError(message: error!, onRetry: onRetry),
           ...children,
         ];
-        final list = ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(side, 16, side, 28),
-          itemCount: items.length,
-          itemBuilder: (_, i) => items[i],
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-        );
+        // A page builds every section up front, so "#pricing" links can scroll to any of them
+        final Widget list = bare
+            ? SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(side, top, side, 28),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(height: 24), items[i]],
+                ]),
+              )
+            : ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(side, top, side, 28),
+                itemCount: items.length,
+                itemBuilder: (_, i) => items[i],
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+              );
         return onRefresh == null
             ? list
             : RefreshIndicator.adaptive(
@@ -690,6 +722,8 @@ class MCNGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
     final allStats = children.every((w) => w is MCNStat);
+    // Rings and avatars are small: they sit side by side even on phones
+    final allSmall = children.isNotEmpty && children.every((w) => w is MCNProgressRing || w is MCNAvatar);
     final int n;
     if (c.maxWidth > 900) {
       n = columns;
@@ -697,7 +731,9 @@ class MCNGrid extends StatelessWidget {
       n = math.min(2, columns);
     } else {
       // Mobile screen (< 600px width)
-      if (allStats && columns >= 2 && c.maxWidth >= 260) {
+      if (allSmall) {
+        n = math.max(1, math.min(columns, (c.maxWidth / 86).floor()));
+      } else if (allStats && columns >= 2 && c.maxWidth >= 260) {
         n = 2; // 2x2 grid for stats
       } else {
         n = 1; // Full width for cards, charts, forms, tables
@@ -708,7 +744,7 @@ class MCNGrid extends StatelessWidget {
     return Wrap(
       spacing: gap,
       runSpacing: gap,
-      children: [for (final child in children) SizedBox(width: w, child: child)],
+      children: [for (final child in children) SizedBox(width: w, child: allSmall ? Center(child: child) : child)],
     );
   });
 }
@@ -835,8 +871,15 @@ class MCNStat extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                '${mcnFormat(value)}${mcnStr(unit)}',
+              child: Text.rich(
+                TextSpan(text: mcnFormat(value), children: [
+                  // The unit sits after the number, smaller and muted, as on the web
+                  if (mcnStr(unit).isNotEmpty)
+                    TextSpan(
+                      text: ' ${mcnStr(unit)}',
+                      style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w400, color: t.bodySmall?.color, letterSpacing: 0),
+                    ),
+                ]),
                 maxLines: 1,
                 style: t.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -1847,5 +1890,495 @@ class _MCNChatState extends State<MCNChat> {
         ),
       ]),
     );
+  }
+}
+
+// ── Landing pages and app design ─────────────────────────────────────────────
+// navbar, hero, feature_grid/feature, pricing/plan, testimonials/testimonial,
+// logo_cloud, faq/question, cta_band, site_footer, avatar, list_item,
+// progress_ring and carousel: the same elements as the web kit, as native widgets.
+
+/// Sections with an `id` register here, so "#pricing" links scroll to them.
+final Map<String, GlobalKey> _anchors = {};
+GlobalKey mcnAnchor(String id) => _anchors.putIfAbsent(id, () => GlobalKey(debugLabel: id));
+
+String _slug(dynamic s) => mcnStr(s).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+
+/// Follow a link: "#pricing" scrolls to that section (other links open on the web).
+void mcnFollow(dynamic link) {
+  final l = mcnStr(link);
+  if (!l.startsWith('#')) return;
+  final ctx = _anchors[l.substring(1)]?.currentContext;
+  if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+}
+
+VoidCallback? _act(VoidCallback? handler, dynamic link) =>
+    handler ?? (mcnStr(link).isEmpty ? null : () => mcnFollow(link));
+
+Color mcnTint(BuildContext context, dynamic color) {
+  final c = mcnStr(color).trim();
+  if (c.isEmpty || c == 'primary') return Theme.of(context).colorScheme.primary;
+  if (RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(c)) return Color(int.parse('FF${c.substring(1)}', radix: 16));
+  const extra = {'rose': Color(0xFFF43F5E), 'teal': Color(0xFF14B8A6), 'cyan': Color(0xFF06B6D4), 'indigo': Color(0xFF6366F1)};
+  return extra[c.toLowerCase()] ?? mcnTone(c);
+}
+
+String mcnInitials(dynamic name) {
+  final words = mcnStr(name).split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2);
+  final s = words.map((w) => w[0].toUpperCase()).join();
+  return s.isEmpty ? '?' : s;
+}
+
+Widget _anchored(dynamic id, Widget child) => mcnStr(id).isEmpty ? child : KeyedSubtree(key: mcnAnchor(mcnStr(id)), child: child);
+
+class _MCNCta extends StatelessWidget {
+  final dynamic label;
+  final VoidCallback? onPressed;
+  final String variant; // primary | outline | light
+  final bool expand;
+  const _MCNCta(this.label, {this.onPressed, this.variant = 'primary', this.expand = false});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tap = onPressed == null ? null : () { HapticFeedback.lightImpact(); onPressed!(); };
+    final shape = WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)));
+    const pad = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 22, vertical: 14));
+    final text = Text(mcnStr(label), style: const TextStyle(fontWeight: FontWeight.w700));
+    final Widget b = switch (variant) {
+      'outline' => OutlinedButton(onPressed: tap ?? () {}, style: ButtonStyle(shape: shape, padding: pad), child: text),
+      'light' => FilledButton(onPressed: tap ?? () {}, style: ButtonStyle(shape: shape, padding: pad,
+          backgroundColor: const WidgetStatePropertyAll(Colors.white), foregroundColor: WidgetStatePropertyAll(scheme.primary)), child: text),
+      _ => FilledButton(onPressed: tap ?? () {}, style: ButtonStyle(shape: shape, padding: pad), child: text),
+    };
+    return expand ? SizedBox(width: double.infinity, child: b) : b;
+  }
+}
+
+class _MCNSectionHead extends StatelessWidget {
+  final dynamic eyebrow, title, subtitle;
+  const _MCNSectionHead({this.eyebrow, this.title, this.subtitle});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    if (title == null && subtitle == null && eyebrow == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18, top: 8),
+      child: Column(children: [
+        if (eyebrow != null) Text(mcnStr(eyebrow).toUpperCase(),
+            style: t.labelMedium?.copyWith(color: scheme.primary, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+        if (title != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(mcnStr(title), textAlign: TextAlign.center,
+            style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.6))),
+        if (subtitle != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(mcnStr(subtitle), textAlign: TextAlign.center,
+            style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant, height: 1.45))),
+      ]),
+    );
+  }
+}
+
+class MCNNavbar extends StatelessWidget {
+  final dynamic title, logo, links, cta, ctaLink;
+  final VoidCallback? onCta;
+  const MCNNavbar({super.key, this.title, this.logo, this.links, this.cta, this.ctaLink, this.onCta});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final items = mcnList(links);
+    return Row(children: [
+      Container(width: 34, height: 34, decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(10)),
+          child: Icon(mcnIcon(logo ?? 'sparkles'), size: 18, color: scheme.onPrimary)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(mcnStr(title), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+      if (items.isNotEmpty) PopupMenuButton<String>(
+        icon: const Icon(LucideIcons.menu, size: 22),
+        onSelected: (l) => mcnFollow(l.startsWith('#') ? l : '#${_slug(l)}'),
+        itemBuilder: (_) => [for (final l in items) PopupMenuItem(value: mcnStr(l), child: Text(mcnStr(l).replaceFirst('#', '')))],
+      ),
+      if (cta != null) _MCNCta(cta, onPressed: _act(onCta, ctaLink)),
+    ]);
+  }
+}
+
+class MCNHero extends StatelessWidget {
+  final dynamic id, title, eyebrow, subtitle, primary, secondary, primaryLink, secondaryLink, image, note, variant;
+  final VoidCallback? onPrimary, onSecondary;
+  final List<Widget> children;
+  const MCNHero({super.key, this.id, this.title, this.eyebrow, this.subtitle, this.primary, this.secondary, this.primaryLink,
+      this.secondaryLink, this.image, this.note, this.variant, this.onPrimary, this.onSecondary, this.children = const []});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final dark = mcnStr(variant) == 'dark';
+    final fg = dark ? Colors.white : scheme.onSurface;
+    return _anchored(id, Container(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: mcnStr(variant) == 'plain' ? null : LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: dark
+              ? [Color.lerp(const Color(0xFF020617), scheme.primary, 0.45)!, const Color(0xFF020617)]
+              : [scheme.primary.withValues(alpha: 0.16), scheme.primary.withValues(alpha: 0.03)],
+        ),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (eyebrow != null) Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: (dark ? Colors.white : scheme.primary).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(99)),
+          child: Text(mcnStr(eyebrow), style: t.labelMedium?.copyWith(color: dark ? Colors.white : scheme.primary, fontWeight: FontWeight.w600)),
+        ),
+        Text(mcnStr(title), style: t.headlineMedium?.copyWith(color: fg, fontWeight: FontWeight.w800, letterSpacing: -1, height: 1.08)),
+        if (subtitle != null) Padding(padding: const EdgeInsets.only(top: 12),
+            child: Text(mcnStr(subtitle), style: t.bodyLarge?.copyWith(color: dark ? Colors.white70 : scheme.onSurfaceVariant, height: 1.45))),
+        if (primary != null || secondary != null) Padding(padding: const EdgeInsets.only(top: 20), child: Wrap(spacing: 10, runSpacing: 10, children: [
+          if (primary != null) _MCNCta(primary, onPressed: _act(onPrimary, primaryLink), variant: dark ? 'light' : 'primary'),
+          if (secondary != null) _MCNCta(secondary, onPressed: _act(onSecondary, secondaryLink), variant: 'outline'),
+        ])),
+        if (note != null) Padding(padding: const EdgeInsets.only(top: 12),
+            child: Text(mcnStr(note), style: t.bodySmall?.copyWith(color: dark ? Colors.white60 : scheme.onSurfaceVariant))),
+        if (mcnStr(image).isNotEmpty) Padding(padding: const EdgeInsets.only(top: 20),
+            child: ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.network(mcnStr(image), fit: BoxFit.cover))),
+        if (children.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 20), child: dark
+            // On the dark hero, text inside (ring labels, list rows) is light
+            ? Theme(
+                data: Theme.of(context).copyWith(colorScheme: scheme.copyWith(onSurface: Colors.white, onSurfaceVariant: Colors.white70)),
+                child: DefaultTextStyle.merge(style: const TextStyle(color: Colors.white), child: MCNStack(children: children)))
+            : MCNStack(children: children)),
+      ]),
+    ));
+  }
+}
+
+class MCNFeatureGrid extends StatelessWidget {
+  final dynamic id, title, subtitle, eyebrow, columns;
+  final List<Widget> children;
+  const MCNFeatureGrid({super.key, this.id, this.title, this.subtitle, this.eyebrow, this.columns, this.children = const []});
+  @override
+  Widget build(BuildContext context) => _anchored(id, Column(children: [
+        _MCNSectionHead(eyebrow: eyebrow, title: title, subtitle: subtitle),
+        MCNGrid(columns: columns == null ? 3 : mcnNum(columns).toInt(), children: children),
+      ]));
+}
+
+class MCNFeature extends StatelessWidget {
+  final dynamic title, description, icon;
+  const MCNFeature({super.key, this.title, this.description, this.icon});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(width: 42, height: 42, decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+          child: Icon(mcnIcon(icon ?? 'sparkles'), size: 20, color: scheme.primary)),
+      const SizedBox(height: 14),
+      Text(mcnStr(title), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+      if (description != null) Padding(padding: const EdgeInsets.only(top: 6),
+          child: Text(mcnStr(description), style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, height: 1.45))),
+    ])));
+  }
+}
+
+class MCNPricing extends StatelessWidget {
+  final dynamic id, title, subtitle, eyebrow;
+  final List<Widget> children;
+  const MCNPricing({super.key, this.id, this.title, this.subtitle, this.eyebrow, this.children = const []});
+  @override
+  Widget build(BuildContext context) => _anchored(id, Column(children: [
+        _MCNSectionHead(eyebrow: eyebrow, title: title, subtitle: subtitle),
+        MCNGrid(columns: 3, children: children),
+      ]));
+}
+
+class MCNPlan extends StatelessWidget {
+  final dynamic title, price, period, description, features, cta, link, highlight, badge;
+  final VoidCallback? onClick;
+  const MCNPlan({super.key, this.title, this.price, this.period, this.description, this.features, this.cta, this.link,
+      this.highlight, this.badge, this.onClick});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final hi = mcnTruthy(highlight);
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: hi ? scheme.primary : scheme.outlineVariant, width: hi ? 2 : 1)),
+      child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(mcnStr(title), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+          if (hi) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(99)),
+              child: Text(mcnStr(badge ?? 'Most popular'), style: t.labelSmall?.copyWith(color: scheme.onPrimary, fontWeight: FontWeight.w700))),
+        ]),
+        if (description != null) Text(mcnStr(description), style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 14),
+        Text.rich(TextSpan(text: mcnStr(price), style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w800), children: [
+          if (period != null) TextSpan(text: ' ${mcnStr(period)}', style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+        ])),
+        const SizedBox(height: 14),
+        for (final f in mcnList(features)) Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(LucideIcons.check, size: 18, color: scheme.primary),
+          const SizedBox(width: 10),
+          Expanded(child: Text(mcnStr(f))),
+        ])),
+        const SizedBox(height: 10),
+        _MCNCta(cta ?? 'Get started', onPressed: _act(onClick, link), variant: hi ? 'primary' : 'outline', expand: true),
+      ])),
+    );
+  }
+}
+
+class MCNTestimonials extends StatelessWidget {
+  final dynamic id, title, subtitle, eyebrow;
+  final List<Widget> children;
+  const MCNTestimonials({super.key, this.id, this.title, this.subtitle, this.eyebrow, this.children = const []});
+  @override
+  Widget build(BuildContext context) => _anchored(id, Column(children: [
+        _MCNSectionHead(eyebrow: eyebrow, title: title, subtitle: subtitle),
+        MCNGrid(columns: 3, children: children),
+      ]));
+}
+
+class MCNTestimonial extends StatelessWidget {
+  final dynamic title, author, role, avatar, rating;
+  const MCNTestimonial({super.key, this.title, this.author, this.role, this.avatar, this.rating});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final stars = (rating == null ? 5 : mcnNum(rating).toInt()).clamp(0, 5);
+    return Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [for (var i = 0; i < stars; i++) const Icon(Icons.star_rounded, size: 18, color: Color(0xFFFBBF24))]),
+      const SizedBox(height: 10),
+      Text('“${mcnStr(title)}”', style: t.bodyLarge?.copyWith(height: 1.45)),
+      const SizedBox(height: 14),
+      Row(children: [
+        MCNAvatar(name: author, src: avatar, size: 38),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(mcnStr(author), style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          if (role != null) Text(mcnStr(role), style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+        ])),
+      ]),
+    ])));
+  }
+}
+
+class MCNLogoCloud extends StatelessWidget {
+  final dynamic title, names;
+  const MCNLogoCloud({super.key, this.title, this.names});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return Column(children: [
+      if (title != null) Text(mcnStr(title), style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+      const SizedBox(height: 10),
+      Wrap(alignment: WrapAlignment.center, spacing: 22, runSpacing: 8, children: [
+        for (final n in mcnList(names)) Text(mcnStr(n), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800,
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.7))),
+      ]),
+    ]);
+  }
+}
+
+class MCNFaq extends StatelessWidget {
+  final dynamic id, title, subtitle, eyebrow;
+  final List<Widget> children;
+  const MCNFaq({super.key, this.id, this.title, this.subtitle, this.eyebrow, this.children = const []});
+  @override
+  Widget build(BuildContext context) => _anchored(id, Column(children: [
+        _MCNSectionHead(eyebrow: eyebrow, title: title, subtitle: subtitle),
+        Card(clipBehavior: Clip.antiAlias, child: Column(children: [
+          for (var i = 0; i < children.length; i++) ...[if (i > 0) const Divider(height: 1), children[i]],
+        ])),
+      ]));
+}
+
+class MCNQuestion extends StatelessWidget {
+  final dynamic title, answer;
+  final List<Widget> children;
+  const MCNQuestion({super.key, this.title, this.answer, this.children = const []});
+  @override
+  Widget build(BuildContext context) => Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(mcnStr(title), style: const TextStyle(fontWeight: FontWeight.w600)),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (answer != null) Text(mcnStr(answer), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.45)),
+            ...children,
+          ],
+        ),
+      );
+}
+
+class MCNCtaBand extends StatelessWidget {
+  final dynamic id, title, subtitle, cta, link, secondary, secondaryLink;
+  final VoidCallback? onClick, onSecondary;
+  final List<Widget> children;
+  const MCNCtaBand({super.key, this.id, this.title, this.subtitle, this.cta, this.link, this.secondary, this.secondaryLink,
+      this.onClick, this.onSecondary, this.children = const []});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return _anchored(id, Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [scheme.primary, Color.lerp(scheme.primary, Colors.white, 0.25)!]),
+      ),
+      child: Column(children: [
+        Text(mcnStr(title), textAlign: TextAlign.center, style: t.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+        if (subtitle != null) Padding(padding: const EdgeInsets.only(top: 10),
+            child: Text(mcnStr(subtitle), textAlign: TextAlign.center, style: t.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.88)))),
+        if (cta != null || secondary != null) Padding(padding: const EdgeInsets.only(top: 18), child: Wrap(spacing: 10, runSpacing: 10, alignment: WrapAlignment.center, children: [
+          if (cta != null) _MCNCta(cta, onPressed: _act(onClick, link), variant: 'light'),
+          if (secondary != null) _MCNCta(secondary, onPressed: _act(onSecondary, secondaryLink), variant: 'outline'),
+        ])),
+        if (children.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 18),
+            child: Card(child: Padding(padding: const EdgeInsets.all(16), child: MCNStack(children: children)))),
+      ]),
+    ));
+  }
+}
+
+class MCNSiteFooter extends StatelessWidget {
+  final dynamic title, logo, text, links;
+  const MCNSiteFooter({super.key, this.title, this.logo, this.text, this.links});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(children: [
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 28, height: 28, decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(8)),
+            child: Icon(mcnIcon(logo ?? 'sparkles'), size: 15, color: scheme.onPrimary)),
+        const SizedBox(width: 8),
+        Text(mcnStr(title), style: t.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+      ]),
+      if (mcnList(links).isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Wrap(spacing: 4, alignment: WrapAlignment.center, children: [
+        for (final l in mcnList(links)) TextButton(onPressed: () => mcnFollow(mcnStr(l).startsWith('#') ? l : '#${_slug(l)}'),
+            child: Text(mcnStr(l).replaceFirst('#', ''))),
+      ])),
+      if (text != null) Text(mcnStr(text), style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+    ]));
+  }
+}
+
+class MCNAvatar extends StatelessWidget {
+  final dynamic name, src, size, color, online;
+  const MCNAvatar({super.key, this.name, this.src, this.size, this.color, this.online});
+  @override
+  Widget build(BuildContext context) {
+    final px = size == null ? 40.0 : mcnNum(size).toDouble();
+    final tint = mcnTint(context, color);
+    final photo = mcnStr(src);
+    return SizedBox(width: px, height: px, child: Stack(children: [
+      Positioned.fill(child: CircleAvatar(
+        backgroundColor: tint.withValues(alpha: 0.16),
+        foregroundImage: photo.isEmpty ? null : NetworkImage(photo),
+        child: Text(mcnInitials(name), style: TextStyle(color: tint, fontWeight: FontWeight.w700, fontSize: math.max(11, px * 0.36))),
+      )),
+      if (mcnTruthy(online)) Positioned(right: 0, bottom: 0, child: Container(width: px * 0.28, height: px * 0.28,
+          decoration: BoxDecoration(color: const Color(0xFF10B981), shape: BoxShape.circle,
+              border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2)))),
+    ]));
+  }
+}
+
+class MCNListItem extends StatelessWidget {
+  final dynamic title, subtitle, icon, color, avatar, person, trailing, badge, link;
+  final VoidCallback? onClick;
+  const MCNListItem({super.key, this.title, this.subtitle, this.icon, this.color, this.avatar, this.person, this.trailing,
+      this.badge, this.link, this.onClick});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final tint = mcnTint(context, color);
+    final tap = _act(onClick, link);
+    final Widget? lead = (avatar != null || person != null)
+        ? MCNAvatar(name: person ?? title, src: avatar, size: 42, color: color)
+        : icon != null
+            ? Container(width: 42, height: 42, decoration: BoxDecoration(color: tint.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+                child: Icon(mcnIcon(icon), size: 20, color: tint))
+            : null;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: tap == null ? null : () { HapticFeedback.selectionClick(); tap(); },
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), child: Row(children: [
+          if (lead != null) ...[lead, const SizedBox(width: 12)],
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(mcnStr(title), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            if (subtitle != null) Text(mcnStr(subtitle), maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          ])),
+          if (badge != null) Padding(padding: const EdgeInsets.only(left: 8), child: MCNBadge(badge)),
+          if (mcnStr(trailing).isNotEmpty) Padding(padding: const EdgeInsets.only(left: 8),
+              child: Text(mcnFormat(trailing), style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+          if (tap != null) Padding(padding: const EdgeInsets.only(left: 4), child: Icon(LucideIcons.chevronRight, size: 18, color: scheme.onSurfaceVariant)),
+        ])),
+      ),
+    );
+  }
+}
+
+class MCNProgressRing extends StatelessWidget {
+  final dynamic value, label, center, color, size, thickness;
+  const MCNProgressRing({super.key, this.value, this.label, this.center, this.color, this.size, this.thickness});
+  @override
+  Widget build(BuildContext context) {
+    final px = size == null ? 96.0 : mcnNum(size).toDouble();
+    final stroke = thickness == null ? math.max(6.0, px / 10) : mcnNum(thickness).toDouble();
+    final pct = (mcnNum(value) / 100).clamp(0, 1).toDouble();
+    final tint = mcnTint(context, color);
+    final t = Theme.of(context).textTheme;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      SizedBox(width: px, height: px, child: Stack(alignment: Alignment.center, children: [
+        SizedBox.expand(child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: pct),
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (_, v, __) => CircularProgressIndicator(value: v, strokeWidth: stroke, strokeCap: StrokeCap.round,
+              color: tint, backgroundColor: tint.withValues(alpha: 0.16)),
+        )),
+        Text(center != null ? mcnStr(center) : '${(pct * 100).round()}%',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: math.max(12, px * 0.22))),
+      ])),
+      if (label != null) Padding(padding: const EdgeInsets.only(top: 8),
+          child: Text(mcnStr(label), style: t.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+    ]);
+  }
+}
+
+class MCNCarousel extends StatelessWidget {
+  final dynamic title, width;
+  final List<Widget> children;
+  const MCNCarousel({super.key, this.title, this.width, this.children = const []});
+  @override
+  Widget build(BuildContext context) {
+    final w = width == null ? 260.0 : mcnNum(width).toDouble();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (title != null) Padding(padding: const EdgeInsets.only(bottom: 10),
+          child: Text(mcnStr(title), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        physics: const BouncingScrollPhysics(),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (var i = 0; i < children.length; i++) Padding(
+            padding: EdgeInsets.only(right: i == children.length - 1 ? 0 : 12),
+            child: SizedBox(width: w, child: children[i]),
+          ),
+        ]),
+      ),
+    ]);
   }
 }

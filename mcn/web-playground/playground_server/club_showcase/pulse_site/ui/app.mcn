@@ -1,0 +1,58 @@
+// Pulse — marketing landing page
+
+component Landing
+    state email = ""
+    state message = ""
+
+    on join
+        var r = join_waitlist(email)
+        message = r.message
+        if r.success
+            notify("You're on the list", "success")
+            email = ""
+
+    render
+        navbar "Pulse" logo="Activity" links=["Features", "Pricing", "Reviews", "FAQ"] cta="Get the app" cta_link="#join"
+        hero "Train smarter. Recover better." eyebrow="New · AI coach in every plan" subtitle="Pulse turns your steps, sleep and workouts into a plan that adapts every day, with a coach you can ask anything." primary="Get the app" primary_link="#join" secondary="See pricing" secondary_link="#pricing" note="Free forever plan · No credit card"
+            card
+                card_header "Today"
+                card_content
+                    div grid_cols=3
+                        progress_ring value=76 label="Move" color="rose" size=84
+                        progress_ring value=82 label="Goal" size=84
+                        progress_ring value=60 label="Water" color="sky" size=84
+            list_item "Morning run" subtitle="32 min · 340 kcal" icon="Footprints" color="rose" trailing="Done"
+            list_item "Coach" subtitle="Take it easy today: your sleep was short." icon="Bot" badge="New"
+        logo_cloud "Trusted by teams at" names=["Northwind", "Globex", "Initech", "Umbrella", "Hooli"]
+        feature_grid "Everything you need, nothing you don't" id="features" eyebrow="Features" subtitle="One app for training, recovery and food, built around your own data."
+            feature "Adaptive plans" icon="Sparkles" description="Your week rebuilds itself around your sleep, soreness and calendar."
+            feature "An AI coach" icon="Bot" description="Ask about training, recovery or food and get answers based on your data."
+            feature "Recovery score" icon="HeartPulse" description="Know when to push and when to rest, every morning."
+            feature "Food made simple" icon="Salad" description="Snap a meal and see protein, carbs and fat in seconds."
+            feature "Works with your watch" icon="Watch" description="Apple Health, Google Fit and most wearables."
+            feature "Private by design" icon="ShieldCheck" description="Your health data stays yours. Export or delete it any time."
+        pricing "Simple pricing" id="pricing" eyebrow="Pricing" subtitle="Start free. Upgrade when you want the coach."
+            plan "Free" price="$0" period="/month" description="For getting started" features=["Activity and sleep tracking", "Weekly summaries", "Three workout plans"] cta="Start free" link="#join"
+            plan "Plus" price="$8" period="/month" description="For people who train" features=["Everything in Free", "Adaptive plans", "The AI coach", "Recovery score"] cta="Try Plus free for 14 days" link="#join" highlight
+            plan "Teams" price="$5" period="/member" description="For coaches and clubs" features=["Everything in Plus", "Challenges and leaderboards", "A coach dashboard"] cta="Talk to us" link="#join"
+        testimonials "Loved by people who move" id="reviews" eyebrow="Reviews"
+            testimonial "The first app that noticed I was overtraining before I did." author="Priya Shah" role="Marathoner"
+            testimonial "My clients actually stick to their plans now. The coach dashboard is gold." author="Daniel Okoro" role="Personal trainer"
+            testimonial "Asking the coach what to eat after leg day is my new habit." author="Sam Lee" role="Beginner"
+        faq "Questions" id="faq" eyebrow="FAQ"
+            question "Does it work with my watch?" answer="Pulse reads from Apple Health and Google Fit, so most watches and rings work."
+            question "Can I cancel any time?" answer="Yes. Plus is month to month, and you keep your data if you leave."
+            question "Is my data private?" answer="Your data is encrypted and never sold. You can export or delete it whenever you like."
+        cta_band "Ready to feel the difference?" id="join" subtitle="Join the waitlist for Pulse for teams and get three months of Plus free."
+            form on_submit=join
+                input bind=email label="Work email" placeholder="you@company.com"
+                button "Join the waitlist"
+                text message
+        site_footer "Pulse" logo="Activity" text="© 2026 Pulse Labs" links=["Features", "Pricing", "FAQ"]
+
+app PulseSite
+    title "Pulse"
+    brand "violet"
+    layout
+        page
+            Landing

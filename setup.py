@@ -102,6 +102,8 @@ setup(
             "web-playground/playground_server/templates/*.json",
             "web-playground/playground_server/templates/*/*",
             "web-playground/playground_server/templates/*/*/*",
+            "web-playground/playground_server/club_showcase/*.json",
+            "web-playground/playground_server/club_showcase/*/*/*",
         ],
     },
     exclude_package_data={"mcn": ["web-playground/workspace/*", "web-playground/node_modules/*"]},

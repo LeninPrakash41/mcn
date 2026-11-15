@@ -41,7 +41,29 @@ def _signed_in():
     user = _current_user()
     if not user or not user.get("sub"):
         return None, (jsonify({"error": "Sign in to use the MCN Developer Club"}), 401)
+    # A showcase member who has now created an account gets their profile, apps and certificates
+    if user.get("email"):
+        store.claim_showcase(user["sub"], user["email"])
     return user, None
+
+
+_showcase_done: set = set()      # club databases checked in this process
+
+
+@bp.before_app_request
+def _seed_showcase():
+    """List the showcase apps in this marketplace the first time the club is used."""
+    db = str(store._DB_PATH)
+    if db in _showcase_done or not request.path.startswith(("/club", "/api/club")) or not is_hosted():
+        return
+    if not store.showcase_enabled():
+        return
+    _showcase_done.add(db)
+    try:
+        store.seed_showcase(_check)
+    except Exception as exc:                # never block the club over the showcase
+        _showcase_done.discard(db)
+        print(f"[club] showcase not listed: {exc}")
 
 
 def _reviewer():

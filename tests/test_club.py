@@ -52,6 +52,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("MCN_ADMIN_EMAILS", "judge@example.com")
     monkeypatch.delenv("MCN_STUDIO_SIGNUP_DOMAINS", raising=False)
     monkeypatch.delenv("MCN_STUDIO_MODE", raising=False)
+    monkeypatch.setenv("MCN_CLUB_SHOWCASE", "0")       # tests start from an empty marketplace
     return c
 
 
@@ -362,3 +363,33 @@ def test_old_club_databases_gain_season_columns(tmp_path):
         assert "season_id" in cols
     finally:
         club_store.set_db_path(before)
+
+
+def test_showcase_apps_are_listed_and_claimed_by_their_authors(client, monkeypatch):
+    """Every marketplace starts with the showcase apps; their members have no login until
+    they create an account with the same email, which then owns the profile, apps and certificates."""
+    monkeypatch.setenv("MCN_CLUB_SHOWCASE", "1")
+    with hosted():
+        listed = {p["title"]: p for p in client.get("/api/club/marketplace").get_json()["projects"]}
+        assert {"Pulse", "Pulse landing page"} <= set(listed)
+        pulse = listed["Pulse"]
+        assert pulse["author"] == "Praveen P" and pulse["author_org"] == "Macincode"
+        assert pulse["stats"]["screens"] >= 4 and pulse["stats"]["uses_ai"]
+        assert listed["Pulse landing page"]["author"] == "Karthiga R"
+        assert len(client.get("/api/club/marketplace").get_json()["projects"]) == 2     # listed once
+        assert "@" not in pulse["user_id"]                                                # profile links don't show the email
+        # Nobody can sign in as a showcase member until they create the account themselves
+        assert client.post("/api/auth/login", json={"email": "praveen.p@macincode.com", "password": PWD}).status_code == 401
+    praveen = register(client, "praveen.p@macincode.com")
+    with hosted():
+        me = client.get("/api/club/me", headers=praveen).get_json()
+    assert me["member"]["name"] == "Praveen P"
+    assert [p["title"] for p in me["projects"]] == ["Pulse"]
+    assert {c["kind"] for c in me["certificates"]} == {"participant", "certified"}
+    karthiga = register(client, "karthiga.r@macincode.com")
+    with hosted():
+        mine = client.get("/api/club/me", headers=karthiga).get_json()
+        assert [p["title"] for p in mine["projects"]] == ["Pulse landing page"]
+        # Someone else signing in claims nothing
+        other = register(client, "someone@example.com")
+        assert client.get("/api/club/me", headers=other).get_json()["member"] is None

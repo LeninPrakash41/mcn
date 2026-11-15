@@ -1,0 +1,131 @@
+// Pulse — a fitness and wellness tracker (web and mobile)
+
+component Today
+    state t = {greeting: "", subtitle: "", steps: "", calories: 0, heart: 0, sleep: "", goal: 0, move: 0, hydration: 0, streak: ""}
+    state week = []
+    state heart = []
+    state food = []
+    state habits = []
+
+    on load
+        t = today().data
+        week = weekly().data
+        heart = heart_trend().data
+        food = macros().data
+        habits = list_habits().data
+        upcoming = upcoming_workouts().data
+
+    state upcoming = []
+
+    on start
+        notify("Workout started. Have a great session!", "success")
+
+    on open_workout
+        notify(item.title + ": " + str(item.minutes) + " minutes, " + item.intensity + " intensity", "info")
+
+    render
+        hero {t.greeting} eyebrow={t.streak} subtitle={t.subtitle} primary="Start workout" on_primary=start variant="dark"
+            div grid_cols=3
+                progress_ring value=t.move label="Move" color="rose" size=88
+                progress_ring value=t.goal label="Goal" color="#a78bfa" size=88
+                progress_ring value=t.hydration label="Water" color="sky" size=88
+        div grid_cols=4
+            stat_card label="Steps" value=t.steps icon="Footprints" color="green"
+            stat_card label="Calories" value=t.calories unit="kcal" icon="Flame" color="orange"
+            stat_card label="Resting heart" value=t.heart unit="bpm" icon="HeartPulse" color="red"
+            stat_card label="Sleep" value=t.sleep icon="Moon" color="purple"
+        carousel "Up next" width=230
+            for w in upcoming
+                list_item {w.title} subtitle={w.detail} icon={w.icon} color={w.color} item=w on_click=open_workout
+        list_item "Coach" subtitle="Your sleep was short: keep today's run easy." icon="Bot" badge="New" person="Pulse Coach"
+        card
+            card_header "Activity this week"
+            card_content
+                area_chart data=week x_key="day" y_key=["active", "rest"] height=220
+        div grid_cols=2
+            card
+                card_header "Heart rate today"
+                card_content
+                    line_chart data=heart x_key="time" y_key="bpm" height=200
+            card
+                card_header "Macros"
+                card_content
+                    donut_chart data=food name_key="name" value_key="grams" height=200
+        h2 "Habits"
+        for h in habits
+            list_item {h.name} subtitle={h.target} icon={h.icon} color={h.color} trailing={h.state}
+
+component Workouts
+    state items = []
+    state title = ""
+    state kind = "Cardio"
+    state minutes = 30
+    state message = ""
+
+    on load
+        items = list_workouts().data
+
+    on add
+        var r = add_workout(title, kind, minutes)
+        if r.success
+            notify("Workout planned", "success")
+            title = ""
+            items = list_workouts().data
+        else
+            message = r.error
+
+    on move
+        move_workout(item.id, item.status)
+        items = list_workouts().data
+
+    on remove
+        remove_workout(row.id)
+        items = list_workouts().data
+
+    render
+        kanban data=items group_by="status" columns=["Ideas", "Planned", "Done"] title_key="title" fields=["kind", "minutes", "intensity"] on_move=move
+        card
+            card_header "Plan a workout"
+            form on_submit=add
+                input bind=title label="Workout" placeholder="e.g. Hill sprints"
+                select bind=kind label="Type" options=["Cardio", "Strength", "Mobility"]
+                input bind=minutes label="Minutes" type="number"
+                button "Add to plan" icon="Plus"
+                text message
+        data_table data=items title="All workouts" columns=["title", "kind", "minutes", "calories", "intensity", "status"] filters=["kind", "status"] on_delete=remove
+
+component Coach
+    render
+        chat "Coach" endpoint=ask_coach welcome="Hi Maya! Ask me about training, recovery or food." suggestions=["Plan my week", "Am I overtraining?", "High-protein breakfast ideas"]
+
+component Profile
+    state name = "Maya Patel"
+    state goal = "Run a half marathon"
+    state reminders = true
+    state units = "Metric"
+
+    on save
+        notify("Profile saved", "success")
+
+    render
+        list_item {name} subtitle={goal} person={name} trailing="Plus"
+        card
+            card_header "You"
+            form on_submit=save
+                input bind=name label="Name"
+                input bind=goal label="Main goal"
+                select bind=units label="Units" options=["Metric", "Imperial"]
+                switch bind=reminders label="Workout reminders"
+                button "Save"
+        alert "Your data stays on your own server." title="Private by design"
+
+app Pulse
+    title "Pulse"
+    logo "Activity"
+    brand "violet"
+    layout
+        sidebar
+            nav "Today" Today icon="House"
+            nav "Workouts" Workouts icon="Dumbbell"
+            nav "Coach" Coach icon="Bot"
+            nav "Profile" Profile icon="User"

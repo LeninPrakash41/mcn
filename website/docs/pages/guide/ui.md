@@ -136,8 +136,62 @@ app CRM
 | `sidebar` with `nav "Label" Component` | Business apps with many sections. Collapses to icons, becomes a drawer on phones; `group` adds headings |
 | `tabs` with `tab "Label" Component` | A few screens of equal weight |
 | `main` listing components | A single page that stacks components |
+| `page` listing components | A landing page: the components fill the screen without the app frame |
+
+`brand "violet"` (or a hex color such as `"#7c3aed"`) in the `app` block colors buttons, links, rings and accents in light and dark mode, on the web and on phones.
 
 See the [UI element reference](#/reference/ui-elements) for every element and attribute.
+
+## Consumer-style screens
+
+For apps that should feel like a consumer product rather than a dashboard: a `hero` banner, `avatar`s, `list_item` rows, `progress_ring`s and sideways `carousel`s. They're native widgets on phones.
+
+```mcn fragment
+render
+    hero {t.greeting} eyebrow={t.streak} subtitle={t.subtitle} primary="Start workout" on_primary=start variant="dark"
+        div grid_cols=3
+            progress_ring value=t.move label="Move" color="rose"
+            progress_ring value=t.goal label="Goal"
+            progress_ring value=t.water label="Water" color="sky"
+    carousel "Up next" width=230
+        for w in upcoming
+            list_item {w.title} subtitle={w.detail} icon="Dumbbell" item=w on_click=open_workout
+    list_item "Coach" subtitle="Keep today's run easy" icon="Bot" badge="New"
+```
+
+`item=w` hands the row to the handler, which reads it as `item` (`on open_workout` → `notify(item.title)`).
+
+## Landing pages
+
+The `page` layout and the landing-page sections build a marketing site from the same file as the app, with the same brand color:
+
+```mcn
+component Landing
+    render
+        navbar "Pulse" logo="Activity" links=["Features", "Pricing", "FAQ"] cta="Get the app" cta_link="#join"
+        hero "Train smarter. Recover better." eyebrow="New" subtitle="A plan that adapts every day." primary="Get the app" primary_link="#join" secondary="See pricing" secondary_link="#pricing"
+        feature_grid "Everything you need" id="features"
+            feature "Adaptive plans" icon="Sparkles" description="Your week rebuilds itself around your sleep."
+            feature "An AI coach" icon="Bot" description="Answers based on your own data."
+        pricing "Simple pricing" id="pricing"
+            plan "Free" price="$0" period="/month" features=["Tracking", "Weekly summaries"] cta="Start free"
+            plan "Plus" price="$8" period="/month" features=["Adaptive plans", "The AI coach"] cta="Try Plus" highlight
+        testimonials "Loved by people who move"
+            testimonial "It noticed I was overtraining before I did." author="Priya Shah" role="Marathoner"
+        faq "Questions" id="faq"
+            question "Can I cancel any time?" answer="Yes, month to month."
+        cta_band "Ready to start?" id="join" cta="Get the app"
+        site_footer "Pulse" text="© 2026 Pulse Labs" links=["Features", "Pricing"]
+
+app Site
+    title "Pulse"
+    brand "violet"
+    layout
+        page
+            Landing
+```
+
+Navbar and footer links scroll to the section with the matching `id`, on the web and in the phone app. A form nested in `cta_band` (a waitlist, say) shows on a card inside it. See [landing pages](#/reference/ui-elements#landing-pages) for every attribute.
 
 ## Preview and build
 

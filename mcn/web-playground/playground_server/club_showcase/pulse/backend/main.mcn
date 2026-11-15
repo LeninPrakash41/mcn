@@ -1,0 +1,94 @@
+// Pulse — a fitness and wellness tracker (backend)
+
+query("CREATE TABLE IF NOT EXISTS workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, kind TEXT, minutes INTEGER, calories INTEGER, intensity TEXT, day TEXT, status TEXT)")
+query("CREATE TABLE IF NOT EXISTS habits (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, done INTEGER, target TEXT)")
+
+if query("SELECT COUNT(*) AS n FROM workouts")[0].n == 0
+    var seed = [
+        ["Morning run", "Cardio", 32, 340, "High", "Mon", "Done"],
+        ["Upper body strength", "Strength", 45, 280, "Medium", "Tue", "Done"],
+        ["Yoga flow", "Mobility", 25, 110, "Low", "Wed", "Done"],
+        ["Interval cycling", "Cardio", 40, 420, "High", "Thu", "Done"],
+        ["Leg day", "Strength", 50, 360, "High", "Fri", "Planned"],
+        ["Long walk", "Cardio", 60, 240, "Low", "Sat", "Planned"],
+        ["Core and stretch", "Mobility", 20, 90, "Low", "Sun", "Planned"],
+        ["Swim technique", "Cardio", 35, 300, "Medium", "Sun", "Ideas"],
+        ["Kettlebell circuit", "Strength", 30, 310, "High", "Sat", "Ideas"]
+    ]
+    for w in seed
+        query("INSERT INTO workouts (title, kind, minutes, calories, intensity, day, status) VALUES (?, ?, ?, ?, ?, ?, ?)", (w[0], w[1], w[2], w[3], w[4], w[5], w[6]))
+    for h in [["Drink 2L of water", 1, "Daily"], ["10 minutes of meditation", 0, "Daily"], ["Lights out by 11pm", 1, "Daily"], ["Eat 5 portions of veg", 0, "Daily"]]
+        query("INSERT INTO habits (name, done, target) VALUES (?, ?, ?)", (h[0], h[1], h[2]))
+
+service pulse_api
+    port 8080
+
+    endpoint today()
+        var done = query("SELECT COUNT(*) AS n, COALESCE(SUM(minutes), 0) AS minutes, COALESCE(SUM(calories), 0) AS calories FROM workouts WHERE status = 'Done'")[0]
+        return {success: true, data: {
+            greeting: "Good morning, Maya",
+            subtitle: "You're 82% of the way to this week's goal. Two more sessions to go.",
+            steps: "8,412", calories: done.calories, heart: 64, sleep: "7h 20m",
+            goal: 82, move: 76, hydration: 60, streak: "12 days"
+        }}
+
+    endpoint weekly()
+        return {success: true, data: [
+            {day: "Mon", active: 52, rest: 18}, {day: "Tue", active: 64, rest: 22}, {day: "Wed", active: 38, rest: 30},
+            {day: "Thu", active: 71, rest: 15}, {day: "Fri", active: 58, rest: 20}, {day: "Sat", active: 80, rest: 12},
+            {day: "Sun", active: 45, rest: 28}
+        ]}
+
+    endpoint heart_trend()
+        return {success: true, data: [
+            {time: "6am", bpm: 58}, {time: "8am", bpm: 92}, {time: "10am", bpm: 74}, {time: "12pm", bpm: 81},
+            {time: "2pm", bpm: 70}, {time: "4pm", bpm: 118}, {time: "6pm", bpm: 86}, {time: "8pm", bpm: 66}
+        ]}
+
+    endpoint macros()
+        return {success: true, data: [{name: "Protein", grams: 128}, {name: "Carbs", grams: 210}, {name: "Fat", grams: 64}]}
+
+    endpoint list_workouts()
+        return {success: true, data: query("SELECT * FROM workouts ORDER BY id")}
+
+    endpoint move_workout(id, status)
+        query("UPDATE workouts SET status = ? WHERE id = ?", (status, id))
+        return {success: true}
+
+    endpoint add_workout(title, kind, minutes)
+        if trim(title) == ""
+            return {success: false, error: "Give the workout a name"}
+        query("INSERT INTO workouts (title, kind, minutes, calories, intensity, day, status) VALUES (?, ?, ?, ?, 'Medium', 'Sun', 'Planned')", (title, kind, minutes, minutes * 8))
+        return {success: true}
+
+    endpoint remove_workout(id)
+        query("DELETE FROM workouts WHERE id = ?", (id,))
+        return {success: true}
+
+    endpoint list_habits()
+        var rows = []
+        for h in query("SELECT * FROM habits ORDER BY id")
+            rows.push({name: h.name, target: h.target, state: "Done" if h.done == 1 else "To do",
+                       icon: "CheckCircle" if h.done == 1 else "Circle", color: "green" if h.done == 1 else "slate"})
+        return {success: true, data: rows}
+
+    endpoint upcoming_workouts()
+        var icons = {Cardio: "Footprints", Strength: "Dumbbell", Mobility: "Leaf"}
+        var colors = {Cardio: "rose", Strength: "violet", Mobility: "green"}
+        var rows = []
+        for w in query("SELECT * FROM workouts WHERE status != 'Done' ORDER BY id")
+            rows.push({id: w.id, title: w.title, minutes: w.minutes, intensity: w.intensity,
+                       detail: w.day + " · " + str(w.minutes) + " min · " + w.intensity, icon: icons[w.kind], color: colors[w.kind]})
+        return {success: true, data: rows}
+
+    endpoint ask_coach(message, history)
+        var recent = query("SELECT title, minutes, status FROM workouts ORDER BY id DESC LIMIT 6")
+        var reply = ai("You are Pulse, a friendly fitness coach. Keep answers short and practical. Recent workouts: " + json_str(recent) + "\nUser: " + message)
+        return {reply: reply}
+
+test "a workout needs a name"
+    assert add_workout("", "Cardio", 20).success == false
+
+test "today has the headline numbers"
+    var t = today().data
+    assert t.goal == 82

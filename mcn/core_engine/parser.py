@@ -1657,7 +1657,7 @@ class Parser:
                     theme = str_tok.value
                     self._consume_end()
 
-                elif cur.type == TT.IDENTIFIER and cur.value in ("footer", "logo"):
+                elif cur.type == TT.IDENTIFIER and cur.value in ("footer", "logo", "brand"):
                     key = self._advance().value
                     str_tok = self._consume(TT.STRING, f"Expected text after '{key}'")
                     extras[key] = str_tok.value
@@ -1674,7 +1674,7 @@ class Parser:
 
         return ast.AppDecl(
             name=name_tok.value, title=title, theme=theme, layout=layout,
-            footer=extras.get("footer", ""), logo=extras.get("logo", ""),
+            footer=extras.get("footer", ""), logo=extras.get("logo", ""), brand=extras.get("brand", ""),
             line=tok.line, col=tok.col,
         )
 
@@ -1694,6 +1694,7 @@ class Parser:
         sidebar: List[ast.NavItem]  = []
         tabs:    List[ast.TabItem]  = []
         main:    List[str]          = []
+        page = False
 
         self._skip_newlines()
         if self._check(TT.INDENT):
@@ -1771,8 +1772,9 @@ class Parser:
                                 self._advance()
                         if self._check(TT.DEDENT): self._advance()
 
-                # main block
-                elif cur.type == TT.IDENTIFIER and cur.value == "main":
+                # main block; `page` is the same without the app frame (landing pages)
+                elif cur.type == TT.IDENTIFIER and cur.value in ("main", "page"):
+                    page = page or cur.value == "page"
                     self._advance(); self._consume_end()
                     self._skip_newlines()
                     if self._check(TT.INDENT):
@@ -1833,7 +1835,7 @@ class Parser:
                 clean_main.append(entry)
 
         return ast.LayoutBlock(
-            sidebar=sidebar, tabs=tabs, main=clean_main, routes=routes,
+            sidebar=sidebar, tabs=tabs, main=clean_main, routes=routes, page=page,
         )
 
 

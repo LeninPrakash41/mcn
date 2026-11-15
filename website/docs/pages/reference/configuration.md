@@ -21,6 +21,7 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | Variable | Default | Effect |
 |---|---|---|
 | `MCN_CLUB_SIGNATORY` | — | `Name|Title` printed as the signature on [Developer Club](#/guide/developer-club) certificates |
+| `MCN_CLUB_SHOWCASE` | `1` | `0` starts the club's marketplace empty, without the [showcase apps](#/guide/developer-club) |
 
 ## Runtime
 

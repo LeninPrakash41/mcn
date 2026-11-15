@@ -223,6 +223,7 @@ async function api(path, body) {
   const r = await fetch(path, opts)
   return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }
 }
+const count = (n, word) => `${n || 0} ${word}${Number(n) === 1 ? '' : 's'}`
 function toast(text) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = text; document.body.append(t); setTimeout(() => t.remove(), 2400) }
 function setNav(v) { document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v)) }
 
@@ -234,7 +235,7 @@ function badges(p) {
 function meter(p) {
   const u = p.usage || {}
   return `<div class="meter"><span><b>${u.uses || 0}</b> using</span><span><b>${u.likes || 0}</b> likes</span>
-    <span>${(p.stats || {}).screens || 0} screens · ${(p.stats || {}).endpoints || 0} endpoints${(p.stats || {}).uses_ai ? ' · AI' : ''}</span></div>`
+    <span>${count((p.stats || {}).screens, 'screen')} · ${count((p.stats || {}).endpoints, 'endpoint')}${(p.stats || {}).uses_ai ? ' · AI' : ''}</span></div>`
 }
 function author(p) {
   return `<a href="/club/u/${esc(p.user_id)}">${esc(p.author)}</a> · ${esc(p.author_org)} <span class="badge kind">${esc(INFO.kinds[p.author_kind] || '')}</span>`
@@ -263,7 +264,7 @@ async function marketplace() {
     </div></section>
     ${openBanner()}
     <div class="steps">
-      <div class="step"><i>1</i><b>Join</b><span>Open the Club tab in Studio; add your college or company.</span></div>
+      <div class="step"><i>1</i><b>Join</b><span>Open My club and add your college or company.</span></div>
       <div class="step"><i>2</i><b>Build</b><span>Build your app in Studio, from scratch, a template or with the Agent.</span></div>
       <div class="step"><i>3</i><b>Launch for review</b><span>One click sends it; you get a certificate straight away.</span></div>
       <div class="step"><i>4</i><b>Get listed</b><span>Approved apps appear here, earn certificates and can win awards.</span></div>
@@ -630,7 +631,7 @@ async function reviewPage(tab, openId) {
   pane.innerHTML = `<div class="split"><div class="list">${queue.length ? queue.map(p => `<div class="card qitem" data-open="${esc(p.id)}">
       <div class="row"><b>${esc(p.title)}</b><span class="muted">v${p.version}</span></div>
       <div class="muted">${esc(p.author)} · ${esc(p.author_org)}</div>
-      <div class="muted">${p.stats.screens} screens · ${p.stats.endpoints} endpoints · ${p.stats.tests} tests${p.stats.uses_ai ? ' · AI' : ''}</div></div>`).join('')
+      <div class="muted">${count(p.stats.screens, 'screen')} · ${count(p.stats.endpoints, 'endpoint')} · ${count(p.stats.tests, 'test')}${p.stats.uses_ai ? ' · AI' : ''}</div></div>`).join('')
     : '<div class="empty">Nothing waiting for review.</div>'}</div><div id="detail"></div></div>`
   wireOpen(pane)
   const first = openId || (queue[0] && queue[0].id)
