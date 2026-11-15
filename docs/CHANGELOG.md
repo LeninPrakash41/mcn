@@ -5,6 +5,7 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Physical AI guide and roadmap (MCN Physical Intelligence)**: how MCN's sensors, devices, events, agents, workflows and audit log already let an app sense, decide and act (with a tested smart-irrigation example), the three-layer architecture, the Application, Agent and Physical studios, and what's planned: cameras and `vision()`, control policies, Modbus, OPC UA, ROS 2 and fleet telemetry. Also on the website and in the README
 - **My club** in Studio's toolbar (and the Build menu) opens your club page directly, beside **Publish**
 - **Landing Page (Pulse) template**, the 28th, in a new **Websites** category of the Templates gallery: navbar, gradient hero, features, pricing, reviews, FAQ and a waitlist backend, with a brand colour; it builds to React and Flutter like every template
 - **Developer Club showcase**: every marketplace starts with two showcase apps built with the new design elements, **Pulse** (a fitness app) by Praveen P and the **Pulse landing page** by Karthiga R, both of Macincode, with their certificates. The members have no login until an account is created with their email, which then owns the profile, apps and certificates. `MCN_CLUB_SHOWCASE=0` turns it off

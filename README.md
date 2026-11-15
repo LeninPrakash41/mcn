@@ -766,6 +766,12 @@ mcn iot service backend/main.mcn  # start the app when the Pi boots
 
 `MCN_IOT_SIMULATE=0` makes missing hardware an error (use it in production); unset, MCN simulates whatever isn't connected and says so. The [IoT and hardware guide](website/docs/pages/guide/iot.md) lists the 28 device types, wiring for each part and the MQTT options.
 
+## Physical AI (MCN PI)
+
+Physical AI connects AI with devices that **sense, reason, decide and act**: robots, drones, factories, farms and edge machines. MCN already has the core of it: sensors and devices (`device()`), events (`device("watch")`, `schedule`), agents that call your functions (`agent_run`), workflows, a tamper-evident `audit_log`, and the same code simulated in Studio and running on hardware. An agent can read a field's sensors and decide whether to water, through a pump function whose limits are built in.
+
+**MCN Physical Intelligence** is the plan to go further, in three layers: an AI intelligence layer (LLMs, vision, decision agents, planning), a physical runtime (sensors, events, device state, workflows, control policies) and hardware integration (ROS 2, MQTT, OPC UA, Modbus, GPIO, APIs). Planned next: cameras and `vision()`, declarative control policies with an emergency stop, Modbus and OPC UA drivers, ROS 2, fleet telemetry, and **MCN Physical Studio** beside the Application and Agent studios. The [Physical AI guide](website/docs/pages/guide/physical-ai.md) has a working example and marks what's available and what's planned.
+
 ## Security
 
 ```mcn
@@ -907,6 +913,7 @@ mcn config show
 | v2.0–2.3 | Released | Pipelines, services, workflows, AI primitives, test runner, formatter, full-stack compiler, 100+ built-ins, packages |
 | v2.4 | Released | Friendly errors and `mcn check`, `mcn init` projects, `mcn studio <folder>`, VS Code extension with live errors, GET for every endpoint, parallel `task`/`await` |
 | **Next** | **On `main`** | MCN UI kit with live Studio preview; Flutter apps compiled from MCN components; `agent_run` with real tool calls; service auth, security checks and `mcn audit`; IoT hardware (Raspberry Pi, Arduino, ESP32, MQTT) with a live simulator; **1-click deploy to Vercel, AWS and Cloudflare**; **hosted Studio with accounts**, admin and `mcn login`; **SSO and audit logs** for services; **the agent team** |
+| Physical AI | Planned | MCN Physical Intelligence: cameras and `vision()`, control policies and emergency stop, Modbus and OPC UA, ROS 2, fleet telemetry, MCN Physical Studio |
 | v3.0 | Planned | Per-user sandboxes for hosted Studio, SSO in the Flutter app, more 1-click targets (Railway, Fly.io, Render), local LLM (Ollama), error on null property access (opt-in strict mode), public package registry |
 
 ---
