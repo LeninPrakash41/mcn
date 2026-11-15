@@ -1,0 +1,76 @@
+// Virtual lab: an automated greenhouse
+//
+// lab("greenhouse") adds a simulated greenhouse and its devices: soil_moisture,
+// temperature, humidity and light sensors, and a pump, fan, grow_light and vent.
+// The world runs on its own: soil dries in the sun, the pump wets it, the day
+// warms the air and the fan cools it. Open the IoT panel to watch it.
+//
+// On real hardware, replace lab(...) with device("register", ...) lines for your
+// sensors and outputs (see the IoT guide); the rest of the program stays the same.
+
+lab("greenhouse", {speed: 600})       // ten simulated minutes per second
+
+// CONTROL: what each device may do. The runtime enforces these on every change,
+// whoever asks: this program, an AI agent, or you in Studio's IoT panel (try it).
+policy("pump", {max_on: 1800, cooldown: 600})      // 30 minutes at most, then 10 minutes' rest
+policy("vent", {min: 0, max: 150})
+policy("grow_light", {hours: [6, 22]})              // never at night, by the greenhouse clock
+
+var WET_ENOUGH = 60
+var TOO_DRY = 35
+var TOO_HOT = 28
+var COOL_AGAIN = 24
+
+function check_soil(value)
+    if value < TOO_DRY and device("read", "pump").value == 0
+        try
+            device("on", "pump")
+            log("Soil at " + str(value) + "%: watering")
+        catch e
+            log(e.message)                          // e.g. the pump is still resting
+    if value > WET_ENOUGH and device("read", "pump").value == 1
+        device("off", "pump")
+        log("Soil at " + str(value) + "%: stopped watering")
+
+function check_heat(value)
+    if value > TOO_HOT and device("read", "fan").value == 0
+        device("on", "fan")
+        device("write", "vent", 120)
+        log(str(value) + "°C: fan on, vent open")
+    if value < COOL_AGAIN and device("read", "fan").value == 1
+        device("off", "fan")
+        device("write", "vent", 0)
+        log(str(value) + "°C: fan off, vent closed")
+
+function check_light(value)
+    // Keep the plants lit in the evening, but let them rest at night
+    var hour = lab("state", "greenhouse").hour
+    var wanted = 1 if value < 200 and hour >= 17 and hour < 21 else 0
+    if wanted != device("read", "grow_light").value
+        device("write", "grow_light", wanted)
+
+device("watch", "soil_moisture", check_soil, 1)
+device("watch", "temperature", check_heat, 1)
+device("watch", "light", check_light, 2)
+log("Greenhouse automation running. Open the IoT panel to watch the day go by.")
+
+test "it waters dry soil and stops when it's wet"
+    device("off", "pump")
+    check_soil(20)
+    assert device("read", "pump").value == 1
+    check_soil(70)
+    assert device("read", "pump").value == 0
+
+test "the policy refuses unsafe settings"
+    var refused = false
+    try
+        device("write", "vent", 170)
+    catch e
+        refused = true
+    assert refused
+
+test "it cools the greenhouse when it's hot"
+    device("off", "fan")
+    check_heat(31)
+    assert device("read", "fan").value == 1
+    assert device("read", "vent").value == 120

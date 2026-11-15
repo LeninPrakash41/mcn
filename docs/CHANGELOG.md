@@ -5,6 +5,8 @@ All notable changes to MCN will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Control policies**: `policy(device, rules)` declares what a device may do (`min`/`max`, `max_on` with automatic switch-off, `cooldown`, `rate`, `hours`, your own `check`, a person's `approve`al, a `safe` value, `audit`), enforced on every change whoever asks (the program, an AI agent's tool call, Studio); refusals raise a clear error and are logged. `emergency_stop()` puts every output in its safe state and refuses changes until released. Studio's IoT panel has a STOP button, approvals with Approve/Reject, and each device's policy. In the virtual lab the rules follow the simulated clock
+- **Virtual lab**: `lab("greenhouse")` and `lab("rover")` start simulated worlds whose devices behave like real ones (soil dries in the sun and the pump wets it through a whole day; a robot drives, steers and senses walls and obstacles). Programs drive them with the usual `device()` calls; Studio's IoT panel draws them live with Reset and speed controls, for scripts and the Preview backend alike. Two new templates in a **Physical AI lab** category, Greenhouse Lab and Rover Lab (30 templates)
 - **Physical AI guide and roadmap (MCN Physical Intelligence)**: how MCN's sensors, devices, events, agents, workflows and audit log already let an app sense, decide and act (with a tested smart-irrigation example), the three-layer architecture, the Application, Agent and Physical studios, and what's planned: cameras and `vision()`, control policies, Modbus, OPC UA, ROS 2 and fleet telemetry. Also on the website and in the README
 - **My club** in Studio's toolbar (and the Build menu) opens your club page directly, beside **Publish**
 - **Landing Page (Pulse) template**, the 28th, in a new **Websites** category of the Templates gallery: navbar, gradient hero, features, pricing, reviews, FAQ and a waitlist backend, with a brand colour; it builds to React and Flutter like every template
@@ -92,6 +94,7 @@ All notable changes to MCN will be documented in this file.
   - Generated React and Flutter apps and Studio's preview send a bearer token
 
 ### Fixed
+- A `device("watch", ...)` handler that takes no parameters (`function steer()`) failed on every change; it's now called without arguments
 - The MCN printer behind the MSG round trip kept `brand` and the `page` layout (it dropped the first and printed `page` as `main`)
 - The club site's first step pointed to Studio's old Club tab; counts like "1 endpoints" read correctly
 - `accordion_item "Title"` now shows its title (it showed "Item 1") on the web and on phones; stat units on phones are spaced and muted like the web ("64 bpm"); added fitness and health icons (`Footprints`, `HeartPulse`, `Dumbbell`, `Salad`, `Apple`, `Bike`, `Watch`, `Quote`, `Medal`, `Gift`, `Crown`, `CalendarCheck`) on both

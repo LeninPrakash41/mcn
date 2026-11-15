@@ -1,0 +1,49 @@
+// Virtual lab: a rover that finds its way around a room
+//
+// lab("rover") adds a small robot in a 6 m x 4 m room with obstacles and a
+// charging pad. Outputs: drive (-100 to 100 %, negative backs up), steering
+// (0-180°, 90 is straight ahead, above 90 turns left) and headlight.
+// Sensors: front_distance, left_distance and right_distance (cm) and bumper.
+// Open the IoT panel to watch it drive.
+//
+// Challenge: it wanders safely, but doesn't look for the charging pad (bottom right).
+// Can you make it get there? lab("state", "rover") tells you where it is.
+
+lab("rover")
+
+var CRUISE = 60
+var CAREFUL = 35
+var CLOSE = 45            // cm: start turning
+
+function steer()
+    var front = device("read", "front_distance").value
+    var left = device("read", "left_distance").value
+    var right = device("read", "right_distance").value
+    if device("read", "bumper").value == 1
+        if front > CLOSE
+            // Touching something at the side: drive on, turning away from it
+            device("write", "drive", CAREFUL)
+            device("write", "steering", 145 if left > right else 35)
+            return "pulling away"
+        // Blocked ahead too: back up while turning, then try again
+        device("write", "drive", -40)
+        device("write", "steering", 50 if left > right else 130)
+        return "backing up"
+    if front < CLOSE
+        // Something ahead: turn towards the side with more room
+        device("write", "drive", CAREFUL)
+        device("write", "steering", 145 if left > right else 35)
+        return "turning " + ("left" if left > right else "right")
+    device("write", "drive", CRUISE)
+    device("write", "steering", 90)
+    return "cruising"
+
+device("write", "headlight", 1)
+device("watch", "front_distance", steer, 0.2)
+device("watch", "bumper", steer, 0.2)
+steer()
+log("Rover driving. Open the IoT panel to watch it avoid the obstacles.")
+
+test "it turns away from something close ahead"
+    lab("reset", "rover")
+    assert steer() == "cruising"

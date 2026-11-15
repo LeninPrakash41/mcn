@@ -258,6 +258,22 @@
     ]
   },
   {
+    "badge": "Physical AI",
+    "category": "lab",
+    "description": "A simulated greenhouse that waters itself, cools itself and lights its plants as the day goes by. Watch soil, temperature and the plants live in the IoT panel; the same program runs on real sensors.",
+    "file": "backend/main.mcn",
+    "id": "lab_greenhouse",
+    "name": "Greenhouse Lab"
+  },
+  {
+    "badge": "Physical AI",
+    "category": "lab",
+    "description": "A simulated robot that drives around a room, reads its distance sensors and steers around obstacles. Watch it live in the IoT panel, then make it find the charging pad.",
+    "file": "backend/main.mcn",
+    "id": "lab_rover",
+    "name": "Rover Lab"
+  },
+  {
     "badge": "Microservice",
     "category": "backend",
     "description": "Multi-endpoint JSON microservice with port binding and health check.",

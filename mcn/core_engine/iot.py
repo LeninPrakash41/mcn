@@ -57,7 +57,7 @@ TYPES: Dict[str, tuple] = {
     "display":            ("text", "", "", None, None),
 }
 
-DRIVERS = ("simulated", "gpio", "serial", "mqtt", "http")
+DRIVERS = ("simulated", "gpio", "serial", "mqtt", "http", "lab")
 _ON = {"1", "on", "true", "yes", "high", "open", "active", "detected"}
 
 
@@ -121,6 +121,32 @@ class SimulatedDriver:
 
     def close(self) -> None:
         pass
+
+
+class LabDriver(SimulatedDriver):
+    """A device in a virtual lab world (lab("greenhouse"), lab("rover")): readings come from
+    the world, and outputs change it."""
+    name = "lab"
+
+    def __init__(self, device: "Device"):
+        super().__init__(device)
+        from .iot_lab import shared_lab
+        self.lab = shared_lab()
+
+    def read(self) -> Any:
+        found = self.lab.world_for(self.device.id)
+        if found is None:
+            return super().read()
+        world, key = found
+        with self.lab.lock:
+            return world.read(key)
+
+    def write(self, value: Any) -> None:
+        found = self.lab.world_for(self.device.id)
+        if found is not None:
+            world, key = found
+            with self.lab.lock:
+                world.write(key, value)
 
 
 _DHT_SENSORS: Dict[Any, Any] = {}
@@ -428,7 +454,7 @@ class HTTPDriver:
 _WARNED: set = set()
 
 _DRIVER_CLASSES = {"simulated": SimulatedDriver, "gpio": GPIODriver, "serial": SerialDriver,
-                   "mqtt": MQTTDriver, "http": HTTPDriver}
+                   "mqtt": MQTTDriver, "http": HTTPDriver, "lab": LabDriver}
 
 
 # ── Devices and the registry ────────────────────────────────────────────────
@@ -455,6 +481,8 @@ class Device:
         self.driver = self._open(wanted)
 
     def _open(self, wanted: str):
+        if wanted == "lab":                     # a virtual lab device is simulated everywhere
+            return LabDriver(self)
         if wanted == "simulated" or _mode() == "simulate":
             return SimulatedDriver(self)
         try:
@@ -478,7 +506,7 @@ class Device:
         return self.kind in ("switch", "level", "text")
 
     def info(self) -> Dict[str, Any]:
-        where = {k: self.config[k] for k in ("pin", "port", "topic", "url", "channel", "sensor") if k in self.config}
+        where = {k: self.config[k] for k in ("pin", "port", "topic", "url", "channel", "sensor", "world") if k in self.config}
         return {"type": self.type, "kind": self.kind, "value": self.value, "unit": self.unit,
                 "min": self.min, "max": self.max, "driver": self.driver_name, "simulated": self.simulated,
                 "pinned": self.override is not None, "writable": self.writable, "where": where,
@@ -494,6 +522,8 @@ class DeviceRegistry:
         self.lock = threading.RLock()
         self.watchers: Dict[str, List[dict]] = {}
         self._watch_thread: Optional[threading.Thread] = None
+        from .iot_policy import PolicyBook
+        self.policies = PolicyBook(self)        # control policies and the emergency stop
 
     def register(self, device_id: str, config: Optional[Dict[str, Any]] = None) -> Device:
         if not device_id:
@@ -533,10 +563,14 @@ class DeviceRegistry:
             raise HardwareError(f"'{device_id}' is a {device.type}, so it can be read but not set")
         value = _coerce(device.kind, value, device.min, device.max)
         with self.lock:
+            # Control policies apply to every change, whoever asks (code, an agent, Studio)
+            if self.policies.rules or self.policies.stopped:
+                self.policies.check(device, value, source)
             device.driver.write(value)
             device.value, device.updated_at = value, time.time()
             self.command_log.append({"timestamp": device.updated_at, "device_id": device_id,
                                      "command": "set", "params": {"value": value, "source": source}})
+            self.policies.written(device, value, source)
         self._check_soon(device_id)
         return value
 
@@ -593,6 +627,9 @@ class DeviceRegistry:
                     except Exception as exc:
                         device.note = str(exc)
                 out[device_id] = device.info()
+                summary = self.policies.summary(device_id) if device_id in self.policies.rules else ""
+                if summary:
+                    out[device_id]["policy"] = summary
             return out
 
     # Watching: call a function when a reading changes
@@ -641,9 +678,9 @@ class DeviceRegistry:
 def _call(fn: Callable, value: Any, previous: Any, device_id: str) -> None:
     """Call a watch handler with as many of (value, previous, id) as it takes."""
     params = getattr(fn, "mcn_params", None)
-    count = len(params) if params is not None else 3
+    count = len(params) if params is not None else 3    # an MCN function may take none of them
     try:
-        fn(*[value, previous, device_id][:max(1, count)])
+        fn(*[value, previous, device_id][:count])
     except Exception as exc:
         print(f"[iot] watch handler for '{device_id}' failed: {exc}")
 

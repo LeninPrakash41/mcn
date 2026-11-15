@@ -35,7 +35,7 @@ CATEGORIES = [
     ("HTTP, files and environment", "fetch http_get http_post trigger read_file write_file append_file env env_get send_email"),
     ("AI", "ai llm agent_run classify extract embed rag checkpoint vector_upsert vector_search vector_add vector_delete vector_clear "
            "memory_store memory_add memory_get memory_search memory_all memory_clear translate"),
-    ("Tasks, events and IoT", "task await on trigger_event workflow pipeline device"),
+    ("Tasks, events and IoT", "task await on trigger_event workflow pipeline device lab policy emergency_stop"),
     ("Sessions, cache and queues", "session_set session_get session_delete session_all session_clear "
                                    "cache_set cache_get cache_delete cache_clear queue_push queue_pop queue_peek queue_size queue_len queue_clear"),
     ("Security", "validate escape_html sanitize_html is_email is_url password_strength rate_limit require "

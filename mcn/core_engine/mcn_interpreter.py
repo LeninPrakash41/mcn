@@ -306,6 +306,9 @@ class MCNInterpreter:
             "fine_tuned_models":   self._fine_tuned_models,
             "generate_postman":    self._generate_postman_collection,
             "device":              self._device_operation,
+            "lab":                 self._lab_operation,
+            "policy":              self._policy_operation,
+            "emergency_stop":      self._emergency_stop,
             "on":                  self._on_event,
             "agent":               self._agent_operation,
             "pipeline":            self._pipeline_operation,
@@ -619,6 +622,21 @@ class MCNInterpreter:
         from .iot import device
         self._ensure_v3_systems()
         return device(operation, device_id, config, extra)
+
+    def _lab_operation(self, operation: str, options: Any = None):
+        """Start a simulated world for Physical AI: lab("greenhouse") or lab("rover"); also lab("state"), lab("reset", name)."""
+        from .iot_lab import lab
+        return lab(operation, options)
+
+    def _policy_operation(self, operation: Any, rules: Any = None):
+        """Declare what a device may do, enforced on every change: policy("pump", {max_on: 600, cooldown: 300})."""
+        from .iot_policy import policy
+        return policy(operation, rules)
+
+    def _emergency_stop(self, on: Any = True):
+        """Put every output in its safe state and refuse changes until emergency_stop(false) releases it."""
+        from .iot_policy import emergency_stop
+        return emergency_stop(on)
 
     def _on_event(self, event_name: str, handler_func: Any = None):
         try:

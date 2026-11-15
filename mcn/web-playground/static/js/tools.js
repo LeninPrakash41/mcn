@@ -208,6 +208,8 @@ function iotControl(id, info) {
 async function refreshIoTSimulator() {
   const container = document.getElementById('iot-devices-list')
   if (!container) return
+  if (typeof refreshLab === 'function') refreshLab()
+  if (typeof refreshPolicy === 'function') refreshPolicy()
   const panel = document.getElementById('panel-iot-simulator')
   if (panel && panel.classList.contains('active') && !iotTimer) {
     iotTimer = setInterval(() => {
@@ -235,6 +237,7 @@ async function refreshIoTSimulator() {
             </span>
           </div>
           ${iotControl(id, info)}
+          ${info.policy ? `<div class="iot-policy-line" title="Control policy">🛡 ${escapeHtml(info.policy)}</div>` : ''}
           ${iotWhere(info) ? `<div style="font-size:10.5px;color:var(--muted);">${escapeHtml(iotWhere(info))}${info.simulated && info.driver !== 'simulated' ? ' (simulated)' : ''}</div>` : ''}
         </div>`).join('')
     } else {
@@ -248,8 +251,8 @@ async function refreshIoTSimulator() {
         <div style="border-bottom:1px solid var(--border);padding:4px 0;font-size:10.5px;">
           <span style="color:#565f89;">[${new Date(cmd.timestamp * 1000).toLocaleTimeString()}]</span>
           <strong style="color:#89ddff;">${escapeHtml(cmd.device_id)}</strong>:
-          <span style="color:#bb9af3;">${escapeHtml(cmd.command)}</span>
-          <span style="color:var(--muted);">${escapeHtml(JSON.stringify(cmd.params || {}))}</span>
+          <span style="color:${/refused|emergency stop$|couldn't/.test(cmd.command) ? '#f87171' : /approv|switched off by policy|released/.test(cmd.command) ? '#fbbf24' : '#bb9af3'};">${escapeHtml(cmd.command)}</span>
+          <span style="color:var(--muted);">${escapeHtml((cmd.params && cmd.params.reason) || JSON.stringify(cmd.params || {}))}</span>
         </div>`).join('')
     }
   } catch (e) {

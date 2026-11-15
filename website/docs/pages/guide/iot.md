@@ -149,6 +149,76 @@ So code written for a Pi runs on your laptop, in Studio and in `mcn test` withou
 
 In Studio, the IoT Simulator shows the devices of scripts you **Run** and, while **Preview** is running, your backend's devices too. Changing a value there reaches the running app, so you can watch automations react. The **Smart Home** and **IoT Telemetry Hub** templates are complete examples.
 
+## Virtual lab
+
+`lab()` starts a simulated world whose devices behave like the real thing, so you can build and test Physical AI without any hardware. The world runs on its own, your program reads and drives its devices with the usual `device()` calls, and Studio's **IoT** panel draws it live, with **Reset** and speed controls.
+
+```mcn
+lab("greenhouse", {speed: 600})       // ten simulated minutes per second
+
+function check_soil(value)
+    if value < 35
+        device("on", "pump")
+    if value > 60
+        device("off", "pump")
+
+device("watch", "soil_moisture", check_soil, 1)
+```
+
+| World | Devices | What happens |
+|---|---|---|
+| `lab("greenhouse")` | sensors `soil_moisture`, `temperature`, `humidity`, `light`; outputs `pump`, `fan`, `grow_light`, `vent` (servo, 0–180°) | A day passes (sunrise to night, starting at 08:00). Soil dries in the sun and heat and gets wetter while the pump runs; the sun warms the air, the fan and vent cool it; the grow light adds light. Plant health rises when soil, temperature and light are right, and the water used is counted. Default speed 60: one simulated minute per second |
+| `lab("rover")` | outputs `drive` (-100 to 100 %, negative backs up), `steering` (0–180°, 90 straight, above 90 turns left), `headlight`; sensors `front_distance`, `left_distance`, `right_distance` (cm, up to 400) and `bumper` | A small robot in a 6 m × 4 m room with three obstacles and a charging pad. It drives like a car (it can't turn on the spot), slides along walls it scrapes, and the bumper reads 1 while it touches something. Default speed 1 (real time) |
+
+| Call | What it does |
+|---|---|
+| `lab("greenhouse")` / `lab("rover")` | Start the world and add its devices. Options: `speed` (simulated seconds per real second), `prefix` (put a prefix on the device ids) |
+| `lab("state")` / `lab("state", "rover")` | Every running world, or one: its readings, outputs, events and position, as the IoT panel draws it |
+| `lab("reset", "rover")` | Put a world back to its start |
+| `lab("speed", {world: "greenhouse", speed: 3600})` | Run it faster or slower |
+| `lab("remove", "rover")` | Stop the world and remove its devices |
+
+To move to real hardware, replace `lab(...)` with `device("register", ...)` lines for your sensors and outputs; the rest of the program stays the same. The **Greenhouse Lab** and **Rover Lab** templates (Templates → Physical AI lab) are complete programs to start from.
+
+## Control policies
+
+`policy()` declares what a device may do. MCN enforces it on every change, whoever asks: your program, an AI agent calling one of your functions, or someone in Studio's IoT panel. A refused change raises an error that says why, so an agent gets the reason back and can try something else, and every refusal is in the device log.
+
+```mcn
+device("register", "pump", {type: "pump", driver: "gpio", pin: 17})
+device("register", "door_lock", {type: "lock", driver: "gpio", pin: 22})
+device("register", "drive", {type: "motor", driver: "gpio", pin: 18})
+
+policy("pump", {max_on: 600, cooldown: 300, hours: [6, 20]})   // 10 minutes at most, 5 minutes' rest, daytime only
+policy("drive", {max: 70, rate: 30})                            // never above 70 %, 30 changes a minute at most
+policy("door_lock", {approve: true, audit: true})               // a person approves each change; recorded in the audit log
+
+try
+    device("write", "drive", 90)
+catch e
+    log(e.message)              // Refused: 'drive' can't go above 70 (asked for 90)
+```
+
+| Rule | Meaning |
+|---|---|
+| `min`, `max` | Allowed values. Anything outside is refused, not quietly limited |
+| `max_on` | Seconds a switch may stay on; MCN switches it off after that |
+| `cooldown` | Seconds it must stay off before it may be switched on again |
+| `rate` | Changes allowed per minute |
+| `hours` | `[start, end]` in 24-hour time when it may be switched on or changed (turning off is always allowed). `[22, 6]` spans midnight |
+| `check` | Your own function, called with the value (and the device id): return `true` to allow, or a reason to refuse. Use it for zones and conditions, such as "not while it's raining" |
+| `approve` | `true`: each change waits for a person. It appears under **Waiting for approval** in Studio's IoT panel with **Approve** and **Reject**; your app can use `policy("approvals")`, `policy("approve", id)` and `policy("reject", id)` |
+| `safe` | The value an emergency stop sets (default: off, 0, or a servo's starting angle) |
+| `audit` | `true`: also record every change and refusal with `audit_log` (tamper-evident) |
+
+`policy("pump")` shows a device's policy, `policy("list")` every policy, the pending approvals and the emergency stop, and `policy("remove", "pump")` removes one. Studio shows each device's policy under it.
+
+### Emergency stop
+
+`emergency_stop()` puts every output in its safe state and refuses all changes (except to the safe state) until `emergency_stop(false)` releases it. The red **STOP** button in Studio's IoT panel does the same, for your scripts and the running backend at once.
+
+In the [virtual lab](#/guide/iot), `max_on`, `cooldown` and `hours` follow the world's simulated clock, so a greenhouse policy behaves the same at any speed.
+
 ## Testing
 
 Simulated devices make automations easy to test. Call the handler directly, or hold a reading:

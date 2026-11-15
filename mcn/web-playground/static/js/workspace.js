@@ -573,10 +573,11 @@ const TEMPLATE_CATEGORIES = {
   data:         { title: "Data & ML" },
   student:      { title: "Student & Mathematics" },
   flutter_app:  { title: "Mobile & IoT" },
+  lab:          { title: "Physical AI lab" },
   backend:      { title: "Backends & APIs" },
   repl:         { title: "Learn the language" },
 };
-const NEW_TEMPLATES = new Set(['landing_page', 'voice_agent_builder']);
+const NEW_TEMPLATES = new Set(['landing_page', 'lab_greenhouse', 'lab_rover']);
 let _galleryCategory = 'all';
 
 function openTemplateGallery() {
@@ -738,7 +739,7 @@ async function loadExample(ex) {
   // Switch workspace mode accordingly if relevant
   if (ex.category === 'flutter_app') {
     switchWorkspace('flutter');
-  } else if (ex.category === 'repl') {
+  } else if (ex.category === 'repl' || ex.category === 'lab') {
     switchWorkspace('repl');
   } else if (ex.category === 'internal_app' || ex.category === 'data' || ex.category === 'website') {
     switchWorkspace('react');
@@ -786,6 +787,8 @@ async function loadExample(ex) {
     renderTabs()
     setStatus('Loaded: ' + ex.name, 'ok')
     appendLog('success', `Loaded "${ex.name}" snippet into ${targetFile}. Click Run to execute.`)
+    // Lab templates: show the IoT panel, where the simulated world is drawn
+    if (ex.category === 'lab' && typeof switchPanel === 'function') switchPanel('iot-simulator')
   }
 }
 

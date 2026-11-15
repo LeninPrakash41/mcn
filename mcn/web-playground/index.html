@@ -503,7 +503,9 @@
 
       <!-- IoT Simulator Panel -->
       <div class="panel-section pane" id="panel-iot-simulator">
-        <div class="pane-head"><div class="pane-head-text"><div class="pane-title">IoT devices <span id="iot-live" class="pane-live">● live</span></div><div class="pane-sub">Sensors and outputs your code declares, simulated so you can test without hardware.</div></div><div class="pane-actions"><button class="btn btn-sm" onclick="refreshIoTSimulator()">Refresh</button></div></div>
+        <div class="pane-head"><div class="pane-head-text"><div class="pane-title">IoT devices <span id="iot-live" class="pane-live">● live</span></div><div class="pane-sub">Sensors and outputs your code declares, simulated so you can test without hardware.</div></div><div class="pane-actions"><button class="btn btn-sm iot-stop" id="iot-stop-btn" onclick="iotEmergencyStop()" title="Emergency stop: every output to its safe state, and no changes until you release it">STOP</button><button class="btn btn-sm" onclick="refreshIoTSimulator()">Refresh</button></div></div>
+        <div id="iot-policy"></div>
+        <div id="iot-lab"></div>
         <div id="iot-devices-list" style="display:flex;flex-direction:column;gap:10px;">
           <div style="text-align:center;font-style:italic;color:var(--muted);padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;">No devices yet. Register one with device("register", ...) and press Run.</div>
         </div>
@@ -932,6 +934,7 @@
 <script src="/static/js/ai.js"></script>
 <script src="/static/js/agent-panel.js"></script>
 <script src="/static/js/club.js"></script>
+<script src="/static/js/lab.js"></script>
 <script src="/static/js/community.js"></script>
 </body>
 </html>

@@ -37,7 +37,7 @@ Then open **http://localhost:5003** (or the port you chose).
 
 ## Templates
 
-The **Templates** gallery (the **Templates** button in the left bar, or **Templates → Browse all templates**) has 28 starter apps you can search and filter: AI and automation (AI agent builder, voice agents on Twilio, workflow automation, operations dashboard), websites (a landing page with pricing, reviews and a waitlist), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), data and ML (data labeling studio, ML training lab), mobile apps (smart home, expense tracker, field inspection), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
+The **Templates** gallery (the **Templates** button in the left bar, or **Templates → Browse all templates**) has 30 starter apps you can search and filter: AI and automation (AI agent builder, voice agents on Twilio, workflow automation, operations dashboard), websites (a landing page with pricing, reviews and a waitlist), business apps (CRM, sales hub, analytics, inventory, construction, prompt marketplace), data and ML (data labeling studio, ML training lab), mobile apps (smart home, expense tracker, field inspection), Physical AI lab worlds (a greenhouse and a rover, simulated in the IoT panel), backends (REST service, telemetry hub, AI prompt router) and short scripts for learning. Every template is run and built in CI.
 
 ## Agent
 

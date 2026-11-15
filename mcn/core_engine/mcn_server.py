@@ -146,6 +146,20 @@ def _dev_iot(method: str, path: str, body: Dict[str, Any], authorization: Option
             return 200, {"success": True, "devices": reg.snapshot()}
         if action == "commands" and method == "GET":
             return 200, {"success": True, "commands": list(reg.command_log)}
+        if action == "policy" and method == "GET":
+            return 200, {"success": True, **reg.policies.state()}
+        if action == "estop" and method == "POST":
+            return 200, reg.policies.emergency_stop(bool(body.get("on", True)))
+        if action == "approval" and method == "POST":
+            return 200, reg.policies.decide(str(body.get("id")), bool(body.get("approve")), by="Studio")
+        if action == "lab" and method == "GET":
+            from .iot_lab import shared_lab
+            return 200, {"success": True, "labs": shared_lab().scenes()}
+        if action == "lab" and method == "POST":
+            from .iot_lab import lab
+            if body.get("action") == "speed":
+                return 200, lab("speed", {"world": body.get("world"), "speed": body.get("speed")})
+            return 200, lab("reset", body.get("world"))
         if action == "value" and method == "POST":
             return 200, {"success": True, "value": reg.write(str(body.get("device_id")), body.get("value"), source="simulator")}
         if action == "pin" and method == "POST":

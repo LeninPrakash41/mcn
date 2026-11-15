@@ -165,6 +165,76 @@ def set_iot_device_value():
         return jsonify({"success": False, "error": str(e)})
 
 
+@bp.route("/api/iot/policy", methods=["GET"])
+def get_iot_policy():
+    """Control policies, actions waiting for approval and the emergency stop, here and in the backend."""
+    state = _iot().policies.state()
+    pending = [{**p, "origin": "studio"} for p in state["pending"]]   # source is who asked
+    stopped = state["stopped"]
+    remote = _backend("GET", "policy")
+    if remote and remote[0] == 200:
+        pending += [{**p, "origin": "backend"} for p in remote[1].get("pending", [])]
+        stopped = stopped or remote[1].get("stopped", False)
+    return jsonify({"success": True, "stopped": stopped, "pending": pending})
+
+
+@bp.route("/api/iot/estop", methods=["POST"])
+def iot_emergency_stop():
+    """The STOP button: every output here and in the running backend to its safe state (or release)."""
+    on = bool((request.get_json(silent=True) or {}).get("on", True))
+    result = _iot().policies.emergency_stop(on)
+    remote = _backend("POST", "estop", {"on": on})
+    made_safe = result.get("made_safe", []) + ((remote[1].get("made_safe") or []) if remote and remote[0] == 200 else [])
+    return jsonify({"success": True, "stopped": on, "made_safe": made_safe})
+
+
+@bp.route("/api/iot/approval", methods=["POST"])
+def iot_approval():
+    """Approve or reject an action a device's policy held for a person."""
+    data = request.get_json(silent=True) or {}
+    body = {"id": data.get("id"), "approve": bool(data.get("approve"))}
+    if data.get("origin") == "backend":
+        remote = _backend("POST", "approval", body)
+        if remote is None:
+            return jsonify({"success": False, "error": "The backend isn't running"})
+        return jsonify(remote[1])
+    from mcn.core_engine.iot_policy import PolicyError
+    try:
+        return jsonify(_iot().policies.decide(str(body["id"]), body["approve"], by="Studio"))
+    except (PolicyError, Exception) as exc:
+        return jsonify({"success": False, "error": str(exc)})
+
+
+@bp.route("/api/iot/lab", methods=["GET"])
+def get_iot_lab():
+    """The virtual lab worlds running in scripts (Run) and in the Preview backend, as Studio draws them."""
+    from mcn.core_engine.iot_lab import shared_lab
+    labs = {name: {**scene, "source": "studio"} for name, scene in shared_lab().scenes().items()}
+    remote = _backend("GET", "lab")
+    if remote and remote[0] == 200:
+        labs.update({name: {**scene, "source": "backend"} for name, scene in (remote[1].get("labs") or {}).items()})
+    return jsonify({"success": True, "labs": labs})
+
+
+@bp.route("/api/iot/lab", methods=["POST"])
+def control_iot_lab():
+    """Reset a lab world, or change how fast it runs."""
+    data = request.get_json(silent=True) or {}
+    body = {"world": data.get("world"), "action": data.get("action"), "speed": data.get("speed")}
+    if data.get("source") == "backend":
+        remote = _backend("POST", "lab", body)
+        if remote is None:
+            return jsonify({"success": False, "error": "The backend isn't running"})
+        return jsonify(remote[1])
+    from mcn.core_engine.iot_lab import lab, LabError
+    try:
+        if body["action"] == "speed":
+            return jsonify(lab("speed", {"world": body["world"], "speed": body["speed"]}))
+        return jsonify(lab("reset", body["world"]))
+    except LabError as exc:
+        return jsonify({"success": False, "error": str(exc)})
+
+
 @bp.route("/api/iot/commands", methods=["GET"])
 def get_iot_commands():
     commands = [{**c, "source": "studio"} for c in _iot().command_log]
