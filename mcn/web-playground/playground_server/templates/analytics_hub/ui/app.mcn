@@ -19,6 +19,8 @@ component AnalyticsDashboard
             report_text = rep_res.report
 
     render
+
+        hero "Executive Analytics" eyebrow="Business intelligence" subtitle="KPIs, trends and what's driving them, ready for the next meeting."
         card
             card_header "Executive Analytics & Performance BI"
             div grid_cols=3

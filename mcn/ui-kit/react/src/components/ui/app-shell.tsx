@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { cn, appMode } from "@/lib/utils"
 import { Icon } from "./icon"
 import { Breadcrumb } from "./breadcrumb"
 import { NotificationBell, Toaster } from "./toast"
@@ -72,13 +72,13 @@ function useActive(nav: NavItem[]) {
 }
 
 function useTheme() {
-  const [dark, setDark] = React.useState(
-    () =>
-      read("mcn-theme") === "dark" ||
-      (read("mcn-theme") === null &&
-        typeof matchMedia !== "undefined" &&
-        matchMedia("(prefers-color-scheme: dark)").matches),
-  )
+  const [dark, setDark] = React.useState(() => {
+    const saved = read("mcn-theme")
+    if (saved) return saved === "dark"                    // the person's own choice wins
+    const mode = appMode()                                 // then the app's `mode`
+    if (mode === "dark" || mode === "light") return mode === "dark"
+    return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches
+  })
   React.useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
@@ -252,7 +252,7 @@ export function AppShell({
 
   const brand = (compact: boolean) => (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm shadow-primary/30">
         <Icon name={logo || "Sparkles"} size={16} />
       </span>
       {!compact && <span className="truncate font-semibold tracking-tight">{title}</span>}

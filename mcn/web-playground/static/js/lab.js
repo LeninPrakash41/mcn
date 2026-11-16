@@ -47,7 +47,7 @@ function _labCard(s) {
   const body = s.world === 'greenhouse' ? _labGreenhouse(s) : s.world === 'rover' ? _labRover(s) : ''
   const events = (s.events || []).slice(-3).reverse().map(e => `<div>${_labEsc(e.text)}</div>`).join('')
   return `<div class="lab-card">
-    <div class="lab-head"><strong>🧪 ${_labEsc(s.title)} lab</strong>
+    <div class="lab-head"><strong>${_labEsc(s.title)} lab</strong>
       ${s.source === 'backend' ? '<span class="lab-tag">backend</span>' : ''}
       <span class="lab-speeds">${speeds}</span>
       <button class="btn btn-sm" onclick="labControl('${s.world}', '${s.source}', 'reset')">Reset</button></div>
@@ -126,7 +126,7 @@ function _labRover(s) {
     ${[...Array(Math.floor(s.width))].map((_, i) => `<line x1="${(i + 1) * k}" y1="0" x2="${(i + 1) * k}" y2="${H}" stroke="#1e293b"/>`).join('')}
     ${[...Array(Math.floor(s.height))].map((_, i) => `<line x1="0" y1="${(i + 1) * k}" x2="${W}" y2="${(i + 1) * k}" stroke="#1e293b"/>`).join('')}
     <circle cx="${px * k}" cy="${py * k}" r="${pr * k}" fill="${s.reached ? 'rgba(34,197,94,.45)' : 'rgba(34,197,94,.18)'}" stroke="#22c55e" stroke-dasharray="4 3"/>
-    <text x="${px * k}" y="${py * k + 4}" text-anchor="middle" font-size="10" fill="#86efac">⚡</text>
+    <text x="${px * k}" y="${py * k + 4}" text-anchor="middle" font-size="10" fill="#86efac">pad</text>
     ${obstacles}
     ${trail ? `<polyline points="${trail}" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity=".5"/>` : ''}
     <g transform="translate(${s.x * k} ${s.y * k}) rotate(${s.heading})">
@@ -160,7 +160,7 @@ async function refreshPolicy() {
     _policyState = d
     const btn = document.getElementById('iot-stop-btn')
     if (btn) { btn.textContent = d.stopped ? 'Release' : 'STOP'; btn.classList.toggle('released', !!d.stopped) }
-    const banner = d.stopped ? `<div class="iot-estop">⛔ Emergency stop is on. Every output is in its safe state and changes are refused.
+    const banner = d.stopped ? `<div class="iot-estop">Emergency stop is on. Every output is in its safe state and changes are refused.
         <button class="btn btn-sm" onclick="iotEmergencyStop(false)">Release</button></div>` : ''
     const approvals = (d.pending || []).map(p => `<div class="iot-approval">
         <div><b>${_labEsc(p.device)}</b> → ${_labEsc(p.value)} <span class="pane-sub">(now ${_labEsc(p.current)}, asked by ${_labEsc({code: 'the program', simulator: 'Studio'}[p.source] || p.source)}${p.origin === 'backend' ? ', backend' : ''})</span></div>

@@ -9,6 +9,8 @@ component Overview
         calls = list_calls().data
 
     render
+
+        hero "Voice Agents" eyebrow="AI phone agents" subtitle="Give each number a greeting and instructions, try calls in the simulator, and review every conversation."
         div grid_cols=4
             stat_card label="Active agents" value=stats.agents icon="Bot" color="purple"
             stat_card label="Calls answered" value=stats.calls icon="Phone" color="blue"

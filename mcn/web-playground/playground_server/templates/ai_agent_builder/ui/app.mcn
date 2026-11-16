@@ -7,6 +7,8 @@ component Overview
         stats = agent_stats().data
 
     render
+
+        hero "Agent Studio" eyebrow="AI agents" subtitle="Build agents with real tools, test them in a live chat and put one to work as your support assistant."
         div grid_cols=3
             stat_card label="Agents" value=stats.agents icon="Bot" color="purple"
             stat_card label="Test conversations" value=stats.conversations icon="MessageSquare" color="blue"

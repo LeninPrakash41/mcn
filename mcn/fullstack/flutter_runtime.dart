@@ -106,23 +106,52 @@ String mcnErrorText(Object err) {
 
 // ── Theme, icons and colors ──────────────────────────────────────────────────
 
-const Color _seed = Color(0xFF2563EB); // Vibrant modern primary blue
+const Color _seed = Color(0xFF7C3AED); // MCN violet: the default brand colour
+
+/// The app's design settings (font, corners, buttons): set by MCNApp from the app block.
+String mcnFont = 'Inter';
+double mcnCorner = 18;
+double mcnButtonCorner = 12;
+/// Phone settings from the app block: navbar (bar|floating|icons|drawer), header (standard|large|centered),
+/// cards (outlined|elevated|flat) and toasts (bottom|top).
+String mcnNavbar = 'bar';
+String mcnHeader = 'standard';
+String mcnCards = 'outlined';
+String mcnToasts = 'bottom';
+
+/// A text style in the app's font (any Google Font; "system" uses the platform's).
+TextStyle mcnFontStyle(TextStyle style) {
+  if (mcnFont.toLowerCase() == 'system') return style;
+  try {
+    return GoogleFonts.getFont(mcnFont, textStyle: style);
+  } catch (_) {
+    return GoogleFonts.inter(textStyle: style);
+  }
+}
+
+TextTheme _mcnTextTheme(TextTheme base) {
+  if (mcnFont.toLowerCase() == 'system') return base;
+  try {
+    return GoogleFonts.getTextTheme(mcnFont, base);
+  } catch (_) {
+    return GoogleFonts.interTextTheme(base);
+  }
+}
 
 ThemeData mcnTheme(Brightness brightness, [Color? brand]) {
   final isDark = brightness == Brightness.dark;
   // A brand color is used as it is (Material would soften a seed color)
-  final hsl = brand == null ? null : HSLColor.fromColor(brand);
-  final brandPrimary = hsl == null ? null
-      : isDark ? hsl.withLightness(hsl.lightness.clamp(0.6, 0.72)).toColor() : brand;
+  brand ??= _seed;                           // the brand colour is used exactly, the default too
+  final hsl = HSLColor.fromColor(brand);
+  final brandPrimary = isDark ? hsl.withLightness(hsl.lightness.clamp(0.6, 0.72)).toColor() : brand;
   final scheme = ColorScheme.fromSeed(
-    seedColor: brand ?? _seed,
+    seedColor: brand,
     primary: brandPrimary,
-    onPrimary: brandPrimary == null ? null
-        : (brandPrimary.computeLuminance() > 0.45 ? const Color(0xFF0F172A) : Colors.white),
+    onPrimary: brandPrimary.computeLuminance() > 0.45 ? const Color(0xFF0F172A) : Colors.white,
     brightness: brightness,
     surface: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
   );
-  final radius = BorderRadius.circular(18);
+  final radius = BorderRadius.circular(mcnCorner);
 
   final baseTheme = ThemeData(
     useMaterial3: true,
@@ -134,16 +163,20 @@ ThemeData mcnTheme(Brightness brightness, [Color? brand]) {
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
     }),
+    // cards "outlined" (a hairline border), "elevated" (a soft shadow) or "flat" (a tinted panel)
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: mcnCards == 'elevated' ? 3 : 0,
+      shadowColor: mcnCards == 'elevated' ? (isDark ? Colors.black : const Color(0x330F172A)) : null,
       margin: EdgeInsets.zero,
-      color: isDark ? const Color(0xFF131D31) : Colors.white,
+      color: mcnCards == 'flat'
+          ? Color.alphaBlend(scheme.primary.withValues(alpha: isDark ? 0.10 : 0.05), isDark ? const Color(0xFF131D31) : Colors.white)
+          : (isDark ? const Color(0xFF131D31) : Colors.white),
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
-        side: BorderSide(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-          width: 1,
-        ),
+        side: mcnCards == 'outlined'
+            ? BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0), width: 1)
+            : BorderSide.none,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -183,12 +216,12 @@ ThemeData mcnTheme(Brightness brightness, [Color? brand]) {
       scrolledUnderElevation: 1,
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.inter(
+      titleTextStyle: mcnFontStyle(TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.3,
         color: isDark ? Colors.white : const Color(0xFF0F172A),
-      ),
+      )),
       iconTheme: IconThemeData(
         color: isDark ? Colors.white : const Color(0xFF0F172A),
         size: 20,
@@ -229,7 +262,7 @@ ThemeData mcnTheme(Brightness brightness, [Color? brand]) {
     ),
   );
 
-  final textTheme = GoogleFonts.interTextTheme(baseTheme.textTheme);
+  final textTheme = _mcnTextTheme(baseTheme.textTheme);
   return baseTheme.copyWith(
     textTheme: textTheme.copyWith(
       headlineLarge: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
@@ -367,9 +400,24 @@ void mcnNotify(BuildContext context, dynamic message, [dynamic kind = 'info']) {
   final scheme = Theme.of(context).colorScheme;
   final error = mcnStr(kind) == 'error';
   if (error) HapticFeedback.mediumImpact();
+  final k = mcnStr(kind);
+  final icon = {'success': LucideIcons.checkCircle, 'error': LucideIcons.alertCircle, 'warning': LucideIcons.alertTriangle}[k] ?? LucideIcons.info;
+  final tone = {'success': const Color(0xFF10B981), 'warning': const Color(0xFFF59E0B)}[k];
+  final screen = MediaQuery.maybeOf(context)?.size.height ?? 800;
+  // toasts "top" slide in under the status bar; "bottom" sit above the navigation bar
   (_messenger.currentState ?? ScaffoldMessenger.maybeOf(context))?.showSnackBar(SnackBar(
-    content: Text(mcnStr(message)),
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(mcnCorner, 16))),
+    margin: mcnToasts == 'top'
+        ? EdgeInsets.only(left: 16, right: 16, bottom: math.max(16, screen - 150))
+        : const EdgeInsets.fromLTRB(16, 0, 16, 16),
     backgroundColor: error ? scheme.error : null,
+    dismissDirection: mcnToasts == 'top' ? DismissDirection.up : DismissDirection.down,
+    content: Row(children: [
+      Icon(icon, size: 18, color: error ? scheme.onError : (tone ?? scheme.inversePrimary)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(mcnStr(message))),
+    ]),
   ));
 }
 
@@ -420,7 +468,12 @@ class MCNApp extends StatefulWidget {
   final String? brand;
   /// A `page` layout (landing pages): one screen without the app bar
   final bool page;
-  const MCNApp({super.key, required this.title, required this.sections, this.logo, this.brand, this.page = false});
+  /// Design settings from the app block: font, corners (sharp|soft|round|extra), buttons (rounded|pill|square), mode (auto|light|dark)
+  final String? font, corners, buttons, mode;
+  /// Phone settings: navbar, header, cards, toasts
+  final String? navbar, header, cards, toasts;
+  const MCNApp({super.key, required this.title, required this.sections, this.logo, this.brand, this.page = false,
+      this.font, this.corners, this.buttons, this.mode, this.navbar, this.header, this.cards, this.toasts});
   @override
   State<MCNApp> createState() => _MCNAppState();
 }
@@ -473,12 +526,54 @@ class _MCNAppState extends State<MCNApp> {
     ]);
   }
 
+  /// navbar "floating": a rounded bar that floats above the content
+  Widget _floatingBar(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final sections = widget.sections;
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: dark ? const Color(0xFF1A2236) : Colors.white,
+          borderRadius: BorderRadius.circular(math.min(32, mcnCorner + 14)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: dark ? 0.45 : 0.12), blurRadius: 24, offset: const Offset(0, 8))],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(children: [
+          for (var i = 0; i < sections.length; i++)
+            Expanded(child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _select(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                decoration: BoxDecoration(
+                  color: i == _index ? scheme.primary.withValues(alpha: 0.14) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(mcnIcon(sections[i].icon), size: 20, color: i == _index ? scheme.primary : scheme.onSurfaceVariant),
+                  const SizedBox(height: 2),
+                  Text(sections[i].label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, fontWeight: i == _index ? FontWeight.w700 : FontWeight.w500,
+                          color: i == _index ? scheme.primary : scheme.onSurfaceVariant)),
+                ]),
+              ),
+            )),
+        ]),
+      ),
+    );
+  }
+
   Widget _shell(BuildContext context) {
     final sections = widget.sections;
     if (sections.isEmpty) return const Scaffold();
     return LayoutBuilder(builder: (context, size) {
       final rail = size.maxWidth >= 640 && sections.length > 1;
-      final drawer = !rail && sections.length > 5;
+      final drawer = !rail && (sections.length > 5 || (mcnNavbar == 'drawer' && sections.length > 1));
+      final floating = mcnNavbar == 'floating';
       final pages = IndexedStack(index: _index, children: [
         for (var i = 0; i < sections.length; i++) _tab(i, drawer ? () => _scaffold.currentState?.openDrawer() : null),
       ]);
@@ -511,8 +606,9 @@ class _MCNAppState extends State<MCNApp> {
             const VerticalDivider(width: 1),
             Expanded(child: pages),
           ]) : pages,
+          extendBody: floating,
           bottomNavigationBar: !rail && !drawer && sections.length > 1
-              ? Container(
+              ? (floating ? _floatingBar(context) : Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? const Color(0xFF0F172A)
@@ -527,13 +623,16 @@ class _MCNAppState extends State<MCNApp> {
                     ),
                   ),
                   child: NavigationBar(
-                    height: 60,
+                    height: mcnNavbar == 'icons' ? 56 : 60,
                     elevation: 0,
                     selectedIndex: _index,
                     onDestinationSelected: _select,
                     backgroundColor: Colors.transparent,
                     indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
-                    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                    // navbar "icons": icons only, the label shows for the current section
+                    labelBehavior: mcnNavbar == 'icons'
+                        ? NavigationDestinationLabelBehavior.onlyShowSelected
+                        : NavigationDestinationLabelBehavior.alwaysShow,
                     destinations: [
                       for (final s in sections)
                         NavigationDestination(
@@ -543,7 +642,7 @@ class _MCNAppState extends State<MCNApp> {
                         )
                     ],
                   ),
-                )
+                ))
               : null,
         ),
       );
@@ -551,15 +650,24 @@ class _MCNAppState extends State<MCNApp> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) {
+    mcnFont = widget.font ?? 'Inter';
+    mcnCorner = const {'sharp': 6.0, 'soft': 11.0, 'round': 18.0, 'extra': 26.0}[widget.corners] ?? 18;
+    mcnButtonCorner = const {'pill': 999.0, 'square': 4.0}[widget.buttons] ?? (mcnCorner * 0.66);
+    mcnNavbar = widget.navbar ?? 'bar';
+    mcnHeader = widget.header ?? 'standard';
+    mcnCards = widget.cards ?? 'outlined';
+    mcnToasts = widget.toasts ?? 'bottom';
+    return MaterialApp(
         title: widget.title,
         debugShowCheckedModeBanner: false,
         scaffoldMessengerKey: _messenger,
         theme: mcnTheme(Brightness.light, _brandColor),
         darkTheme: mcnTheme(Brightness.dark, _brandColor),
-        themeMode: ThemeMode.system,
+        themeMode: const {'light': ThemeMode.light, 'dark': ThemeMode.dark}[widget.mode] ?? ThemeMode.system,
         home: Builder(builder: _shell),
       );
+  }
 }
 
 /// A native mobile screen: a clean Material 3 app bar with left-aligned title,
@@ -597,15 +705,17 @@ class MCNPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF8FAFC),
       appBar: bare ? null : AppBar(
-        title: Text(
+        // header "large": a big title opens the page (below); "centered": the title in the middle
+        title: mcnHeader == 'large' && !canPop ? null : Text(
           pageTitle,
-          style: GoogleFonts.inter(
+          style: mcnFontStyle(const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
-          ),
+          )),
         ),
-        centerTitle: false,
+        centerTitle: mcnHeader == 'centered',
+        toolbarHeight: mcnHeader == 'large' && !canPop ? 44 : null,
         elevation: 0,
         scrolledUnderElevation: 1,
         backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -644,21 +754,26 @@ class MCNPage extends StatelessWidget {
         final side = math.max(16.0, (size.maxWidth - 1100) / 2);
         final top = bare ? MediaQuery.of(context).padding.top + 12 : 16.0;
         final items = [
+          if (mcnHeader == 'large' && !canPop && !bare)
+            Text(pageTitle, style: mcnFontStyle(TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8,
+                color: Theme.of(context).colorScheme.onSurface))),
           if (error != null) _MCNLoadError(message: error!, onRetry: onRetry),
           ...children,
         ];
+        // Room for a floating navigation bar, so it never covers the last item
+        final bottom = mcnNavbar == 'floating' ? 110.0 : 28.0;
         // A page builds every section up front, so "#pricing" links can scroll to any of them
         final Widget list = bare
             ? SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(side, top, side, 28),
+                padding: EdgeInsets.fromLTRB(side, top, side, bottom),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(height: 24), items[i]],
                 ]),
               )
             : ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(side, top, side, 28),
+                padding: EdgeInsets.fromLTRB(side, top, side, bottom),
                 itemCount: items.length,
                 itemBuilder: (_, i) => items[i],
                 separatorBuilder: (_, __) => const SizedBox(height: 16),
@@ -1056,7 +1171,7 @@ class MCNButton extends StatelessWidget {
     final inCardOrForm = context.findAncestorWidgetOfExactType<MCNCard>() != null;
     final btnStyle = ButtonStyle(
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(mcnButtonCorner))),
     );
     final Widget button = switch (variant) {
       'outline' => i == null

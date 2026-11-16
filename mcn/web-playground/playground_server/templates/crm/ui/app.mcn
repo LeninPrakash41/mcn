@@ -15,6 +15,8 @@ component Dashboard
         activities = a.data
 
     render
+
+        hero "CRM" eyebrow="Customers" subtitle="Deals, contacts, companies and activities in one place."
         div
             h2 "Overview"
             div grid_cols=4

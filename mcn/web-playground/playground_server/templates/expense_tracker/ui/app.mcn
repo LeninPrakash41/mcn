@@ -2,6 +2,7 @@
 component BudgetOverview
     state remaining = "$2,370"
     render
+        hero "Expense Tracker" eyebrow="Budget" subtitle="See where your money goes and stay on budget."
         card
             card_header "Monthly Budget"
             stat label="Remaining Balance" value=remaining change=12.0

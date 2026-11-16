@@ -15,6 +15,8 @@ component Dashboard
         approvals = a.data
 
     render
+
+        hero "Construction Manager" eyebrow="Projects" subtitle="Jobs, milestones, compliance and materials across every site."
         div
             h2 "Construction Management Dashboard"
             p className="text-muted mb-6" "Configure property sites, track jobs, monitor Gantt scheduling timelines, manage material stock, file safety logs, and grant workflows approvals."

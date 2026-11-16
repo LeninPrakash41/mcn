@@ -33,6 +33,8 @@ component Home
         events = recent_events(6).data
 
     render
+
+        hero "Smart Home" eyebrow="Home" subtitle="Sensors, lights, the fan and blinds, with automations that run by themselves."
         div grid_cols=4
             stat_card label="Temperature" value=home.temperature icon="Thermometer" color="orange"
             stat_card label="Humidity" value=home.humidity icon="Droplets" color="blue"

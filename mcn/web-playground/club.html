@@ -25,7 +25,7 @@ nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
 nav a { color: var(--muted); padding: 6px 10px; border-radius: 8px; font-size: 14px; white-space: nowrap; }
 nav a:hover { color: var(--text); background: var(--bg); text-decoration: none; }
 nav a.on { color: var(--text); background: var(--bg); font-weight: 550; }
-.who { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
 .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: 0; border-radius: 9px;
   padding: 9px 16px; font-weight: 550; cursor: pointer; white-space: nowrap; }
 .btn:hover { text-decoration: none; filter: brightness(1.05); }
@@ -108,6 +108,48 @@ pre { background: var(--card); border: 1px solid var(--line); border-radius: 10p
 .btn.sm { padding: 6px 12px; font-size: 13px; }
 details.card summary { cursor: pointer; font-weight: 550; }
 @media (max-width: 760px) { .split { grid-template-columns: 1fr; } .crit { grid-template-columns: 1fr; } }
+/* ── Friendlier marketplace ── */
+.who { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); padding: 5px 10px 5px 5px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); white-space: nowrap; }
+.who:hover { text-decoration: none; border-color: var(--accent); }
+.who.out { padding: 7px 14px; font-weight: 550; }
+.av { display: inline-grid; place-items: center; border-radius: 50%; font-weight: 650; color: #fff; flex-shrink: 0; }
+.hero.compact { padding: 40px 20px 34px; background: var(--hero); }
+.hero.compact .wrap { max-width: 1080px; margin: 0 auto; }
+.hero.compact h1 { font-size: 36px; margin: 0 0 8px; }
+.hero.compact p { margin: 0 0 22px; }
+.hero-search { display: flex; gap: 10px; max-width: 720px; flex-wrap: wrap; }
+.hero-search input { flex: 1; min-width: 240px; padding: 14px 16px; border-radius: 12px; border: 0; font: inherit; font-size: 15px; background: #fff; color: #1d1d1b; }
+.hero-search .btn { padding: 13px 18px; }
+.hero-nums { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 18px; color: #c9c4bb; font-size: 14px; }
+.hero-nums b { color: #fff; font-size: 16px; margin-right: 4px; }
+.filterbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 4px 0 6px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 9px; cursor: pointer; }
+.seg button.on { background: var(--text); color: var(--bg); font-weight: 550; }
+.selects { display: flex; gap: 8px; flex-wrap: wrap; }
+.result-note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+.app { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; color: var(--text); transition: transform .15s, box-shadow .15s, border-color .15s; }
+.app:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); text-decoration: none; }
+.cover, .pj-cover { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: color-mix(in srgb, var(--tint) 11%, var(--card)); border-bottom: 1px solid color-mix(in srgb, var(--tint) 18%, var(--line)); }
+.cover { height: 76px; }
+.mono { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--tint) 20%, var(--card)); color: color-mix(in srgb, var(--tint) 80%, var(--text)); font-weight: 700; font-size: 16px; letter-spacing: .02em; }
+.cover .cat, .pj-cover .cat { font-size: 12px; font-weight: 600; color: color-mix(in srgb, var(--tint) 75%, var(--text)); }
+.app-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.app-body h3 { margin: 0; font-size: 16.5px; }
+.app-by { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); margin-top: auto; padding-top: 6px; }
+.app-by b { color: var(--text); font-weight: 600; display: block; }
+.stats-line { display: flex; gap: 12px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.stats-line b { color: var(--text); }
+.howto { margin: 40px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+.howto h2 { margin: 0 0 14px; }
+.howto .steps { margin: 0 0 16px; }
+.site-foot { border-top: 1px solid var(--line); margin-top: 50px; padding: 26px 24px 34px; display: flex; flex-wrap: wrap; gap: 14px 30px; justify-content: space-between; max-width: 1120px; margin-left: auto; margin-right: auto; color: var(--muted); font-size: 13.5px; }
+.site-foot div { display: flex; flex-direction: column; gap: 3px; } .site-foot b { color: var(--text); }
+.site-foot nav { display: flex; flex-wrap: wrap; gap: 6px 18px; flex: none; overflow: visible; }
+.site-foot nav a { color: var(--muted); padding: 0; } .site-foot nav a:hover { color: var(--text); background: none; }
+.pj-cover { height: 96px; border-radius: 16px; margin-top: 22px; border: 1px solid color-mix(in srgb, var(--tint) 18%, var(--line)); padding: 18px 22px; }
+.pj-cover .mono { width: 56px; height: 56px; font-size: 20px; border-radius: 14px; }
+
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; }
 
 /* ── Certificate ── */
@@ -150,6 +192,7 @@ details.card summary { cursor: pointer; font-weight: 550; }
   .sheet { max-width: none; width: 297mm; height: 210mm; aspect-ratio: auto; box-shadow: none; }
 }
 @media (max-width: 760px) {
+  .hero-search .btn { display: none; } .hero.compact h1 { font-size: 30px; }
   .hero-in, .cols, .steps { grid-template-columns: 1fr; } .pjhead { grid-template-columns: 1fr; } header { gap: 8px 10px; padding: 10px 14px; flex-wrap: wrap; } header > .btn { margin-left: auto; padding: 7px 12px; font-size: 14px; } nav { order: 3; flex-basis: 100%; margin: 0 -6px; } .who { display: none; }
 }
 </style>
@@ -162,14 +205,18 @@ details.card summary { cursor: pointer; font-weight: 550; }
     <a href="/club/seasons" data-v="seasons">Seasons</a>
     <a href="/club/leaderboard" data-v="leaderboard">Leaderboard</a>
     <a href="/club/awards" data-v="awards">Awards</a>
-    <a href="/club/verify" data-v="verify">Verify</a>
     <a href="/club/me" data-v="me" id="nav-me">My club</a>
     <a href="/club/review" data-v="review" id="nav-review" hidden>Review</a>
   </nav>
-  <span class="who" id="who"></span>
+  <a class="who" id="who" href="/?signin=club">Sign in</a>
   <a class="btn" href="/?club=launch">Publish your app</a>
 </header>
 <main id="view"><div class="empty" style="margin-top:30px">Loading…</div></main>
+<footer class="site-foot no-print">
+  <div><b>MCN Developer Club</b><span>Build apps in MCN, get them reviewed, get certified.</span></div>
+  <nav><a href="/club">Marketplace</a><a href="/club/seasons">Seasons</a><a href="/club/leaderboard">Leaderboard</a>
+    <a href="/club/awards">Awards</a><a href="/club/verify">Verify a certificate</a><a href="/club/me">My club</a></nav>
+</footer>
 
 <!-- Ornaments -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -203,7 +250,7 @@ const $view = document.getElementById('view')
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const day = t => t ? new Date(t * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 let INFO = { awards: {}, spotlights: {}, kinds: {}, sorts: {}, counts: {} }
-const state = { award: '', spotlight: '', kind: '', q: '', sort: 'newest', season: '' }
+const state = { view: 'all', category: '', q: '', sort: 'newest', season: '' }
 let SEASONS = [], ME = null
 const ordered = g => ((INFO.order || {})[g] || Object.keys(INFO[g] || {})).map(k => [k, INFO[g][k]])
 const AWARD_ABOUT = {
@@ -228,7 +275,7 @@ function toast(text) { const t = document.createElement('div'); t.className = 't
 function setNav(v) { document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v)) }
 
 function badges(p) {
-  const out = (p.awards || []).map(a => `<span class="badge award">🏆 ${esc(a.label)}${a.season ? ' · ' + esc(a.season) : ''}</span>`)
+  const out = (p.awards || []).map(a => `<span class="badge award">${esc(a.label)}${a.season ? ' · ' + esc(a.season) : ''}</span>`)
   if (p.spotlight_label) out.push(`<span class="badge spot">${esc(p.spotlight_label)}</span>`)
   return out.join('')
 }
@@ -240,58 +287,93 @@ function meter(p) {
 function author(p) {
   return `<a href="/club/u/${esc(p.user_id)}">${esc(p.author)}</a> · ${esc(p.author_org)} <span class="badge kind">${esc(INFO.kinds[p.author_kind] || '')}</span>`
 }
+// A look per category, so apps are easy to tell apart at a glance
+// A muted tint per category, in the club's warm palette, so apps are easy to tell apart
+const CATEGORY_TINT = {
+  AI: '#8b6fb3', Business: '#4f7aa8', Education: '#c4664a', Health: '#4f8a6b', Finance: '#7a8a4f',
+  IoT: '#4a8a99', 'Social good': '#b0607a', Tools: '#7a7468', Other: '#9a7a4a',
+}
+const tint = c => CATEGORY_TINT[c] || CATEGORY_TINT.Other
+const coverStyle = c => `--tint:${tint(c)}`
+const monogram = t => String(t || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+function avatar(name, size = 30) {
+  const initials = String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'
+  let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) % 360
+  return `<span class="av" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px;background:hsl(${h} 22% 46%)">${esc(initials)}</span>`
+}
 function card(p) {
-  return `<div class="card"><a href="/club/project/${esc(p.id)}" style="color:inherit"><h3>${esc(p.title)}</h3></a>
-    ${p.season ? `<a class="badge kind" style="align-self:flex-start" href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}
-    <div class="muted">${esc(p.tagline || '')}</div><div class="badges">${badges(p)}</div>
-    <div class="muted">${author(p)}</div>${meter(p)}</div>`
+  const u = p.usage || {}, st = p.stats || {}
+  return `<a class="app" href="/club/project/${esc(p.id)}">
+    <div class="cover" style="${coverStyle(p.category)}"><span class="mono">${esc(monogram(p.title))}</span><span class="cat">${esc(p.category || 'App')}</span></div>
+    <div class="app-body">
+      <h3>${esc(p.title)}</h3>
+      <div class="muted">${esc(p.tagline || '')}</div>
+      ${badges(p) || p.season ? `<div class="badges">${p.season ? `<span class="badge kind">${esc(p.season.name)}</span>` : ''}${badges(p)}</div>` : ''}
+      <div class="app-by">${avatar(p.author)}<span><b>${esc(p.author)}</b>${esc(p.author_org)} · ${esc(INFO.kinds[p.author_kind] || '')}</span></div>
+      <div class="stats-line"><span><b>${u.uses || 0}</b> using</span><span><b>${u.likes || 0}</b> likes</span>
+        <span>${count(st.screens, 'screen')}${st.uses_ai ? ' · AI' : ''}</span></div>
+    </div></a>`
 }
 
 // ── Marketplace ──────────────────────────────────────────────────────────
 
+const VIEWS = [['all', 'All apps'], ['winners', 'Award winners'], ['spot', 'Spotlighted'], ['student', 'By students'], ['professional', 'By professionals']]
+const CATEGORIES = ['AI', 'Business', 'Education', 'Health', 'Finance', 'IoT', 'Social good', 'Tools', 'Other']
+
 async function marketplace() {
   setNav('market')
   const n = INFO.counts || {}
-  const chip = (g, k, label) => `<button class="chip ${state[g] === k ? 'on' : ''}" data-g="${g}" data-k="${esc(k)}">${esc(label)}</button>`
+  const member = ME && ME.member
   $view.innerHTML = `
-    <section class="hero"><div class="hero-in">
-      <div><h1>Apps built by students and professionals, in MCN</h1>
-        <p>Members of the MCN Developer Club build apps, launch them for review and earn certificates. Approved apps are listed
-          here; the best win awards, and promising ones are picked for funding, recognition or the showcase.</p>
-        <a class="btn" href="/?club=launch">Publish your app</a> <a class="btn ghost" style="color:#f4f1ec;border-color:#4a463f" href="/club/leaderboard">See the leaderboard</a></div>
-      <div class="nums"><div><b>${n.apps || 0}</b><span>approved apps</span></div><div><b>${n.members || 0}</b><span>members</span></div>
-        <div><b>${n.organizations || 0}</b><span>colleges & companies</span></div><div><b>${n.certificates || 0}</b><span>certificates issued</span></div></div>
+    <section class="hero compact"><div class="wrap">
+      <h1>Discover apps built in MCN</h1>
+      <p>Made by students and professionals in the MCN Developer Club. Open any of them in Studio to try it or build on it.</p>
+      <div class="hero-search"><input id="q" placeholder="Search apps, people, colleges or companies" value="${esc(state.q)}" aria-label="Search">
+        <a class="btn" href="/?club=launch">Publish your app</a></div>
+      <div class="hero-nums"><span><b>${n.apps || 0}</b>apps</span><span><b>${n.members || 0}</b>members</span>
+        <span><b>${n.organizations || 0}</b>colleges & companies</span><span><b>${n.certificates || 0}</b>certificates</span></div>
     </div></section>
     ${openBanner()}
-    <div class="steps">
-      <div class="step"><i>1</i><b>Join</b><span>Open My club and add your college or company.</span></div>
-      <div class="step"><i>2</i><b>Build</b><span>Build your app in Studio, from scratch, a template or with the Agent.</span></div>
-      <div class="step"><i>3</i><b>Launch for review</b><span>One click sends it; you get a certificate straight away.</span></div>
+    <div class="filterbar">
+      <div class="seg" role="tablist">${VIEWS.map(([k, l]) => `<button role="tab" data-view="${k}" class="${state.view === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="selects">
+        <select class="sort" id="category" aria-label="Category"><option value="">All categories</option>${CATEGORIES.map(c => `<option ${state.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+        ${SEASONS.length ? `<select class="sort" id="season" aria-label="Season"><option value="">All seasons</option>${SEASONS.map(se => `<option value="${esc(se.id)}" ${state.season === se.id ? 'selected' : ''}>${esc(se.name)}</option>`).join('')}</select>` : ''}
+        <select class="sort" id="sort" aria-label="Sort">${Object.entries(INFO.sorts || {}).map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+      </div>
+    </div>
+    <p class="result-note" id="note"></p>
+    <div id="results" class="grid"></div>
+    ${member ? '' : `<section class="howto"><h2>How the club works</h2><div class="steps">
+      <div class="step"><i>1</i><b>Join</b><span>Sign in, open My club and add your college or company.</span></div>
+      <div class="step"><i>2</i><b>Build</b><span>Make an app in Studio: from scratch, a template or with the Agent.</span></div>
+      <div class="step"><i>3</i><b>Publish</b><span>Click Publish in Studio. You get a certificate straight away.</span></div>
       <div class="step"><i>4</i><b>Get listed</b><span>Approved apps appear here, earn certificates and can win awards.</span></div>
-    </div>
-    <div class="toolbar">
-      <input class="search" id="q" placeholder="Search apps, people, colleges or companies" value="${esc(state.q)}">
-      ${SEASONS.length ? `<select class="sort" id="season"><option value="">All seasons</option>${SEASONS.map(se => `<option value="${esc(se.id)}" ${state.season === se.id ? 'selected' : ''}>${esc(se.name)}</option>`).join('')}</select>` : ''}
-      <select class="sort" id="sort">${Object.entries(INFO.sorts || {}).map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
-    </div>
-    <div class="filters">${chip('award', '', 'All apps')}${ordered('awards').map(([k, v]) => chip('award', k, v)).join('')}</div>
-    <div class="filters">${ordered('spotlights').map(([k, v]) => chip('spotlight', k, v)).join('')}${ordered('kinds').map(([k, v]) => chip('kind', k, v + 's')).join('')}</div>
-    <div id="results" class="grid"></div>`
-  $view.querySelectorAll('.chip').forEach(b => b.onclick = () => { state[b.dataset.g] = state[b.dataset.g] === b.dataset.k && b.dataset.k ? '' : b.dataset.k; marketplace() })
+    </div><a class="btn" href="${INFO.signed_in ? '/club/me' : '/?signin=club'}">${INFO.signed_in ? 'Join the club' : 'Sign in to join'}</a></section>`}`
+  $view.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { state.view = b.dataset.view; marketplace() })
   let t
   document.getElementById('q').oninput = e => { clearTimeout(t); t = setTimeout(() => { state.q = e.target.value; results() }, 250) }
   document.getElementById('sort').onchange = e => { state.sort = e.target.value; results() }
+  document.getElementById('category').onchange = e => { state.category = e.target.value; results() }
   const se = document.getElementById('season')
   if (se) se.onchange = e => { state.season = e.target.value; results() }
   results()
 }
 
 async function results() {
-  const qs = new URLSearchParams(Object.entries(state).filter(([, v]) => v)).toString()
+  const v = state.view
+  const params = { q: state.q, sort: state.sort, season: state.season, category: state.category,
+    award: v === 'winners' ? 'any' : '', spotlight: v === 'spot' ? 'any' : '', kind: ['student', 'professional'].includes(v) ? v : '' }
+  const qs = new URLSearchParams(Object.entries(params).filter(([, x]) => x)).toString()
   const { body } = await api('/api/club/marketplace?' + qs)
   const list = body.projects || []
+  const filtered = qs.replace(/(^|&)sort=[^&]*/, '')
+  document.getElementById('note').innerHTML = filtered
+    ? `${list.length} app${list.length === 1 ? '' : 's'} · <a href="#" id="clear">Clear filters</a>` : ''
+  const clear = document.getElementById('clear')
+  if (clear) clear.onclick = e => { e.preventDefault(); Object.assign(state, { q: '', view: 'all', category: '', season: '' }); marketplace() }
   document.getElementById('results').innerHTML = list.length ? list.map(card).join('')
-    : `<div class="empty">${body.error ? esc(body.error) : 'No approved apps match yet. <a href="/?club=launch">Publish yours</a>.'}</div>`
+    : `<div class="empty">${body.error ? esc(body.error) : filtered ? 'No apps match these filters.' : 'No approved apps yet. <a href="/?club=launch">Publish the first one</a>.'}</div>`
 }
 
 // ── Seasons ──────────────────────────────────────────────────────────────
@@ -305,13 +387,13 @@ function openBanner() {
   const open = SEASONS.filter(se => se.status === 'open')
   if (!open.length) return ''
   const se = open[0]
-  return `<a class="card" href="/club/season/${esc(se.id)}" style="margin-bottom:16px;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-    <span><b>🏁 ${esc(se.name)} is open${se.theme ? ': ' + esc(se.theme) : ''}</b><br><span class="muted">Entries close ${esc(day(se.ends_at))} · ${esc(left(se.ends_at))} · ${se.entries} entries so far</span></span>
-    <span class="btn">See the season</span></a>`
+  return `<a class="card" href="/club/season/${esc(se.id)}" style="margin:0 0 18px;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-color:color-mix(in srgb, var(--accent) 35%, var(--line));background:color-mix(in srgb, var(--accent-bg) 55%, var(--card))">
+    <span><b>${esc(se.name)} is open${se.theme ? ': ' + esc(se.theme) : ''}</b> <span class="muted">· entries close ${esc(day(se.ends_at))}, ${esc(left(se.ends_at)).toLowerCase()} · ${se.entries} entries so far</span></span>
+    <span class="btn ghost">Enter or see entries →</span></a>`
 }
 
 function seasonCard(se) {
-  return `<a class="card" href="/club/season/${esc(se.id)}"><div style="display:flex;justify-content:space-between;gap:10px"><h3>🏁 ${esc(se.name)}</h3>
+  return `<a class="card" href="/club/season/${esc(se.id)}"><div style="display:flex;justify-content:space-between;gap:10px"><h3>${esc(se.name)}</h3>
       <span class="badge ${se.status === 'open' ? 'spot' : se.status === 'closed' ? 'award' : ''}">${esc(se.status_label)}</span></div>
     ${se.theme ? `<div>${esc(se.theme)}</div>` : ''}
     <div class="muted">${esc(day(se.starts_at))} to ${esc(day(se.ends_at))}${se.status === 'open' ? ' · ' + esc(left(se.ends_at)) : ''}</div>
@@ -334,10 +416,10 @@ async function seasonPage(id) {
   const se = body.season
   document.title = `${se.name} · MCN Developer Club`
   const winners = se.status === 'closed' ? ordered('awards').map(([k, label]) => (se.winners[k] || []).length
-    ? `<h2>🏆 ${esc(label)}</h2><div class="grid">${se.winners[k].map(card).join('')}</div>` : '').join('') : ''
+    ? `<h2>${esc(label)}</h2><div class="grid">${se.winners[k].map(card).join('')}</div>` : '').join('') : ''
   $view.innerHTML = `
     <section class="hero"><div class="hero-in">
-      <div><p style="margin:0 0 6px;color:#b9b3a8">Season · ${esc(se.status_label)}</p><h1>🏁 ${esc(se.name)}</h1>
+      <div><p style="margin:0 0 6px;color:#b9b3a8">Season · ${esc(se.status_label)}</p><h1>${esc(se.name)}</h1>
         ${se.theme ? `<p style="font-size:18px;color:#f4f1ec">${esc(se.theme)}</p>` : ''}
         ${se.description ? `<p style="white-space:pre-wrap">${esc(se.description)}</p>` : ''}
         ${se.status === 'open' ? '<a class="btn" href="/?club=launch">Enter your app</a>' : ''}</div>
@@ -378,7 +460,7 @@ async function awards() {
   const winners = body.winners || {}
   $view.innerHTML = `<h1 class="page">Awards</h1>
     <p class="lead">Reviewers recognise approved apps in five categories. Each award comes with a certificate.</p>
-    ${ordered('awards').map(([k, label]) => `<h2>🏆 ${esc(label)}</h2><p class="muted" style="margin-top:-6px">${esc(AWARD_ABOUT[k] || '')}</p>
+    ${ordered('awards').map(([k, label]) => `<h2>${esc(label)}</h2><p class="muted" style="margin-top:-6px">${esc(AWARD_ABOUT[k] || '')}</p>
       <div class="grid">${(winners[k] || []).length ? winners[k].map(card).join('') : '<div class="empty">Not awarded yet.</div>'}</div>`).join('')}`
 }
 
@@ -390,14 +472,15 @@ async function projectPage(id) {
   const p = body.project, u = p.usage || {}
   document.title = `${p.title} · MCN Developer Club`
   const like = !INFO.signed_in ? `<a class="btn ghost" href="/">Sign in to like</a>`
-    : p.mine ? '' : `<button class="btn ghost ${p.liked ? 'liked' : ''}" id="like">${p.liked ? '♥ Liked' : '♡ Like'}</button>`
+    : p.mine ? '' : `<button class="btn ghost ${p.liked ? 'liked' : ''}" id="like">${p.liked ? 'Liked' : 'Like'}</button>`
   $view.innerHTML = `
     <p style="margin-top:24px"><a href="/club">← Marketplace</a></p>
+    <div class="pj-cover" style="${coverStyle(p.category)}"><span class="mono">${esc(monogram(p.title))}</span><span class="cat">${esc(p.category || 'App')}</span></div>
     <div class="pjhead"><div><h1>${esc(p.title)}</h1><div class="lead" style="margin-bottom:8px">${esc(p.tagline || '')}</div>
         <div class="badges">${badges(p)}</div></div>
       <div class="actions"><a class="btn" href="/?club_open=${esc(p.id)}">Open in Studio</a>${like}
         <button class="btn ghost" id="share">Copy link</button></div></div>
-    <p class="muted">${author(p)} · approved ${esc(day(p.listed_at))}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}</p>
+    <p class="muted" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${avatar(p.author, 28)} ${author(p)} · approved ${esc(day(p.listed_at))}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">${esc(p.season.name)}</a>` : ''}</p>
     <div class="statrow">
       <div class="stat"><b>${u.uses || 0}</b><span>members using it</span></div>
       <div class="stat"><b id="likes">${u.likes || 0}</b><span>likes</span></div>
@@ -407,7 +490,7 @@ async function projectPage(id) {
       <div class="stat"><b>${(p.stats || {}).tests || 0}</b><span>tests</span></div>
     </div>
     ${p.description ? `<h2>About</h2><p style="white-space:pre-wrap;max-width:780px">${esc(p.description)}</p>` : ''}
-    ${(p.awards || []).length ? `<h2>Awards</h2>${p.awards.map(a => `<div class="note"><b>🏆 ${esc(a.label)}</b>${a.note ? `<div class="muted">${esc(a.note)}</div>` : ''}</div>`).join('')}` : ''}
+    ${(p.awards || []).length ? `<h2>Awards</h2>${p.awards.map(a => `<div class="note"><b>${esc(a.label)}</b>${a.note ? `<div class="muted">${esc(a.note)}</div>` : ''}</div>`).join('')}` : ''}
     <h2>The app</h2>
     <details><summary>backend/main.mcn</summary><pre>${esc(p.backend || '')}</pre></details>
     <details><summary>ui/app.mcn</summary><pre>${esc(p.ui || '')}</pre></details>`
@@ -417,7 +500,7 @@ async function projectPage(id) {
     const want = !btn.classList.contains('liked')
     const r = await api(`/api/club/projects/${encodeURIComponent(p.id)}/like`, { liked: want })
     if (!r.ok) { toast(r.body.error || 'Could not save that'); return }
-    btn.classList.toggle('liked', want); btn.textContent = want ? '♥ Liked' : '♡ Like'
+    btn.classList.toggle('liked', want); btn.textContent = want ? 'Liked' : 'Like'
     document.getElementById('likes').textContent = r.body.likes
   }
 }
@@ -438,7 +521,7 @@ async function profilePage(id) {
       <div class="stat"><b>${m.certificates.length}</b><span>certificates</span></div></div>
     <h2>Apps</h2><div class="grid">${m.apps.length ? m.apps.map(card).join('') : '<div class="empty">No approved apps yet.</div>'}</div>
     <h2>Certificates</h2><div class="grid">${m.certificates.map(c => `<a class="card" href="/club/certificate/${esc(c.code)}">
-      <b>🎓 ${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('') || '<div class="empty">None yet.</div>'}</div>`
+      <b>${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('') || '<div class="empty">None yet.</div>'}</div>`
 }
 
 // ── Certificates ─────────────────────────────────────────────────────────
@@ -581,7 +664,7 @@ async function myClub(tab) {
   const pane = document.getElementById('pane')
   if (tab === 'certificates') {
     pane.innerHTML = `<div class="grid">${certs.map(c => `<a class="card" href="/club/certificate/${esc(c.code)}">
-      <b>🎓 ${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('')
+      <b>${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('')
       || '<div class="empty">Your first certificate arrives when you launch an app for review.</div>'}</div>`
     return
   }
@@ -589,7 +672,7 @@ async function myClub(tab) {
   pane.innerHTML = projects.length ? `<div class="list">${projects.map(p => `
     <div class="card">
       <div class="row"><h3>${esc(p.title)}</h3><span class="status s-${p.status}">${STATUS[p.status] || esc(p.status)}</span></div>
-      <div class="muted">Version ${p.version} · sent ${esc(day(p.submitted_at))}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">🏁 ${esc(p.season.name)}</a>` : ''}</div>
+      <div class="muted">Version ${p.version} · sent ${esc(day(p.submitted_at))}${p.season ? ` · <a href="/club/season/${esc(p.season.id)}">${esc(p.season.name)}</a>` : ''}</div>
       ${p.status === 'approved' ? `<div class="meter"><span><b>${p.usage.uses}</b> members using it</span><span><b>${p.usage.likes}</b> likes</span><span><b>${p.usage.views}</b> views</span></div>` : ''}
       <div class="badges">${badges(p)}</div>
       ${scoreLine(p.scores)}
@@ -653,7 +736,7 @@ async function openReview(id, scroll = true) {
   box.innerHTML = `<div class="card">
     <div class="row"><h3>${esc(p.title)}</h3><span class="status s-${p.status}">${STATUS[p.status] || esc(p.status)}</span></div>
     <div class="muted">${esc(p.tagline || '')}</div>
-    <div class="muted">${esc(p.author)} · ${esc(INFO.kinds[p.author_kind] || '')} · ${esc(p.author_org)}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ' · 🏁 ' + esc(p.season.name) : ''}</div>
+    <div class="muted">${esc(p.author)} · ${esc(INFO.kinds[p.author_kind] || '')} · ${esc(p.author_org)}${p.category ? ' · ' + esc(p.category) : ''}${p.season ? ' · ' + esc(p.season.name) : ''}</div>
     ${p.description ? `<p style="white-space:pre-wrap;margin:4px 0">${esc(p.description)}</p>` : ''}
     <div class="muted">Checks: ${c.screens} screens, ${c.endpoints} endpoints, ${c.tables} tables, ${c.tests} tests${c.uses_ai ? ', uses AI' : ''}${!c.type_errors.length && !c.issues.length ? ' · no problems found' : ''}</div>
     ${list('Type errors', c.type_errors)}${list('App map problems', c.issues)}
@@ -709,7 +792,7 @@ async function reviewApproved(pane, openId) {
       <div class="row"><b>${esc(p.title)}</b><span class="muted">${p.usage ? p.usage.uses + ' using' : ''}</span></div>
       <div class="muted">${esc(p.author)} · ${esc(p.author_org)}</div>
       <div class="badges">${ordered('awards').map(([k, l]) => { const has = (p.awards || []).some(a => a.category === k)
-        return `<button class="pill-btn ${has ? 'on' : ''}" data-award="${k}" data-id="${esc(p.id)}" data-has="${has ? 1 : ''}">🏆 ${esc(l)}</button>` }).join('')}</div>
+        return `<button class="pill-btn ${has ? 'on' : ''}" data-award="${k}" data-id="${esc(p.id)}" data-has="${has ? 1 : ''}">${esc(l)}</button>` }).join('')}</div>
       <label class="muted" style="display:flex;gap:8px;align-items:center">Spotlight <select class="field" style="width:auto;padding:4px 8px" data-spot="${esc(p.id)}">
         <option value="">None</option>${ordered('spotlights').map(([k, l]) => `<option value="${k}" ${p.spotlight === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
     </div>`).join('') : '<div class="empty">No approved apps yet.</div>'}</div>
@@ -727,7 +810,7 @@ async function reviewSeasons(pane) {
   const list = (await api('/api/club/seasons')).body.seasons || []
   const admin = INFO.is_admin
   pane.innerHTML = `<div class="list">${list.length ? list.map(se => `<div class="card">
-      <div class="row"><h3>🏁 ${esc(se.name)}</h3><span class="status s-${se.status}">${esc(se.status_label)}</span></div>
+      <div class="row"><h3>${esc(se.name)}</h3><span class="status s-${se.status}">${esc(se.status_label)}</span></div>
       <div class="muted">${se.theme ? esc(se.theme) + ' · ' : ''}${esc(day(se.starts_at))} to ${esc(day(se.ends_at))} · ${se.entries} entries, ${se.approved} approved</div>
       <div class="actions"><button class="btn sm" data-standings="${esc(se.id)}">Standings and suggested winners</button>
         <a class="btn sm ghost" href="/club/season/${esc(se.id)}">Public page</a>
@@ -773,10 +856,10 @@ async function standings(id) {
     <h3 style="margin:16px 0 6px;font-size:15px">Suggested winners</h3>
     ${ordered('awards').filter(([k]) => d.suggestions[k]).map(([award]) => [award, d.suggestions[award]]).map(([award, s]) => {
       const entry = d.ranked.find(p => p.id === s.project_id), has = entry && entry.awards.some(a => a.category === award)
-      return `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>🏆 ${esc(INFO.awards[award])}: <b>${esc(s.title)}</b> <span class="muted">(${num(s.score)}/5)</span></span>
+      return `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(INFO.awards[award])}: <b>${esc(s.title)}</b> <span class="muted">(${num(s.score)}/5)</span></span>
         ${has ? '<span class="status s-approved">Awarded</span>' : `<button class="btn sm" data-give="${esc(award)}" data-id="${esc(s.project_id)}">Give award</button>`}</div>`
     }).join('') || '<div class="muted">Score the entries to see suggestions.</div>'}
-    ${d.peoples_choice ? `<div class="row" style="padding:6px 0"><span>❤ People's Choice (most used): <b>${esc(d.peoples_choice.title)}</b> <span class="muted">(${d.peoples_choice.uses} members)</span></span>
+    ${d.peoples_choice ? `<div class="row" style="padding:6px 0"><span>People's Choice (most used): <b>${esc(d.peoples_choice.title)}</b> <span class="muted">(${d.peoples_choice.uses} members)</span></span>
       <button class="btn sm ghost" id="pc-${esc(id)}">Spotlight for recognition</button></div>` : ''}`
   box.querySelectorAll('[data-give]').forEach(b => b.onclick = async () => { if (await giveAward(b.dataset.id, b.dataset.give, false)) standings(id) })
   box.querySelectorAll('[data-score]').forEach(a => a.onclick = e => { e.preventDefault(); go('/club/review/approved', () => reviewPage('approved', a.dataset.score)) })
@@ -790,7 +873,7 @@ function reviewDashboard(pane, stats) {
       ['In review', s.in_review], ['Approved', s.approved], ['Certificates', stats.certificates], ['Approved using AI', stats.approved_using_ai]]
       .map(([l, n]) => `<div class="stat"><b>${n || 0}</b><span>${l}</span></div>`).join('')}</div>
     <h2>Awards and spotlights</h2>
-    <div class="badges">${ordered('awards').map(([k, l]) => `<span class="badge award">🏆 ${esc(l)} · ${stats.awards[k] || 0}</span>`).join('')}
+    <div class="badges">${ordered('awards').map(([k, l]) => `<span class="badge award">${esc(l)} · ${stats.awards[k] || 0}</span>`).join('')}
       ${ordered('spotlights').map(([k, l]) => `<span class="badge spot">${esc(l)} · ${stats.spotlights[k] || 0}</span>`).join('')}</div>
     ${(stats.top_used || []).length ? `<h2>Most used</h2><table><thead><tr><th>App</th><th>College or company</th><th>Using</th><th>Likes</th></tr></thead>
       <tbody>${stats.top_used.map(p => `<tr><td><a href="/club/project/${esc(p.id)}">${esc(p.title)}</a></td><td>${esc(p.author_org)}</td><td>${p.uses || 0}</td><td>${p.likes || 0}</td></tr>`).join('')}</tbody></table>` : ''}
@@ -804,7 +887,9 @@ async function route() {
   SEASONS = (se.body && se.body.seasons) || []
   if (INFO.signed_in) { const r = await api('/api/club/me'); ME = r.ok ? r.body : null }
   const me = INFO.member
-  document.getElementById('who').textContent = me ? `${me.name} · ${me.organization}` : (INFO.signed_in ? 'Signed in' : '')
+  const who = document.getElementById('who')
+  if (INFO.signed_in) { who.className = 'who'; who.href = '/club/me'; who.innerHTML = me ? `${avatar(me.name, 26)}${esc(me.name.split(' ')[0])}` : 'My club' }
+  else { who.className = 'who out'; who.href = '/?signin=club'; who.textContent = 'Sign in' }
   document.getElementById('nav-review').hidden = !(ME && ME.is_reviewer)
   const [, , view, arg] = location.pathname.split('/').map(decodeURIComponent)
   if (view === 'me') return myClub(arg || 'projects')

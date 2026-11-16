@@ -212,6 +212,12 @@ component ComponentName
 ### Pagination
     pagination page=pageVar total=totalVar page_size=10
 
+### Design guidance
+    // Start the first screen with a hero banner: hero "App name" eyebrow="Area" subtitle="One line about it"
+    // Use list_item rows for lists of people or things, progress_ring for goals, carousel for "up next" cards,
+    // and stat_card rows for KPIs. Set the design in the app block (brand, font, corners, buttons, mode);
+    // never write CSS or colours inside components.
+
 ### Consumer-style app screens (web and phone)
     avatar "Maya Patel" size=48 online          // photo with src="...", else initials
     list_item "Morning run" subtitle="32 min" icon="Footprints" color="rose" trailing="Done" badge="New"
@@ -252,7 +258,7 @@ APP LAYOUT SYNTAX
 ## Tabs layout (most common)
 app AppName
     title  "App Title"
-    theme  "professional"       // professional | modern | minimal | default
+    theme  "professional"       // professional (indigo) | modern | minimal (slate) | default (violet)
     layout
         tabs
             tab "Tab Label"    ComponentName
@@ -272,6 +278,14 @@ app AppName
 app SiteName
     title "Brand"
     brand "violet"              // brand color: a hex like "#7c3aed" or blue|indigo|violet|purple|pink|rose|red|orange|amber|green|emerald|teal|cyan|sky|slate|black
+    font "Poppins"              // optional: any Google Font, or "system" (default Inter)
+    corners "round"             // optional: sharp | soft | round | extra
+    buttons "pill"              // optional: rounded | pill | square
+    mode "auto"                 // optional: auto | light | dark
+    navbar "floating"           // optional, phone app: bar | floating | icons | drawer
+    header "large"              // optional, phone app: standard | large | centered
+    cards "elevated"            // optional, phone app: outlined | elevated | flat
+    toasts "top"                // optional, phone app: bottom | top
     layout
         page
             Landing

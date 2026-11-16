@@ -316,18 +316,25 @@ SORTS = {
 
 
 def marketplace(award: str = "", spotlight: str = "", kind: str = "", query: str = "", sort: str = "newest",
-                author: str = "", limit: int = 0, season: str = "") -> List[Dict[str, Any]]:
+                author: str = "", limit: int = 0, season: str = "", category: str = "") -> List[Dict[str, Any]]:
     """Approved projects, optionally only those with an award, spotlight, author kind, author or text, sorted
     by newest, most used (by other registered users), most liked, or trending (the last 30 days)."""
     sql = ("SELECT p.id FROM club_projects p JOIN club_members m ON m.user_id = p.user_id "
            "WHERE p.status = 'approved'")
     args: List[Any] = []
-    if award:
+    if award == "any":
+        sql += " AND EXISTS (SELECT 1 FROM club_awards a WHERE a.project_id = p.id)"
+    elif award:
         sql += " AND EXISTS (SELECT 1 FROM club_awards a WHERE a.project_id = p.id AND a.category = ?)"
         args.append(award)
-    if spotlight:
+    if spotlight == "any":
+        sql += " AND COALESCE(p.spotlight, '') != ''"
+    elif spotlight:
         sql += " AND p.spotlight = ?"
         args.append(spotlight)
+    if category:
+        sql += " AND p.category = ?"
+        args.append(category)
     if kind:
         sql += " AND m.kind = ?"
         args.append(kind)

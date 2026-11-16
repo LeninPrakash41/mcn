@@ -58,6 +58,14 @@
     function applyTheme(css) {
       var blocks = (css || "").match(/(:root|\.dark)\s*\{[^}]*\}/g) || [];
       document.getElementById("mcn-theme").textContent = blocks.join("\n");
+      // The app's font (`font "Poppins"`): load it from Google Fonts
+      var font = ((css || "").match(/--font-name:\s*"([^"]+)"/) || [])[1];
+      var link = document.getElementById("mcn-font");
+      if (font && font.toLowerCase() !== "system") {
+        var href = "https://fonts.googleapis.com/css2?family=" + encodeURIComponent(font).replace(/%20/g, "+") + ":wght@400;500;600;700;800&display=swap";
+        if (!link) { link = document.createElement("link"); link.id = "mcn-font"; link.rel = "stylesheet"; document.head.appendChild(link); }
+        if (link.href !== href) link.href = href;
+      }
       try { if (localStorage.getItem("mcn-theme") === "dark") document.documentElement.classList.add("dark"); } catch (e) {}
     }
 

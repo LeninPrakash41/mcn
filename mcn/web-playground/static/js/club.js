@@ -140,7 +140,7 @@ async function _clubPrecheck() {
   const d = res.data
   if (!d.checks) { box.innerHTML = `<div class="club-item bad">✗ ${_cEsc(d.error || 'Could not check the app')}</div>`; return }
   const c = d.checks
-  const item = (ok, text) => `<div class="club-item ${ok === true ? 'ok' : ok === false ? 'bad' : 'tip'}">${ok === true ? '✓' : ok === false ? '✗' : '💡'} ${text}</div>`
+  const item = (ok, text) => `<div class="club-item ${ok === true ? 'ok' : ok === false ? 'bad' : 'tip'}">${ok === true ? '✓' : ok === false ? '✗' : 'Tip:'} ${text}</div>`
   const tips = []
   if (!c.tests) tips.push(item(null, 'Add a <code>test</code> block: reviewers look for tests, and it helps toward Best Technical Implementation'))
   if (!c.uses_ai) tips.push(item(null, 'Apps that use AI (<code>ai()</code>, <code>agent_run()</code>) can win Best AI-Powered Application'))

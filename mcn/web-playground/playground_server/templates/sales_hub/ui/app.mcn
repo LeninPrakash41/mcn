@@ -7,6 +7,8 @@ component Dashboard
         leads = list_leads()
 
     render
+
+        hero "Sales Intelligence Hub" eyebrow="Pipeline" subtitle="Your pipeline, deals and leads in one place."
         card
             card_header "Sales Intelligence & Pipeline"
             stat label="Active Pipeline" value=total change=14.2

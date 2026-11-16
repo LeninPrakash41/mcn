@@ -336,8 +336,9 @@ def _app(s: ast.AppDecl, indent: str) -> List[str]:
         lines.append(f"{inner}logo {_string(s.logo)}")
     if s.footer:
         lines.append(f"{inner}footer {_string(s.footer)}")
-    if getattr(s, "brand", ""):
-        lines.append(f"{inner}brand {_string(s.brand)}")
+    for key in ("brand", "font", "corners", "buttons", "mode", "navbar", "header", "cards", "toasts"):
+        if getattr(s, key, ""):
+            lines.append(f"{inner}{key} {_string(getattr(s, key))}")
     lay = s.layout
     if lay is not None:
         l1, l2, l3 = inner + IND, inner + IND * 2, inner + IND * 3

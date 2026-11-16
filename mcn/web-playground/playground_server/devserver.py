@@ -15,6 +15,7 @@ from .core import (
     _request_workspace,
     _stop_process,
     jsonify,
+    request,
     send_from_directory,
 )
 
@@ -199,6 +200,33 @@ def mobile_preview_files(path):
     if not (web / path).is_file():
         path = "index.html"
     return send_from_directory(web, path, max_age=0)
+
+
+@bp.route("/api/design", methods=["GET"])
+def design_get():
+    """The design settings written in ui/app.mcn's app block, and the choices Studio offers."""
+    from mcn.core_engine import app_design
+    ui = _request_workspace() / "ui" / "app.mcn"
+    text = ui.read_text(encoding="utf-8") if ui.exists() else ""
+    return jsonify({"success": True, "design": app_design.read(text), "has_app": bool(app_design._block(text)),
+                    "fonts": app_design.FONTS, "corners": list(app_design.CORNERS), "buttons": list(app_design.BUTTONS),
+                    "modes": list(app_design.MODES), "mobile": {k: list(v) for k, v in app_design.MOBILE.items()}})
+
+
+@bp.route("/api/design", methods=["POST"])
+def design_set():
+    """Write design settings into ui/app.mcn (one line each in the app block); the preview picks them up."""
+    from mcn.core_engine import app_design
+    ui = _request_workspace() / "ui" / "app.mcn"
+    if not ui.exists():
+        return jsonify({"success": False, "error": "There's no ui/app.mcn yet"}), 400
+    values = {k: v for k, v in (request.get_json(silent=True) or {}).items() if k in app_design.KEYS}
+    try:
+        text = app_design.write(ui.read_text(encoding="utf-8"), values)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    ui.write_text(text, encoding="utf-8")
+    return jsonify({"success": True, "design": app_design.read(text), "content": text})
 
 
 @bp.route("/api/devserver/start", methods=["POST"])

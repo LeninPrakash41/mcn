@@ -13,6 +13,8 @@ component Overview
             notify(str(stats.overdue) + " orders are overdue", "warning")
 
     render
+
+        hero "Operations" eyebrow="Live overview" subtitle="Orders, revenue and tasks at a glance, with an AI assistant when you need one."
         div grid_cols=4
             stat_card label="Revenue (paid)" value=stats.revenue icon="DollarSign" color="green"
             stat_card label="Open orders" value=stats.open_orders icon="ShoppingCart" color="blue"

@@ -9,6 +9,8 @@ component Overview
         runs = list_experiments().data
 
     render
+
+        hero "ML Training Lab" eyebrow="Machine learning" subtitle="Train models, compare them side by side and make predictions."
         div grid_cols=4
             stat_card label="Rows" value=summary.rows icon="Database" color="blue"
             stat_card label="Churn rate (%)" value=summary.churn_rate icon="TrendingDown" color="orange"

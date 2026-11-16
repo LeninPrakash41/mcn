@@ -9,6 +9,8 @@ component ItemForm
             message = "Created item!"
 
     render
+
+        hero "Item Manager" eyebrow="Inventory" subtitle="Add, edit and track every item in one tidy list."
         card
             card_header "Add Item"
             form on_submit=submit

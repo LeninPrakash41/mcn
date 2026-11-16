@@ -407,10 +407,12 @@
             <span style="width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0;" id="preview-status-dot"></span>
             <span style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="preview-address-bar">http://localhost:5174</span>
           </div>
+          <button class="btn btn-sm" id="btn-design" onclick="toggleDesignPanel()" title="Design: brand colour, font, corners, buttons and mode" style="padding:2px 8px;font-size:11px;">Design</button>
           <button class="btn btn-sm" onclick="refreshPreview()" title="Refresh Preview Frame" style="padding:2px 7px;font-size:11px;">↺</button>
           <button class="btn btn-sm" onclick="openPreviewFullscreen()" title="Open Preview in New Tab" style="padding:2px 7px;font-size:11px;">↗ New Tab</button>
           <button class="btn btn-sm" id="btn-toggle-server" onclick="toggleDevServer()" title="Start / Stop Dev Server" style="padding:2px 8px;font-size:11px;">Stop</button>
         </div>
+        <div id="design-panel" class="design-panel"></div>
         <div class="preview-placeholder" id="preview-ph" style="flex:1;">
           <h3>Preview your app</h3>
           <p>Builds the web app from <code>ui/app.mcn</code>, starts your backend, and runs it here.</p>
@@ -935,6 +937,7 @@
 <script src="/static/js/agent-panel.js"></script>
 <script src="/static/js/club.js"></script>
 <script src="/static/js/lab.js"></script>
+<script src="/static/js/design.js"></script>
 <script src="/static/js/community.js"></script>
 </body>
 </html>

@@ -51,6 +51,10 @@ The **Agent** tab (the **Agent** button, or Cmd/Ctrl+L) is a chat beside your co
 
 It uses your Claude key from `mcn config set api_key ...` or `ANTHROPIC_API_KEY`; if there's none, it asks for one and keeps it only for that session. Without a key, Studio and the AI functions still work: AI calls return labelled mock replies.
 
+## Design
+
+The **Design** button above the Preview sets the app's brand colour (swatches or any colour), font, corners, button shape and light or dark mode. Each choice is saved as a line in the `app` block of `ui/app.mcn` (`brand "teal"`, `font "Poppins"`, ...) and the preview updates immediately; you can also type the lines yourself. See [design](#/guide/ui).
+
 ## Publishing to the Developer Club
 
 **Publish** in the toolbar checks the app in your workspace and launches it for review in the [MCN Developer Club](#/guide/developer-club) (you join in the same dialog the first time). Your projects, certificates and reviewing are on the club's site: **My club** in the toolbar opens it.

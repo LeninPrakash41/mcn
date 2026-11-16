@@ -237,7 +237,7 @@ async function refreshIoTSimulator() {
             </span>
           </div>
           ${iotControl(id, info)}
-          ${info.policy ? `<div class="iot-policy-line" title="Control policy">🛡 ${escapeHtml(info.policy)}</div>` : ''}
+          ${info.policy ? `<div class="iot-policy-line" title="Control policy">Policy: ${escapeHtml(info.policy)}</div>` : ''}
           ${iotWhere(info) ? `<div style="font-size:10.5px;color:var(--muted);">${escapeHtml(iotWhere(info))}${info.simulated && info.driver !== 'simulated' ? ' (simulated)' : ''}</div>` : ''}
         </div>`).join('')
     } else {

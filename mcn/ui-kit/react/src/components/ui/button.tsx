@@ -15,10 +15,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          variant === "default" && "bg-primary text-primary-foreground hover:bg-primary/90",
+          "inline-flex items-center justify-center rounded-[var(--button-radius,0.6rem)] text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          variant === "default" && "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:-translate-y-px hover:bg-primary/90 hover:shadow-md hover:shadow-primary/30",
           variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-          variant === "outline" && "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          variant === "outline" && "border border-input bg-card hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
           variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
           variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
           variant === "link" && "text-primary underline-offset-4 hover:underline",

@@ -1657,7 +1657,8 @@ class Parser:
                     theme = str_tok.value
                     self._consume_end()
 
-                elif cur.type == TT.IDENTIFIER and cur.value in ("footer", "logo", "brand"):
+                elif cur.type == TT.IDENTIFIER and cur.value in ("footer", "logo", "brand", "font", "corners", "buttons", "mode",
+                                                                "navbar", "header", "cards", "toasts"):
                     key = self._advance().value
                     str_tok = self._consume(TT.STRING, f"Expected text after '{key}'")
                     extras[key] = str_tok.value
@@ -1675,6 +1676,9 @@ class Parser:
         return ast.AppDecl(
             name=name_tok.value, title=title, theme=theme, layout=layout,
             footer=extras.get("footer", ""), logo=extras.get("logo", ""), brand=extras.get("brand", ""),
+            font=extras.get("font", ""), corners=extras.get("corners", ""), buttons=extras.get("buttons", ""),
+            mode=extras.get("mode", ""), navbar=extras.get("navbar", ""), header=extras.get("header", ""),
+            cards=extras.get("cards", ""), toasts=extras.get("toasts", ""),
             line=tok.line, col=tok.col,
         )
 

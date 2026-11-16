@@ -587,6 +587,14 @@ class AppDecl(Node):
     footer:     str                  = ""      # footer text
     logo:       str                  = ""      # icon name shown next to the title
     brand:      str                  = ""      # brand color: "#7c3aed" or a name like "violet"
+    font:       str                  = ""      # a Google Font name, or "system"
+    corners:    str                  = ""      # sharp | soft | round | extra
+    buttons:    str                  = ""      # rounded | pill | square
+    mode:       str                  = ""      # auto | light | dark
+    navbar:     str                  = ""      # phone: bar | floating | icons | drawer
+    header:     str                  = ""      # phone: standard | large | centered
+    cards:      str                  = ""      # phone: outlined | elevated | flat
+    toasts:     str                  = ""      # phone: bottom | top
 
 
 # ── Type aliases ───────────────────────────────────────────────────────────────

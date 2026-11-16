@@ -46,7 +46,7 @@ export function Stat({
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">
+            <p className="mt-1.5 text-[28px] font-bold leading-none tracking-tight tabular-nums">
               {formatValue(value)}
               {unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{unit}</span> : null}
             </p>
@@ -60,8 +60,8 @@ export function Stat({
             )}
           </div>
           {Icon && (
-            <div className={cn("shrink-0 rounded-lg p-2", TONES[tone as Tone] ?? TONES.primary)}>
-              <Icon className="h-5 w-5" />
+            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", TONES[tone as Tone] ?? TONES.primary)}>
+              <Icon className="h-[22px] w-[22px]" />
             </div>
           )}
         </div>

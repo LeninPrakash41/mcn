@@ -1,6 +1,7 @@
 // Field Inspector UI
 component InspectionView
     render
+        hero "Field Inspector" eyebrow="Inspections" subtitle="Audits and checklists from the field, on any phone."
         card
             card_header "Site Safety Audit"
             button "Submit Checklist"

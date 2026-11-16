@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Icon } from "./icon"
 import { Toaster } from "./toast"
-import { cn } from "@/lib/utils"
+import { appMode, cn } from "@/lib/utils"
 
 /* Landing-page sections: navbar, hero, features, pricing, testimonials, logos,
    FAQ, call to action and footer. They read the app's colors (`brand` in the
@@ -82,6 +82,11 @@ const SiteContext = React.createContext(false)
 
 /** A whole page without the app frame: sections stack edge to edge. */
 export function SitePage({ children }: { children?: React.ReactNode }) {
+  React.useEffect(() => {
+    const mode = appMode()
+    const dark = mode === "dark" || (mode === "auto" && typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches)
+    document.documentElement.classList.toggle("dark", dark)
+  }, [])
   return (
     <SiteContext.Provider value={true}>
       <div className="min-h-screen bg-background text-foreground antialiased">
@@ -174,9 +179,10 @@ export function Hero({ title, eyebrow, subtitle, primary, secondary, onPrimary, 
   return (
     <section id={id} className={cn("relative overflow-hidden px-5 sm:px-8", dark ? "bg-slate-950 text-white" : "bg-background",
       inApp && "rounded-3xl border border-border/60 sm:px-10")}
-      style={variant === "plain" ? undefined : dark ? { background: "radial-gradient(900px 500px at 20% 0%, hsl(var(--primary) / 0.45), transparent 60%), #020617" } : gradient}>
-      <div className={cn("mx-auto grid max-w-6xl items-center gap-12", inApp ? "gap-8 py-8 sm:py-10" : "py-20 sm:py-28", side ? "lg:grid-cols-[1.1fr_1fr]" : "text-center")}>
-        <div className={cn(!side && "mx-auto max-w-3xl")}>
+      style={variant === "plain" ? undefined : dark ? { background: "radial-gradient(900px 500px at 20% 0%, hsl(var(--primary) / 0.45), transparent 60%), #020617" }
+        : inApp ? { background: "radial-gradient(700px 260px at 0% 0%, hsl(var(--primary) / 0.22), transparent 70%), linear-gradient(120deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.02))" } : gradient}>
+      <div className={cn("mx-auto grid max-w-6xl items-center gap-12", inApp ? "gap-8 py-8 sm:py-10" : "py-20 sm:py-28", side ? "lg:grid-cols-[1.1fr_1fr]" : !inApp && "text-center")}>
+        <div className={cn(!side && !inApp && "mx-auto max-w-3xl")}>
           {eyebrow ? (
             <span className={cn("mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1",
               dark ? "bg-white/10 text-white ring-white/20" : "bg-primary/10 text-primary ring-primary/20")}>
@@ -184,9 +190,9 @@ export function Hero({ title, eyebrow, subtitle, primary, secondary, onPrimary, 
             </span>
           ) : null}
           <h1 className={cn("font-extrabold leading-[1.05] tracking-tight", inApp ? "text-3xl sm:text-4xl" : "text-4xl sm:text-6xl")}>{title}</h1>
-          {subtitle ? <p className={cn(inApp ? "mt-3 text-base leading-relaxed" : "mt-6 text-lg leading-relaxed sm:text-xl", dark ? "text-slate-300" : "text-muted-foreground", !side && "mx-auto max-w-2xl")}>{subtitle}</p> : null}
+          {subtitle ? <p className={cn(inApp ? "mt-3 text-base leading-relaxed" : "mt-6 text-lg leading-relaxed sm:text-xl", dark ? "text-slate-300" : "text-muted-foreground", !side && !inApp && "mx-auto max-w-2xl", inApp && "max-w-2xl")}>{subtitle}</p> : null}
           {primary || secondary ? (
-            <div className={cn(inApp ? "mt-6" : "mt-9", "flex flex-wrap gap-3", !side && "justify-center")}>
+            <div className={cn(inApp ? "mt-6" : "mt-9", "flex flex-wrap gap-3", !side && !inApp && "justify-center")}>
               {primary ? <Cta variant={dark ? "light" : "primary"} onClick={act(onPrimary, primaryLink)}>{primary}<Icon name="ArrowRight" size={17} /></Cta> : null}
               {secondary ? <Cta variant={dark ? "ghost" : "outline"} onClick={act(onSecondary, secondaryLink)}>{secondary}</Cta> : null}
             </div>

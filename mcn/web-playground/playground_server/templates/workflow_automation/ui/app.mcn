@@ -7,6 +7,8 @@ component Dashboard
         stats = run_stats().data
 
     render
+
+        hero "Automations" eyebrow="Workflows" subtitle="Triggers, AI and approvals stitched together, run step by step with every result recorded."
         div grid_cols=3
             stat_card label="Workflows" value=stats.workflows icon="Workflow" color="purple"
             stat_card label="Runs" value=stats.total icon="Play" color="blue"

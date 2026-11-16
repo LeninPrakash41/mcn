@@ -168,49 +168,34 @@ _HTML_TAGS = {"div", "span", "p", "h1", "h2", "h3", "h4", "form",
 
 # Tailwind theme presets applied to globals.css CSS variables
 _THEMES: Dict[str, Dict[str, str]] = {
+    # Every preset has a real brand colour: the default is MCN's violet
+    "default": {},
+    "modern": {},
     "professional": {
-        "--radius":     "0.5rem",
-        "--background": "0 0% 100%",
-        "--foreground": "222.2 84% 4.9%",
-        "--primary":    "222.2 47.4% 11.2%",
-        "--accent":     "210 40% 96.1%",
-    },
-    "modern": {
-        "--radius":     "0.75rem",
-        "--background": "0 0% 100%",
-        "--foreground": "240 10% 3.9%",
-        "--primary":    "240 5.9% 10%",
-        "--accent":     "240 4.8% 95.9%",
+        "--primary":    "238.7 83.5% 56.5%",      # indigo
+        "--ring":       "238.7 83.5% 56.5%",
     },
     "minimal": {
-        "--radius":     "0.25rem",
-        "--background": "0 0% 100%",
-        "--foreground": "0 0% 3.9%",
-        "--primary":    "0 0% 9%",
-        "--accent":     "0 0% 96.1%",
+        "--radius":     "0.5rem",
+        "--primary":    "215.3 25% 26.7%",        # slate
+        "--ring":       "215.3 25% 26.7%",
     },
     "glassmorphism": {
-        "--radius":     "1rem",
-        "--background": "220 33% 98%",
-        "--foreground": "224 71% 4%",
+        "--radius":     "1.1rem",
+        "--background": "250 50% 98%",
         "--primary":    "262.1 83.3% 57.8%",
-        "--accent":     "262.1 83.3% 95%",
-        "--border":     "220 13% 91%",
     },
     "luxury_dark": {
-        "--radius":     "0.75rem",
-        "--background": "224 71% 4%",
+        "--background": "240 18% 6%",
         "--foreground": "210 40% 98%",
-        "--primary":    "263.4 70% 50.4%",
-        "--accent":     "217.2 32.6% 17.5%",
-        "--border":     "217.2 32.6% 17.5%",
-    },
-    "default": {
-        "--radius":     "0.5rem",
-        "--background": "0 0% 100%",
-        "--foreground": "222.2 84% 4.9%",
-        "--primary":    "221.2 83.2% 53.3%",
-        "--accent":     "210 40% 96.1%",
+        "--card":       "240 16% 9%",
+        "--card-foreground": "210 40% 98%",
+        "--primary":    "263.4 70% 60%",
+        "--muted":      "240 12% 16%",
+        "--muted-foreground": "240 6% 65%",
+        "--accent":     "240 12% 16%",
+        "--border":     "240 10% 18%",
+        "--input":      "240 10% 18%",
     },
 }
 
@@ -893,7 +878,7 @@ class UICompiler:
 
         # 5. globals.css with theme variables
         css_path = src / "globals.css"
-        css_path.write_text(self._gen_globals_css(theme, app_decl.brand if app_decl else ""))
+        css_path.write_text(self._gen_globals_css(theme, app_decl.brand if app_decl else "", app_decl))
         written.append(css_path)
         print(f"  write  {css_path.relative_to(self.out.parent)}")
 
@@ -951,7 +936,8 @@ class UICompiler:
         # 12. index.html
         index_html = self.out / "index.html"
         title = app_decl.title if app_decl else "MCN App"
-        index_html.write_text(self._gen_index_html(title))
+        from .app_design import google_font_url
+        index_html.write_text(self._gen_index_html(title, google_font_url(getattr(app_decl, "font", "") or "Inter")))
         written.append(index_html)
         print(f"  write  {index_html.relative_to(self.out.parent)}")
 
@@ -2094,13 +2080,22 @@ class UICompiler:
 
         # Auto-class for headings when no className provided
         _heading_cls = {
-            "h1": "text-3xl font-bold mb-4",
-            "h2": "text-xl font-semibold mb-4",
+            "h1": "text-3xl font-extrabold tracking-tight mb-2",
+            "h2": "text-2xl font-bold tracking-tight mb-3",
             "h3": "text-base font-semibold mb-2",
             "h4": "text-sm font-semibold mb-1",
         }
         if tag in _heading_cls and 'className' not in props:
             props = f'className="{_heading_cls[tag]}" {props}'.strip()
+
+        # A plain container gets breathing room between what it stacks: roomy between
+        # cards, grids, charts and tables, tight between small items like text and badges
+        if tag in ("div", "section", "main", "article") and has_children and "className" not in props:
+            big = {"card", "div", "section", "form", "table", "data_table", "kanban", "chat", "hero", "carousel",
+                   "feature_grid", "pricing", "faq", "agent_builder", "workflow_builder",
+                   "bar_chart", "line_chart", "area_chart", "pie_chart", "donut_chart", "stat_card", "stat"}
+            roomy = any(c.tag in big for c in el.children)
+            props = f'className="{"space-y-6" if roomy else "space-y-2"}" {props}'.strip()
 
         # generic element with possible children or text
         if has_children or has_text:
@@ -2702,59 +2697,70 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 )
 '''
 
-    def _gen_globals_css(self, theme: str, brand: str = "") -> str:
+    def _gen_globals_css(self, theme: str, brand: str = "", app_decl=None) -> str:
         # Full shadcn CSS variable set — theme presets only override a subset
         base_vars = {
-            "--background":            "0 0% 100%",
-            "--foreground":            "222.2 84% 4.9%",
+            "--background":            "250 33% 98.8%",
+            "--foreground":            "240 24% 9%",
             "--card":                  "0 0% 100%",
-            "--card-foreground":       "222.2 84% 4.9%",
+            "--card-foreground":       "240 24% 9%",
             "--popover":               "0 0% 100%",
-            "--popover-foreground":    "222.2 84% 4.9%",
-            "--primary":               "221.2 83.2% 53.3%",
-            "--primary-foreground":    "210 40% 98%",
-            "--secondary":             "210 40% 96.1%",
-            "--secondary-foreground":  "222.2 47.4% 11.2%",
-            "--muted":                 "210 40% 96.1%",
-            "--muted-foreground":      "215.4 16.3% 46.9%",
-            "--accent":                "210 40% 96.1%",
-            "--accent-foreground":     "222.2 47.4% 11.2%",
+            "--popover-foreground":    "240 24% 9%",
+            "--primary":               "262.1 83.3% 57.8%",
+            "--primary-foreground":    "0 0% 100%",
+            "--secondary":             "250 30% 96%",
+            "--secondary-foreground":  "240 24% 12%",
+            "--muted":                 "250 25% 96%",
+            "--muted-foreground":      "240 6% 44%",
+            "--accent":                "250 35% 95.5%",
+            "--accent-foreground":     "240 24% 12%",
             "--destructive":           "0 84.2% 60.2%",
-            "--destructive-foreground":"210 40% 98%",
-            "--border":                "214.3 31.8% 91.4%",
-            "--input":                 "214.3 31.8% 91.4%",
-            "--ring":                  "221.2 83.2% 53.3%",
-            "--radius":                "0.5rem",
+            "--destructive-foreground":"0 0% 100%",
+            "--border":                "245 22% 91%",
+            "--input":                 "245 22% 89%",
+            "--ring":                  "262.1 83.3% 57.8%",
+            "--radius":                "0.8rem",
         }
         dark_vars = {
-            "--background":            "222.2 84% 4.9%",
-            "--foreground":            "210 40% 98%",
-            "--card":                  "222.2 84% 4.9%",
-            "--card-foreground":       "210 40% 98%",
-            "--popover":               "222.2 84% 4.9%",
-            "--popover-foreground":    "210 40% 98%",
-            "--primary":               "217.2 91.2% 59.8%",
-            "--primary-foreground":    "222.2 47.4% 11.2%",
-            "--secondary":             "217.2 32.6% 17.5%",
-            "--secondary-foreground":  "210 40% 98%",
-            "--muted":                 "217.2 32.6% 17.5%",
-            "--muted-foreground":      "215 20.2% 65.1%",
-            "--accent":                "217.2 32.6% 17.5%",
-            "--accent-foreground":     "210 40% 98%",
-            "--destructive":           "0 62.8% 30.6%",
-            "--destructive-foreground":"210 40% 98%",
-            "--border":                "217.2 32.6% 17.5%",
-            "--input":                 "217.2 32.6% 17.5%",
-            "--ring":                  "224.3 76.3% 48%",
+            "--background":            "240 22% 6%",
+            "--foreground":            "240 20% 97%",
+            "--card":                  "240 18% 9%",
+            "--card-foreground":       "240 20% 97%",
+            "--popover":               "240 18% 9%",
+            "--popover-foreground":    "240 20% 97%",
+            "--primary":               "263.4 85% 67%",
+            "--primary-foreground":    "240 24% 9%",
+            "--secondary":             "240 14% 15%",
+            "--secondary-foreground":  "240 20% 97%",
+            "--muted":                 "240 14% 15%",
+            "--muted-foreground":      "240 8% 66%",
+            "--accent":                "240 14% 16%",
+            "--accent-foreground":     "240 20% 97%",
+            "--destructive":           "0 62.8% 45%",
+            "--destructive-foreground":"0 0% 100%",
+            "--border":                "240 12% 18%",
+            "--input":                 "240 12% 20%",
+            "--ring":                  "263.4 85% 67%",
         }
         # Apply theme overrides on top of base
         overrides = _THEMES.get(theme, {})
         light = {**base_vars, **overrides}
         # `brand "#7c3aed"` (or a name) recolors buttons, links, rings and accents
+        # A theme's colour carries into dark mode too, a little lighter
+        if "--primary" in overrides:
+            hue, sat, light_ = overrides["--primary"].replace("%", "").split()
+            shade = f"{hue} {sat}% {max(float(light_), 66):.1f}%"
+            dark_vars = {**dark_vars, "--primary": shade, "--ring": shade}
         colors = brand_colors(brand)
         if colors:
             light.update(colors["light"])
             dark_vars = {**dark_vars, **colors["dark"]}
+        # The app's font, corners, button shape and colour mode (see app_design.py)
+        from .app_design import css_vars
+        design = css_vars({k: getattr(app_decl, k, "") for k in ("font", "corners", "buttons", "mode")})
+        if not getattr(app_decl, "corners", ""):
+            design.pop("--radius")                # keep the theme's corners
+        light.update(design)
         light_css = "\n".join(f"    {k}: {v};" for k, v in light.items())
         dark_css  = "\n".join(f"    {k}: {v};" for k, v in dark_vars.items())
         return f'''\
@@ -2774,6 +2780,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   }}
   body {{
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
     font-feature-settings:
       "rlig" 1,
       "calt" 1;
@@ -2899,6 +2906,9 @@ const config: Config = {
         },
       },
       borderRadius: {
+        "3xl": "calc(var(--radius) + 12px)",
+        "2xl": "calc(var(--radius) + 6px)",
+        xl: "calc(var(--radius) + 3px)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
@@ -3056,7 +3066,9 @@ export default {
             "references": [{"path": "./tsconfig.node.json"}],
         }) + "\n"
 
-    def _gen_index_html(self, title: str) -> str:
+    def _gen_index_html(self, title: str, font_url: Optional[str] = None) -> str:
+        font = (f'    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />\n'
+                f'    <link rel="stylesheet" href="{font_url}" />\n') if font_url else ""
         return f'''\
 <!doctype html>
 <html lang="en">
@@ -3064,7 +3076,7 @@ export default {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
-  </head>
+{font}  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

@@ -7,6 +7,8 @@ component Overview
         stats = labeling_stats().data
 
     render
+
+        hero "Data Labeling Studio" eyebrow="Labeling" subtitle="AI suggests labels, people review them, and every decision is recorded."
         div grid_cols=4
             stat_card label="Items" value=stats.total icon="Database" color="blue"
             stat_card label="To label" value=stats.to_label icon="ListTodo" color="orange"

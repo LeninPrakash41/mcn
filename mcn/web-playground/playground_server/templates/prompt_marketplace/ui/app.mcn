@@ -16,6 +16,8 @@ component MarketplaceCatalog
         items = res.data
 
     render
+
+        hero "PromptVerse" eyebrow="AI prompts and workflows" subtitle="Discover, try and share prompts and workflows that get real work done."
         div
             card
                 card_header "Discover & Fork Prompts for Modern AI Tools"

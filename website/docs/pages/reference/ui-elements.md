@@ -12,6 +12,14 @@ The `app` block renders inside a shell with navigation, a header (breadcrumb, âŒ
 | `logo "Rocket"` | Icon next to the title |
 | `footer "Acme Inc"` | Footer text |
 | `brand "violet"` | Brand color for buttons, links, rings and accents, in light and dark mode: a hex color (`"#7c3aed"`) or `blue`, `indigo`, `violet`, `purple`, `pink`, `rose`, `red`, `orange`, `amber`, `green`, `emerald`, `teal`, `cyan`, `sky`, `slate`, `black` |
+| `font "Poppins"` | Any Google Font, or `system` (default Inter) |
+| `corners "round"` | `sharp`, `soft`, `round` (default) or `extra` |
+| `buttons "pill"` | `rounded` (default), `pill` or `square` |
+| `mode "dark"` | `auto` (default, follows the device), `light` or `dark` |
+| `navbar "floating"` | Phone app: `bar` (default), `floating`, `icons` or `drawer` |
+| `header "large"` | Phone app: `standard` (default), `large` or `centered` |
+| `cards "elevated"` | Phone app: `outlined` (default), `elevated` or `flat` |
+| `toasts "top"` | Phone app: `bottom` (default) or `top` |
 | `layout` â†’ `sidebar` / `tabs` / `main` / `page` | How sections are arranged; `page` is a landing page without the app frame |
 | `nav "Label" Component icon="Users" group="Sales"` | A sidebar item; `group` adds a section heading |
 

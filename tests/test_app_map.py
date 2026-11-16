@@ -197,7 +197,7 @@ def test_cli(app, capsys, monkeypatch):
 def test_agent_team_qa_sees_the_map_and_the_last_fix(tmp_path):
     from test_agent_team import FakeClient, _message, BACKEND, UI
     from mcn.ai.agent_team import AgentTeam
-    fixed_ui = UI.replace('"Operations"', '"Operations Hub"')
+    fixed_ui = UI.replace('title "Operations"', 'title "Operations Hub"')          # the app's title, not the welcome banner
     client = FakeClient(qa_answers=["<verdict>fix</verdict><fixes>\n1. Rename the app\n</fixes>",
                                     "<verdict>pass</verdict>"])
     original = client._answer

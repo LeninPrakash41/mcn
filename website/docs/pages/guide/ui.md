@@ -138,7 +138,54 @@ app CRM
 | `main` listing components | A single page that stacks components |
 | `page` listing components | A landing page: the components fill the screen without the app frame |
 
-`brand "violet"` (or a hex color such as `"#7c3aed"`) in the `app` block colors buttons, links, rings and accents in light and dark mode, on the web and on phones.
+`brand "violet"` (or a hex color such as `"#7c3aed"`) in the `app` block colors buttons, links, rings, charts and accents in light and dark mode, on the web and on phones.
+
+### Design: colour, font, corners, buttons, mode
+
+Five optional lines in the `app` block set an app's design, on the web and on phones:
+
+```mcn fragment
+app Shop
+    title "Shop"
+    brand "teal"          // a colour name or a hex such as "#0d9488"
+    font "Poppins"        // any Google Font, or "system"
+    corners "round"       // sharp | soft | round | extra
+    buttons "pill"        // rounded | pill | square
+    mode "auto"           // auto (follows the device) | light | dark
+```
+
+| Line | Values | Default |
+|---|---|---|
+| `brand` | `blue`, `indigo`, `violet`, `purple`, `pink`, `rose`, `red`, `orange`, `amber`, `green`, `emerald`, `teal`, `cyan`, `sky`, `slate`, `black`, or a hex colour | violet |
+| `font` | Any [Google Font](https://fonts.google.com) name, or `system` | Inter |
+| `corners` | `sharp`, `soft`, `round`, `extra`: cards, inputs and banners follow it | `round` |
+| `buttons` | `rounded`, `pill`, `square` | `rounded` |
+| `mode` | `auto`, `light`, `dark`. People can still switch with the moon icon | `auto` |
+
+#### The phone app
+
+Four more lines style the Flutter app (the web app ignores them):
+
+```mcn fragment
+app Pulse
+    navbar "floating"     // bar | floating | icons | drawer
+    header "large"        // standard | large | centered
+    cards "elevated"      // outlined | elevated | flat
+    toasts "top"          // bottom | top
+```
+
+| Line | Values |
+|---|---|
+| `navbar` | `bar` (default): a bottom navigation bar with labels. `floating`: a rounded bar floating above the content. `icons`: icons only, with the current section's label. `drawer`: a menu that slides in from the side |
+| `header` | `standard` (default): the title in the top bar. `large`: a big title that opens each screen and scrolls away. `centered`: the title in the middle of the top bar |
+| `cards` | `outlined` (default): a hairline border. `elevated`: a soft shadow, no border. `flat`: a lightly tinted panel |
+| `toasts` | `bottom` (default) or `top`: where `notify()` messages appear, with an icon for success, warning and error |
+
+**In Studio**, the **Design** button above the Preview opens swatches, a custom colour picker, fonts and toggles for the rest. Each choice writes its line into `ui/app.mcn` and the preview reloads at once, so the code always says what the app looks like. Its **Phone app** section sets the four phone lines; the phone preview is compiled, so it rebuilds (in about half a minute) when one is showing.
+
+### The default look
+
+Every app gets a modern look without any styling: MCN's violet brand color (unless you set `brand`), a softly tinted background, rounded cards with gentle depth, bold headings, large KPI numbers, rounded inputs and buttons, charts in the brand color, and comfortable spacing between whatever a `div` stacks. `theme` picks a variant: `"professional"` (indigo), `"minimal"` (slate, square-ish corners), `"glassmorphism"` or `"luxury_dark"`. Start a screen with a `hero` banner for a welcome area, as the templates do.
 
 See the [UI element reference](#/reference/ui-elements) for every element and attribute.
 

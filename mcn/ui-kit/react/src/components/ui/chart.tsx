@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn, compactNumber, DataRow, DataValue, formatValue, humanize, PALETTE } from "@/lib/utils"
+import { brandPalette, cn, compactNumber, DataRow, DataValue, formatValue, humanize } from "@/lib/utils"
 
 /* Responsive SVG charts with tooltips, legends and multiple series. No dependencies.
    Every chart takes `data` (a list of objects) and the keys to plot. */
@@ -117,7 +117,7 @@ function CartesianChart({ kind, ...p }: CartesianChartProps & { kind: Kind }) {
   const x = p.x || p.x_key || "label"
   const keys = toKeys(p.y || p.y_key, data, x)
   const height = Number(p.height) || 300
-  const colors = p.colors || PALETTE
+  const colors = p.colors || brandPalette()
   const [ref, width] = useWidth<HTMLDivElement>()
   const [hover, setHover] = React.useState<number | null>(null)
 
@@ -324,7 +324,7 @@ export function PieChart(p: PieChartProps) {
   const nameKey = p.name || p.name_key || p.x_key || "name"
   const valueKey = p.value || p.value_key || p.y_key || "value"
   const height = Number(p.height) || 260
-  const colors = p.colors || PALETTE
+  const colors = p.colors || brandPalette()
   const [hover, setHover] = React.useState<number | null>(null)
   const [ref, width] = useWidth<HTMLDivElement>()
   const total = data.reduce((s, r) => s + (Number(r[valueKey]) || 0), 0)
@@ -405,7 +405,7 @@ export function Sparkline({
   y_key,
   height = 32,
   width = 96,
-  color = PALETTE[0],
+  color = brandPalette()[0],
 }: {
   data?: (number | Row)[]
   y?: string

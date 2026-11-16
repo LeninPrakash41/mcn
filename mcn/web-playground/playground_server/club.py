@@ -243,7 +243,7 @@ def club_marketplace():
     a = request.args
     return jsonify({"projects": _public(store.marketplace(a.get("award", ""), a.get("spotlight", ""), a.get("kind", ""),
                                                           a.get("q", "")[:80], a.get("sort", "newest"),
-                                                          season=a.get("season", "")))})
+                                                          season=a.get("season", ""), category=a.get("category", "")[:40]))})
 
 
 @bp.route("/api/club/projects/<project_id>")
