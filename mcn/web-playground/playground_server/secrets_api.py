@@ -4,6 +4,7 @@ import os
 from flask import Blueprint
 from .core import (
     _WORKSPACES_DIR,
+    is_hosted,
     jsonify,
     request,
 )
@@ -56,3 +57,49 @@ def delete_secret(key):
         _save_secrets(secrets)
         os.environ.pop(key, None)
     return jsonify({"success": True})
+
+
+# ── Connectors: Google Sheets, HubSpot, SQL, Slack, ... (see connectors.py) ────
+
+@bp.route("/api/connectors", methods=["GET"])
+def connectors_list():
+    from mcn.core_engine import connectors
+    return jsonify({"success": True, "connectors": connectors.status(), "hosted": is_hosted()})
+
+
+@bp.route("/api/connectors/<name>/settings", methods=["POST"])
+def connectors_settings(name):
+    """Save a connector's settings as workspace secrets (they reach your code through env)."""
+    from mcn.core_engine import connectors
+    entry = connectors.CATALOG.get(name)
+    if not entry:
+        return jsonify({"success": False, "error": "No such connector"}), 404
+    if is_hosted():
+        return jsonify({"success": False, "error": "On hosted Studio, add connector settings to your deployment's "
+                                                   "environment instead (they'd be shared with other people here)."}), 403
+    allowed = {k for k, _, _ in entry["settings"]}
+    data = request.get_json(silent=True) or {}
+    secrets = _load_secrets()
+    for key, value in data.items():
+        if key not in allowed:
+            continue
+        value = str(value or "").strip()
+        if value:
+            secrets[key] = value
+            os.environ[key] = value
+        else:
+            secrets.pop(key, None)
+            os.environ.pop(key, None)
+    _save_secrets(secrets)
+    return jsonify({"success": True, "connector": next(c for c in connectors.status() if c["name"] == name)})
+
+
+@bp.route("/api/connectors/<name>/test", methods=["POST"])
+def connectors_test(name):
+    from mcn.core_engine import connectors
+    try:
+        return jsonify(connectors.test(name))
+    except connectors.ConnectorError as exc:
+        return jsonify({"success": False, "message": str(exc)})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"It didn't work: {exc}"})

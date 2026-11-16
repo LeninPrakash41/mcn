@@ -393,3 +393,27 @@ def test_showcase_apps_are_listed_and_claimed_by_their_authors(client, monkeypat
         # Someone else signing in claims nothing
         other = register(client, "someone@example.com")
         assert client.get("/api/club/me", headers=other).get_json()["member"] is None
+
+
+def test_members_can_be_listed_as_builders_without_showing_their_email(client):
+    asha = register(client, "asha.builder@example.com")
+    with hosted():
+        profile = {"name": "Asha Rao", "kind": "student", "organization": "City College"}
+        assert client.post("/api/club/join", headers=asha, json=profile).status_code == 200
+        bad = client.post("/api/club/join", headers=asha, json={**profile, "available": True})
+        assert bad.status_code == 400 and "contact link" in bad.get_json()["error"]
+        bad = client.post("/api/club/join", headers=asha, json={**profile, "available": True, "contact_url": "javascript:alert(1)"})
+        assert bad.status_code == 400 and "https://" in bad.get_json()["error"]
+        ok = client.post("/api/club/join", headers=asha, json={**profile, "available": True, "skills": "dashboards, IoT",
+                                                               "contact_url": "https://linkedin.com/in/asha"})
+        assert ok.status_code == 200
+        builders = client.get("/api/club/builders").get_json()["builders"]          # public
+        assert [b["name"] for b in builders] == ["Asha Rao"] and builders[0]["contact_url"] == "https://linkedin.com/in/asha"
+        assert "asha.builder@example.com" not in client.get("/api/club/builders").get_data(as_text=True)
+        assert client.get("/api/club/builders?q=iot").get_json()["builders"] and not client.get("/api/club/builders?q=zzz").get_json()["builders"]
+        uid = builders[0]["user_id"]
+        assert client.get(f"/api/club/members/{uid}").get_json()["member"]["available"] is True
+        client.post("/api/club/join", headers=asha, json={**profile, "available": False, "contact_url": "https://linkedin.com/in/asha"})
+        assert client.get("/api/club/builders").get_json()["builders"] == []
+        assert client.get(f"/api/club/members/{uid}").get_json()["member"]["contact_url"] == ""   # hidden when not available
+        assert client.get("/club/builders").status_code == 200

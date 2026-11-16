@@ -143,6 +143,13 @@ details.card summary { cursor: pointer; font-weight: 550; }
 .howto { margin: 40px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
 .howto h2 { margin: 0 0 14px; }
 .howto .steps { margin: 0 0 16px; }
+.hire { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; background: color-mix(in srgb, var(--green-bg) 60%, var(--card)); border: 1px solid color-mix(in srgb, var(--green) 25%, var(--line)); border-radius: 14px; padding: 12px 16px; margin: 4px 0 6px; }
+.hire div { display: flex; flex-direction: column; gap: 2px; } .hire b { color: var(--green); }
+.avail { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.avail legend { font-weight: 600; padding: 0 6px; color: var(--text); }
+.check { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 8px; color: var(--text) !important; }
+.builder h3 { margin: 0; }
+.bhead { display: flex; align-items: center; gap: 12px; } .bhead > div { min-width: 0; }
 .site-foot { border-top: 1px solid var(--line); margin-top: 50px; padding: 26px 24px 34px; display: flex; flex-wrap: wrap; gap: 14px 30px; justify-content: space-between; max-width: 1120px; margin-left: auto; margin-right: auto; color: var(--muted); font-size: 13.5px; }
 .site-foot div { display: flex; flex-direction: column; gap: 3px; } .site-foot b { color: var(--text); }
 .site-foot nav { display: flex; flex-wrap: wrap; gap: 6px 18px; flex: none; overflow: visible; }
@@ -205,6 +212,7 @@ details.card summary { cursor: pointer; font-weight: 550; }
     <a href="/club/seasons" data-v="seasons">Seasons</a>
     <a href="/club/leaderboard" data-v="leaderboard">Leaderboard</a>
     <a href="/club/awards" data-v="awards">Awards</a>
+    <a href="/club/builders" data-v="builders">Hire a builder</a>
     <a href="/club/me" data-v="me" id="nav-me">My club</a>
     <a href="/club/review" data-v="review" id="nav-review" hidden>Review</a>
   </nav>
@@ -215,7 +223,7 @@ details.card summary { cursor: pointer; font-weight: 550; }
 <footer class="site-foot no-print">
   <div><b>MCN Developer Club</b><span>Build apps in MCN, get them reviewed, get certified.</span></div>
   <nav><a href="/club">Marketplace</a><a href="/club/seasons">Seasons</a><a href="/club/leaderboard">Leaderboard</a>
-    <a href="/club/awards">Awards</a><a href="/club/verify">Verify a certificate</a><a href="/club/me">My club</a></nav>
+    <a href="/club/awards">Awards</a><a href="/club/builders">Hire a builder</a><a href="/club/verify">Verify a certificate</a><a href="/club/me">My club</a></nav>
 </footer>
 
 <!-- Ornaments -->
@@ -516,12 +524,44 @@ async function profilePage(id) {
     <h1 class="page">${esc(m.name)}</h1>
     <p class="lead">${esc(INFO.kinds[m.kind] || '')} · ${esc(m.organization)}${m.title ? ' · ' + esc(m.title) : ''}${m.country ? ' · ' + esc(m.country) : ''}<br>
       <span class="muted">Member since ${esc(day(m.joined_at))}</span></p>
+    ${m.available ? `<div class="hire"><div><b>Available for work</b>${m.skills ? `<span class="muted">${esc(m.skills)}</span>` : ''}</div>
+      ${m.contact_url ? `<a class="btn" href="${esc(m.contact_url)}" target="_blank" rel="noopener nofollow">Get in touch</a>` : ''}</div>` : ''}
     <div class="statrow"><div class="stat"><b>${m.apps.length}</b><span>approved apps</span></div>
       <div class="stat"><b>${m.uses}</b><span>members using them</span></div><div class="stat"><b>${m.awards}</b><span>awards</span></div>
       <div class="stat"><b>${m.certificates.length}</b><span>certificates</span></div></div>
     <h2>Apps</h2><div class="grid">${m.apps.length ? m.apps.map(card).join('') : '<div class="empty">No approved apps yet.</div>'}</div>
     <h2>Certificates</h2><div class="grid">${m.certificates.map(c => `<a class="card" href="/club/certificate/${esc(c.code)}">
       <b>${esc(c.title)}</b><span class="muted">${esc(day(c.issued_at))} · ${esc(c.code)}</span></a>`).join('') || '<div class="empty">None yet.</div>'}</div>`
+}
+
+// ── Hire a builder ───────────────────────────────────────────────────────
+
+async function buildersPage() {
+  setNav('builders')
+  $view.innerHTML = `<h1 class="page">Hire a builder</h1>
+    <p class="lead">Club members who build apps in MCN and are open to work. Each one's approved apps, awards and how many
+      members use their apps are shown, so you can see what they've built before you get in touch.</p>
+    <div class="toolbar"><input class="search" id="bq" placeholder="Search by name, skill, college or company">
+      <select class="sort" id="bk"><option value="">Students and professionals</option><option value="student">Students</option><option value="professional">Professionals</option></select></div>
+    <div id="blist" class="grid"></div>
+    <p class="muted" style="margin-top:22px">Are you a member? Tick <b>Available for work</b> in <a href="/club/me/profile">My club → Profile</a> to be listed.</p>`
+  const load = async () => {
+    const qs = new URLSearchParams({ q: document.getElementById('bq').value, kind: document.getElementById('bk').value }).toString()
+    const list = (await api('/api/club/builders?' + qs)).body.builders || []
+    document.getElementById('blist').innerHTML = list.length ? list.map(b => `<div class="card builder">
+        <div class="bhead">${avatar(b.name, 44)}<div><a href="/club/u/${esc(b.user_id)}" style="color:var(--text)"><h3>${esc(b.name)}</h3></a>
+          <div class="muted">${esc(INFO.kinds[b.kind] || '')} · ${esc(b.organization)}${b.country ? ' · ' + esc(b.country) : ''}</div></div></div>
+        ${b.skills ? `<div>${esc(b.skills)}</div>` : ''}
+        <div class="stats-line"><span><b>${b.apps}</b> apps</span><span><b>${b.uses}</b> using them</span><span><b>${b.awards}</b> awards</span></div>
+        ${b.app_titles.length ? `<div class="muted">Built: ${b.app_titles.map(esc).join(', ')}</div>` : ''}
+        <div class="actions"><a class="btn sm" href="${esc(b.contact_url)}" target="_blank" rel="noopener nofollow">Get in touch</a>
+          <a class="btn sm ghost" href="/club/u/${esc(b.user_id)}">See their work</a></div></div>`).join('')
+      : '<div class="empty">No builders match yet.</div>'
+  }
+  let t
+  document.getElementById('bq').oninput = () => { clearTimeout(t); t = setTimeout(load, 250) }
+  document.getElementById('bk').onchange = load
+  load()
 }
 
 // ── Certificates ─────────────────────────────────────────────────────────
@@ -620,6 +660,11 @@ function joinForm(m = {}) {
     <label><span id="org-label">${m.kind === 'professional' ? 'Company' : 'College or university'}</span><input name="organization" required maxlength="120" value="${esc(m.organization)}"></label>
     <label>Course and year, or job title (optional)<input name="title" maxlength="80" value="${esc(m.title)}"></label>
     <label>Country (optional)<input name="country" maxlength="60" value="${esc(m.country)}"></label>
+    ${m.name ? `<fieldset class="avail"><legend>Available for work</legend>
+      <label class="check"><input type="checkbox" name="available" ${m.available ? 'checked' : ''}> List me on Hire a builder, so businesses can ask me to build their app in MCN</label>
+      <label>What you build (optional)<input name="skills" maxlength="200" placeholder="e.g. dashboards, AI assistants, IoT, phone apps" value="${esc(m.skills)}"></label>
+      <label>Contact link<input name="contact_url" maxlength="300" placeholder="https://linkedin.com/in/you, your website, or mailto:you@example.com" value="${esc(m.contact_url)}"></label>
+      <span class="muted">Only this link is shown, never your email address.</span></fieldset>` : ''}
     <div class="err" id="join-err"></div>
     <div><button class="btn">${m.name ? 'Save profile' : 'Join the club'}</button></div></form>`
 }
@@ -629,7 +674,9 @@ function wireJoin(after) {
   f.kind.onchange = () => { document.getElementById('org-label').textContent = f.kind.value === 'student' ? 'College or university' : 'Company' }
   f.onsubmit = async e => {
     e.preventDefault()
-    const r = await api('/api/club/join', Object.fromEntries(new FormData(f).entries()))
+    const data = Object.fromEntries(new FormData(f).entries())
+    data.available = !!(f.available && f.available.checked)
+    const r = await api('/api/club/join', data)
     if (!r.ok) { document.getElementById('join-err').textContent = r.body.error || 'Could not save that'; return }
     toast(after); location.href = '/club/me'
   }
@@ -902,6 +949,7 @@ async function route() {
   if (view === 'leaderboard') return leaderboard()
   if (view === 'awards') return awards()
   if (view === 'verify') return verifyPage()
+  if (view === 'builders') return buildersPage()
   return marketplace()
 }
 route()

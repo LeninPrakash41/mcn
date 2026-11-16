@@ -89,6 +89,10 @@ An app can win several. Each award comes with a certificate.
 
 A reviewer can mark a promising app as a **funding candidate**, for **recognition**, or for the **showcase**. The marketplace can be filtered by each.
 
+## Hire a builder
+
+Members can tick **Available for work** in **My club → Profile**, add what they build and a contact link (a website, LinkedIn or a `mailto:` link). The club site's **Hire a builder** page lists them with their approved apps, how many members use them and their awards, so a business can see their work before getting in touch. Only the contact link they chose is shown, never their email, and unticking the box removes them from the page.
+
 ## Certificates
 
 | Certificate | Given |

@@ -393,6 +393,21 @@ var hash = sha256("hello mcn")
 
 ---
 
+## Connectors
+
+The systems a business already uses, one `use` line each: Google Sheets, CSV and Excel files, PostgreSQL, MySQL and SQLite, HubSpot, Salesforce, Airtable, Slack and WhatsApp.
+
+```mcn
+use "sheets"
+use "hubspot"
+
+var leads = sheets_read("https://docs.google.com/spreadsheets/d/…", "Leads")
+for lead in leads
+    hubspot_create("contacts", {firstname: lead.name, email: lead.email})
+```
+
+Without credentials they return sample data and send nothing, so an app runs before anyone has an account; Studio's **Connect** tab takes the settings, tests them and inserts examples. See the [connectors guide](website/docs/pages/guide/connectors.md).
+
 ## Package System
 
 MCN has a built-in package registry. Bundled packages work out of the box; custom packages install from local directories.
@@ -401,7 +416,7 @@ MCN has a built-in package registry. Bundled packages work out of the box; custo
 
 ```bash
 mcn packages list
-# stripe, twilio, resend, slack, openai, healthcare, finance
+# sheets, files, sql, hubspot, salesforce, airtable, slack, whatsapp, stripe, twilio, resend, openai, healthcare, finance
 ```
 
 ```mcn
@@ -775,6 +790,8 @@ Physical AI connects AI with devices that **sense, reason, decide and act**: rob
 **MCN Physical Intelligence** is the plan to go further, in three layers: an AI intelligence layer (LLMs, vision, decision agents, planning), a physical runtime (sensors, events, device state, workflows, control policies) and hardware integration (ROS 2, MQTT, OPC UA, Modbus, GPIO, APIs). **Control policies** (`policy("pump", {max_on: 600, cooldown: 300, hours: [6, 20]})`) declare what each device may do and every action must pass them, an agent's included; `emergency_stop()` makes everything safe. Planned next: cameras and `vision()`, Modbus and OPC UA drivers, ROS 2, fleet telemetry, and **MCN Physical Studio** beside the Application and Agent studios. The [Physical AI guide](website/docs/pages/guide/physical-ai.md) has a working example and marks what's available and what's planned.
 
 ## Security
+
+For IT and security reviews, the [security and trust page](website/docs/pages/guide/trust.md) summarises ownership, where data goes, sign-in, audit logs and the checks to run in CI.
 
 ```mcn
 service orders_api

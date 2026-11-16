@@ -164,6 +164,7 @@ def _check(files: dict) -> dict:
 @bp.route("/club/verify")
 @bp.route("/club/seasons")
 @bp.route("/club/season/<season_id>")
+@bp.route("/club/builders")
 @bp.route("/club/me")
 @bp.route("/club/me/<tab>")
 @bp.route("/club/review")
@@ -234,6 +235,14 @@ def club_member(user_id):
         return jsonify({"error": "No such member"}), 404
     found["apps"] = _public(found["apps"])
     return jsonify({"member": found})
+
+
+@bp.route("/api/club/builders")
+def club_builders():
+    if not is_hosted():
+        return _forward("GET", "/api/club/builders")
+    a = request.args
+    return jsonify({"builders": store.builders(a.get("q", "")[:80], a.get("kind", ""))})
 
 
 @bp.route("/api/club/marketplace")

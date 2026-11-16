@@ -614,12 +614,28 @@ def _bundled_agent() -> Dict[str, Callable]:
     }
 
 
+def _connector(name: str) -> Callable[[], Dict[str, Callable]]:
+    """A connector from connectors.py (Google Sheets, HubSpot, SQL, Slack, ...) as a package."""
+    def load() -> Dict[str, Callable]:
+        from .connectors import package
+        return package(name) or {}
+    return load
+
+
 _BUNDLED: Dict[str, Callable[[], Dict]] = {
     "auth":          _bundled_auth,
+    # Connectors to the systems businesses already use
+    "sheets":        _connector("sheets"),
+    "files":         _connector("files"),
+    "sql":           _connector("sql"),
+    "hubspot":       _connector("hubspot"),
+    "salesforce":    _connector("salesforce"),
+    "airtable":      _connector("airtable"),
+    "whatsapp":      _connector("whatsapp"),
     "stripe":        _bundled_stripe,
     "twilio":        _bundled_twilio,
     "resend":        _bundled_resend,
-    "slack":         _bundled_slack,
+    "slack":         _connector("slack"),
     "openai":        _bundled_openai,
     "ollama":        _bundled_ollama,
     "ai":            _bundled_ai,

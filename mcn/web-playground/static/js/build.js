@@ -497,6 +497,7 @@ function switchPanel(name, tabEl) {
 
   if (name === 'db-explorer') refreshDBTables()
   else if (name === 'iot-simulator') refreshIoTSimulator()
+  else if (name === 'connect') refreshConnect()
   else if (name === 'ai-inspector') refreshAIInspector()
 }
 

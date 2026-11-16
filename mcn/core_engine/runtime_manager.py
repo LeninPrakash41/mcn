@@ -23,6 +23,9 @@ FEATURES = {
     "browser-qa": "the agent team's browser check: Studio opens every screen of a generated app in headless Chrome",
     "sso":       "single sign-on for services (auth \"sso\"): Okta, Microsoft Entra ID, Google Workspace and other OIDC providers",
     "pdf":       "PDF attachments for the AI agents when they use a model other than Claude (Claude reads PDFs itself)",
+    "sheets":    "Writing to Google Sheets with a service account (use \"sheets\")",
+    "excel":     "Reading and writing Excel files (use \"files\": excel_read, excel_write)",
+    "mysql":     "MySQL and MariaDB for use \"sql\"",
 }
 
 _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source checkouts
@@ -33,6 +36,9 @@ _FEATURE_PACKAGES = {      # mirrors EXTRAS_REQUIRE in setup.py, for source chec
     "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
     "sso": ["cryptography>=42.0"],
     "pdf": ["pypdf>=4.0"],
+    "sheets": ["google-auth>=2.20", "requests>=2.31"],
+    "excel": ["openpyxl>=3.1"],
+    "mysql": ["pymysql>=1.1"],
     "browser-qa": ["playwright>=1.45"],
 }
 

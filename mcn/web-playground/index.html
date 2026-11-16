@@ -351,6 +351,7 @@
       <div class="panel-tab" data-panel="flutter-preview" id="tab-mobile-preview" onclick="switchPanel('flutter-preview', this)">Mobile</div>
       <div class="panel-tab" data-panel="repl-console" id="tab-repl-console" onclick="switchPanel('repl-console', this)">REPL</div>
       <div class="panel-tab" data-panel="db-explorer" id="tab-db-explorer" onclick="switchPanel('db-explorer', this)">Database</div>
+      <div class="panel-tab" data-panel="connect" id="tab-connect" onclick="switchPanel('connect', this)" title="Connect Google Sheets, HubSpot, databases, Slack and more">Connect</div>
       <div class="panel-tab" data-panel="iot-simulator" id="tab-iot-simulator" onclick="switchPanel('iot-simulator', this)">IoT</div>
       <div class="panel-tab" data-panel="ai-inspector" id="tab-ai-inspector" onclick="switchPanel('ai-inspector', this)">AI calls</div>
       <div class="panel-tab" data-panel="output" id="tab-output" onclick="switchPanel('output', this)">Terminal</div>
@@ -504,6 +505,11 @@
       </div>
 
       <!-- IoT Simulator Panel -->
+      <div class="panel-section pane" id="panel-connect">
+        <div class="pane-head"><div class="pane-head-text"><div class="pane-title">Connect</div><div class="pane-sub">Use the systems you already have: spreadsheets, CRMs, databases and messaging, one line each.</div></div><div class="pane-actions"><button class="btn btn-sm" onclick="refreshConnect()">Refresh</button></div></div>
+        <div id="connect-list" class="cx-list"></div>
+      </div>
+
       <div class="panel-section pane" id="panel-iot-simulator">
         <div class="pane-head"><div class="pane-head-text"><div class="pane-title">IoT devices <span id="iot-live" class="pane-live">● live</span></div><div class="pane-sub">Sensors and outputs your code declares, simulated so you can test without hardware.</div></div><div class="pane-actions"><button class="btn btn-sm iot-stop" id="iot-stop-btn" onclick="iotEmergencyStop()" title="Emergency stop: every output to its safe state, and no changes until you release it">STOP</button><button class="btn btn-sm" onclick="refreshIoTSimulator()">Refresh</button></div></div>
         <div id="iot-policy"></div>
@@ -938,6 +944,7 @@
 <script src="/static/js/club.js"></script>
 <script src="/static/js/lab.js"></script>
 <script src="/static/js/design.js"></script>
+<script src="/static/js/connect.js"></script>
 <script src="/static/js/community.js"></script>
 </body>
 </html>

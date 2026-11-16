@@ -105,10 +105,14 @@ def _conn() -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS club_score_notes (
             project_id TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT, at REAL, PRIMARY KEY (project_id, reviewer));
     """)
-    # Older club databases: add the season columns
+    # Older club databases: add the season columns, and the "available for work" ones
     for table in ("club_projects", "club_awards"):
         if "season_id" not in {r[1] for r in c.execute(f"PRAGMA table_info({table})")}:
             c.execute(f"ALTER TABLE {table} ADD COLUMN season_id TEXT")
+    have = {r[1] for r in c.execute("PRAGMA table_info(club_members)")}
+    for col, kind in (("available", "INTEGER DEFAULT 0"), ("skills", "TEXT"), ("contact_url", "TEXT")):
+        if col not in have:
+            c.execute(f"ALTER TABLE club_members ADD COLUMN {col} {kind}")
     return c
 
 
@@ -133,12 +137,19 @@ def join(user_id: str, email: str, profile: Dict[str, Any]) -> Dict[str, Any]:
         raise ClubError("Choose student or professional")
     if not org:
         raise ClubError("Add your " + ("college or university" if kind == "student" else "company"))
+    available = profile.get("available") in (True, 1, "1", "true", "on", "yes")
+    contact = _clean(profile.get("contact_url"), 300)
+    if contact and not contact.lower().startswith(("https://", "http://", "mailto:")):
+        raise ClubError("Your contact link should start with https:// (a website or LinkedIn) or mailto:")
+    if available and not contact:
+        raise ClubError("Add a contact link so businesses can reach you (a website, LinkedIn or a mailto: link)")
     with _lock, _conn() as c:
         existing = c.execute("SELECT joined_at FROM club_members WHERE user_id = ?", (user_id,)).fetchone()
-        c.execute("INSERT OR REPLACE INTO club_members (user_id, email, name, kind, organization, title, country, bio, joined_at) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        c.execute("INSERT OR REPLACE INTO club_members (user_id, email, name, kind, organization, title, country, bio, joined_at, "
+                  "available, skills, contact_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                   (user_id, email, name, kind, org, _clean(profile.get("title"), 80), _clean(profile.get("country"), 60),
-                   _clean(profile.get("bio"), 500), existing["joined_at"] if existing else time.time()))
+                   _clean(profile.get("bio"), 500), existing["joined_at"] if existing else time.time(),
+                   1 if available else 0, _clean(profile.get("skills"), 200), contact))
     return member(user_id)
 
 
@@ -400,8 +411,36 @@ def profile(user_id: str) -> Optional[Dict[str, Any]]:
     certs = [c for c in certificates_of(user_id)]
     return {"name": who["name"], "kind": who["kind"], "organization": who["organization"], "title": who.get("title"),
             "country": who.get("country"), "bio": who.get("bio"), "joined_at": who["joined_at"], "apps": apps,
+            "available": bool(who.get("available")), "skills": who.get("skills") or "",
+            "contact_url": who.get("contact_url") if who.get("available") else "",
             "certificates": certs, "uses": sum(a["usage"]["uses"] for a in apps),
             "awards": sum(len(a["awards"]) for a in apps)}
+
+
+# ── Builders: members available for work ─────────────────────────────────────
+
+def builders(query: str = "", kind: str = "") -> List[Dict[str, Any]]:
+    """Members who are available for work, with what they've built, most proven first.
+    Only the contact link they chose is shown, never their email."""
+    sql = "SELECT user_id FROM club_members WHERE available = 1"
+    args: List[Any] = []
+    if kind:
+        sql += " AND kind = ?"
+        args.append(kind)
+    if query:
+        sql += " AND (name LIKE ? OR organization LIKE ? OR skills LIKE ? OR title LIKE ?)"
+        args += [f"%{query}%"] * 4
+    with _conn() as c:
+        ids = [r["user_id"] for r in c.execute(sql, args)]
+    out = []
+    for uid in ids:
+        p = profile(uid)
+        if p:
+            out.append({"user_id": uid, "name": p["name"], "kind": p["kind"], "organization": p["organization"],
+                        "title": p["title"], "country": p["country"], "skills": p["skills"], "contact_url": p["contact_url"],
+                        "apps": len(p["apps"]), "uses": p["uses"], "awards": p["awards"],
+                        "app_titles": [a["title"] for a in p["apps"][:3]]})
+    return sorted(out, key=lambda b: (-b["awards"], -b["uses"], -b["apps"], b["name"]))
 
 
 # ── Seasons ──────────────────────────────────────────────────────────────────

@@ -39,6 +39,10 @@ EXTRAS_REQUIRE = {
     "iot": ["pyserial>=3.5", "paho-mqtt>=2.0", "gpiozero>=2.0; platform_system == 'Linux'"],
     "sso": ["cryptography>=42.0"],
     "browser-qa": ["playwright>=1.45"],
+    "pdf": ["pypdf>=4.0"],
+    "sheets": ["google-auth>=2.20", "requests>=2.31"],
+    "excel": ["openpyxl>=3.1"],
+    "mysql": ["pymysql>=1.1"],
     "dev": ["pytest>=7.0", "pytest-cov>=4.0"],
 }
 

@@ -85,7 +85,7 @@ def _public_api(path: str, method: str) -> bool:
     if path in _PUBLIC_API:
         return True
     return method == "GET" and (path in ("/api/club/info", "/api/club/marketplace", "/api/club/leaderboard",
-                                         "/api/club/seasons")
+                                         "/api/club/seasons", "/api/club/builders")
                                 or path.startswith(("/api/club/projects/", "/api/club/certificates/",
                                                     "/api/club/members/", "/api/club/seasons/")))
 

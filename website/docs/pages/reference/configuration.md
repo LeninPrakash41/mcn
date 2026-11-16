@@ -16,6 +16,21 @@ MCN is configured with environment variables. Set them in your shell (`export NA
 | `OPENAI_API_KEY` | — | Use OpenAI embeddings for `embed()` and vector search, and lets MCN's agents use OpenAI |
 | `OLLAMA_URL` | — | Use a local Ollama server for embeddings |
 
+## Connectors
+
+| Variable | Effect |
+|---|---|
+| `GOOGLE_SERVICE_ACCOUNT` | A Google service account's JSON (or a path to it), for `use "sheets"` to read private sheets and write |
+| `GOOGLE_SHEETS_API_KEY` | Reads shared sheets through the Sheets API |
+| `HUBSPOT_TOKEN` | A HubSpot private app's access token, for `use "hubspot"` |
+| `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN` | Your Salesforce address and an access token, for `use "salesforce"` |
+| `AIRTABLE_TOKEN` | An Airtable personal access token, for `use "airtable"` |
+| `SLACK_WEBHOOK_URL`, `SLACK_BOT_TOKEN` | An incoming webhook, or a bot token, for `use "slack"` |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` | Meta's WhatsApp Cloud API, for `use "whatsapp"` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | Or Twilio, for `use "whatsapp"` |
+
+Without them, connectors return sample data and send nothing. See [connectors](#/guide/connectors).
+
 ## Developer Club
 
 | Variable | Default | Effect |

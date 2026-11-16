@@ -212,6 +212,17 @@ component ComponentName
 ### Pagination
     pagination page=pageVar total=totalVar page_size=10
 
+### Connectors (in backend/main.mcn; plain lists of maps; sample data until configured)
+    use "sheets"       // sheets_read(sheet_url, tab?), sheets_append(sheet, row, tab?), sheets_write(sheet, rows, tab?)
+    use "files"        // csv_read(path), csv_write(path, rows), excel_read(path), excel_write(path, rows)
+    use "sql"          // sql_query(env("SHOP_DATABASE_URL"), "SELECT * FROM t WHERE x = ?", [x]), sql_execute(...)
+    use "hubspot"      // hubspot_list("deals"), hubspot_search("contacts", text), hubspot_create(type, fields), hubspot_update(type, id, fields)
+    use "salesforce"   // salesforce_query(soql), salesforce_create(object, fields), salesforce_update(object, id, fields)
+    use "airtable"     // airtable_list(base, table), airtable_create(base, table, fields)
+    use "slack"        // post_message("#channel", text)
+    use "whatsapp"     // whatsapp_send("+15550100", text)
+    // Credentials are settings (env), never written in code.
+
 ### Design guidance
     // Start the first screen with a hero banner: hero "App name" eyebrow="Area" subtitle="One line about it"
     // Use list_item rows for lists of people or things, progress_ring for goals, carousel for "up next" cards,
